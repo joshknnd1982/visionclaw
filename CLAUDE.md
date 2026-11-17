@@ -132,6 +132,8 @@ A session is done only when its "Done when" line is true.
 - [x] **1.2 Models.** `claw/catalog.py`: catalog with pinned URLs, sizes and SHA-256; resumable verified
   downloads; reuse VisionMate's vision data if it is already on the computer. Models window that asks before
   downloading. *Done when:* catalog URLs answer with the catalogued sizes and the download test passes.
+- [x] **1.4 Side by side.** Two models that do not fit on one chip: the second goes to another chip or the
+  processor and both stay loaded (`runtime._placeBeside`); they take turns only when there is no room anywhere.
 - [x] **1.3 Graphics choice.** `claw/backend.py` + `runtime.py`: Automatic, Dedicated graphics card, Vulkan,
   Processor only; fallback dedicated -> Vulkan -> CPU when a start fails. *Done when:* the device list is parsed
   on a real machine and each backend starts the engine, or falls back.
@@ -186,6 +188,7 @@ A session is done only when its "Done when" line is true.
 ```
 python tests/run_all.py                  every plain-Python test (no model needed)
 python tests/live_orchestrator.py        needs the engine and a model on this computer
+python tests/live_side_by_side.py        two real engines on two backends; needs VisionMate's vision data
 python build.py                          writes dist/VisionClaw-<version>.nvda-addon
 ```
 

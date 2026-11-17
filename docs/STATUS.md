@@ -1,6 +1,6 @@
 # VisionClaw status
 
-Updated 2026-11-17, version 0.1.0.
+Updated 2026-11-17, version 0.1.1.
 
 ## What exists
 
@@ -18,6 +18,8 @@ and the lessons memory.
 | `tests/test_nvda_stub.py` | The real plugin and all its files load against stand-ins for NVDA; all 21 tools and 15 recipes are in place; settings are found by plain words and changed through the configuration; the user is asked before a change; an app helper is saved and removed; a generated add-on is checked, loaded into the running plugins and removed | passes |
 | `tests/live_orchestrator.py` | Seven real requests with a real model in the bundled engine, on a GeForce RTX 5060 Laptop GPU, with stand-in tools | 7 of 7 did the right thing, 0.4 to 3.5 seconds each |
 | Engine backends | The engine started and answered on the dedicated card, on the built-in chip through Vulkan, and on the processor; the context grew from 4096 to 8192; a running answer was cancelled in 0.7 seconds | worked |
+| `tests/test_runtime.py` | Where the two models are put, with stand-ins for the engines and chips: together when they fit, the second on another chip or the processor when they do not, taking turns only when there is no room anywhere, falling back when a chip does not start, never moving a model that is only restarted for a larger context | passes |
+| `tests/live_side_by_side.py` | Two real engines on this computer, the first chip reported as full: one model on the GeForce RTX 5060, the other on the Radeon 780M through Vulkan, both loaded, six alternating answers in 0.4 seconds | worked |
 | Catalog addresses | Sizes and SHA-256 values were read from Hugging Face's own file listings on 2026-11-17 | recorded |
 
 ## What was not tested
@@ -34,6 +36,9 @@ and the lessons memory.
   against a local server only.
 - **Generated add-ons** have only been written by a scripted stand-in for the coder model.
 - Speed on the processor alone and on low-memory computers.
+- Side by side was tested with the 2B model loaded twice. How fast a 7B or 9B model answers on a built-in chip
+  or on the processor has not been measured, and the memory each model needs (`memoryGb` in the catalog) is an
+  estimate that decides whether a model is thought to fit.
 
 ## Known limits
 

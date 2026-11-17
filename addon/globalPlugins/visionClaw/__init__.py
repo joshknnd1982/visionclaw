@@ -153,6 +153,7 @@ confspec = {
 	"visionModel": 'string(default="")',
 	"coderModel": 'string(default="")',
 	"reasoning": 'option("auto", "off", "low", "medium", "high", default="auto")',
+	"sideBySide": "boolean(default=True)",
 	"confirmChanges": "boolean(default=True)",
 	"speakProgress": "boolean(default=True)",
 	"preload": "boolean(default=True)",

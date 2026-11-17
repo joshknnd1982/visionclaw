@@ -51,6 +51,10 @@ class VisionClawPanel(gui.settingsDialogs.SettingsPanel):
 			# Translators: Shown in settings. {devices} lists the graphics chips that were found.
 			found = _("Graphics found: {devices}").format(devices=self.plugin.devicesText())
 			helper.addItem(wx.StaticText(self, label=found))
+		self.sideBySide = checkbox(
+			# Translators: Checkbox in settings.
+			_("When both models do not fit on one graphics chip, run the &second one on another chip or the "
+				"processor, instead of the two taking turns"), "sideBySide")
 		self.reasoning = helper.addLabeledControl(
 			# Translators: Label of the choice of how much the models think before they act.
 			_("How much the models &think before acting:"), wx.Choice, choices=clawui.reasoningLabels())
@@ -96,6 +100,7 @@ class VisionClawPanel(gui.settingsDialogs.SettingsPanel):
 			c["autoDescribe"] = self.autoDescribe.GetValue()
 		c["backend"] = backend.CHOICES[max(0, self.backend.GetSelection())]
 		c["reasoning"] = policy.REASONING_CHOICES[max(0, self.reasoning.GetSelection())]
+		c["sideBySide"] = self.sideBySide.GetValue()
 		c["confirmChanges"] = self.confirmChanges.GetValue()
 		c["speakProgress"] = self.speakProgress.GetValue()
 		c["readAhead"] = self.readAhead.GetValue()

@@ -26,6 +26,12 @@ Before you start: disable VisionMate in the Add-on Store, install the VisionClaw
 - [ ] Each graphics choice works after OK: Automatic, Dedicated graphics card, Vulkan, Processor only
       (describe a window after each; with debug logging on, `engine.log` shows the device).
 
+## Two large models
+- [ ] With Qwen3.5 9B and Qwen2.5 Coder 7B chosen on a computer whose graphics card cannot hold both: ask
+      something, then open NVDA+Alt+C. The Last task box says the two models ran in two different places.
+- [ ] A second request starts at once, without a long pause for loading.
+- [ ] With the side by side setting off, the same request still works, more slowly.
+
 ## Asking
 - [ ] NVDA+Alt+C opens the Ask window; Enter on a request closes it and "Understanding your request" is spoken.
 - [ ] "Make NVDA speak a little faster": asks "Change speech rate from X to Y?"; Yes changes the rate; the

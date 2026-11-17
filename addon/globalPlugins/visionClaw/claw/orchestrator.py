@@ -103,6 +103,11 @@ class Orchestrator:
 		}[how]
 		task.setState(taskModule.WORKING, f"{agreed}: {len(steps)} steps.")
 
+		# Both models have been used by now, so each has its place.
+		where = getattr(self.runtime, "whereText", lambda: "")()
+		if where:
+			task.emit(taskModule.DETAIL, where)
+
 		self._runSteps(llm, task, request, params)
 		answer = self._answer(llm, task, request, params)
 		# A plan the model wrote itself is checked by the other model; recipes report their own failures.

@@ -4,7 +4,8 @@
 
 # VisionClaw - runs the two models. Each has its own engine process, started when first needed, on the best
 # backend that works (dedicated graphics card, then Vulkan, then the processor). The context size grows when a
-# request needs more. When there is not enough memory for both models, they take turns. No NVDA dependencies.
+# request needs more. When both models do not fit on one graphics chip, the second goes to another chip or to
+# the processor so both stay loaded; only when there is no room anywhere do they take turns. No NVDA dependencies.
 
 import contextlib
 import threading
@@ -25,6 +26,8 @@ DEFAULT_CONTEXT = {VISION: 4096, CODER: 8192}
 CONTEXT_SIZES = (4096, 8192, 16384, 32768)
 # Memory kept free for Windows and other programs when deciding whether both models fit.
 SPARE_GB = 1.0
+# Graphics memory kept free on a chip when deciding whether another model fits on it.
+GPU_SPARE_GB = 0.3
 
 
 class ModelMissing(EngineError):
@@ -119,9 +122,18 @@ class ModelRuntime:
 					if cancel is not None and cancel.is_set():
 						raise EngineError("Cancelled.")
 					self._idle.wait(0.2)
-			self._makeRoom(slot, entry)
+			chain = self.chain()
+			other = CODER if slot == VISION else VISION
+			if self.engines[other].running:
+				if self._placeBeside(engine, slot, entry, model, mmproj, want, chain, cancel):
+					return engine
+				# There is no room beside the other model anywhere, so the two take turns.
+				if not self._busy[other]:
+					log.debug(f"VisionClaw: unloading the {other} model to make room for the {slot} model")
+					self.engines[other].stop()
+					self.backends[other] = None
 			last = None
-			for choice in self.chain():
+			for choice in chain:
 				if cancel is not None and cancel.is_set():
 					raise EngineError("Cancelled.")
 				try:
@@ -136,24 +148,47 @@ class ModelRuntime:
 				return engine
 			raise last or EngineError("The engine could not be started.")
 
-	def _makeRoom(self, slot, entry):
-		"""Unload the other model if there is not enough memory for both."""
-		other = CODER if slot == VISION else VISION
-		if not self.engines[other].running or self._busy[other]:
-			return
-		first = self.chain()[0]
-		if first.device is not None:
-			fresh = {d.id: d for d in self.devices(refresh=True)}
-			device = fresh.get(first.device.id)
-			free = device.freeMb / 1024 if device else None
-			spare = 0.3
-		else:
+	def _hasRoom(self, choice, entry, devices):
+		"""Whether a model fits on a backend right now, next to whatever is already loaded there."""
+		if choice.device is None:
 			free = self._freeMemoryGb()
-			spare = SPARE_GB
-		if free is not None and free < entry["memoryGb"] + spare:
-			log.debug(f"VisionClaw: unloading the {other} model to make room for the {slot} model")
-			self.engines[other].stop()
-			self.backends[other] = None
+			return free is None or free >= entry["memoryGb"] + SPARE_GB
+		device = devices.get(choice.device.id)
+		return device is not None and device.freeMb / 1024 >= entry["memoryGb"] + GPU_SPARE_GB
+
+	def _placeBeside(self, engine, slot, entry, model, mmproj, want, chain, cancel):
+		"""Start a model while the other one stays loaded: on the best backend that still has room for it.
+		With side by side on, that may be another graphics chip or the processor, so that two large models
+		which do not fit on one graphics card together do not have to take turns. Returns True if it started."""
+		devices = {d.id: d for d in self.devices(refresh=True)}
+		candidates = chain if self._settings().get("sideBySide", True) else chain[:1]
+		# A model that is only being restarted, for a larger context, already has its place.
+		current = backend.key(self.backends[slot]) if engine.running and self.backends[slot] else None
+		for choice in candidates:
+			if cancel is not None and cancel.is_set():
+				raise EngineError("Cancelled.")
+			if backend.key(choice) != current and not self._hasRoom(choice, entry, devices):
+				continue
+			try:
+				engine.ensure(model, mmproj, backend.engineArgs(choice, bool(mmproj)), want)
+			except EngineError as e:
+				# Most likely it did not fit after all. The backend itself is not marked as broken.
+				log.warning(f"VisionClaw: the {slot} model did not start beside the other on {backend.key(choice)}: {e}")
+				continue
+			self.backends[slot] = choice
+			return True
+		return False
+
+	def whereText(self):
+		"""Where each loaded model is running, in a sentence, or ""."""
+		found = []
+		for slot in (VISION, CODER):
+			choice = self.backends[slot]
+			if self.engines[slot].running and choice is not None:
+				found.append(f"The {slot} model runs on {backend.describe(choice)}.")
+		if self._slot(CODER) == VISION and found:
+			found = [found[0].replace("The vision model runs", "One model does both jobs and runs")]
+		return " ".join(found)
 
 	def markFailed(self, role):
 		"""The backend a role runs on stopped working mid-request. The next request uses the next one."""

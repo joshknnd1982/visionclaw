@@ -83,6 +83,14 @@ def key(backend):
 	return backend.kind if backend.device is None else f"{backend.kind}:{backend.device.id}"
 
 
+def describe(backend):
+	"""A backend in words, for telling the user where a model runs."""
+	if backend.device is None:
+		return "the processor"
+	kind = "dedicated graphics card" if backend.device.dedicated else "built-in graphics chip, through Vulkan"
+	return f"{backend.device.name} ({kind})"
+
+
 def engineArgs(backend, hasProjector):
 	"""Engine arguments that put the model on this backend."""
 	if backend.kind == CPU:
