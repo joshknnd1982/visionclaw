@@ -115,7 +115,12 @@ class ModelRuntime:
 			entry = self.entry(VISION)
 		model, mmproj = self.catalog.paths(entry)
 		engine = self.engines[slot]
-		want = min(context or DEFAULT_CONTEXT[role], entry["maxContext"])
+		usual = DEFAULT_CONTEXT[role]
+		if slot == VISION and self.oneModel():
+			# One model does both jobs. Started with the smaller of the two usual sizes, it had to be loaded a
+			# second time as soon as the other job came up: several gigabytes read twice for the first request.
+			usual = max(DEFAULT_CONTEXT.values())
+		want = min(context or usual, entry["maxContext"])
 		with self._lock:
 			if engine.running and engine.modelPath == model:
 				want = max(want, engine.context)  # the context only grows while the engine runs
@@ -194,6 +199,48 @@ class ModelRuntime:
 		if self.oneModel() and found:
 			found = [found[0].replace("The vision model runs", "One model does both jobs and runs")]
 		return " ".join(found)
+
+	def aboutText(self):
+		"""Which models VisionClaw has and uses, in sentences: what is chosen for each job, what is stored on the
+		disk, and where a loaded model runs. Read from the settings and the disk by plain code; no model is
+		asked, because a model does not know its own name."""
+		def named(entry):
+			return entry["name"].split(", used for")[0]
+
+		vision, coder = self.entry(VISION), self.entry(CODER)
+		lines = []
+		if self.oneModel():
+			lines.append(
+				f"VisionClaw uses one model, {named(vision)}, for both jobs: looking at the screen and planning, and "
+				"checking and writing code.")
+		else:
+			lines.append(
+				f"For looking at the screen and planning, VisionClaw uses the model {named(vision)}." if vision
+				else "No model is chosen yet for looking at the screen and planning.")
+			lines.append(
+				f"For checking and writing code, it uses the model {named(coder)}." if coder
+				else "No model is chosen yet for checking and writing code.")
+		try:
+			stored = list(self.catalog.stored())
+		except Exception:
+			stored = []
+		whole = [model for model in stored if not model["partial"]]
+		sizes = [f"{model['name']}, {model['bytes'] / 2 ** 30:.1f} GB" for model in whole]
+		if len(sizes) == 1:
+			lines.append(f"One model is stored on this computer: {sizes[0]}.")
+		elif sizes:
+			lines.append(f"{len(sizes)} models are stored on this computer: {'; '.join(sizes)}.")
+		else:
+			lines.append("No model is stored on this computer yet.")
+		unfinished = [model["name"] for model in stored if model["partial"]]
+		if unfinished:
+			lines.append("A download was not finished: " + ", ".join(unfinished) + ".")
+		where = self.whereText()
+		if where:
+			lines.append(where)
+		elif vision or coder:
+			lines.append("No model is loaded at the moment. A model is loaded when it is needed.")
+		return " ".join(lines)
 
 	def markFailed(self, role):
 		"""The backend a role runs on stopped working mid-request. The next request uses the next one."""

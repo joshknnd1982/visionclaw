@@ -1302,6 +1302,17 @@ def build(plugin):
 		exportAddon, {"name": text("the add-on's name, from list_helpers", maxLength=60)},
 		before="list_helpers", title="Saving the add-on as a file", tell=VERBATIM)
 
+	# Which models VisionClaw itself has and uses. Plain code reads the settings and the disk: a model does not
+	# know its own name, and would make one up.
+	def modelInfo(task):
+		# Translators: Added to the answer about VisionClaw's models. The key is the default one.
+		return plugin.runtime.aboutText() + " " + _("To see, remove or choose other models, press NVDA+Alt+M.")
+
+	add("model_info",
+		"say which AI models VisionClaw itself has stored on this computer and uses, how big they are, and where "
+		"they run",
+		modelInfo, looks=True, title="Checking VisionClaw's models", tell=VERBATIM)
+
 	# What NVDA has and uses.
 	add("nvda_info",
 		"report what NVDA has and uses: the speech synthesizer, its voices and settings, the braille display and "

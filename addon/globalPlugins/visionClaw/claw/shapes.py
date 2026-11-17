@@ -246,8 +246,13 @@ def echoes(value, toolName, name, description):
 
 # --- Answering with what was looked up ---
 
+def _oneWord(text):
+	"""Add-on, add on and addon are one word, however the user or a text writes it."""
+	return re.sub(r"\badd[- ]?on(s?)\b", r"addon\1", text or "", flags=re.IGNORECASE)
+
+
 def _asked(question):
-	return {word for word in words(question) if word not in {stem(w) for w in _ASKING}}
+	return {word for word in words(_oneWord(question)) if word not in {stem(w) for w in _ASKING}}
 
 
 def quote(question, text):
@@ -261,7 +266,7 @@ def quote(question, text):
 	asked = _asked(question)
 	scored = []
 	for at, line in enumerate(lines):
-		count = len(asked & words(line))
+		count = len(asked & words(_oneWord(line)))
 		if not count:
 			continue
 		# A short line without an end is a heading: what it heads is the line after it.
@@ -275,7 +280,7 @@ def quote(question, text):
 
 def notMentioned(question):
 	"""The honest answer when nothing that was looked up mentions what was asked."""
-	said = [word for word in _WORD.findall((question or "").lower()) if word not in _COMMON and word not in _ASKING]
+	said = [word for word in _WORD.findall(_oneWord(question).lower()) if word not in _COMMON and word not in _ASKING]
 	said = list(dict.fromkeys(said))[:4]
 	if not said:
 		return "What was looked up does not answer that."

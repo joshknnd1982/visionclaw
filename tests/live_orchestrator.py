@@ -184,6 +184,8 @@ def makeRegistry(rt, state):
 				"Rate: 60.\nSynthesizers installed (3): eSpeak NG, Windows OneCore voices, Microsoft Speech API version 5.",
 			"braille": "Braille display in use: Freedom Scientific Focus (driver name freedomScientific).\n"
 				"It has 40 cells.\nOutput table: English (U.S.) 8 dot computer braille.",
+			"addons": "Add-ons installed (3): Clock and calendar 2.1 (enabled); VisionClaw 0.8.2 (enabled); "
+				"NVDA Remote 2.6 (disabled).",
 		}.get(topic, "NVDA version: 2026.2.")
 
 	def switchDriver(task, kind, name):
@@ -259,7 +261,13 @@ def makeRegistry(rt, state):
 	simple("check_update",
 		"look on VisionClaw's own page on GitHub for a newer version of VisionClaw itself, and get it if the "
 		"user wants it",
-		"You have the newest version of VisionClaw, 0.8.0.", "Looking for a newer version of VisionClaw", tell=V)
+		"You have the newest version of VisionClaw, 0.8.2.", "Looking for a newer version of VisionClaw", tell=V)
+	simple("model_info",
+		"say which AI models VisionClaw itself has stored on this computer and uses, how big they are, and where "
+		"they run",
+		"VisionClaw uses one model, Qwen3.5 9B, for both jobs: looking at the screen and planning, and checking and "
+		"writing code. One model is stored on this computer: Qwen3.5 9B, 6.1 GB.", "Checking VisionClaw's models",
+		looks=True, tell=V)
 	simple("pointer_mode",
 		"turn on pointer mode, so the user can work any control with the keyboard: the arrow keys move the mouse "
 		"pointer, and keys click, right-click, double-click and drag",
@@ -335,7 +343,7 @@ def makeRegistry(rt, state):
 		"report what NVDA has and uses: the speech synthesizer, its voices and settings, the braille display and "
 		"tables, the installed drivers, the add-ons, NVDA's version", nvdaInfo,
 		{"topic": text("what to report on", enum=["speech", "braille", "addons", "general"],
-			auto=lambda part: "braille" if "braille" in part.lower() else "speech")},
+			auto=lambda part: "braille" if "braille" in part.lower() else "addons" if "add" in part.lower() else "speech")},
 		looks=True, title="Asking NVDA"))
 	reg.add(tools.Tool(tools.ANSWER, "tell the user the result in plain words; always the last step", lambda task: ""))
 	return reg
@@ -387,6 +395,10 @@ REQUESTS = (
 	"Give me a hotkey for the gain knob.",
 	"Get the latest NVDA developer guides.",
 	"Do a deep query of this control and tell me how a sighted person works it.",
+	"What model is installed?",
+	"Which AI model are you using?",
+	"Which add-ons do I have?",
+	"List the add-ons you have made.",
 )
 
 

@@ -74,7 +74,7 @@ RECIPES = {
 		("create_addon",)),
 	"list_made": (
 		"list what VisionClaw has made",
-		"list the helpers and add-ons VisionClaw has made",
+		"list only what VisionClaw itself has made: its hotkey helpers and the small add-ons it wrote",
 		("list_helpers",)),
 	"remove_made": (
 		"remove something VisionClaw made",
@@ -110,9 +110,14 @@ RECIPES = {
 		("list_items", "fill_field")),
 	"nvda_info": (
 		"tell you what NVDA has and uses",
-		"say which speech synthesizer, voice, braille display, braille table, driver, add-on or version NVDA "
-		"has or uses, and how they are set",
+		"say which speech synthesizer, voice, braille display, braille table, driver or version NVDA has or "
+		"uses and how they are set, or which add-ons are installed in NVDA",
 		("nvda_info",)),
+	"visionclaw_models": (
+		"tell you which AI models VisionClaw uses",
+		"say which AI model or models VisionClaw itself, the assistant, has installed, downloaded or stored and "
+		"is using or running, how big they are, and where they run",
+		("model_info",)),
 	"switch_driver": (
 		"switch the speech synthesizer or braille display",
 		"switch NVDA to a different speech synthesizer or a different braille display",
@@ -227,7 +232,8 @@ _HINTS = (
 		r"|^(please )?(name|label|rename)\b.*\b(on|for|in) (this|the) (web ?page|page|web ?site|site)\b"),
 	("fix_addon", r"\b(fix|repair|correct|debug)\b.*\badd-?on|\badd-?on\b.*\b(does(n't| not) work|is broken|stopped working|fails|wrong)\b"),
 	("remove_made", r"\b(remove|delete|get rid of)\b.*\b(helper|hot ?key|add-?on)"),
-	("list_made", r"\b(list|show|which|what)\b.*\b(helpers?|add-?ons?)\b.*\b(you|visionclaw)\b.*\b(made|wrote|written|created)"),
+	("list_made", r"\b(list|show|which|what)\b.*\b(helpers?|add-?ons?)\b.*\b(you|visionclaw)\b.*\b(made?|wrote|writes?|written|created?|built|build)\b"
+		r"|\b(list|show|which|what)\b.*\b(you|visionclaw)\b.*\b(made|wrote|written|created|built)\b"),
 	("write_addon", r"\b(write|make|create|build|code|program)\b.*\b(add-?on|plug-?in|code|script)\b|every time|whenever|automatically|when (a|an|the|i) .* (gets?|gains?|changes?|appears?|opens?)"),
 	("make_hotkey", r"hot ?key|shortcut (key )?(for|to|that)|\bkey (for|to|that)\b"),
 	("name_button", r"\b(name|label|call)\b.*\b(button|control|icon)|unlabel|no label|has no name"),
@@ -243,6 +249,12 @@ _HINTS = (
 	("addon_question", r"\b(what|how|which|tell me|explain|help|does|is)\b.*\b(the|my) [\w .-]{0,40}add-?on\b(?!s)"
 		r"|\b(about|use|using) (the|my) [\w .-]{0,40}add-?on\b(?!s)"),
 	("nvda_info", r"\b(which|what|list|show|tell me|do i have)\b.*\b(synthesi[sz]ers?|synths?|voices?|braille|drivers?|add-?ons?|version)\b"),
+	# VisionClaw's own models. After nvda_info, so that the model of a braille display stays there; and not for
+	# a model that is shown in a picture or named on a page.
+	("visionclaw_models", r"^(?!.*\b(picture|image|photo|screen|window|page|site|article|car|phone|printer)\b)(?=.*("
+		r"\b(which|what|list|show|tell me|do i have|do you have|how many|how big|how large|is|are|name)\b.*\b(models?|qwen|llms?)\b"
+		r"|\b(models?|qwen|llms?)\b.*\b(installed|downloaded|stored|loaded|running|in use|being used|chosen|selected)\b"
+		r"|\bwhat (ai|a\.i\.) (is|are)\b|\bwhich (ai|a\.i\.)\b))"),
 	("explain_keys", r"how (do|can|would|to) |what (key|keys|command|shortcut)|which (key|keys|command)|shortcut for"),
 	("keyboard_mouse", r"\bpointer mode\b|\bmouse (mode|keys)\b|\b(keyboard|arrow keys?)\b.*\b(mouse|pointer)\b"
 		r"|\b(mouse|pointer)\b.*\b(keyboard|arrow keys?)\b|\bkeyboard[- ](navigable|accessible)\b"),

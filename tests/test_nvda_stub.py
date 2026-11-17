@@ -237,7 +237,7 @@ with open(os.path.join(CONFIG_DIR, "visionClaw", "lessons.json"), "w", encoding=
 	], f)
 instance = plugin.GlobalPlugin()
 registry = instance.orchestrator.registry
-assert len(registry.names()) == 44, registry.names()
+assert len(registry.names()) == 45, registry.names()
 # Lessons from searches that happened to find something misled; they are dropped when VisionClaw starts.
 assert instance.memory.all() == ["Tool set_setting: this form failed: {} (x). This form worked: {}."], instance.memory.all()
 assert set(planner.available(registry)) == set(planner.RECIPES), set(planner.RECIPES) - set(planner.available(registry))
@@ -248,6 +248,15 @@ for name in registry.names():
 	json.dumps(tool.schema())  # every form is a JSON schema the engine can be given
 assert conf["visionClaw"]["backend"] == "auto" and conf["visionClaw"]["confirmChanges"] is True
 assert not instance.runtime.hasModel(VISION) and not instance.runtime.hasModel(CODER)
+# Which models VisionClaw has and uses is answered by plain code, in its own words, and no model is asked. Here
+# none is stored yet.
+worked, result = registry.call(taskModule.Task("what model is installed"), "model_info", {})
+assert worked and result == (
+	"No model is chosen yet for looking at the screen and planning. No model is chosen yet for checking and "
+	"writing code. No model is stored on this computer yet. To see, remove or choose other models, press "
+	"NVDA+Alt+M."), result
+assert registry.get("model_info").tell == "verbatim" and not registry.get("model_info").fields
+assert planner.RECIPES["visionclaw_models"][2] == ("model_info",)
 assert "the processor" in instance.devicesText() or "(" in instance.devicesText()
 
 # --- Settings: found by plain words, changed with forgiving values, guarded ---

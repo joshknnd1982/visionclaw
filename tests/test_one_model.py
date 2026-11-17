@@ -148,6 +148,88 @@ task, state, asked, rt = run("Do something unusual with the speech", forms=[{"wo
 assert task.state == taskModule.DONE and state["rate"] == 70, task.log
 assert said(task, "Using the plan you chose", taskModule.STATE)
 
+# --- The one model's choice is checked against the user's own words ---
+
+# 5. The words point to another choice than the model made: it is told which, looks again, and takes it.
+task, state, asked, rt = run("How do I read the window title?", choices=["describe", "explain_keys"])
+assert task.state == taskModule.DONE and not asked, task.log
+assert [s.tool for s in task.steps] == ["find_command", "answer"] and "looked" not in state
+assert choosing(rt) == [VISION, VISION]
+assert any("The user's words point to: explain_keys (tell you which keys to use). You chose describe." in user
+	for _r, system, user in rt.calls if system.startswith("You choose how"))
+assert said(task, "After checking against your words, the model chose to tell you which keys to use.")
+assert said(task, "The model corrected its plan", taskModule.STATE)
+
+# 5b. It keeps its own choice: then the user decides, as when two models differ. The words' reading comes
+#     first, and nothing is said of two models.
+task, state, asked, rt = run("How do I read the window title?", choices=["describe"], userChoices=[0])
+assert task.state == taskModule.DONE and [s.tool for s in task.steps] == ["find_command", "answer"], task.log
+question, options = asked[0]
+assert question == "VisionClaw is not sure what you mean by \"How do I read the window title?\". What should it do?"
+assert options == ["Tell you which keys to use.", "Look at the screen and describe it.", "Cancel. I will ask in a different way."]
+assert said(task, "Your words could also mean: tell you which keys to use. The model looked again and still chose to "
+	"look at the screen and describe it.")
+assert said(task, "Not sure what you mean. Waiting for your choice.", taskModule.STATE)
+assert said(task, "Using the plan you chose", taskModule.STATE)
+
+# 5c. The user takes the model's choice instead.
+task, state, asked, rt = run("How do I read the window title?", choices=["describe"], userChoices=[1])
+assert task.state == taskModule.DONE and [s.tool for s in task.steps] == ["look", "answer"] and "looked" in state
+
+# 5d. The user cancels: nothing is done.
+task, state, asked, rt = run("How do I read the window title?", choices=["describe"], userChoices=[2])
+assert task.state == taskModule.CANCELLED and "looked" not in state and len(asked) == 1
+
+# 5e. Words that point nowhere, or to what the model chose, cost no second question.
+task, state, asked, rt = run("How do I read the window title?", choices=["explain_keys"])
+assert task.state == taskModule.DONE and choosing(rt) == [VISION] and not asked
+
+# 6. Two parts answered by the same look are said once, not twice.
+task, state, asked, rt = run(
+	"Tell me what is on my screen and describe the screen",
+	parts=["Tell me what is on my screen", "Describe the screen"], choices=["describe"])
+assert task.state == taskModule.DONE and [s.tool for s in task.steps] == ["look", "look", "answer"], task.log
+assert task.answer == "The screen shows a game menu with four buttons.", task.answer
+
+# --- Which models VisionClaw has and uses: plain code answers, from the settings and the disk ---
+
+
+def about(vision, coder, stored, loaded=False):
+	chosen = {VISION: vision, CODER: coder}
+	stand = type("Catalog", (), {
+		"selected": lambda self, role, preferred=None: chosen[role],
+		"paths": lambda self, entry: real.paths(entry),
+		"stored": lambda self: stored,
+	})()
+	rt = runtime.ModelRuntime("engine", stand, lambda: {})
+	if loaded:
+		rt.engines[VISION] = type("Engine", (), {"running": True})()
+		rt.backends[VISION] = runtime.backend.Backend(runtime.backend.CPU, None)
+	return rt.aboutText()
+
+
+nineStored = {"key": "qwen3.5-9b", "name": "Qwen3.5 9B", "bytes": 6598688544, "roles": ["vision", "coder"],
+	"ids": ["qwen3.5-9b", "qwen3.5-9b-coder"], "partial": False}
+text = about(nine, nineForCode, [nineStored])
+assert text == (
+	"VisionClaw uses one model, Qwen3.5 9B, for both jobs: looking at the screen and planning, and checking and "
+	"writing code. One model is stored on this computer: Qwen3.5 9B, 6.1 GB. No model is loaded at the moment. "
+	"A model is loaded when it is needed."), text
+assert not TWO.search(text.replace("No model is", "")), text
+assert "One model does both jobs and runs on the processor." in about(nine, nineForCode, [nineStored], loaded=True)
+otherStored = {"key": anotherCoder["dir"], "name": anotherCoder["name"], "bytes": 2 ** 30, "roles": ["coder"],
+	"ids": [anotherCoder["id"]], "partial": False}
+half = dict(otherStored, name="Half a model", partial=True)
+text = about(nine, anotherCoder, [nineStored, otherStored, half])
+assert text.startswith(
+	"For looking at the screen and planning, VisionClaw uses the model Qwen3.5 9B. For checking and writing code, "
+	f"it uses the model {anotherCoder['name']}. 2 models are stored on this computer: Qwen3.5 9B, 6.1 GB; "
+	f"{anotherCoder['name']}, 1.0 GB. A download was not finished: Half a model."), text
+text = about(None, None, [])
+assert text == (
+	"No model is chosen yet for looking at the screen and planning. No model is chosen yet for checking and "
+	"writing code. No model is stored on this computer yet."), text
+
 # --- With two different models nothing changes ---
 
 rt = FakeRuntime(script(forms=[GOOD]))

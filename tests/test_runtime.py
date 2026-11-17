@@ -99,6 +99,24 @@ assert world.runtime.engines[VISION].starts == ["Vulkan0"] and world.runtime.eng
 world.runtime.ensure(VISION, 16384)
 assert world.where()[VISION] == "Vulkan0" and world.runtime.engines[VISION].context == 16384
 
+# 2b. One model for both jobs is loaded once. Its engine starts with the larger of the two usual context
+#     sizes, so that the other job does not make it load a second time.
+same = dict(LARGE_VISION, id="v")
+world = World([DEDICATED, BUILT_IN], same, same)
+assert world.runtime.oneModel()
+world.runtime.ensure(VISION)
+world.runtime.ensure(CODER)
+world.runtime.ensure(VISION)
+assert world.runtime.engines[VISION].starts == ["Vulkan0"] and world.runtime.engines[CODER].starts == [], world.where()
+assert world.runtime.engines[VISION].context == 8192
+assert world.runtime.whereText() == "One model does both jobs and runs on NVIDIA GeForce RTX 5060 Laptop GPU (dedicated graphics card)."
+# Two different models keep their own usual sizes.
+world = World([DEDICATED, BUILT_IN], SMALL_VISION, SMALL_CODER)
+world.runtime.ensure(VISION)
+world.runtime.ensure(CODER)
+assert not world.runtime.oneModel()
+assert world.runtime.engines[VISION].context == 4096 and world.runtime.engines[CODER].context == 8192
+
 # 3. With only a dedicated card, the second large model goes to the processor.
 world = World([DEDICATED], LARGE_VISION, LARGE_CODER)
 world.runtime.ensure(VISION)

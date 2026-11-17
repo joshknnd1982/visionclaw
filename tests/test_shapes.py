@@ -93,6 +93,11 @@ registry = tools.Registry()
 registry.add(tools.Tool("find_setting", "find settings", lambda task, words: FOUND, {
 	"words": {"type": "string", "description": "keywords", "auto": True}}, looks=True))
 registry.add(setTool)
+# Add-on, add on and addon are one word: the list of add-ons answers a question that writes it any way.
+listed = "Add-ons installed (2): Clock and calendar 2.1 (enabled); NVDA Remote 2.6 (disabled)."
+for question in ("Which add-ons do I have?", "what addons do i have", "list my add ons"):
+	assert shapes.quote(question, listed)[0] == [listed], question
+assert shapes.notMentioned("which add-ons do I have") == "What was looked up does not mention addons."
 small = policy.select({"complexity": "simple"}, "off")._replace(oneByOne=True)
 assert small.oneByOne and not policy.select({"complexity": "simple"}, "off").oneByOne
 task = taskModule.Task("The typing echo, please")

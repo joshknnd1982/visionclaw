@@ -110,6 +110,10 @@ keyboard and speech alone.
   takes the user's own words (`asked`, an `auto` field), refuses when they say nothing about its target
   (`nvdatools.related`), records the old value (`claw/changes.py`), and shows the request in its question.
   Never learn a lesson from a search tool: finding something is not finding the right thing.
+- **What VisionClaw knows, plain code says.** A model does not know its own name, its size or where it runs,
+  and makes something up when asked. Questions about VisionClaw itself (its models: `model_info`,
+  `runtime.aboutText`; its version: `check_update`) are answered from the settings and the disk, word for
+  word. When a question about VisionClaw gets a wrong answer, look first for a missing recipe.
 - **The user's own words decide which thing is meant.** When the request names exactly one item of the list
   (two for a drag), that is used, whatever the model wrote in the form (`nvdatools.mentioned`, `meant`). Give a
   tool that picks an item the `asked` auto field.
@@ -235,8 +239,11 @@ tools/                       build helpers
    A freely written plan is reviewed in words by the other model, corrected once, then put to the user.
    Never go back to asking a small model to judge a recipe plan in prose: it objects at random.
    When one model is chosen for both jobs (`runtime.oneModel`, carried in `params.oneModel`) there is no
-   agreement: the recipe is chosen once, a freely written plan is checked by the same model with the
-   reviewer's question, and the user is asked when it stays unsure.
+   agreement: the recipe is chosen once and checked against the user's own words (`planner.hint`); where
+   the words point elsewhere the model is told so and chooses again, and if it still differs the user picks.
+   Do not let the model's second answer stand alone: measured with the 9B model, it kept a wrong choice both
+   times. A freely written plan is checked by the same model with the reviewer's question, and the user is
+   asked when it stays unsure.
 4. **Policy** (`policy.select`): token limits, retries, reviews and the reasoning level, from how demanding the
    recipes are. The user's reasoning setting (Automatic, Off, Low, Medium, High) overrides the automatic
    choice. The context size is chosen per model call from its length (`llm.py`).
@@ -328,6 +335,8 @@ A session is done only when its "Done when" line is true.
   Markdown; they are searched with VisionClaw's own notes, which win where both fit equally.
 - [x] **3.21 One small question at a time.** Forms narrowed to what the results allow, for every model; for
   the very smallest models one field per call and quoted answers; a setting with Automatic, Always, Never.
+- [x] **3.22 One model for both jobs.** Never called two; its choice checked against the user's words, and
+  the user asked when they differ; loaded once; "what model is installed" answered by plain code.
 - [x] **3.21 A newer version of VisionClaw.** Looking on GitHub when asked or, by the user's choice, when NVDA
   starts; always a question before a download; the file checked; NVDA does the installing.
 - [ ] **3.5 Test inside NVDA.** Install the build in NVDA (ask the user first) and walk through

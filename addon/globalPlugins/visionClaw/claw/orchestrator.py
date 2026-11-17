@@ -255,7 +255,9 @@ class Orchestrator:
 				continue
 			tool = self.registry.get(step.tool)
 			if tool.tell == VERBATIM and (tool.changes or lastOfPart):
-				told.append(step.result)
+				# Two parts answered by the same look are said once: "how big is the model, and is it loaded".
+				if tool.changes or step.result not in told:
+					told.append(step.result)
 			elif tool.tell == SUMMARIZE and lastOfPart:
 				info.append((step.part or task.request, step.result))
 				task.infoTools.append(step.tool)

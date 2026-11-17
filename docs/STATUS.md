@@ -1,12 +1,12 @@
 # VisionClaw status
 
-Updated 2026-11-17, version 0.8.1.
+Updated 2026-11-17, version 0.8.2.
 
 ## What exists
 
 Everything in phases 1 to 3.4 and 4.1 of `CLAUDE.md`: the fork, the model catalog and models window, the
 graphics choice with fallback, the two-model runtime, the planner with recipes, agreement between the models,
-the step runner, 44 NVDA tools and 38 recipes, the Ask VisionClaw window, app helpers, generated add-ons, the
+the step runner, 45 NVDA tools and 39 recipes, the Ask VisionClaw window, app helpers, generated add-ons, the
 knowledge base and the lessons memory. New in 0.2.0: the web through NVDA's browse mode, reporting on speech,
 braille, drivers and add-ons, safe switching of the synthesizer and braille display, and saving a generated
 add-on as a file. New in 0.3.0: a guard around generated add-ons with automatic debugging and correction,
@@ -443,6 +443,53 @@ all say "the model". With two different models every sentence and every call is 
 - **Not done:** no run with the real model. No prompt, recipe or form was changed, only which calls are made
   and what is said, and NVDA was running with the 9B model loaded, so a second copy was not started beside it.
   **Not tried inside NVDA.**
+
+## A wrong answer about the installed model, and what was done about it (0.8.2)
+
+The owner asked VisionClaw "what model is installed" and got a list of add-ons. Reproduced on his computer
+with his model, Qwen3.5 9B for both jobs, in the bundled engine with the live test's stand-in tools: the model
+chose the recipe `nvda_info` three times out of three for "what model is installed" and "which model are you
+using". There was no recipe for VisionClaw's own models, so it took the nearest. In NVDA the answer is then
+quoted from what `nvda_info` found, and the line "Add-ons installed" has the word "installed" in it.
+
+What changed:
+1. **A recipe and a tool for it**: `visionclaw_models` and `model_info`. The answer is written by plain code
+   (`runtime.aboutText`) from the settings and the disk: which model does which job, what is stored and how
+   big, a download that was not finished, and where a loaded model runs. It is said as it is, never rephrased.
+2. **A check of the one model's choice** (`consensus._onRecipe`): where the user's own words point to another
+   recipe (`planner.hint`), the model is told so and chooses again; if it still differs, the user is asked
+   which of the two is meant. Measured first: in 55 parts of 48 requests the 9B model went against the words
+   twice, was wrong both times, and kept its choice both times when only asked to look again. So its second
+   answer does not stand alone.
+3. **Add-ons**: "Which add-ons do I have?" was one of those two; the model took it for the add-ons VisionClaw
+   wrote. The two recipes' descriptions now say which is which, the words "what add-ons did VisionClaw write"
+   point to the right one, and add-on, add on and addon are one word when a looked-up line is matched.
+4. **One model is loaded once** (`runtime.ensure`): its engine was started with the vision job's context size
+   and started again, model and all, when the coder job first came up. The owner had reported an answer that
+   took 40 seconds or more. Whether this was the cause there is not known: NVDA's log is off, the model had
+   been unloaded, and the tests described here were using his graphics card at about that time.
+5. Two parts of a request that get the same answer say it once.
+
+- **With plain Python:** twelve test files pass. New cases in `tests/test_one_model.py` (the second look, the
+  question to the user and its three answers, the answer said once, `aboutText` for one model, two, none, a
+  loaded one and an unfinished download), in `tests/test_runtime.py` (one start for both jobs),
+  `tests/test_core.py` (which words point to the new recipe and which must not), `tests/test_shapes.py` and
+  `tests/test_nvda_stub.py` (45 tools; the real tool with no model stored).
+- **With the real model, Qwen3.5 9B for both jobs, one question at a time, on the GeForce RTX 5060:**
+  `tests/live_orchestrator.py`, now 49 requests. All 49 were carried out, every answer was read. Against the
+  run before these changes every choice is the same except the two that were wrong. "What model is
+  installed?" and "Which AI model are you using?" give the answer about the model in half a second; "Which
+  add-ons do I have?" and "what addons do i have" give NVDA's add-ons. The user was asked once in the 49: for
+  the second half of "Do a deep query of this control and tell me how a sighted person works it", where the
+  first choice offered is the right one. The whole run took 91 seconds, the slowest request 10; before the
+  change to loading it was 246 seconds for 48 requests, the slowest 38. That is not a clean comparison: at
+  about the time of the earlier run the owner was using VisionClaw in NVDA with the same model, so two
+  copies may have shared the computer. That one start now serves both jobs is shown by `test_runtime.py`.
+  This is also the first run of the one-model wording of 0.8.1 with the real model: "The model is choosing
+  what to do", "The plan is ready".
+- **Not tested:** two different models with the new recipe (only one model is stored on this computer). The
+  very small models. **Nothing inside NVDA**: the real `model_info` there, with its sentence about where the
+  model runs, and how long the first request now takes.
 
 ## What was not tested
 

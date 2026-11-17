@@ -266,6 +266,11 @@ Settings, Display, Scale).
       "Make NVDA speak a little faster", then press NVDA+Alt+C again and read the Last task box. It says "The
       model is choosing what to do" and "The plan is ready", and nowhere "two models", "both models" or "agree".
       It also says "One model does both jobs".
+- [ ] "What model is installed?": the answer names the model, says that it does both jobs (or names the two),
+      gives its size on the disk, says where it runs, and ends with NVDA+Alt+M. No list of add-ons.
+- [ ] "Which add-ons do I have?" right after it: NVDA's add-ons, not the ones VisionClaw wrote.
+- [ ] With one model for both jobs, the first request after NVDA starts: note how many seconds pass before the
+      first step is announced, and for the same request again right after.
 
 ## Stopping NVDA
 - [ ] NVDA exits without an error, and no `vcengine.exe` is left running (Task Manager).

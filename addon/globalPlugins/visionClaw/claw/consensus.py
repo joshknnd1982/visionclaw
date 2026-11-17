@@ -8,8 +8,10 @@
 # is given both and decides. A plan that a model has to write itself is reviewed by the other model, corrected
 # once if it objects, and put to the user if they still do not agree.
 # When one model does both jobs (params.oneModel) there are not two that could agree, and nothing is called an
-# agreement: the model chooses once, because asked the same question again it gives the same answer, and it
-# checks a plan it wrote itself with the reviewer's question, which is a different one. No NVDA dependencies.
+# agreement: the model chooses once, because asked the same question again it gives the same answer; its
+# choice is checked against the user's own words by plain code, and where the two differ after a second look
+# the user decides; and it checks a plan it wrote itself with the reviewer's question, which is a different
+# one. No NVDA dependencies.
 
 from . import planner, policy
 from . import task as taskModule
@@ -57,9 +59,36 @@ def _onRecipe(llm, task, part, context, registry, askUser, lead, other, single=F
 	mine = planner.classify(llm, lead, part, context, registry)
 	task.check()
 	if single:
-		# One model does both jobs. Its second answer to the same question would be the same as its first.
+		# One model does both jobs. Its second answer to the same question would be the same as its first, so
+		# that question is not put again. Its choice is checked against the user's own words instead, by plain
+		# code (planner.hint). Where the words point to another choice, the model is told which and looks
+		# again; if it still chooses differently, the user decides, as when two models differ. With the real
+		# 9B model this happened in 2 of 55 parts, and both times the words were right and the model was not.
 		task.emit(taskModule.TALK, f"\"{part}\": the model chose to {planner.label(mine)}.")
-		return mine, AGREED
+		guess = planner.hint(part)
+		if guess == mine or guess not in planner.available(registry):
+			return mine, AGREED
+		task.check()
+		note = (
+			f"The user's words point to: {guess} ({planner.label(guess)}). You chose {mine}. Read the request again, "
+			"word by word, and choose the one that fits what the user asked.")
+		again = planner.classify(llm, lead, part, context, registry, note)
+		if again == guess:
+			task.emit(taskModule.TALK, f"After checking against your words, the model chose to {planner.label(again)}.")
+			return again, REVISED
+		task.emit(taskModule.TALK, (
+			f"Your words could also mean: {planner.label(guess)}. The model looked again and still chose to "
+			f"{planner.label(again)}."))
+		ways = [guess, again]
+		choices = [_sentence(planner.label(way)) for way in ways] + ["Cancel. I will ask in a different way."]
+		question = f"VisionClaw is not sure what you mean by \"{clip(part, 200)}\". What should it do?"
+		task.setState(taskModule.WAITING, "Not sure what you mean. Waiting for your choice.")
+		picked = askUser(question, choices)
+		task.check()
+		if picked not in (0, 1):
+			raise Declined()
+		task.emit(taskModule.TALK, f"You chose: {choices[picked]}")
+		return ways[picked], USER_CHOSE
 	theirs = planner.classify(llm, other, part, context, registry)
 	if mine == theirs:
 		task.emit(taskModule.TALK, f"\"{part}\": both models chose to {planner.label(mine)}.")
@@ -214,6 +243,11 @@ def agree(llm, task, request, context, registry, params, askUser, lead=policy.LE
 	steps.append(planner.answerStep())
 	task.emit(taskModule.TALK, ("The steps:\n" if single else "The agreed steps:\n") + planner.planText(steps))
 	return steps, how, recipes
+
+
+def _sentence(text):
+	"""A recipe's few words as a choice the user can pick: with a capital letter and a full stop."""
+	return text[:1].upper() + text[1:] + "."
 
 
 def _oneLine(steps):

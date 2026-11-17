@@ -358,6 +358,19 @@ for request, recipe in (
 	("which keys does the NVDA Remote add-on have", "addon_question"),
 	("how do I use the speech history add-on", "addon_question"),
 	("which add-ons do I have", "nvda_info"),
+	("which add-ons are installed", "nvda_info"),
+	("what model is installed", "visionclaw_models"),
+	("which model are you using", "visionclaw_models"),
+	("which models do I have", "visionclaw_models"),
+	("what AI is installed", "visionclaw_models"),
+	("how big is the model", "visionclaw_models"),
+	("is the model loaded", "visionclaw_models"),
+	("tell me the name of your model", "visionclaw_models"),
+	("what model of braille display do I have", "nvda_info"),
+	("what model of car is in this picture", "describe"),
+	("what add-ons did VisionClaw write", "list_made"),
+	("what have you made", "list_made"),
+	("what did you change", "list_changes"),
 ):
 	assert planner.hint(request) == recipe, (request, planner.hint(request))
 # Ordinary requests must not be taken for an inspection or a fix just because they mention a page, a key, a
@@ -370,7 +383,9 @@ for request, recipe in (
 	("fix the problem with my speech", None), ("solve this problem", None),
 	("can you fix the volume in this app", "change_setting"), ("examine this picture", None),
 	("go to the next post", None), ("what are the keys for this site", None),
+	("download another model", None), ("what is the model number shown in this window", "describe"),
 ):
+	assert planner.hint(request) != "visionclaw_models", request
 	assert planner.hint(request) not in ("check_access", "fix_access", "add_fix", "addon_question"), (request, planner.hint(request))
 	assert recipe is None or planner.hint(request) == recipe, (request, planner.hint(request))
 assert planner.quickTriage("write an add-on that beeps when a link gets focus")["needs_code"]

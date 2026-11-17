@@ -16,7 +16,7 @@ VisionClaw is a fork of [VisionMate](https://github.com/athee06/VisionMate) by A
 everything VisionMate does: image descriptions, the overlay for windows NVDA cannot read, photo descriptions in
 chat apps, and names for unlabelled buttons.
 
-> **Status: pre-release (0.8.1).** The orchestration core has been tested with scripted models and with
+> **Status: pre-release (0.8.2).** The orchestration core has been tested with scripted models and with
 > real models through the bundled engine. Inside NVDA 2026.3.1 the owner has run the models window, a first
 > set of requests and five tests of version 0.4.0; **most of the test plan has not been run inside NVDA
 > yet**, and scrolling, the arrow keys for dials and the deep query not at all. Expect rough edges and please report them. See
@@ -54,6 +54,8 @@ You do not need to know NVDA. VisionClaw finds the right NVDA setting or command
    **you are asked** and pick from the choices.
    **With one model for both jobs** there are not two to agree, and VisionClaw does not say that there are:
    the model chooses once, checks a plan it wrote itself, and you are asked when it is not sure of that plan.
+   Its choice is also checked against your own words by plain program code. If your words point to something
+   else, the model looks again; if it still chooses differently, **you are asked** which of the two you meant.
 3. **One step at a time.** For each step a model fills in one small form, and plain program code does the rest.
    When a step fails, the model sees the error and corrects itself; if it stays stuck, the other model gives it
    a hint; if that does not help, you choose whether to skip, retry or stop.
@@ -66,7 +68,7 @@ You do not need to know NVDA. VisionClaw finds the right NVDA setting or command
 
 ## Install
 
-1. Download **[VisionClaw-0.8.1.nvda-addon](https://github.com/joshknnd1982/visionclaw/releases/download/v0.8.1/VisionClaw-0.8.1.nvda-addon)**
+1. Download **[VisionClaw-0.8.2.nvda-addon](https://github.com/joshknnd1982/visionclaw/releases/download/v0.8.2/VisionClaw-0.8.2.nvda-addon)**
    (or pick a version on the [releases page](https://github.com/joshknnd1982/visionclaw/releases)), open the
    file, confirm the installation, and restart NVDA.
 2. If VisionMate is installed, disable it in the Add-on Store: VisionClaw includes it and uses the same keys.
@@ -92,6 +94,9 @@ Installing or updating VisionClaw changes no NVDA setting.
 
 Every model is always offered, whatever your computer is. Your computer only decides which one is suggested.
 Larger models are more accurate and slower. You can change your choice at any time with **NVDA+Alt+M**.
+Ask **"what model is installed"** or "which model are you using" to hear which model does which job, what is
+stored on your computer and how big it is, and where a loaded model runs. That answer is read from your
+settings and your disk by plain program code; a model does not know its own name and is not asked.
 
 | Use | Model | Download |
 |---|---|---|
