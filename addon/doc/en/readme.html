@@ -58,7 +58,9 @@ settings.</p>
 <h2>The web</h2>
 <p>VisionClaw uses your own browser, through NVDA's browse mode. Ask it to open an address, to search the web,
 to answer a question about the page you are on, to follow a link or press a button by name, or to type into a
-field. Following a link needs no question; pressing a button asks first. Choose the search engine in settings.
+field, to say how the page is laid out with its headings, to take you to a heading, link or field so you can
+read on from there, or to go back, forward or reload. Following a link needs no question; pressing a button
+asks first. Choose the search engine in settings.
 The models still run only on your computer; the browser goes online as it does when you use it yourself.</p>
 
 <h2>Speech, braille and drivers</h2>
@@ -71,8 +73,14 @@ gave trouble on this computer and warns you before trying them again. Commands t
 are also always asked about first.</p>
 
 <h2>Add-ons written by VisionClaw</h2>
-<p>The coder model writes the add-on, the code is checked, the other model reviews it, and you are always asked
-whether to turn it on. You can read the code first. Generated add-ons start without restarting NVDA and come
+<p>You never have to read, write or debug code. The coder model writes the add-on, the code is checked and
+compared with what you asked for, the other model reviews it, and you are always asked whether to turn it on,
+after being told in plain words what checking the code shows: the keys it adds, what it reacts to, which
+programs it works in, and whether it speaks, beeps, presses keys or clicks.</p>
+<p>When an add-on VisionClaw wrote fails, NVDA keeps working. The add-on is paused, you hear that it is being
+corrected, the models debug it from the exact error, and the corrected add-on is loaded again. If that does not
+hold after three tries it is turned off and you are told; "fix the add-on" followed by its name lets you say
+what it does wrong. Generated add-ons start without restarting NVDA and come
 back after a restart. Ask "list what you have made" or "remove the add-on" followed by its name to manage them.
 Ask "save the add-on" followed by its name "as a file" to get a normal add-on file in your Documents folder,
 under VisionClaw add-ons, that you can install for good or share.</p>
@@ -103,6 +111,7 @@ processor, so both stay loaded. Turn this off to make them take turns on the bes
 <li>How much the models think before acting: Automatic, Off, Low, Medium, High.</li>
 <li>Ask before changes, and say each step while working.</li>
 <li>The search engine used when you ask to search the web.</li>
+<li>Whether add-ons that fail are debugged and corrected by the models by themselves.</li>
 <li>Choose or download models.</li>
 <li>VisionMate's settings: automatic descriptions, names for buttons, Windows OCR, the overlay, getting ready
 when NVDA starts, answering in NVDA's language, and the tick while waiting.</li>

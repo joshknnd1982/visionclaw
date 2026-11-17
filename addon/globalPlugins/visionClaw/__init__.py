@@ -155,6 +155,7 @@ confspec = {
 	"reasoning": 'option("auto", "off", "low", "medium", "high", default="auto")',
 	"sideBySide": "boolean(default=True)",
 	"searchEngine": 'option("duckduckgo", "google", "bing", default="duckduckgo")',
+	"autoFixAddons": "boolean(default=True)",
 	"confirmChanges": "boolean(default=True)",
 	"speakProgress": "boolean(default=True)",
 	"preload": "boolean(default=True)",
@@ -476,6 +477,8 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		speechExtensions.pre_speechCanceled.unregister(self._onSpeechCanceled)
 		if self.clawTask is not None:
 			self.clawTask.stop()
+		if getattr(self, "_debugTask", None) is not None:
+			self._debugTask.stop()
 		self.helpers.terminate()
 		self.runtime.stop()
 		try:
@@ -594,6 +597,46 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		task = self.clawTask
 		_sound("receive")
 		return clawui.choose(question, choices, task.cancel if task is not None else None)
+
+	def onAddonFailed(self, ident):
+		"""An add-on VisionClaw wrote raised an error. It is already paused, and NVDA is unharmed."""
+		threading.Thread(target=self._debugAddon, args=(ident,), name="visionClaw-debug", daemon=True).start()
+
+	def _debugAddon(self, ident):
+		"""Have the models debug and correct a failed add-on, without the user having to do anything."""
+		meta = self.helpers.store.meta(ident) or {}
+		able = self.runtime.hasModel(VISION) and self.runtime.hasModel(CODER)
+		if not (conf()["autoFixAddons"] and able and meta.get("repairs", 0) < helpers.MAX_AUTO_REPAIRS):
+			wx.CallAfter(self.helpers.turnOff, ident)
+			# Translators: Spoken when an add-on VisionClaw wrote failed and is not being corrected by itself.
+			_speak(_(
+				"The add-on {name} that VisionClaw wrote had a problem and was turned off. NVDA is fine. "
+				"To have it corrected, ask VisionClaw: fix the add-on {name}."
+			).format(name=ident))
+			return
+		# Translators: Spoken when an add-on VisionClaw wrote failed and is being corrected.
+		_speak(_("The add-on {name} had a problem. NVDA is fine. VisionClaw is correcting the add-on.").format(name=ident))
+		# A request the user made comes first.
+		while self.clawTask is not None and not self.clawTask.finished and not self._stopped.wait(1):
+			pass
+		task = self._debugTask = clawTask.Task(f"Correct the add-on {ident}")
+		try:
+			with self._inUse():
+				nvdatools.fixAddon(self, task, ident)
+		except Exception:
+			log.error(f"VisionClaw: the add-on {ident} could not be corrected", exc_info=True)
+			if self._stopped.is_set():
+				return
+			wx.CallAfter(self.helpers.turnOff, ident)
+			# Translators: Spoken when an add-on could not be corrected automatically.
+			_speak(_(
+				"VisionClaw could not correct the add-on {name} by itself, so it was turned off. "
+				"Ask VisionClaw to fix the add-on {name}, and say what it should do."
+			).format(name=ident))
+			return
+		_sound("done")
+		# Translators: Spoken when an add-on was corrected automatically.
+		_speak(_("The add-on {name} was corrected and is on again.").format(name=ident))
 
 	def clawKeep(self, question, seconds):
 		"""Ask whether a new synthesizer or braille display works. Not answering in time counts as no."""

@@ -56,6 +56,9 @@ Before you start: disable VisionMate in the Add-on Store, install the VisionClaw
 - [ ] On an article: "What does this page say about ...?" answers from the page.
 - [ ] "Click the ... link" follows it without a question; "Press the ... button" asks first.
 - [ ] "Type ... into the search box and search": the text goes into the field and Enter is pressed.
+- [ ] "What are the headings on this page?" lists them with their levels.
+- [ ] "Take me to the heading ...": NVDA says the heading, and say all reads on from there.
+- [ ] "Go back" and "reload this page".
 - [ ] The same in Firefox, Chrome and Edge.
 
 ## Speech, braille and drivers
@@ -74,6 +77,15 @@ Do these with someone sighted nearby, or with a second way to get speech back, u
 - [ ] "Write an add-on that says hello when I press NVDA+shift+H": asks to turn it on; "Let me read the code
       first" shows the code; after "Turn it on" the key works at once.
 - [ ] After restarting NVDA the key still works.
+- [ ] The question before turning an add-on on says in plain words what the code does (keys, what it reacts
+      to, which programs, whether it speaks or beeps).
+- [ ] A failing add-on: put an add-on that fails into `%APPDATA%\nvda\visionClaw\addons` (for example, change
+      `ui.message` to `ui.mesage` in one VisionClaw wrote) and restart NVDA. Pressing its key gives no NVDA error
+      sound; "had a problem ... is correcting" is spoken; after a while "was corrected and is on again", and the
+      key works.
+- [ ] While it is being corrected, NVDA reads normally and focus changes are announced.
+- [ ] "Fix the add-on ..., it should say ... instead": it is changed and loaded again.
+- [ ] With automatic correction off in settings, a failing add-on is turned off and that is spoken.
 - [ ] "Save the add-on ... as a file": the file is in Documents, VisionClaw add-ons, and installs as a normal
       add-on.
 - [ ] "Remove the add-on ...": the key stops working.

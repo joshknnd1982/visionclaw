@@ -30,6 +30,11 @@ keyboard and speech alone.
    Every model in the catalog, including the 7B and 9B ones, is offered with every graphics option (they are
    still fast through Vulkan on modest PCs). Hardware only decides what is suggested first.
 
+6. **The user cannot read, write or debug code.** Never make the user's safety or success depend on looking at
+   code. Say what code does in plain words taken from the code itself (`microaddons.describe`). When generated
+   code fails, the models debug it (`helpers._guard`, `nvdatools.fixAddon`); the user at most says in words
+   what is wrong.
+
 ## Rules that always apply
 
 - **Local only.** The add-on's own code connects to the internet only to download models, and only after the
@@ -56,6 +61,11 @@ keyboard and speech alone.
   translation, the GPL header on every file. Files changed from VisionMate keep Athiban Vijay's copyright line
   and carry a "Modified for VisionClaw" line. Python must run on NVDA 2024.1 (Python 3.11) and later.
 - **Honest reporting.** Say what was tested and how. "Compiles" and "unit tests pass" are not "works in NVDA".
+- **What plain code can correct, plain code corrects.** A small model keeps what it once wrote however often
+  it is told. Before sending code back to the coder, `microaddons.tidy` takes out what was not asked for, adds
+  forgotten imports and `nextHandler()`, fixes role comparisons, adds a program limit, and salvages a file that
+  was cut off. Add to `tidy` whenever the real model shows a new mistake of this kind, and never show the coder
+  an example that does two things: it copies all of it.
 - **Measure with the real model.** After any change to a prompt, a recipe or a form, run
   `python tests/live_orchestrator.py` and read every answer. A change that passes the scripted tests can still
   make a small model worse.
@@ -171,6 +181,11 @@ A session is done only when its "Done when" line is true.
   add-ons; every setting of the driver in use can be changed; `switch_driver` switches safely.
 - [x] **3.8 Permanent fixes.** A generated add-on can be saved as an `.nvda-addon` file; the vision model and
   NVDA's facts about the focused control inform the coder.
+- [x] **3.9 Add-ons for people who cannot read code.** Plain facts about the code before it is turned on;
+  code compared with the request; a guard around every generated add-on; automatic debugging and correction;
+  `repair_addon` for a fix described in words.
+- [x] **3.10 More of the web.** Page outline with heading levels, moving NVDA's reading position to an item,
+  back, forward and reload.
 - [ ] **3.5 Test inside NVDA.** Install the build in NVDA (ask the user first) and walk through
   `docs/TESTPLAN.md`. Fix what breaks. *Done when:* every item in the test plan is ticked by a real run.
 
@@ -205,6 +220,7 @@ A session is done only when its "Done when" line is true.
 python tests/run_all.py                  every plain-Python test (no model needed)
 python tests/live_orchestrator.py        needs the engine and a model on this computer
 python tests/live_side_by_side.py        two real engines on two backends; needs VisionMate's vision data
+python tests/live_addon.py               a real model writes four add-ons and debugs one; read every result
 python build.py                          writes dist/VisionClaw-<version>.nvda-addon
 ```
 

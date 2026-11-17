@@ -210,31 +210,148 @@ class FakeLLM:
 		return self.verdicts.pop(0)
 
 
-broken = "```python\n" + HEAD + "\tdef event_gainFocus(self, obj, nextHandler):\n\t\tui.message('link')\n```"
+# A fault that plain code cannot correct, so the coder model has to: something that is not allowed.
+broken = ("```python\n" + HEAD
+	+ "\tdef event_gainFocus(self, obj, nextHandler):\n\t\texec('x')\n\t\tui.message('link')\n\t\tnextHandler()\n```")
 fixed = "```python\n" + HEAD + "\tdef event_gainFocus(self, obj, nextHandler):\n\t\tui.message('link')\n\t\tnextHandler()\n```"
 params = policy.select({"complexity": "complex", "needs_code": True})
 task = taskModule.Task("write an add-on")
 llm = FakeLLM([broken, fixed], [{"ok": True, "problem": ""}])
-source = microaddons.write(llm, task, "say link when a link gets the focus", "Program: firefox", "", params, CODER, VISION)
+source = microaddons.write(llm, task, "say link when a link gets the focus, anywhere", "Program: firefox", "", params, CODER, VISION)
 assert microaddons.check(source) == [] and "nextHandler()" in source
 assert [role for role, _u in llm.calls] == [CODER, CODER, VISION]
-assert "must call nextHandler()" in llm.calls[1][1]
+assert "exec() is not allowed" in llm.calls[1][1]
 # The reviewing model finds a fault: the coder is sent back once more.
 llm = FakeLLM([fixed, fixed], [{"ok": False, "problem": "It speaks for every control, not only links."}, {"ok": True, "problem": ""}])
-microaddons.write(llm, task, "say link when a link gets the focus", "", "", params, CODER, VISION)
+microaddons.write(llm, task, "say link when a link gets the focus, anywhere", "", "", params, CODER, VISION)
 assert "not only links" in llm.calls[2][1]
+# The checks decide; the reviewing model only advises. Code that passes every check is kept even if the
+# reviewer still doubts it when the tries are used up, and the doubt is kept for the user.
+no = {"ok": False, "problem": "It might be too loud."}
+llm = FakeLLM([fixed] * 10, [no, no])
+kept = microaddons.write(llm, task, "say link when a link gets the focus, anywhere", "", "", params, CODER, VISION)
+assert microaddons.check(kept) == [] and task.codeDoubt == "It might be too loud."
 # Code that never passes is refused, not run.
 llm = FakeLLM([broken] * 10, [])
 try:
 	microaddons.write(llm, task, "x", "", "", params, CODER, VISION)
 	raise AssertionError("code that fails the check must be refused")
 except ToolError as e:
-	assert "nextHandler" in str(e)
+	assert "exec() is not allowed" in str(e)
+
+# --- Does the code do what was asked, and only that? ---
+
+KEY_ONLY = microaddons.EXAMPLE_KEY
+EVENT_ONLY = microaddons.EXAMPLE_EVENT
+assert microaddons.check(KEY_ONLY) == [] and microaddons.check(EVENT_ONLY) == []
+assert microaddons.checkAgainst(KEY_ONLY, "Say the name of the focused control when I press NVDA+shift+F9") == []
+assert microaddons.checkAgainst(EVENT_ONLY, "Beep when a button gets the focus") == []
+# Something that happens by itself, though only a key was asked for.
+found = microaddons.checkAgainst(microaddons.TEMPLATE, "Say hello when I press NVDA+shift+H")
+assert any("does not ask for anything to happen by itself. Remove event_gainFocus" in p for p in found), found
+assert any("only for the program notepad" in p for p in found), found
+# A key nobody asked for.
+found = microaddons.checkAgainst(microaddons.TEMPLATE, "Beep whenever a link gets the focus")
+assert any("does not ask for a key command. Remove script_sayName" in p for p in found), found
+# A program limit is fine when the request names the program, or says "this program" and the facts name it.
+assert not any("only for the program" in p for p in microaddons.checkAgainst(
+	microaddons.TEMPLATE, "In Notepad, say text area when the focus moves, and the name on NVDA+shift+F9"))
+assert not any("only for the program" in p for p in microaddons.checkAgainst(
+	microaddons.TEMPLATE, "In this program, announce text area when the focus moves; key NVDA+shift+F9",
+	"Program: notepad. Window title: Untitled."))
+# A control's kind compared with a text never matches.
+wrongRole = EVENT_ONLY.replace("obj.role == controlTypes.Role.BUTTON", "obj.role == \"link\"")
+found = microaddons.checkAgainst(wrongRole, "Beep when a link gets the focus")
+assert any("controlTypes.Role.LINK" in p for p in found), found
+assert any("does nothing" in p for p in microaddons.checkAgainst(HEAD + "\tpass\n", "Say hello on NVDA+shift+H"))
+
+# --- What plain code corrects, without asking a model ---
+
+# An event nobody asked for is taken out; the key command stays, and the result passes every check.
+tidied = microaddons.tidy(microaddons.TEMPLATE, "Say the name of the focused control when I press NVDA+shift+F9")
+assert "event_gainFocus" not in tidied and "script_sayName" in tidied and microaddons.check(tidied) == []
+assert microaddons.checkAgainst(tidied, "Say the name of the focused control when I press NVDA+shift+F9") == []
+# A key nobody asked for is taken out, with its decorator; the event stays.
+tidied = microaddons.tidy(microaddons.TEMPLATE, "Say text area whenever the focus moves in Notepad")
+assert "script_sayName" not in tidied and "@script" not in tidied and "event_gainFocus" in tidied
+assert microaddons.check(tidied) == []
+# "when I press" asks for a key, not for something that happens by itself.
+assert not microaddons._wantsEvent("Say hello when I press NVDA+shift+H")
+assert microaddons._wantsEvent("Say hello when a window opens") and microaddons._wantsEvent("Beep whenever a link gets the focus")
+# A control's kind written as a text is rewritten the way NVDA needs it, and the import is added.
+noImport = EVENT_ONLY.replace("import controlTypes\n", "").replace("obj.role == controlTypes.Role.BUTTON", "obj.role == 'link'")
+tidied = microaddons.tidy(noImport, "Beep when a link gets the focus")
+assert "obj.role == controlTypes.Role.LINK" in tidied and tidied.startswith("import controlTypes\n"), tidied
+assert microaddons.check(tidied) == [] and microaddons.checkAgainst(tidied, "Beep when a link gets the focus") == []
+# Code that would be left with nothing is not touched, so that the coder is told what is wrong instead.
+assert microaddons.tidy(KEY_ONLY, "Beep when a link gets the focus") == KEY_ONLY
+# A request for one program, and code that works everywhere: the limit is asked for.
+found = microaddons.checkAgainst(KEY_ONLY, "In notepad, say the name on NVDA+shift+F9", "Program: notepad. Window title: x.")
+assert any("only for the program notepad" in p and "appName" in p for p in found), found
+
+# ... and plain code puts the limit in: in another program the key is passed on, the event goes to NVDA.
+tidied = microaddons.tidy(KEY_ONLY, "In notepad, say the name on NVDA+shift+F9", "Program: notepad. Window title: x.")
+assert 'if api.getFocusObject().appModule.appName != "notepad":' in tidied and "gesture.send()" in tidied
+assert microaddons.check(tidied) == []
+assert microaddons.checkAgainst(tidied, "In notepad, say the name on NVDA+shift+F9", "Program: notepad.") == []
+spaces = EVENT_ONLY.replace("\t", "    ")
+tidied = microaddons.tidy(spaces, "Beep when a button gets the focus in notepad", "Program: notepad.")
+assert '        if getattr(getattr(obj, "appModule", None), "appName", None) != "notepad":\n            nextHandler()' in tidied
+assert tidied.startswith("import api\n") and microaddons.check(tidied) == []
+# A request that names no program gets no limit.
+assert microaddons.tidy(KEY_ONLY, "Say the name on NVDA+shift+F9", "Program: notepad.") == KEY_ONLY
+
+# A forgotten import is added, and an event that forgot to pass the event on is made to.
+forgetful = (
+	"import globalPluginHandler\n\n\nclass GlobalPlugin(globalPluginHandler.GlobalPlugin):\n\n"
+	"\tdef event_gainFocus(self, obj, nextHandler):\n\t\tif obj.role == controlTypes.Role.LINK:\n\t\t\ttones.beep(880, 80)\n")
+assert len(microaddons.check(forgetful)) == 3
+tidied = microaddons.tidy(forgetful, "Beep when a link gets the focus")
+assert microaddons.check(tidied) == [] and tidied.rstrip().endswith("\t\tnextHandler()"), tidied
+assert tidied.startswith("import tones\nimport controlTypes\n"), tidied
+assert microaddons.tidy(EVENT_ONLY, "Beep when a button gets the focus") == EVENT_ONLY  # nothing to correct
+
+# A file cut off in the middle, because the model went on too long, is cut back to a complete program.
+cutOff = KEY_ONLY + "\t\tif obj.role == 1:\n\t\t\tui.message(\"one\")\n\t\tif obj.role == 2:\n"
+assert any("Syntax error" in p for p in microaddons.check(cutOff))
+saved = microaddons.salvage(cutOff)
+assert microaddons.check(saved) == [] and "ui.message(\"one\")" in saved and "obj.role == 2" not in saved
+assert microaddons.salvage(KEY_ONLY) == KEY_ONLY and microaddons.salvage("def x(:") == "def x(:"
+assert microaddons.check(microaddons.tidy(cutOff, "Say the name on NVDA+shift+F9")) == []
+
+# A model that writes one line over and over is stopped, and the repeated lines are dropped.
+from visionClaw.engine import CodeGuard  # noqa: E402
+guard = CodeGuard()
+assert guard.feed("import ui\n\n\ndef a():\n\tpass\n") and guard.feed("\n\ndef b():\n\tpass\n")
+stopped = [guard.feed("\t# Say the time\n") for _ in range(6)]
+assert stopped[:4] == [True] * 4 and stopped[4] is False
+assert guard.finish().count("# Say the time") == 0 and guard.finish().startswith("import ui")
+guard = CodeGuard()
+assert all(guard.feed(f"x{i} = {i}\n") for i in range(CodeGuard.MAX_LINES)) and not guard.feed("one = 1\n")
+
+# --- What an add-on does, in plain words, found by checking its code ---
+
+facts = microaddons.describe(microaddons.TEMPLATE)
+assert "It adds the key NVDA+shift+f9: Says the name of the focused control." in facts, facts
+assert "It acts by itself when the focus moves to another control." in facts
+assert "It works only in: notepad." in facts and "It can say: text area." in facts, facts
+plain = microaddons.describe(HEAD + "\tdef script_a(self, gesture):\n\t\ttones.beep(440, 50)\n")
+assert "It is not limited to one program." in plain and "It beeps." in plain, plain
+assert microaddons.describe("def x(:") == []
+
+# --- Debugging an add-on: the error goes to the coder, and the result is checked and reviewed again ---
+
+llm = FakeLLM([broken, fixed], [{"ok": True, "problem": ""}])
+problems = ["When it ran in NVDA, event_gainFocus failed with AttributeError: 'NoneType' object has no attribute 'name'."]
+corrected = microaddons.fix(llm, task, "say link when a link gets the focus, anywhere", source, problems, "Check for None.", params, CODER, VISION)
+assert microaddons.check(corrected) == [] and [role for role, _u in llm.calls] == [CODER, CODER, VISION]
+assert "AttributeError" in llm.calls[0][1] and "Check for None." in llm.calls[0][1] and "Find the cause" in llm.calls[0][1]
+assert "exec() is not allowed" in llm.calls[1][1]  # the corrected file is checked like a new one
 
 # --- Keeping and packaging add-ons ---
 
 store = microaddons.Store(tempfile.mkdtemp())
-store.save("Link Beeper", source, "say link when a link gets the focus")
+store.save("Link Beeper", source, "say link when a link gets the focus, anywhere")
 assert [m["name"] for m in store.list()] == ["link_beeper"] and store.source("Link Beeper") == source
 assert store.setEnabled("link_beeper", False) and store.meta("link_beeper")["enabled"] is False
 package = store.package("link_beeper", tempfile.mkdtemp())

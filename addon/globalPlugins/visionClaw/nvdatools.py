@@ -5,6 +5,7 @@
 # VisionClaw - the tools the models can use inside NVDA. Each tool is a small form and a function.
 # The functions run on the task's worker thread; everything that touches NVDA is passed to NVDA's main thread.
 
+import difflib
 import html
 import importlib
 import inspect
@@ -24,7 +25,7 @@ import wx
 from logHandler import log
 
 from . import nvdainfo, ocr, webtools
-from .claw import drivers, match, microaddons, web
+from .claw import drivers, match, microaddons, policy, web
 from .claw.catalog import CODER, VISION
 from .claw.llm import LLM, clip
 from .claw.memory import score
@@ -42,6 +43,19 @@ WEB_WAIT_SECONDS = 25
 # An add-on about something on screen is written with the vision model's view of the window.
 _ABOUT_SCREEN = re.compile(
 	r"\b(this|these|that|current|focused|unlabell?ed|no name|button|window|program|app|game|screen|control)\b", re.IGNORECASE)
+# The browser's own keys for moving between pages.
+_PAGE_KEYS = {"back": "alt+leftArrow", "forward": "alt+rightArrow", "reload": "f5"}
+_PAGE_DONE = {"back": "Went back", "forward": "Went forward", "reload": "Reloaded the page"}
+
+
+def directionOf(part):
+	"""Which way to go in the browser, from what the user said."""
+	text = (part or "").lower()
+	if re.search(r"reload|refresh", text):
+		return "reload"
+	return "forward" if re.search(r"forward|next page", text) else "back"
+
+
 _SUBMITS = re.compile(r"\b(search|submit|send|go|log ?in|sign ?in|press enter|and enter)\b", re.IGNORECASE)
 # Settings that are not for changing by a model: they can lock the user out, need a restart, or hold secrets.
 _SKIP_SECTIONS = frozenset((
@@ -131,6 +145,27 @@ def onMain(fn, *args, timeout=20):
 	if "error" in box:
 		raise box["error"]
 	return box.get("value")
+
+
+def pickItem(reference, items, prefer=()):
+	"""Which item a model means. A number from the list, the item's full text ("Refund policy heading"), or its
+	name. Where several items have the same name, one of the preferred kinds wins: a heading when moving
+	there, a link or button when clicking."""
+	wanted = " ".join(str(reference or "").lower().split())
+	for i, item in enumerate(items):
+		if item["text"].lower() == wanted:
+			return i
+	names = [item.get("plain") or item.get("name") or item["text"] for item in items]
+	index = match.itemIndex(reference, names)
+	if index is None:
+		return match.itemIndex(reference, [item["text"] for item in items])
+	if not wanted.isdigit():
+		same = [i for i, name in enumerate(names) if match.plain(name) == match.plain(names[index])]
+		for kind in prefer:
+			for i in same:
+				if items[i].get("kind") == kind:
+					return i
+	return index
 
 
 def _safe(fn, default=None):
@@ -585,6 +620,83 @@ def _inspect(name):
 	return "\n".join(lines)
 
 
+def failingLine(trace):
+	"""Where in the add-on's own code an error happened, from NVDA's traceback."""
+	found = re.findall(r'File "[^"]*plugin\.py", line (\d+), in (\w+)\n\s*(.+)', trace or "")
+	if not found:
+		return ""
+	number, function, code = found[-1]
+	return f"The failing line is line {number}, in {function}: {code.strip()}"
+
+
+def debugFacts(error):
+	"""What NVDA really offers where an add-on used something that does not exist. This is how the models
+	learn how NVDA works from their own mistakes: by looking inside the running NVDA."""
+	facts = []
+	missing = re.search(r"module '([\w.]+)' has no attribute '(\w+)'", error)
+	if missing:
+		module = _safe(lambda: importlib.import_module(missing.group(1)))
+		if module is not None:
+			names = [n for n in dir(module) if not n.startswith("_")]
+			close = difflib.get_close_matches(missing.group(2), names, 6, 0.4)
+			facts.append(
+				f"{missing.group(1)} has nothing called {missing.group(2)}. "
+				+ (f"Names it does have that are close: {', '.join(close)}." if close else f"It has: {clip(', '.join(names), 400)}"))
+	undefined = re.search(r"name '(\w+)' is not defined", error)
+	if undefined:
+		facts.append(f"{undefined.group(1)} is used but was never imported or defined. Import it, or define it first.")
+	if re.search(r"object has no attribute '(\w+)'", error) and not missing:
+		facts.append(
+			"An object was asked for something it does not have. NVDA's controls have: name, role, states, value, "
+			"description, location, parent, children, firstChild, next, previous, appModule, windowClassName, "
+			"windowControlID. Check for None before using a control.")
+	if "NoneType" in error:
+		facts.append("Something was None. Check that the control and its properties are not None before using them.")
+	return facts
+
+
+def fixAddon(plugin, task, name, said=""):
+	"""Have the models debug and correct an add-on VisionClaw wrote. said is what the user says is wrong; the
+	errors NVDA reported while the add-on ran are added. Returns a sentence for the user."""
+	store = plugin.helpers.store
+	names = [meta["name"] for meta in store.list()]
+	index = match.best(name, names)
+	if index is None:
+		raise ToolError(f"There is no add-on called \"{name}\". Use a name from list_helpers.")
+	ident = names[index]
+	meta, source = store.meta(ident), store.source(ident)
+	purpose = meta.get("purpose") or ident
+	problems, mistakes = [], []
+	if said:
+		problems.append(f"The user says: {said}")
+	for entry in plugin.helpers.errors.get(ident, [])[-2:]:
+		problems.append(
+			f"When it ran in NVDA, {entry['where']} failed with {entry['error']}. {failingLine(entry['trace'])}".strip())
+		problems += debugFacts(entry["error"])
+		mistakes.append(entry["error"])
+	if not problems:
+		raise ToolError("Say what the add-on does wrong, or what it should do instead.")
+	if task.params is None:
+		task.params = policy.select({"complexity": policy.COMPLEX, "needs_code": True}, task.reasoning)
+	notes = plugin.knowledge.text(
+		f"{purpose} {' '.join(mistakes)}", limit=2, chars=600, sources=("addon-development", "objects-and-events"))
+	lessons = plugin.memory.search("NVDA add-on code mistake " + purpose, limit=3)
+	if lessons:
+		notes += "\nMistakes made before on this computer:\n" + "\n".join(f"- {text}" for text in lessons)
+	fixed = microaddons.fix(LLM(plugin.runtime, task), task, purpose, source, problems, notes, task.params, CODER, VISION)
+	repairs = meta.get("repairs", 0) + 1
+	store.save(ident, fixed, purpose, repairs=repairs)
+	try:
+		onMain(plugin.helpers.loadAddon, ident)
+	except Exception as e:
+		store.save(ident, source, purpose, enabled=False, repairs=repairs)
+		raise ToolError(f"The corrected add-on did not start either: {type(e).__name__}: {e}")
+	plugin.helpers.errors.pop(ident, None)
+	for mistake in mistakes:
+		plugin.memory.add(f"NVDA add-on code mistake to avoid: {mistake}", topic="add-on code")
+	return f"The add-on {ident} was corrected and is on again."
+
+
 def _members(obj):
 	names = [n for n in dir(obj) if not n.startswith("_")]
 	return clip(", ".join(names), 700)
@@ -690,9 +802,7 @@ def build(plugin):
 		result = getattr(task, "items", None)
 		if result is None or not result.items:
 			raise ToolError("Use list_items first.")
-		index = match.itemIndex(item, Screen.names(result))
-		if index is None:
-			index = match.itemIndex(item, [it["text"] for it in result.items])
+		index = pickItem(item, result.items, ("link", "button"))
 		if index is None:
 			raise ToolError(f"There is no item called \"{item}\". Use a number or a name from list_items.")
 		found = result.items[index]
@@ -902,19 +1012,28 @@ def build(plugin):
 			except (ToolError, EngineError):
 				pass
 		notes = plugin.knowledge.text(purpose, limit=3, chars=700, sources=("addon-development", "objects-and-events"))
+		lessons = plugin.memory.search("NVDA add-on code mistake " + purpose, limit=3)
+		if lessons:
+			notes += "\nMistakes made before on this computer:\n" + "\n".join(f"- {t}" for t in lessons)
 		source = microaddons.write(llm, task, purpose, facts, notes, params, CODER, VISION)
 		keys = microaddons.gestures(source)
 		keyText = " Keys: " + "; ".join(f"{k} ({d})" if d else k for k, d in keys) + "." if keys else ""
-		# Translators: Asked before a newly written add-on is turned on.
-		question = _("VisionClaw wrote an add-on called {name}. It should: {purpose}.{keys} Turn it on?").format(
-			name=name, purpose=purpose, keys=keyText)
+		# What the code really does, found by checking it, in plain words: nobody has to read code.
+		checked = " ".join(microaddons.describe(source))
+		# Translators: Asked before a newly written add-on is turned on. {facts} are plain sentences about it.
+		question = _(
+			"VisionClaw wrote an add-on called {name}. You asked for: {purpose}. "
+			"Checking the code shows: {facts} Turn it on?"
+		).format(name=name, purpose=purpose.rstrip("."), facts=checked)
+		if getattr(task, "codeDoubt", ""):
+			# Translators: Added to the question when the reviewing model is not sure about the code.
+			question = _("The reviewing model has a doubt about it: {doubt} ").format(doubt=task.codeDoubt) + question
 		# Translators: Choices when a newly written add-on is ready.
-		choices = [_("Turn it on"), _("Let me read the code first"), _("Do not use it")]
+		choices = [_("Turn it on"), _("Do not use it"), _("Show me the code first")]
 		choice = plugin.clawAsk(question, choices)
-		if choice == 1:
+		if choice == 2:
 			wx.CallAfter(ui.browseableMessage, source, name)
-			choice = plugin.clawAsk(_("Turn the add-on {name} on?").format(name=name), [choices[0], choices[2]])
-			choice = 0 if choice == 0 else 2
+			choice = plugin.clawAsk(_("Turn the add-on {name} on?").format(name=name), choices[:2])
 		if choice != 0:
 			raise UserSaidNo()
 		for attempt in range(params.codeRepairs + 1):
@@ -958,6 +1077,13 @@ def build(plugin):
 	add("remove_helper", "remove an app helper hotkey or an add-on that VisionClaw made", removeHelper,
 		{"name": text("the add-on's name or the helper's key, from list_helpers", maxLength=60)},
 		changes=True, before="list_helpers", title="Removing it")
+
+	add("repair_addon",
+		"have the models debug and correct an add-on VisionClaw wrote that fails or does the wrong thing",
+		lambda task, name, problem: fixAddon(plugin, task, name, problem), {
+			"name": text("the add-on's name, from list_helpers", maxLength=60),
+			"problem": text("what the add-on does wrong, or should do instead", maxLength=400, auto=True),
+		}, before="list_helpers", title="Debugging the add-on", tell=VERBATIM)
 
 	def exportAddon(task, name):
 		names = [meta["name"] for meta in plugin.helpers.store.list()]
@@ -1092,6 +1218,63 @@ def build(plugin):
 	add("read_page", "read the web page the user is in: the parts of its text that matter for the question", readPage,
 		{"about": text("the question, or what to look for on the page", maxLength=200, auto=True)},
 		looks=True, title="Reading the web page")
+
+	def pageOutline(task):
+		found = onMain(webtools.headings)
+		if found is None:
+			raise ToolError("The user is not in a web page. Open one first.")
+		items = onMain(webtools.pageItems)
+		kinds = [item["kind"] for item in items.items] if items is not None else []
+		fields = sum(kind not in ("link", "button", "heading") for kind in kinds)
+		lines = [
+			f"The web page {items.title if items is not None else ''} has {len(found)} headings, "
+			f"{kinds.count('link')} links, {kinds.count('button')} buttons and {fields} form fields."
+		]
+		lines += [f"Heading level {level}: {label}" if level else f"Heading: {label}" for level, label, _node in found[:35]]
+		if len(found) > 35:
+			lines.append(f"... and {len(found) - 35} more headings.")
+		return "\n".join(lines)
+
+	add("page_outline",
+		"say how the web page is laid out: its headings in order, and how many links, buttons and fields it has",
+		pageOutline, looks=True, title="Looking at how the page is laid out", tell=VERBATIM)
+
+	def goToItem(task, item):
+		result = getattr(task, "items", None)
+		if result is None or not getattr(result, "web", False):
+			raise ToolError("Use list_items first, in a web page.")
+		index = pickItem(item, result.items, ("heading",))
+		if index is None:
+			raise ToolError(f"There is no item called \"{item}\" on the page. Use a number or a name from list_items.")
+		found = result.items[index]
+		onMain(webtools.moveTo, found)
+		return f"NVDA is now at {found['text']}. Use NVDA's say all command to read on from there."
+
+	add("go_to_item",
+		"move NVDA's reading position to one item from list_items on the web page: a heading, a link or a field",
+		goToItem, {"item": text("the number or the name of the item, from list_items", maxLength=80)},
+		before="list_items", title="Moving there", tell=VERBATIM)
+
+	def pageNavigate(task, direction):
+		from keyboardHandler import KeyboardInputGesture
+		before = onMain(pageNow)
+		if before is None:
+			raise ToolError("The user is not in a web page.")
+		onMain(KeyboardInputGesture.fromName(_PAGE_KEYS[direction]).send)
+		time.sleep(WEB_SETTLE_SECONDS)
+		deadline = time.monotonic() + WEB_WAIT_SECONDS / 2
+		now = onMain(pageNow)
+		while direction != "reload" and time.monotonic() < deadline and (now is None or now[0] == before[0]):
+			task.check()
+			time.sleep(0.5)
+			now = onMain(pageNow)
+		if direction != "reload" and now is not None and now[0] == before[0]:
+			return f"The browser did not go {direction}. It is still on {now[1] or 'the same page'}."
+		return _PAGE_DONE[direction] + (f". The page is now {now[1]}." if now is not None and now[1] else ".")
+
+	add("page_navigate", "go back or forward one page in the browser, or reload the page", pageNavigate,
+		{"direction": text("which way", enum=list(_PAGE_KEYS), auto=directionOf)},
+		title="Moving between pages", tell=VERBATIM)
 
 	def fillField(task, field, typed, enter):
 		import brailleInput

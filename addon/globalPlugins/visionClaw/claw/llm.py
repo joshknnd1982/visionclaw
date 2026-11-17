@@ -140,5 +140,6 @@ class LLM:
 			maxTokens += _THINK_TOKENS[reasoning]
 		messages = self._messages(system, user, image)
 		answer, _info = self._ask(
-			role, messages, maxTokens, options, self._context(system, user, image, maxTokens), onText, raw=code)
+			role, messages, maxTokens, options, self._context(system, user, image, maxTokens), onText,
+			raw="code" if code else False)
 		return answer

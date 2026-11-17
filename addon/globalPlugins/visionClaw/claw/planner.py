@@ -91,6 +91,18 @@ RECIPES = {
 		"read the web page and answer",
 		"answer a question about the web page that is open in the browser, or summarize it",
 		("read_page",)),
+	"page_outline": (
+		"say how the web page is laid out",
+		"list the headings of the web page, or say how the page is laid out and what is on it",
+		("page_outline",)),
+	"go_to": (
+		"move to a place on the web page",
+		"move NVDA's reading position to a heading, section, link or field of the web page, to read on from there",
+		("list_items", "go_to_item")),
+	"page_navigate": (
+		"go back, forward or reload",
+		"go back or forward one page in the browser, or reload the page",
+		("page_navigate",)),
 	"fill_field": (
 		"type into a field",
 		"type text into a named field or box, such as a search box or a field of a form",
@@ -104,6 +116,10 @@ RECIPES = {
 		"switch the speech synthesizer or braille display",
 		"switch NVDA to a different speech synthesizer or a different braille display",
 		("nvda_info", "switch_driver")),
+	"fix_addon": (
+		"debug and correct an add-on",
+		"fix, debug or change an add-on VisionClaw wrote that fails or does not do what it should",
+		("list_helpers", "repair_addon")),
 	"save_addon": (
 		"save an add-on as a file",
 		"save an add-on VisionClaw wrote as a file that can be installed for good or shared",
@@ -117,6 +133,7 @@ RECIPES = {
 # and the choice when the model fails.
 _HINTS = (
 	("save_addon", r"\b(save|export|package|share)\b.*\badd-?on"),
+	("fix_addon", r"\b(fix|repair|correct|debug)\b.*\badd-?on|\badd-?on\b.*\b(does(n't| not) work|is broken|stopped working|fails|wrong)\b"),
 	("remove_made", r"\b(remove|delete|get rid of)\b.*\b(helper|hot ?key|add-?on)"),
 	("list_made", r"\b(list|show|which|what)\b.*\b(helpers?|add-?ons?)\b.*\b(you|visionclaw)\b.*\b(made|wrote|written|created)"),
 	("write_addon", r"\b(write|make|create|build|code|program)\b.*\b(add-?on|plug-?in|code|script)\b|every time|whenever|automatically|when (a|an|the|i) .* (gets?|gains?|changes?|appears?|opens?)"),
@@ -124,6 +141,9 @@ _HINTS = (
 	("name_button", r"\b(name|label|call)\b.*\b(button|control|icon)|unlabel|no label|has no name"),
 	("switch_driver", r"\b(switch|change|use|set)\b.*\b(synthesi[sz]ers?|synths?|braille (display|driver))\b"
 		r"|\b(switch|change) to (espeak|one ?core|sapi|eloquence|no speech|no braille)"),
+	("page_navigate", r"\b(go|navigate|move|take me)\s+(back|forward)\b|\b(previous|last|next) page\b|\b(reload|refresh)\b"),
+	("page_outline", r"\b(headings|outline|laid out|layout|structure)\b"),
+	("go_to", r"\b(go|jump|move|take me|skip)\b.*\b(to|down to)\b.*\b(heading|section|part|link|field|box|form|main content|comments?)\b"),
 	("search_web", r"\b(search|look up|google)\b.*\b(web|internet|online|for)\b"),
 	("open_website", r"\b(open|go to|visit|load|browse to)\b.*(\w\.[a-z]{2,}\b|web ?site|web ?page|\burl\b)"),
 	("fill_field", r"\b(type|enter|write|fill|put)\b.*\b(in|into)\b.*\b(field|box|form|search)\b"),

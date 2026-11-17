@@ -28,6 +28,8 @@ FORBIDDEN_OS = frozenset((
 	"system", "remove", "unlink", "rmdir", "removedirs", "rename", "replace", "popen", "startfile", "kill",
 	"makedirs", "mkdir", "chmod", "putenv", "chdir",
 ))
+# A small add-on is a few dozen lines. More than this means the model has lost its way.
+MAX_LINES = 120
 TEMPLATE = '''import globalPluginHandler
 import api
 import ui
@@ -49,22 +51,327 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			pass
 		nextHandler()
 '''
+# The examples shown to the coder. Each shows one thing only: a small model copies whatever it is shown, so an
+# example that did two things put both into every add-on.
+EXAMPLE_KEY = '''import globalPluginHandler
+import api
+import ui
+from scriptHandler import script
+
+
+class GlobalPlugin(globalPluginHandler.GlobalPlugin):
+
+	@script(description="Says the name of the focused control", gesture="kb:NVDA+shift+f9")
+	def script_sayName(self, gesture):
+		obj = api.getFocusObject()
+		ui.message(obj.name or "no name")
+'''
+EXAMPLE_EVENT = '''import globalPluginHandler
+import controlTypes
+import tones
+
+
+class GlobalPlugin(globalPluginHandler.GlobalPlugin):
+
+	def event_gainFocus(self, obj, nextHandler):
+		try:
+			if obj.role == controlTypes.Role.BUTTON:
+				tones.beep(660, 60)
+		except Exception:
+			pass
+		nextHandler()
+'''
 _SYSTEM = (
 	"You write small add-ons for the NVDA screen reader in Python. "
 	"Answer with one complete Python file inside a ```python block, and nothing else.\n"
 	"Rules:\n"
+	"- Do exactly what is asked and nothing more. Never add a key command or an event that was not asked for.\n"
+	"- Keep it short: 10 to 30 lines. No extra cases, no long comments, no imports you do not use.\n"
 	"- The file defines class GlobalPlugin(globalPluginHandler.GlobalPlugin).\n"
 	"- Speak with ui.message(\"text\"). Beep with tones.beep(frequency, milliseconds).\n"
-	"- A key command is a method named script_something(self, gesture) with the decorator "
-	"@script(description=\"...\", gesture=\"kb:NVDA+shift+k\").\n"
-	"- An event is a method like event_gainFocus(self, obj, nextHandler). It must call nextHandler() at the end, "
-	"and wrap its own work in try/except so NVDA keeps working.\n"
-	"- To act only in one program, check obj.appModule.appName, for example \"notepad\".\n"
-	"- Import only NVDA modules and these: re, time, datetime, json, math, threading, collections, os.path.\n"
+	"- When the request names a key: write a method script_something(self, gesture) with the decorator "
+	"@script(description=\"...\", gesture=\"kb:NVDA+shift+k\"), using the key that was asked for.\n"
+	"- When the request wants something to happen by itself (when, whenever, each time): write an event, a "
+	"method like event_gainFocus(self, obj, nextHandler). It must call nextHandler() at the end, and wrap its "
+	"own work in try/except so NVDA keeps working.\n"
+	"- Compare the kind of a control with controlTypes.Role, like obj.role == controlTypes.Role.LINK. "
+	"Never compare it with a text like \"link\".\n"
+	"- Limit the add-on to one program, with obj.appModule.appName == \"name\", only when the request says so.\n"
+	"- Import every module you use. Import only NVDA modules and these: re, time, datetime, json, math, "
+	"threading, collections, os.path.\n"
 	"- Never use subprocess, the internet, eval, exec, open, or anything that deletes or writes files.\n"
-	"- Keep it short and simple. Do exactly what is asked and nothing more.\n"
-	"Example of a correct file:\n```python\n" + TEMPLATE + "```"
+	"Example of a key command, for a request that names a key:\n```python\n" + EXAMPLE_KEY + "```\n"
+	"Example of an event, for a request that wants something to happen by itself:\n```python\n" + EXAMPLE_EVENT + "```"
 )
+# Words in a request that ask for something to happen by itself, and words that ask for a key.
+_WANTS_EVENT = re.compile(
+	r"\b(when|whenever|every time|each time|automatic(ally)?|by itself|as soon as|on focus|gets? the focus|"
+	r"changes?|appears?|opens?|announce|tell me if|warn|alert|watch|monitor)\b", re.IGNORECASE)
+_WANTS_KEY = re.compile(r"\b(press|key|keys|hot ?key|shortcut|nvda\s*\+|control\s*\+|alt\s*\+|shift\s*\+)", re.IGNORECASE)
+# "when I press ..." asks for a key, not for something that happens by itself.
+_ON_KEY = re.compile(r"\b(when|whenever|every time|each time|as soon as)\s+(i|you|the user)\s+(press|hit|push|use|type)\b[^,.;]*",
+	re.IGNORECASE)
+# Kinds of control as small models write them, and what NVDA calls them.
+_ROLES = {
+	"link": "LINK", "button": "BUTTON", "checkbox": "CHECKBOX", "check box": "CHECKBOX", "edit": "EDITABLETEXT",
+	"editable text": "EDITABLETEXT", "edit field": "EDITABLETEXT", "list": "LIST", "list item": "LISTITEM",
+	"listitem": "LISTITEM", "menu item": "MENUITEM", "menuitem": "MENUITEM", "combo box": "COMBOBOX",
+	"combobox": "COMBOBOX", "radio button": "RADIOBUTTON", "radiobutton": "RADIOBUTTON", "graphic": "GRAPHIC",
+	"image": "GRAPHIC", "heading": "HEADING", "tab": "TAB", "slider": "SLIDER", "dialog": "DIALOG", "window": "WINDOW",
+}
+_THIS_PROGRAM = re.compile(r"\b(this|the current|that) (program|app|application|window|game)\b|\bhere\b|\bin it\b",
+	re.IGNORECASE)
+
+
+def checkAgainst(source, purpose, facts=""):
+	"""Problems that show the code does something other than what was asked: something that happens by itself
+	though nothing automatic was asked for, a key nobody asked for, a limit to a program the request never
+	named, a control's kind compared the wrong way. Sentences a model can act on. Empty if none.
+	facts is what is known about where the user is; a program named there may be meant by "this program"."""
+	try:
+		tree = ast.parse(source)
+	except SyntaxError:
+		return []
+	problems = []
+	events, scripts = _unasked(tree, purpose, allOfThem=True)
+	if events and not _wantsEvent(purpose):
+		problems.append(
+			f"The request does not ask for anything to happen by itself. Remove {', '.join(events)} completely.")
+	if scripts and not _WANTS_KEY.search(purpose):
+		problems.append(f"The request does not ask for a key command. Remove {', '.join(scripts)} completely.")
+	if not events and not scripts:
+		problems.append("The add-on does nothing: it has no key command and no event. Write what was asked for.")
+	wanted = purpose.lower()
+	mayLimit = bool(_THIS_PROGRAM.search(purpose))
+	limited = set()
+	for node in ast.walk(tree):
+		if not isinstance(node, ast.Compare):
+			continue
+		sides = [node.left] + list(node.comparators)
+		texts = [side.value for side in sides if isinstance(side, ast.Constant) and isinstance(side.value, str)]
+		for side in sides:
+			texts += [e.value for e in getattr(side, "elts", []) if isinstance(e, ast.Constant) and isinstance(e.value, str)]
+		attrs = {getattr(side, "attr", "") for side in sides}
+		# The program's name may have been put in a variable first: appName = obj.appModule.appName
+		if any(isinstance(side, ast.Name) and "app" in side.id.lower() for side in sides):
+			attrs.add("appName")
+		if "role" in attrs and texts:
+			problems.append(
+				f"The kind of a control is compared with the text \"{texts[0]}\". Compare it with controlTypes.Role, "
+				f"like obj.role == controlTypes.Role.{texts[0].upper().replace(' ', '')}, and import controlTypes.")
+		if "appName" in attrs:
+			limited.update(text.lower() for text in texts)
+			for program in texts:
+				named = program.lower() in wanted or (mayLimit and program.lower() in facts.lower())
+				if not named:
+					problems.append(
+						f"The request does not say it is only for the program {program}. Remove the appName check, "
+						"or the add-on will not work anywhere else.")
+	# The other way round: the request is for one program, but the code works everywhere.
+	program = _programAsked(purpose, facts)
+	if program and program.lower() not in limited:
+		problems.append(
+			f"The request is only for the program {program}. Act only when "
+			f"api.getFocusObject().appModule.appName == \"{program}\".")
+	return list(dict.fromkeys(problems))
+
+
+def _limits(source):
+	"""The programs an add-on's code checks for, in lower case."""
+	try:
+		tree = ast.parse(source)
+	except SyntaxError:
+		return set()
+	found = set()
+	for node in ast.walk(tree):
+		if not isinstance(node, ast.Compare):
+			continue
+		sides = [node.left] + list(node.comparators)
+		if not any(getattr(side, "attr", "") == "appName"
+				or (isinstance(side, ast.Name) and "app" in side.id.lower()) for side in sides):
+			continue
+		for side in sides:
+			for item in [side] + list(getattr(side, "elts", [])):
+				if isinstance(item, ast.Constant) and isinstance(item.value, str):
+					found.add(item.value.lower())
+	return found
+
+
+def _programAsked(purpose, facts):
+	"""The program the request is limited to: the one the user is in, if the request names it."""
+	here = re.search(r"Program: ([\w.-]+?)\.?(\s|$)", facts or "")
+	if here and re.search(rf"\b{re.escape(here.group(1))}\b", purpose, re.IGNORECASE):
+		return here.group(1)
+	return ""
+
+
+def _limitTo(source, program):
+	"""Make every key command and event of an add-on act only in one program, by putting a check at the start
+	of each. In another program a key is passed on to that program, and an event to NVDA."""
+	try:
+		tree = ast.parse(source)
+	except SyntaxError:
+		return source
+	lines = source.splitlines(keepends=True)
+	inserts = []
+	for node in ast.walk(tree):
+		if not isinstance(node, ast.FunctionDef) or not node.name.startswith(("script_", "event_")) or not node.body:
+			continue
+		first = node.body[0]
+		indent = lines[first.lineno - 1][:first.col_offset]
+		step = "\t" if indent.startswith("\t") else "    "
+		if node.name.startswith("script_"):
+			check = [
+				f"{indent}if api.getFocusObject().appModule.appName != \"{program}\":\n",
+				f"{indent}{step}gesture.send()\n", f"{indent}{step}return\n",
+			]
+		else:
+			check = [
+				f"{indent}if getattr(getattr(obj, \"appModule\", None), \"appName\", None) != \"{program}\":\n",
+				f"{indent}{step}nextHandler()\n", f"{indent}{step}return\n",
+			]
+		inserts.append((first.lineno - 1, check))
+	for at, check in sorted(inserts, reverse=True):
+		lines[at:at] = check
+	source = "".join(lines)
+	if inserts and not re.search(r"^\s*import api\b", source, re.MULTILINE):
+		source = "import api\n" + source
+	return source
+
+
+def _wantsEvent(purpose):
+	return bool(_WANTS_EVENT.search(_ON_KEY.sub("", purpose)))
+
+
+def _unasked(tree, purpose, allOfThem=False):
+	"""The events and key commands in the code, as (events, scripts): all of them, or only those that the
+	request did not ask for."""
+	events = [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name.startswith("event_")]
+	scripts = [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name.startswith("script_")]
+	if allOfThem:
+		return [n.name for n in events], [n.name for n in scripts]
+	return ([] if _wantsEvent(purpose) else events), ([] if _WANTS_KEY.search(purpose) else scripts)
+
+
+def salvage(source):
+	"""A file that was cut off in the middle, because the model went on too long, is cut back to its last line
+	that leaves a complete program. Nothing is changed if the file is complete or cannot be saved this way."""
+	try:
+		ast.parse(source)
+		return source
+	except SyntaxError:
+		pass
+	lines = source.splitlines(keepends=True)
+	for end in range(len(lines) - 1, 5, -1):
+		candidate = "".join(lines[:end])
+		try:
+			tree = ast.parse(candidate)
+		except SyntaxError:
+			continue
+		# Worth keeping only if the add-on's class, with something in it, is still there.
+		if any(isinstance(n, ast.ClassDef) and n.name == "GlobalPlugin" and any(
+				isinstance(f, ast.FunctionDef) for f in n.body) for n in tree.body):
+			return candidate
+		break
+	return source
+
+
+def tidy(source, purpose, facts=""):
+	"""Correct by plain rules what needs no model: take out events and key commands the request did not ask
+	for, write a control's kind the way NVDA needs it, and limit the add-on to the program the request names. A small model keeps what it once wrote however often
+	it is told, so code does this. Returns the source, changed or not; code that would be left empty is not
+	touched, so that the coder is told instead."""
+	source = salvage(source)
+	try:
+		tree = ast.parse(source)
+	except SyntaxError:
+		return source
+	lines = source.splitlines(keepends=True)
+	events, scripts = _unasked(tree, purpose)
+	total = len(_unasked(tree, purpose, allOfThem=True)[0]) + len(_unasked(tree, purpose, allOfThem=True)[1])
+	remove = events + scripts
+	if remove and len(remove) < total:
+		for node in sorted(remove, key=lambda n: -n.lineno):
+			first = min([d.lineno for d in node.decorator_list] + [node.lineno])
+			del lines[first - 1:node.end_lineno]
+		source = "".join(lines)
+		try:
+			tree = ast.parse(source)
+		except SyntaxError:
+			return "".join(source)
+		lines = source.splitlines(keepends=True)
+	# obj.role == "link" never matches; NVDA's kinds are controlTypes.Role.LINK and so on.
+	changes = []
+	for node in ast.walk(tree):
+		if not isinstance(node, ast.Compare):
+			continue
+		sides = [node.left] + list(node.comparators)
+		if not any(getattr(side, "attr", "") == "role" for side in sides):
+			continue
+		for side in sides:
+			if isinstance(side, ast.Constant) and isinstance(side.value, str) and side.lineno == side.end_lineno:
+				role = _ROLES.get(side.value.lower().strip())
+				if role:
+					changes.append((side.lineno, side.col_offset, side.end_col_offset, f"controlTypes.Role.{role}"))
+	for lineno, start, end, text in sorted(changes, reverse=True):
+		line = lines[lineno - 1]
+		lines[lineno - 1] = line[:start] + text + line[end:]
+	source = "".join(lines)
+	if changes and not re.search(r"^\s*import controlTypes\b", source, re.MULTILINE):
+		source = "import controlTypes\n" + source
+	program = _programAsked(purpose, facts)
+	if program and program.lower() not in _limits(source):
+		source = _limitTo(source, program)
+	return _addImports(_passEventsOn(source))
+
+
+# NVDA's modules that add-ons use most, each imported by its own name.
+_MODULES = ("ui", "api", "tones", "speech", "controlTypes", "config", "globalPluginHandler", "braille", "wx",
+	"winUser", "mouseHandler", "textInfos", "scriptHandler")
+
+
+def _passEventsOn(source):
+	"""An event that forgets to pass the event on would silence NVDA for it: add nextHandler() at its end."""
+	try:
+		tree = ast.parse(source)
+	except SyntaxError:
+		return source
+	lines = source.splitlines(keepends=True)
+	inserts = []
+	for node in ast.walk(tree):
+		if (isinstance(node, ast.FunctionDef) and node.name.startswith("event_") and node.body
+				and "nextHandler" in [a.arg for a in node.args.args]
+				and not any(isinstance(c, ast.Call) and getattr(c.func, "id", "") == "nextHandler" for c in ast.walk(node))):
+			indent = lines[node.body[0].lineno - 1][:node.body[0].col_offset]
+			inserts.append((node.end_lineno, f"{indent}nextHandler()\n"))
+	for at, line in sorted(inserts, reverse=True):
+		if at <= len(lines) and not lines[at - 1].endswith("\n"):
+			lines[at - 1] += "\n"
+		lines[at:at] = [line]
+	return "".join(lines)
+
+
+def _addImports(source):
+	"""Import the NVDA modules the code uses but forgot to import."""
+	try:
+		tree = ast.parse(source)
+	except SyntaxError:
+		return source
+	imported = set()
+	for node in ast.walk(tree):
+		if isinstance(node, ast.Import):
+			imported.update(alias.name.split(".")[0] for alias in node.names)
+			imported.update(alias.asname for alias in node.names if alias.asname)
+		elif isinstance(node, ast.ImportFrom):
+			imported.add((node.module or "").split(".")[0])
+			imported.update(alias.asname or alias.name for alias in node.names)
+	used = {n.value.id for n in ast.walk(tree) if isinstance(n, ast.Attribute) and isinstance(n.value, ast.Name)}
+	missing = [f"import {module}\n" for module in _MODULES if module in used and module not in imported]
+	if any(isinstance(n, ast.Name) and n.id == "script" for n in ast.walk(tree)) and "script" not in imported:
+		missing.append("from scriptHandler import script\n")
+	return "".join(missing) + source
+
+
 _REVIEW_SCHEMA = {
 	"type": "object",
 	"properties": {"ok": {"type": "boolean"}, "problem": {"type": "string", "maxLength": 260}},
@@ -169,7 +476,7 @@ def gestures(source):
 
 
 def _generate(llm, role, user, params):
-	answer = llm.text(role, _SYSTEM, user, maxTokens=params.codeTokens, reasoning=params.reasoning, temperature=0.1, code=True)
+	answer = llm.text(role, _SYSTEM, user, maxTokens=params.codeTokens, reasoning=params.reasoning, temperature=0, code=True)
 	return extractCode(answer)
 
 
@@ -179,15 +486,36 @@ def write(llm, task, purpose, facts, notes, params, coder, reviewer):
 	Returns the source. Raises ToolError if no version passes the check."""
 	user = f"Write an NVDA add-on that does this: {clip(purpose, 700)}\n"
 	if facts:
-		user += f"What is known:\n{clip(facts, 700)}\n"
+		user += f"What is known:\n{clip(facts, 900)}\n"
 	if notes:
 		user += f"Notes about NVDA that may help:\n{clip(notes, 1600)}\n"
 	task.emit("detail", "The coder model is writing the add-on.")
-	source = _generate(llm, coder, user, params)
+	return _settle(llm, task, purpose, _generate(llm, coder, user, params), params, coder, reviewer, notes, facts)
+
+
+def fix(llm, task, purpose, source, problems, notes, params, coder, reviewer, facts=""):
+	"""Have the coder model debug an add-on that fails or does the wrong thing. problems say what went wrong:
+	the error NVDA reported and where, and what the user says. Returns the corrected source, checked and
+	reviewed like a new add-on. Raises ToolError if no version passes the check."""
+	task.emit("detail", "The coder model is debugging the add-on: " + clip(problems[0], 240))
+	return _settle(llm, task, purpose, repair(llm, coder, purpose, source, problems, params, notes), params, coder,
+		reviewer, notes, facts)
+
+
+def _settle(llm, task, purpose, source, params, coder, reviewer, notes="", facts=""):
+	"""Check the code, compare it with what was asked for, have the other model review it, and send it back to
+	the coder until all three pass. The checks decide; the reviewing model only advises. If it still has a
+	doubt when the tries are used up, code that passes every check is kept, and the doubt is told to the user
+	(task.codeDoubt) before the add-on is turned on."""
+	task.codeDoubt = ""
+	doubt = ""
 	reviews = params.codeReviews
 	for attempt in range(params.codeRepairs + 1):
 		task.check()
-		problems = check(source)
+		source = tidy(source, purpose, facts)
+		problems = check(source) or checkAgainst(source, purpose, facts)
+		if not problems and source.count("\n") > MAX_LINES:
+			problems = [f"The file is far too long for what was asked. Write it again in under {MAX_LINES // 2} lines."]
 		if not problems and reviews > 0:
 			reviews -= 1
 			try:
@@ -201,25 +529,104 @@ def write(llm, task, purpose, facts, notes, params, coder, reviewer):
 			if not verdict.get("ok") and fault:
 				task.emit("talk", f"The reviewing model found a fault in the code: {fault}")
 				problems = [fault]
+				doubt = fault
 			else:
 				task.emit("talk", "The reviewing model checked the code: no fault found.")
+				doubt = ""
 		if not problems:
+			task.codeDoubt = doubt
 			return source
 		if attempt == params.codeRepairs:
 			break
 		task.emit("detail", "Fixing the code: " + " ".join(problems[:4]))
-		source = repair(llm, coder, purpose, source, problems, params)
-	raise ToolError("The coder model could not write code that passes the checks: " + " ".join(check(source)[:3]))
+		source = repair(llm, coder, purpose, source, problems, params, notes)
+	source = tidy(source, purpose, facts)
+	left = check(source) or checkAgainst(source, purpose, facts)
+	if not left and source.count("\n") <= MAX_LINES:
+		task.codeDoubt = doubt
+		return source
+	if not left:
+		left = ["It is far too long for what was asked."]
+	raise ToolError("The coder model could not write code that passes the checks: " + " ".join(left[:3]))
 
 
-def repair(llm, role, purpose, source, problems, params):
+def repair(llm, role, purpose, source, problems, params, notes=""):
 	"""Have the coder model fix its add-on. problems are sentences, or an error message from NVDA."""
 	user = (
 		f"This NVDA add-on should do this: {clip(purpose, 500)}\n```python\n{clip(source, 5000)}\n```\n"
-		"It has these problems:\n" + "\n".join(f"- {clip(p, 500)}" for p in problems[:6])
-		+ "\nWrite the whole corrected file."
+		"It has these problems:\n" + "\n".join(f"- {clip(p, 600)}" for p in problems[:6])
 	)
+	if notes:
+		user += f"\nNotes about NVDA that may help:\n{clip(notes, 1200)}"
+	user += "\nFind the cause, and write the whole corrected file."
 	return _generate(llm, role, user, params)
+
+
+# What an add-on reacts to, in plain words, by the name of the event in its code.
+_EVENT_WORDS = {
+	"gainFocus": "when the focus moves to another control",
+	"loseFocus": "when a control loses the focus",
+	"foreground": "when another window comes to the front",
+	"nameChange": "when the name of a control changes",
+	"valueChange": "when a value changes, such as a progress bar or a slider",
+	"stateChange": "when a control's state changes, such as checked or pressed",
+	"descriptionChange": "when the description of a control changes",
+	"typedCharacter": "each time you type a character",
+	"becomeNavigatorObject": "when you move with object navigation",
+	"caret": "when the cursor moves in a text",
+	"show": "when something appears on the screen",
+	"alert": "when a program shows an alert",
+	"liveRegionChange": "when a part of a page or window that updates itself changes",
+}
+
+
+def describe(source):
+	"""What an add-on does, as plain sentences found by checking its code, for someone who cannot read code.
+	These are facts about the code, not the coder's claims: its keys, what it reacts to, the programs it
+	names, and whether it speaks, beeps, presses keys or clicks."""
+	try:
+		tree = ast.parse(source)
+	except SyntaxError:
+		return []
+	facts = []
+	for keys, text in gestures(source):
+		facts.append(f"It adds the key {keys}" + (f": {text.rstrip('.')}." if text else "."))
+	for node in ast.walk(tree):
+		if isinstance(node, ast.FunctionDef) and node.name.startswith("event_"):
+			what = _EVENT_WORDS.get(node.name[6:], f"on NVDA's event {node.name[6:]}")
+			facts.append(f"It acts by itself {what}.")
+	programs = set()
+	for node in ast.walk(tree):
+		if isinstance(node, ast.Compare) and any(getattr(side, "attr", "") == "appName"
+				for side in [node.left] + list(node.comparators)):
+			for side in [node.left] + list(node.comparators):
+				if isinstance(side, ast.Constant) and isinstance(side.value, str):
+					programs.add(side.value)
+				for item in getattr(side, "elts", []):
+					if isinstance(item, ast.Constant) and isinstance(item.value, str):
+						programs.add(item.value)
+	facts.append(
+		f"It works only in: {', '.join(sorted(programs))}." if programs else "It is not limited to one program.")
+	calls = set()
+	said = []
+	for node in ast.walk(tree):
+		if isinstance(node, ast.Call):
+			name = getattr(node.func, "attr", getattr(node.func, "id", ""))
+			owner = getattr(getattr(node.func, "value", None), "id", "")
+			calls.add((owner, name))
+			if (owner, name) == ("ui", "message") and node.args and isinstance(node.args[0], ast.Constant):
+				said.append(str(node.args[0].value))
+	if said:
+		facts.append("It can say: " + "; ".join(clip(text, 60) for text in said[:4]) + ".")
+	elif ("ui", "message") in calls or any(owner == "speech" for owner, _n in calls):
+		facts.append("It speaks.")
+	if ("tones", "beep") in calls:
+		facts.append("It beeps.")
+	if any(name in ("send", "fromName") or owner == "keyboardHandler" for owner, name in calls) and "KeyboardInputGesture" in source:
+		facts.append("It presses keys for you.")
+	if any(owner in ("mouseHandler", "winUser") for owner, _n in calls):
+		facts.append("It moves or clicks the mouse.")
+	return list(dict.fromkeys(facts))
 
 
 class Store:
@@ -234,11 +641,13 @@ class Store:
 	def path(self, name):
 		return os.path.join(self._dir(name), "plugin.py")
 
-	def save(self, name, source, purpose="", enabled=True):
+	def save(self, name, source, purpose="", enabled=True, repairs=0):
+		"""repairs counts how often the add-on was corrected after failing in NVDA."""
 		os.makedirs(self._dir(name), exist_ok=True)
 		with open(self.path(name), "w", encoding="utf-8") as f:
 			f.write(source)
-		meta = {"name": slug(name), "title": str(name), "purpose": purpose, "enabled": enabled, "created": time.time()}
+		meta = {"name": slug(name), "title": str(name), "purpose": purpose, "enabled": enabled,
+			"created": time.time(), "repairs": repairs}
 		with open(os.path.join(self._dir(name), "meta.json"), "w", encoding="utf-8") as f:
 			json.dump(meta, f, indent=1)
 		return meta

@@ -16,7 +16,7 @@ from .claw import match
 # NVDA's names for kinds of page element, and what to call each in a list.
 KINDS = (
 	("link", "link"), ("button", "button"), ("edit", "edit field"), ("comboBox", "combo box"),
-	("checkBox", "checkbox"), ("radioButton", "radio button"),
+	("checkBox", "checkbox"), ("radioButton", "radio button"), ("heading", "heading"),
 )
 FIELD_KINDS = ("edit field", "combo box")
 MAX_ITEMS = 500
@@ -57,6 +57,47 @@ def address(document):
 		return str(document.documentConstantIdentifier or "")
 	except Exception:
 		return ""
+
+
+def _label(node):
+	return " ".join(str(getattr(node, "label", "") or "").split())[:LABEL_CHARS]
+
+
+def headings():
+	"""The page's headings in page order, as (level, label, node), or None if not in a page.
+	The level is 0 where NVDA does not say it."""
+	document = page()
+	if document is None:
+		return None
+	# NVDA gives the headings of each level separately; their order on the page comes from asking for all.
+	levels = {}
+	for level in range(1, 7):
+		try:
+			for node in document._iterNodesByType(f"heading{level}"):
+				levels.setdefault(_label(node), []).append(level)
+		except Exception:
+			continue
+	found = []
+	try:
+		nodes = list(document._iterNodesByType("heading"))
+	except Exception:
+		nodes = []
+	for node in nodes[:MAX_ITEMS]:
+		label = _label(node)
+		if label:
+			known = levels.get(label)
+			found.append((known.pop(0) if known else 0, label, node))
+	return found
+
+
+def moveTo(item):
+	"""Put NVDA's reading position on an item of the page, and have NVDA say it, as quick navigation does."""
+	node = item["web"]
+	node.moveTo()
+	try:
+		node.report()
+	except Exception:
+		pass  # the position has moved; only the announcement is missing
 
 
 def pageItems():

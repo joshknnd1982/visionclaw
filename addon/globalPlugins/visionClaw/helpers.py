@@ -6,10 +6,12 @@
 # app helpers (hotkeys for one program that click or read an item found by name in the window's picture), and
 # small add-ons written by the coder model, loaded into NVDA without a restart.
 
+import functools
 import importlib.util
 import json
 import os
 import threading
+import traceback
 
 import api
 import globalPluginHandler
@@ -25,6 +27,8 @@ from .claw import match, microaddons
 addonHandler.initTranslation()
 
 CLICK, READ = "click", "read"
+# How often an add-on is corrected by itself after failing, before it is turned off and the user is told.
+MAX_AUTO_REPAIRS = 3
 
 
 class Helpers:
@@ -36,6 +40,9 @@ class Helpers:
 		# {program name: {normalized key: {"key", "action", "item"}}}
 		self._bindings = {}
 		self._loaded = {}
+		# Add-ons that failed while running: what went wrong, and which are paused until they are corrected.
+		self.errors = {}
+		self._paused = set()
 		try:
 			with open(self._path, encoding="utf-8") as f:
 				data = json.load(f)
@@ -129,12 +136,64 @@ class Helpers:
 		spec = importlib.util.spec_from_file_location("visionClawAddon_" + ident, self.store.path(ident))
 		module = importlib.util.module_from_spec(spec)
 		spec.loader.exec_module(module)
+		self._guard(module.GlobalPlugin, ident)
+		self._paused.discard(ident)
 		instance = module.GlobalPlugin()
 		running = globalPluginHandler.runningPlugins
 		running.add(instance) if hasattr(running, "add") else running.append(instance)
 		self._loaded[ident] = instance
 		self.store.setEnabled(ident, True)
 		return instance
+
+	def _guard(self, cls, ident):
+		"""Put a guard around every key command and event of a generated add-on, so that an error in it never
+		reaches NVDA: the error is caught and kept, NVDA's own handling still runs, the add-on is paused, and
+		VisionClaw is told so the models can debug it."""
+		for name in dir(cls):
+			original = getattr(cls, name)
+			if name.startswith(("script_", "event_")) and callable(original):
+				setattr(cls, name, self._guarded(original, ident, name))
+
+	def _guarded(self, original, ident, name):
+		isEvent = name.startswith("event_")
+
+		@functools.wraps(original)
+		def guarded(instance, *args, **kwargs):
+			nextHandler = args[1] if isEvent and len(args) > 1 and callable(args[1]) else None
+			passedOn = []
+			if nextHandler is not None:
+				def once():
+					passedOn.append(True)
+					nextHandler()
+				args = (args[0], once) + args[2:]
+			if ident in self._paused:
+				if nextHandler is not None:
+					nextHandler()
+				return None
+			try:
+				return original(instance, *args, **kwargs)
+			except Exception as e:
+				self._failed(ident, name, e, traceback.format_exc())
+				# A failed event handler must not swallow the event: NVDA and other add-ons still get it.
+				if nextHandler is not None and not passedOn:
+					nextHandler()
+				return None
+		return guarded
+
+	def _failed(self, ident, where, error, trace):
+		first = ident not in self._paused
+		self._paused.add(ident)
+		entries = self.errors.setdefault(ident, [])
+		entries.append({"where": where, "error": f"{type(error).__name__}: {error}", "trace": trace[-1500:]})
+		del entries[:-5]
+		log.error(f"VisionClaw: the add-on {ident} failed in {where}: {error}")
+		if first:
+			self._plugin.onAddonFailed(ident)
+
+	def turnOff(self, name):
+		"""Stop an add-on and keep it off after a restart. Main thread."""
+		self.unloadAddon(name)
+		self.store.setEnabled(microaddons.slug(name), False)
 
 	def unloadAddon(self, name):
 		instance = self._loaded.pop(microaddons.slug(name), None)
@@ -157,8 +216,10 @@ class Helpers:
 			if meta.get("enabled"):
 				try:
 					self.loadAddon(meta["name"])
-				except Exception:
-					log.error(f"VisionClaw: could not start the add-on {meta['name']}", exc_info=True)
+				except Exception as e:
+					# An add-on that no longer starts, for example after an NVDA update, is debugged like one
+					# that fails while running.
+					self._failed(meta["name"], "starting", e, traceback.format_exc())
 
 	def terminate(self):
 		for name in list(self._loaded):

@@ -16,7 +16,7 @@ VisionClaw is a fork of [VisionMate](https://github.com/athee06/VisionMate) by A
 everything VisionMate does: image descriptions, the overlay for windows NVDA cannot read, photo descriptions in
 chat apps, and names for unlabelled buttons.
 
-> **Status: pre-release (0.2.0).** The orchestration core has been tested with scripted models and with a
+> **Status: pre-release (0.3.0).** The orchestration core has been tested with scripted models and with a
 > real model through the bundled engine, and the whole add-on has been loaded against stand-ins for NVDA.
 > It has **not yet been run inside NVDA**. Expect rough edges and please report them. See
 > [docs/STATUS.md](docs/STATUS.md) for exactly what was tested.
@@ -60,7 +60,7 @@ You do not need to know NVDA. VisionClaw finds the right NVDA setting or command
 
 ## Install
 
-1. Download **[VisionClaw-0.2.0.nvda-addon](https://github.com/joshknnd1982/visionclaw/releases/download/v0.2.0/VisionClaw-0.2.0.nvda-addon)**
+1. Download **[VisionClaw-0.3.0.nvda-addon](https://github.com/joshknnd1982/visionclaw/releases/download/v0.3.0/VisionClaw-0.3.0.nvda-addon)**
    (or pick a version on the [releases page](https://github.com/joshknnd1982/visionclaw/releases)), open the
    file, confirm the installation, and restart NVDA.
 2. If VisionMate is installed, disable it in the Add-on Store: VisionClaw includes it and uses the same keys.
@@ -105,6 +105,15 @@ stay loaded and neither has to be loaded again. Only when there is no room anywh
 You can turn this off in settings; then they always take turns on the best chip. The Last task box in the Ask
 window says where each model ran.
 
+## What each model does
+
+- **The vision model** looks at the screen, plans, and fills in the small forms that drive each step.
+- **The coder model** is the second opinion: it decides on its own how each part of a request should be
+  handled, and work starts only when the two agree. It gives a hint when the vision model is stuck on a step,
+  checks the result of freely planned work, and writes, debugs and corrects add-ons.
+- **The vision model reviews the coder's add-ons**, and describes the window when a fix is about something on
+  screen.
+
 ## Reasoning level
 
 In the Ask VisionClaw window and in settings: **Automatic, Off, Low, Medium, High**. Automatic decides for
@@ -137,6 +146,11 @@ buttons and form fields, so nothing has to be guessed from a picture.
 - **Follow a link or press a button** by name. Following a link needs no question; pressing a button asks
   first, because a button can send or buy something.
 - **Type into a field**, and press Enter if you asked to search or send.
+- **Hear how the page is laid out**: its headings in order with their levels, and how many links, buttons and
+  fields it has.
+- **Move to a place on the page**: "take me to the heading Refund policy" puts NVDA's reading position there,
+  so you can read on with NVDA's own commands.
+- **Go back, forward, or reload.**
 
 The models still run only on your computer. The browser goes online, as it does when you use it yourself.
 
@@ -162,12 +176,35 @@ The models still run only on your computer. The browser goes online, as it does 
 
 ## Add-ons written by VisionClaw
 
-The coder model writes the add-on. Before it can run, the code must pass a check (it must be valid, must not
-start programs, use the network, or delete or write files, and must follow NVDA's rules for events and key
-commands), the other model reviews it (unless reasoning is set to Off), and **you are always asked** whether to turn it on, with the option to
-read the code first. If NVDA cannot start it, the error goes back to the coder model to fix. Generated add-ons
-load without restarting NVDA and come back after a restart. "List what you have made" and "remove the add-on
-..." manage them.
+**You never have to read, write or debug code.** You say what you need; the coder model writes a small add-on.
+
+Before it can run:
+- The code must pass a check: it must be valid, must not start programs, use the network, or delete or write
+  files, and must follow NVDA's rules for events and key commands.
+- The code is compared with what you asked for. An event or a key nobody asked for is taken out, and a limit to
+  a program you did not name is removed. Mistakes that plain code can correct, it corrects without asking the
+  model: a forgotten import, an event that forgot to hand the event on to NVDA, a control's kind written the
+  wrong way, a file the model let run on too long.
+- The other model reviews it (unless reasoning is set to Off). The checks decide; if the reviewer still has a
+  doubt, you are told the doubt.
+- **You are always asked** whether to turn it on, and told in plain words what checking the code shows: the
+  keys it adds, what it reacts to, which programs it works in, and whether it speaks, beeps, presses keys or
+  clicks. Showing the code is offered too, for those who want it.
+
+**When an add-on fails, the models debug it.** Every add-on VisionClaw wrote runs behind a guard:
+- An error in it never reaches NVDA. NVDA keeps working, and events are still handed on.
+- The add-on is paused, and you hear that it had a problem and is being corrected.
+- The coder model is given the exact error, the failing line, and what NVDA really offers where the code used
+  something that does not exist. It corrects the add-on, the result is checked and reviewed like a new one, and
+  it is loaded again. You hear when it is on again.
+- An add-on that stops starting after an NVDA update is debugged the same way.
+- After three corrections that did not hold, it is turned off and you are told. "Fix the add-on ..." lets you
+  say in words what it does wrong, and the models try again with that.
+- The mistake is remembered, so the coder is warned about it next time. You can turn automatic correction off
+  in settings; then a failing add-on is turned off and you are told.
+
+Generated add-ons load without restarting NVDA and come back after a restart. "List what you have made" and
+"remove the add-on ..." manage them.
 
 **The two models work together on a fix.** When the add-on is about something on screen, the vision model
 first says what the window shows, NVDA supplies the exact details of the focused control (program, kind, window

@@ -66,6 +66,10 @@ class VisionClawPanel(gui.settingsDialogs.SettingsPanel):
 		self.searchEngine = helper.addLabeledControl(_("Search the &web with:"), wx.Choice, choices=SEARCH_ENGINES)
 		self.searchEngine.SetSelection(
 			SEARCH_IDS.index(c["searchEngine"]) if c["searchEngine"] in SEARCH_IDS else 0)
+		self.autoFixAddons = checkbox(
+			# Translators: Checkbox in settings.
+			_("When an add-on VisionClaw wrote fails, have the models debug and correct it by &themselves"),
+			"autoFixAddons")
 		self.confirmChanges = checkbox(
 			# Translators: Checkbox in settings.
 			_("Ask me before VisionClaw &changes a setting, clicks, presses keys or types"), "confirmChanges")
@@ -107,6 +111,7 @@ class VisionClawPanel(gui.settingsDialogs.SettingsPanel):
 		c["backend"] = backend.CHOICES[max(0, self.backend.GetSelection())]
 		c["reasoning"] = policy.REASONING_CHOICES[max(0, self.reasoning.GetSelection())]
 		c["sideBySide"] = self.sideBySide.GetValue()
+		c["autoFixAddons"] = self.autoFixAddons.GetValue()
 		c["searchEngine"] = SEARCH_IDS[max(0, self.searchEngine.GetSelection())]
 		c["confirmChanges"] = self.confirmChanges.GetValue()
 		c["speakProgress"] = self.speakProgress.GetValue()

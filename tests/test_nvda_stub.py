@@ -218,7 +218,7 @@ from visionClaw.claw.catalog import CODER, VISION  # noqa: E402
 
 instance = plugin.GlobalPlugin()
 registry = instance.orchestrator.registry
-assert len(registry.names()) == 28, registry.names()
+assert len(registry.names()) == 32, registry.names()
 assert set(planner.available(registry)) == set(planner.RECIPES), set(planner.RECIPES) - set(planner.available(registry))
 for name in registry.names():
 	tool = registry.get(name)
@@ -433,6 +433,87 @@ except ValueError as e:
 	assert "subprocess is not allowed" in str(e)
 assert not running
 
+# --- An add-on that fails is caught, debugged by the models and corrected, without the user ---
+
+HEADER = (
+	"import globalPluginHandler\nimport ui\nfrom scriptHandler import script\n\n\n"
+	"class GlobalPlugin(globalPluginHandler.GlobalPlugin):\n\n"
+	"\t@script(description=\"Says the focus\", gesture=\"kb:NVDA+shift+j\")\n"
+	"\tdef script_sayFocus(self, gesture):\n"
+)
+FAILING = (
+	HEADER + "\t\tui.message(missingName)\n\n"
+	"\tdef event_gainFocus(self, obj, nextHandler):\n\t\tui.message(obj.nme)\n\t\tnextHandler()\n"
+)
+CORRECTED = (
+	HEADER + "\t\tui.message(\"focus\")\n\n"
+	"\tdef event_gainFocus(self, obj, nextHandler):\n\t\tui.message(obj.name)\n\t\tnextHandler()\n"
+)
+failures = []
+instance.onAddonFailed = failures.append
+helpers.store.save("Focus Key", FAILING, "say the focus on NVDA+shift+j, and say the name when the focus moves")
+loaded = helpers.loadAddon("Focus Key")
+# The error does not reach NVDA; it is kept, with the failing line, and the add-on is paused.
+assert loaded.script_sayFocus(None) is None and failures == ["focus_key"]
+entry = helpers.errors["focus_key"][0]
+assert entry["where"] == "script_sayFocus" and entry["error"].startswith("NameError: name 'missingName'"), entry
+assert "ui.message(missingName)" in nvdatools.failingLine(entry["trace"]), nvdatools.failingLine(entry["trace"])
+# While it is paused, events still reach NVDA and nothing fails again.
+passed = []
+loaded.event_gainFocus(types.SimpleNamespace(name="OK button"), lambda: passed.append(1))
+assert passed == [1] and failures == ["focus_key"] and len(helpers.errors["focus_key"]) == 1
+# An event that fails before passing the event on: the guard passes it on, exactly once.
+loaded = helpers.loadAddon("Focus Key")
+loaded.event_gainFocus(types.SimpleNamespace(name="OK button"), lambda: passed.append(2))
+assert passed == [1, 2] and failures == ["focus_key", "focus_key"]
+assert helpers.errors["focus_key"][-1]["error"].startswith("AttributeError")
+# What NVDA really offers, where the code used something that does not exist.
+facts = nvdatools.debugFacts("AttributeError: module 'json' has no attribute 'dump_s'")
+assert "json has nothing called dump_s" in facts[0] and "dumps" in facts[0], facts
+assert "never imported or defined" in nvdatools.debugFacts("NameError: name 'missingName' is not defined")[0]
+
+
+class CoderRuntime(FakeRuntime):
+	"""A coder model that corrects the add-on, and a reviewer that finds no fault."""
+	prompts = []
+
+	def chat(self, role, messages, maxTokens, **options):
+		system, user = messages[0]["content"], messages[1]["content"]
+		if system.startswith("You write small add-ons"):
+			self.prompts.append(user)
+			return "```python\n" + CORRECTED + "```"
+		if system.startswith("You review a small NVDA"):
+			return json.dumps({"ok": True, "problem": ""})
+		return super().chat(role, messages, maxTokens, **options)
+
+
+realRuntime = instance.runtime
+instance.runtime = CoderRuntime()
+instance._debugAddon("focus_key")
+prompt = CoderRuntime.prompts[-1]
+assert "script_sayFocus failed with NameError" in prompt and "The failing line is line" in prompt, prompt
+assert "event_gainFocus failed with AttributeError" in prompt and "never imported or defined" in prompt
+assert helpers.store.source("focus_key") == CORRECTED and helpers.store.meta("focus_key")["repairs"] == 1
+loaded = helpers._loaded["focus_key"]
+assert loaded in running and "focus_key" not in helpers.errors
+loaded.script_sayFocus(None)
+loaded.event_gainFocus(types.SimpleNamespace(name="OK button"), lambda: passed.append(3))
+assert passed == [1, 2, 3] and failures == ["focus_key", "focus_key"]  # it no longer fails
+assert instance.memory.search("NVDA add-on code mistake NameError missingName")
+# The user can also ask for a fix in words; what they say goes to the coder.
+worked, result = registry.call(taskModule.Task("fix"), "repair_addon", {"name": "focus key", "problem": "It should say the name too."})
+assert worked and result == "The add-on focus_key was corrected and is on again.", result
+assert "The user says: It should say the name too." in CoderRuntime.prompts[-1]
+# After several corrections that did not hold, it is turned off instead of being corrected for ever.
+helpers.store.save("Focus Key", FAILING, "say the focus on NVDA+shift+j, and say the name when the focus moves", repairs=3)
+loaded = helpers.loadAddon("Focus Key")
+loaded.script_sayFocus(None)
+instance._debugAddon("focus_key")
+assert helpers.store.meta("focus_key")["enabled"] is False and not running, helpers.store.meta("focus_key")
+helpers.store.remove("focus_key")
+helpers.errors.clear()
+instance.runtime = realRuntime
+
 # A generated add-on is saved as a normal add-on file, to install for good or to share.
 helpers.store.save("Hello Key", source, "say hello on NVDA+shift+h")
 worked, result = registry.call(task, "export_addon", {"name": "hello key"})
@@ -447,8 +528,13 @@ helpers.store.remove("hello_key")
 activated = []
 
 
+moved = []
+
+
 def node(label):
-	return types.SimpleNamespace(label=label, activate=lambda: activated.append(label))
+	return types.SimpleNamespace(
+		label=label, activate=lambda: activated.append(label), moveTo=lambda: moved.append(label),
+		report=lambda: moved.append("said " + label))
 
 
 PAGE = "\n".join(
@@ -466,6 +552,9 @@ class Page(sys.modules["browseMode"].BrowseModeDocumentTreeInterceptor):
 		"link": [node("Home"), node("Sign in"), node("Refund policy")],
 		"button": [node("Buy now")],
 		"edit": [node("Search the shop")],
+		"heading": [node("Example Shop"), node("Refund policy")],
+		"heading1": [node("Example Shop")],
+		"heading2": [node("Refund policy")],
 	}
 
 	def __init__(self):
@@ -488,7 +577,7 @@ task = taskModule.Task("test")
 
 # The page's own links, buttons and fields are listed, what is looked for first.
 worked, result = registry.call(task, "list_items", {"about": "sign in to my account"})
-assert worked and result.startswith("5 items on the web page Example Shop:\n1. Sign in link"), result
+assert worked and result.startswith("7 items on the web page Example Shop:\n1. Sign in link"), result
 assert "Buy now button" in result and "Search the shop edit field" in result
 # Following a link needs no question; pressing a button does.
 conf["visionClaw"]["confirmChanges"] = True
@@ -506,6 +595,30 @@ assert worked and activated[-1] == "Search the shop" and typed == ["cats"], resu
 assert result == "Typed \"cats\" into Search the shop edit field and pressed Enter.", result
 assert questions[-1] == "Type \"cats\" into Search the shop edit field?"
 conf["visionClaw"]["confirmChanges"] = False
+# How the page is laid out: its headings with their levels, in page order.
+worked, result = registry.call(task, "page_outline", {})
+assert worked and result.startswith(
+	"The web page Example Shop has 2 headings, 3 links, 1 buttons and 1 form fields.\n"
+	"Heading level 1: Example Shop\nHeading level 2: Refund policy"), result
+# Moving NVDA's reading position to a heading, so the user can read on from there.
+registry.call(task, "list_items", {"about": "go to the refund policy section"})
+worked, result = registry.call(task, "go_to_item", {"item": "Refund policy heading"})
+assert worked and moved == ["Refund policy", "said Refund policy"], (result, moved)
+assert result.startswith("NVDA is now at Refund policy heading."), result
+assert activated[-1] == "Search the shop"  # moving there follows no link and presses nothing
+# Back, forward and reload use the browser's own keys.
+sent = []
+sys.modules["keyboardHandler"].KeyboardInputGesture = types.SimpleNamespace(
+	fromName=lambda name: types.SimpleNamespace(send=lambda: (
+		sent.append(name), setattr(document, "documentConstantIdentifier", "https://example.com/" + name))))
+worked, result = registry.call(task, "page_navigate", {"direction": "back"})
+assert worked and sent == ["alt+leftArrow"] and result == "Went back. The page is now Example Shop.", result
+worked, result = registry.call(task, "page_navigate", {"direction": "reload"})
+assert worked and sent[-1] == "f5" and result.startswith("Reloaded the page"), result
+assert nvdatools.directionOf("go back") == "back" and nvdatools.directionOf("go forward a page") == "forward"
+assert nvdatools.directionOf("refresh this page") == "reload"
+document.documentConstantIdentifier = "https://example.com/"
+
 # Reading a long page: the beginning and the passage that answers the question, not the whole page.
 worked, result = registry.call(task, "read_page", {"about": "What is the refund policy?"})
 assert worked and result.startswith("From the web page Example Shop:") and "within 30 days for a full refund" in result

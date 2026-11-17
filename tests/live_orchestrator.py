@@ -80,7 +80,7 @@ def makeRegistry(rt, state):
 			cancel=task.cancel)
 
 	items = ["Space Trader - Main Menu heading", "New Game button", "Load Game button", "Options button", "Quit button",
-		"Search edit field"]
+		"Search edit field", "Refund policy heading"]
 
 	def listItems(task, about):
 		return f"{len(items)} items in the window:\n" + "\n".join(f"{i}. {n}" for i, n in enumerate(items, 1))
@@ -181,6 +181,35 @@ def makeRegistry(rt, state):
 				auto=lambda part: "braille display" if "braille" in part.lower() else "synthesizer"),
 			"name": text("the name of the synthesizer or braille display to switch to, from nvda_info", maxLength=80),
 		}, changes=True, before="nvda_info", title="Switching the driver"))
+	def simple(name, description, result, title, fields=None, **options):
+		def run(task, **form):
+			state[name] = form or True
+			return result.format(**form) if form else result
+		reg.add(tools.Tool(name, description, run, fields, title=title, **options))
+
+	simple("page_outline",
+		"say how the web page is laid out: its headings in order, and how many links, buttons and fields it has",
+		"The web page Example Shop has 2 headings, 3 links, 1 buttons and 1 form fields.\n"
+		"Heading level 1: Example Shop\nHeading level 2: Refund policy", "Looking at how the page is laid out",
+		looks=True, tell=V)
+	simple("go_to_item",
+		"move NVDA's reading position to one item from list_items on the web page: a heading, a link or a field",
+		"NVDA is now at {item}.", "Moving there",
+		{"item": text("the number or the name of the item, from list_items", maxLength=80)}, before="list_items", tell=V)
+	simple("page_navigate", "go back or forward one page in the browser, or reload the page",
+		"Went {direction}. The page is now Example Shop.", "Moving between pages",
+		{"direction": text("which way", enum=["back", "forward", "reload"],
+			auto=lambda part: "reload" if "reload" in part.lower() else "forward" if "forward" in part.lower() else "back")},
+		tell=V)
+	simple("list_helpers", "list the app helpers and add-ons VisionClaw has made on this computer",
+		"Add-on hello_key (on): say hello on NVDA+shift+h. Keys: NVDA+shift+h.", "Listing what VisionClaw made",
+		looks=True, tell=V)
+	simple("repair_addon",
+		"have the models debug and correct an add-on VisionClaw wrote that fails or does the wrong thing",
+		"The add-on {name} was corrected and is on again.", "Debugging the add-on", {
+			"name": text("the add-on's name, from list_helpers", maxLength=60),
+			"problem": text("what the add-on does wrong, or should do instead", maxLength=400, auto=True),
+		}, before="list_helpers", tell=V)
 	reg.add(tools.Tool("web_open", "open a web address in the user's browser", webOpen,
 		{"address": text("the web address, like example.com", maxLength=300, auto=web.addressIn)},
 		title="Opening the web page", tell=V))
@@ -222,6 +251,10 @@ REQUESTS = (
 	"Which speech synthesizer am I using?",
 	"What braille display do I have, and how many cells does it have?",
 	"Switch my speech synthesizer to the Windows OneCore voices.",
+	"What are the headings on this page?",
+	"Take me to the heading Refund policy.",
+	"Go back to the previous page.",
+	"The add-on hello key does not work, it says nothing. Fix it.",
 )
 
 

@@ -205,6 +205,48 @@ class _PassThrough:
 		return "".join(self._out)
 
 
+class CodeGuard(_PassThrough):
+	"""Passes program code on unchanged, but stops a model that writes the same line again and again, which
+	small models sometimes do with comments until they run out of room."""
+
+	MAX_SAME = 5
+	WINDOW = 12
+	# No small add-on is this long; a model that gets here has lost its way and would only waste the user's time.
+	MAX_LINES = 90
+
+	def __init__(self, onText=None):
+		super().__init__(onText)
+		self._line = ""
+		self._recent = []
+		self._lines = 0
+
+	def feed(self, delta):
+		super().feed(delta)
+		self._line += delta
+		while "\n" in self._line:
+			line, self._line = self._line.split("\n", 1)
+			line = line.strip()
+			self._lines += 1
+			if self._lines > self.MAX_LINES:
+				return False
+			if not line:
+				continue
+			self._recent = (self._recent + [line])[-self.WINDOW:]
+			if self._recent.count(line) >= self.MAX_SAME:
+				return False
+		return True
+
+	def finish(self):
+		"""The code, without the repeated lines it ended in."""
+		text = "".join(self._out)
+		if self._recent and self._recent.count(self._recent[-1]) >= self.MAX_SAME:
+			lines = text.rstrip().split("\n")
+			while len(lines) > 1 and lines[-1].strip() == lines[-2].strip():
+				lines.pop()
+			text = "\n".join(lines[:-1]) + "\n"
+		return text
+
+
 class Engine:
 	"""Owns one llama-server process. Thread safe; all methods may block."""
 
@@ -325,7 +367,7 @@ class Engine:
 		reuses the engine's work on the image, so follow-up questions answer quickly.
 		options are extra request fields, like temperature or response_format; they win over the defaults.
 		raw is for JSON and code: nothing is left out of the answer and the anti-repeat setting is off, because
-		code rightly repeats itself. info, a dict, receives "finish" (why the model stopped) and "thinking"."""
+		code rightly repeats itself. raw="code" also stops a model that writes one line over and over. info, a dict, receives "finish" (why the model stopped) and "thinking"."""
 		if not self.running:
 			raise EngineError("The description engine is not running.")
 		body = {
@@ -342,7 +384,7 @@ class Engine:
 			body.update(ANTI_LOOP)
 		if options:
 			body.update(options)
-		guard = _PassThrough(onText) if raw else RepeatGuard(onText)
+		guard = CodeGuard(onText) if raw == "code" else _PassThrough(onText) if raw else RepeatGuard(onText)
 		thinking = []
 		conn = http.client.HTTPConnection("127.0.0.1", self._port, timeout=600)
 		finished = threading.Event()
