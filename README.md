@@ -16,7 +16,7 @@ VisionClaw is a fork of [VisionMate](https://github.com/athee06/VisionMate) by A
 everything VisionMate does: image descriptions, the overlay for windows NVDA cannot read, photo descriptions in
 chat apps, and names for unlabelled buttons.
 
-> **Status: pre-release (0.3.2).** The orchestration core has been tested with scripted models and with a
+> **Status: pre-release (0.3.3).** The orchestration core has been tested with scripted models and with a
 > real model through the bundled engine, and the whole add-on has been loaded against stand-ins for NVDA.
 > It has **not yet been run inside NVDA**. Expect rough edges and please report them. See
 > [docs/STATUS.md](docs/STATUS.md) for exactly what was tested.
@@ -60,12 +60,27 @@ You do not need to know NVDA. VisionClaw finds the right NVDA setting or command
 
 ## Install
 
-1. Download **[VisionClaw-0.3.2.nvda-addon](https://github.com/joshknnd1982/visionclaw/releases/download/v0.3.2/VisionClaw-0.3.2.nvda-addon)**
+1. Download **[VisionClaw-0.3.3.nvda-addon](https://github.com/joshknnd1982/visionclaw/releases/download/v0.3.3/VisionClaw-0.3.3.nvda-addon)**
    (or pick a version on the [releases page](https://github.com/joshknnd1982/visionclaw/releases)), open the
    file, confirm the installation, and restart NVDA.
 2. If VisionMate is installed, disable it in the Add-on Store: VisionClaw includes it and uses the same keys.
 3. A welcome window opens where you **choose your models**. Press Enter to download them. While they download,
    press Space to hear the progress. An interrupted download continues from where it stopped.
+
+## Your settings stay yours
+
+VisionClaw changes an NVDA setting only when you ask it to, and only the setting you asked about.
+
+- **Only what you asked about.** Before a setting is changed, plain code checks that your request says
+  something about that setting. If it does not, the change is refused, whatever a model decided.
+- **You see what you asked next to what will change.** The question reads, for example: "You asked: speak a bit
+  faster. Change speech rate from 50 to 60?"
+- **Every change is written down**: what it was, what it became, when, and which request asked for it.
+- **"What did you change?"** lists the changes that still stand.
+- **"Undo that"**, or "put the speech rate back", puts a setting back to what it was. If you ask to restore
+  something VisionClaw never changed, it says so and changes nothing.
+
+Installing or updating VisionClaw changes no NVDA setting.
 
 ## Models
 

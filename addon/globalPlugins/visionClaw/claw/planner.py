@@ -120,6 +120,14 @@ RECIPES = {
 		"debug and correct an add-on",
 		"fix, debug or change an add-on VisionClaw wrote that fails or does not do what it should",
 		("list_helpers", "repair_addon")),
+	"undo_change": (
+		"put a setting back",
+		"undo a change VisionClaw made: put a setting back to what it was before, restore it, revert it",
+		("undo_change",)),
+	"list_changes": (
+		"say what VisionClaw has changed",
+		"say which settings VisionClaw has changed",
+		("list_changes",)),
 	"save_addon": (
 		"save an add-on as a file",
 		"save an add-on VisionClaw wrote as a file that can be installed for good or shared",
@@ -133,6 +141,9 @@ RECIPES = {
 # and the choice when the model fails.
 _HINTS = (
 	("save_addon", r"\b(save|export|package|share)\b.*\badd-?on"),
+	("list_changes", r"\bwhat\b.*\b(did|have|has)\b.*\b(you|visionclaw)\b.*\bchanged?\b|\bwhich settings\b.*\bchanged\b"),
+	("undo_change", r"\b(undo|revert|restore)\b|\b(put|change|set|turn)\b.*\bback\b|\bback to (what|how|the way)\b"
+		r"|\bas it was\b|\bwhat it was before\b"),
 	("fix_addon", r"\b(fix|repair|correct|debug)\b.*\badd-?on|\badd-?on\b.*\b(does(n't| not) work|is broken|stopped working|fails|wrong)\b"),
 	("remove_made", r"\b(remove|delete|get rid of)\b.*\b(helper|hot ?key|add-?on)"),
 	("list_made", r"\b(list|show|which|what)\b.*\b(helpers?|add-?ons?)\b.*\b(you|visionclaw)\b.*\b(made|wrote|written|created)"),

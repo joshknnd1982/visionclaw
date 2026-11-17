@@ -38,6 +38,15 @@ Before you start: disable VisionMate in the Add-on Store, install the VisionClaw
       use ..." appears; Yes removes the old ones.
 - [ ] "Remove all models", then NVDA+Alt+W: the models window opens.
 
+## Settings stay the user's
+- [ ] Installing or updating VisionClaw changes no NVDA setting (compare the speech rate before and after).
+- [ ] "Speak a bit faster": the question reads "You asked: speak a bit faster. Change speech rate from X to Y?".
+- [ ] "What did you change?" names that change.
+- [ ] "Undo that" asks, then puts the rate back to X, and says so.
+- [ ] "Restore the voice pitch to what it was before you changed it", with the pitch never changed by
+      VisionClaw: it says it has not changed that, and nothing changes.
+- [ ] After restarting NVDA, "what did you change?" still knows the changes.
+
 ## Two large models
 - [ ] With Qwen3.5 9B and Qwen2.5 Coder 7B chosen on a computer whose graphics card cannot hold both: ask
       something, then open NVDA+Alt+C. The Last task box says the two models ran in two different places.

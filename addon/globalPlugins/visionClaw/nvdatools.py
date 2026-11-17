@@ -26,10 +26,10 @@ import wx
 from logHandler import log
 
 from . import nvdainfo, ocr, webtools
-from .claw import drivers, match, microaddons, policy, web
+from .claw import changes, drivers, match, microaddons, policy, web
 from .claw.catalog import CODER, VISION
 from .claw.llm import LLM, clip
-from .claw.memory import score
+from .claw.memory import score, wordList, words as wordsOf
 from .claw.tools import ANSWER, VERBATIM, Registry, Tool, ToolError
 from .engine import EngineError, prepareImage
 
@@ -384,17 +384,34 @@ def allSettings():
 	return found
 
 
-def _findSettings(words):
+def settingWords(ident, label):
+	"""The words a setting is known by: (those of its name, those people also use for it)."""
+	return wordsOf(f"{label} {ident.replace('.', ' ')}"), wordsOf(_ALIASES.get(ident, ""))
+
+
+def _findSettings(query):
+	"""The settings a request is about, best first. A setting counts by how many of the request's words name
+	it, not by what share of the request they are: a long sentence that says "pitch" once is about the pitch."""
+	inOrder = wordList(query)
+	asked = set(inOrder)
 	scored = []
 	for setting in allSettings():
-		text = f"{setting.label} {setting.id.replace('.', ' ')} {_ALIASES.get(setting.id, '')}"
-		s = score(words, text)
-		if s >= 0.34:
-			scored.append((s, setting))
-	scored.sort(key=lambda x: -x[0])
+		named, also = settingWords(setting.id, setting.label)
+		matched = asked & (named | also)
+		if matched:
+			# Among equals, the setting named last wins: in "the voice pitch", the pitch is what is meant.
+			last = max(i for i, word in enumerate(inOrder) if word in matched)
+			scored.append((len(matched), len(asked & named), last, setting))
+	scored.sort(key=lambda x: (-x[0], -x[1], -x[2]))
 	return [
-		f"{s.id}: {s.label}. Now: {s.shown()}. Allowed: {s.allowed()}." for _score, s in scored[:MAX_FOUND]
+		f"{s.id}: {s.label}. Now: {s.shown()}. Allowed: {s.allowed()}." for _count, _named, _last, s in scored[:MAX_FOUND]
 	]
+
+
+def related(asked, ident, label):
+	"""Whether a request says anything about a setting. Used to refuse changing a setting nobody asked about."""
+	named, also = settingWords(ident, label)
+	return bool(wordsOf(asked) & (named | also))
 
 
 def _resolveSetting(ident):
@@ -403,6 +420,10 @@ def _resolveSetting(ident):
 		if setting.id == ident:
 			return setting
 	index = match.best(str(ident).replace(".", " "), [s.id.replace(".", " ") for s in settings], least=0.85)
+	if index is None:
+		# A model sometimes copies the setting's name instead of its id: "speech: rate" for speech.rate.
+		wanted = match.plain(str(ident))
+		index = next((i for i, s in enumerate(settings) if match.plain(s.label) == wanted), None)
 	return settings[index] if index is not None else None
 
 
@@ -921,18 +942,24 @@ def build(plugin):
 	def findSetting(task, words):
 		found = onMain(_findSettings, words)
 		if not found:
-			raise ToolError("No setting matches those words. Try other words, like speech rate, punctuation or typing echo.")
+			# No examples here: a small model copies an example as if it were the answer.
+			raise ToolError("No setting matches those words. Use the words of the request that say what the setting does.")
 		return "\n".join(found)
 
 	add("find_setting", "find NVDA settings by describing them; gives each setting's id, value now and allowed values",
 		findSetting, {"words": text("2 to 4 keywords for the setting, like: speech rate", maxLength=80, auto=True)},
 		looks=True, title="Finding the setting")
 
-	def setSetting(task, setting, value):
+	def setSetting(task, setting, value, asked):
 		def work():
 			found = _resolveSetting(setting)
 			if found is None:
 				raise ToolError(f"There is no setting with the id {setting}. Copy an id exactly from find_setting.")
+			# Only the setting the user asked about may be changed, whatever a model decided.
+			if asked and not related(asked, found.id, found.label):
+				raise ToolError(
+					f"The user asked: \"{clip(asked, 200)}\". That says nothing about {found.label}. "
+					"Choose the setting from find_setting that the request is about. If none is, this cannot be done.")
 			new = found.parse(value)
 			old = found.shown()
 			if found.id == "speech.volume":
@@ -940,30 +967,75 @@ def build(plugin):
 				if verdict == drivers.REFUSE:
 					raise Refused(why)
 				if verdict == drivers.WARN:
-					return found, new, old, f"{why} " + _("Change {setting} from {old} to {new}?").format(
+					return found, new, old, found.read(), f"{why} " + _("Change {setting} from {old} to {new}?").format(
 						setting=found.label, old=old, new=found.shown(new)), True
 			# Translators: Asked before VisionClaw changes an NVDA setting.
-			return found, new, old, _("Change {setting} from {old} to {new}?").format(
+			return found, new, old, found.read(), _("Change {setting} from {old} to {new}?").format(
 				setting=found.label, old=old, new=found.shown(new)), False
-		found, new, old, question, risky = onMain(work)
+		found, new, old, before, question, risky = onMain(work)
+		if asked:
+			# Translators: Put before the question about a change, so the user can tell if it is what they asked for.
+			question = _("You asked: {request}").format(request=clip(asked, 160)).rstrip(".") + ". " + question
 		mustAgree(question) if risky else confirm(question)
 		onMain(found.write, new)
-		return f"{found.label.capitalize()} was {old} and is now {onMain(found.shown)}."
+		now = onMain(found.shown)
+		# Every change is written down, so that it can be put back.
+		plugin.changes.add(found.id, found.label, before, new, old, now, asked or task.request)
+		return f"{found.label.capitalize()} was {old} and is now {now}."
 
 	add("set_setting", "change one NVDA setting", setSetting, {
 		"setting": text("the id of the setting, copied from find_setting", maxLength=80),
 		"value": text("the new value: on, off, a number, +10 or -10 to change a number, or one of the allowed values",
 			maxLength=60),
+		"asked": text("what the user asked for, in their own words", maxLength=300, auto=True),
 	}, changes=True, before="find_setting", title="Changing the setting")
+
+	def undoChange(task, what):
+		def known(change):
+			named, also = settingWords(change["setting"], change["label"])
+			return named | also
+		change, reason = changes.choose(what, plugin.changes.pending(), known)
+		if reason == "nothing":
+			return "VisionClaw has not changed any setting, so there is nothing to put back."
+		if reason == "other":
+			return (
+				"VisionClaw has not changed that, so it cannot put it back. What it has changed, and can put back:\n"
+				+ plugin.changes.text())
+
+		def work():
+			found = _resolveSetting(change["setting"])
+			if found is None:
+				raise ToolError(f"The setting {change['label']} is not there any more, so it cannot be put back.")
+			return found, found.shown(), found.shown(change["old"])
+		found, now, back = onMain(work)
+		if now == back:
+			plugin.changes.markUndone(change)
+			return f"{found.label.capitalize()} is already {back}, as it was before VisionClaw changed it."
+		# Translators: Asked before VisionClaw puts a setting back to what it was.
+		confirm(_("Put {setting} back from {now} to {old}, as it was before VisionClaw changed it?").format(
+			setting=found.label, now=now, old=back))
+		onMain(found.write, change["old"])
+		plugin.changes.markUndone(change)
+		return f"{found.label.capitalize()} was {now} and is back to {onMain(found.shown)}, as it was before."
+
+	add("undo_change", "put a setting back to what it was before VisionClaw changed it", undoChange,
+		{"what": text("which change to undo, in the user's words", maxLength=300, auto=True)},
+		changes=True, title="Putting it back")
+
+	add("list_changes", "say which settings VisionClaw has changed, and from what to what",
+		lambda task: plugin.changes.text() or "VisionClaw has not changed any setting.",
+		looks=True, title="Looking up what was changed", tell=VERBATIM)
 
 	# Commands.
 	def findCommand(task, words):
 		commands = onMain(_commands)
 		task.commands = commands
-		scored = sorted(((score(words, c.text + " " + match.label(c.id)), c) for c in commands), key=lambda x: -x[0])
-		found = [c for s, c in scored[:MAX_FOUND] if s >= 0.34]
+		asked = wordsOf(words)
+		scored = sorted(
+			((len(asked & wordsOf(c.text + " " + match.label(c.id))), c) for c in commands), key=lambda x: -x[0])
+		found = [c for count, c in scored[:MAX_FOUND] if count]
 		if not found:
-			raise ToolError("No NVDA command matches those words. Try other words, like title, time, battery or say all.")
+			raise ToolError("No NVDA command matches those words. Use the words of the request that say what the command does.")
 		return "\n".join(
 			f"{c.id}: {c.info.displayName}. Keys: {' or '.join(c.keys) if c.keys else 'no key assigned'}." for c in found)
 

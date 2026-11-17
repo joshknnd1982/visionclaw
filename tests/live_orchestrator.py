@@ -8,7 +8,7 @@ Needs addon/engine (see BUILD.md) and a model on this computer: either models do
 (pass their folder as the first argument) or VisionMate's vision data, which is then used for both roles.
 The NVDA tools are replaced by stand-ins, so nothing on the computer is changed.
 
-  python tests/live_orchestrator.py [modelsFolder] [reasoning]
+  python tests/live_orchestrator.py [modelsFolder] [reasoning] [visionModelId] [coderModelId]
 """
 import io
 import sys
@@ -67,7 +67,11 @@ def makeRegistry(rt, state):
 
 	def setSetting(task, setting, value):
 		if setting not in settings:
-			raise tools.ToolError(f"There is no setting with the id {setting}. Copy an id exactly from find_setting.")
+			# Like the real tool: the setting's name instead of its id is understood too.
+			named = [k for k, v in settings.items() if match.plain(v[0]) == match.plain(setting)]
+			if not named:
+				raise tools.ToolError(f"There is no setting with the id {setting}. Copy an id exactly from find_setting.")
+			setting = named[0]
 		old = settings[setting][1]
 		if setting == "speech.rate":
 			value = match.toNumber(value, int(old), 0, 100)
@@ -201,6 +205,11 @@ def makeRegistry(rt, state):
 		{"direction": text("which way", enum=["back", "forward", "reload"],
 			auto=lambda part: "reload" if "reload" in part.lower() else "forward" if "forward" in part.lower() else "back")},
 		tell=V)
+	simple("undo_change", "put a setting back to what it was before VisionClaw changed it",
+		"Speech rate was 45 and is back to 50, as it was before.", "Putting it back",
+		{"what": text("which change to undo, in the user's words", maxLength=300, auto=True)}, changes=True)
+	simple("list_changes", "say which settings VisionClaw has changed, and from what to what",
+		"Speech rate: from 50 to 45, on 17 November at 12:57.", "Looking up what was changed", looks=True, tell=V)
 	simple("list_helpers", "list the app helpers and add-ons VisionClaw has made on this computer",
 		"Add-on hello_key (on): say hello on NVDA+shift+h. Keys: NVDA+shift+h.", "Listing what VisionClaw made",
 		looks=True, tell=V)
@@ -255,6 +264,9 @@ REQUESTS = (
 	"Take me to the heading Refund policy.",
 	"Go back to the previous page.",
 	"The add-on hello key does not work, it says nothing. Fix it.",
+	"Restore the voice pitch to what it was before you changed it.",
+	"What did you change?",
+	"Undo that.",
 )
 
 
@@ -265,7 +277,10 @@ def main():
 	cat = OneModelCatalog(folder, harness.visionMateData())
 	if not cat.installed(VISION):
 		sys.exit("No model found. Download models with VisionClaw, or install VisionMate's vision data.")
-	rt = runtime.ModelRuntime(harness.ENGINE_DIR, cat, lambda: {"backend": "auto"})
+	# The third and fourth arguments choose the models by their catalog ids, like qwen3.5-4b and qwen3.5-9b-coder.
+	chosen = {"backend": "auto", "visionModel": sys.argv[3] if len(sys.argv) > 3 else "",
+		"coderModel": sys.argv[4] if len(sys.argv) > 4 else ""}
+	rt = runtime.ModelRuntime(harness.ENGINE_DIR, cat, lambda: chosen)
 	print("vision:", rt.entry(VISION)["name"], "| coder:", rt.entry(CODER)["name"])
 	asked = []
 

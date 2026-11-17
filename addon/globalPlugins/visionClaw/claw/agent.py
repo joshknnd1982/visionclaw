@@ -109,7 +109,10 @@ def runStep(llm, task, registry, request, steps, index, params, lead=policy.LEAD
 		task.emit(taskModule.DETAIL, ("Result: " if worked else "Problem: ") + clip(result, 300))
 		if worked:
 			step.status, step.result = taskModule.STEP_DONE, result
-			if tries and tries[-1][0]:
+			# A form that was corrected is worth remembering, but not for a tool that only searches: that
+			# another search found something does not make it the right thing, and such a lesson would steer
+			# later requests to the wrong place.
+			if tries and tries[-1][0] and not tool.looks:
 				step.lesson = (
 					f"Tool {tool.name}: this form failed: {json.dumps(tries[-1][0])} ({clip(tries[-1][1], 120)}). "
 					f"This form worked: {json.dumps(form)}."

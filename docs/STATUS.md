@@ -1,6 +1,6 @@
 # VisionClaw status
 
-Updated 2026-11-17, version 0.3.2.
+Updated 2026-11-17, version 0.3.3.
 
 ## What exists
 
@@ -48,6 +48,31 @@ was not written down, so the test plan is not ticked off from this.
 
 After installing 0.3.2 the owner reported that the models window (NVDA+Alt+M) works in NVDA 2026.3.1. Which of
 its buttons were used was not written down; removing a model for real is not confirmed.
+
+## A wrong change in real use, and what was done about it (0.3.3)
+
+In NVDA the owner asked "restore the voice pitch to what it was before you changed it". VisionClaw changed the
+speech rate instead. The cause, read from VisionClaw's own lessons file:
+1. The search for the setting compared what share of the request's words matched, so a long sentence that said
+   "pitch" once matched nothing.
+2. The error message gave examples ("like speech rate"), and the model copied the example as its next search.
+3. Nothing checked that the setting to be changed was the one asked about, and nothing recorded the old value,
+   so the change could not be undone. A lesson was even stored that would have repeated the mistake.
+
+Fixed in 0.3.3: settings are found by how many of the request's words name them; error messages give no
+examples; `set_setting` refuses a setting the request says nothing about and shows the request in its question;
+every change is recorded (`claw/changes.py`) and can be listed and undone (`undo_change`, `list_changes`);
+lessons are no longer learned from searches, and the misleading ones are dropped at start. The request that went
+wrong is replayed in `tests/test_nvda_stub.py`. The old speech rate is not known; the owner has to set it again.
+
+## Two different models in one run (2026-11-17)
+
+`tests/live_orchestrator.py` was run with the owner's models: Qwen3.5 4B for vision on the GeForce RTX 5060 and
+Qwen3.5 9B for coding, which did not fit beside it and ran on the Radeon 780M through Vulkan, both loaded.
+20 of 21 requests were handled the right way, in 2.4 to 10 seconds each, and the two models chose the same way
+every time, so the user was never asked to decide. The one failure: the model wrote a setting's name
+("speech: rate") where its id was wanted, which the stand-in tool refused; the real tool accepted near misses
+already and now accepts the name too.
 
 ## What was not tested
 

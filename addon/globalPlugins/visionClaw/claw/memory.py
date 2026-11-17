@@ -31,9 +31,14 @@ def stem(word):
 	return word
 
 
+def wordList(text):
+	"""The telling words of a text in the order they come, without their endings."""
+	return [stem(w) for w in _WORD.findall((text or "").lower()) if w not in _COMMON]
+
+
 def words(text):
 	"""The telling words of a text, without their endings."""
-	return {stem(w) for w in _WORD.findall((text or "").lower()) if w not in _COMMON}
+	return set(wordList(text))
 
 
 def score(query, text, extra=0.0):
@@ -99,6 +104,17 @@ class Memory:
 					scored.append((s, lesson["text"]))
 		scored.sort(key=lambda x: -x[0])
 		return [text for _s, text in scored[:limit]]
+
+	def forget(self, unwanted):
+		"""Drop the lessons for which unwanted(text) is true. Returns how many were dropped."""
+		with self._lock:
+			lessons = self._load()
+			kept = [lesson for lesson in lessons if not unwanted(lesson["text"])]
+			dropped = len(lessons) - len(kept)
+			if dropped:
+				self._lessons = kept
+				self._save()
+		return dropped
 
 	def all(self):
 		with self._lock:

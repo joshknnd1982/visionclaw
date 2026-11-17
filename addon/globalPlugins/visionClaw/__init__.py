@@ -36,6 +36,7 @@ from speech import extensions as speechExtensions
 
 from . import autodescribe, clawui, curtain, dialogs, explorer, followup, hardware, helpers, imaging, labels, localmedia, nvdatools, ocr, sounds, viewers, winzapp
 from .claw import catalog, drivers
+from .claw.changes import ChangeLog
 from .claw import task as clawTask
 from .claw.catalog import CODER, VISION
 from .claw.knowledge import Knowledge
@@ -408,11 +409,16 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		self.knowledge.addSource("userGuide", nvdatools.userGuideSections)
 		self.memory = Memory(os.path.join(DATA_DIR, "lessons.json"))
 		self.driverNotes = drivers.DriverNotes(os.path.join(DATA_DIR, "drivers.json"))
+		# Every setting VisionClaw changes is written down, so that it can be put back.
+		self.changes = ChangeLog(os.path.join(DATA_DIR, "changes.json"))
 		self.helpers = helpers.Helpers(self, DATA_DIR)
 		self.clawTask = None
 		self._askDialog = None
-		self.orchestrator = Orchestrator(
-			self.runtime, nvdatools.build(self), self.clawAsk, self._clawSituation, self.memory)
+		registry = nvdatools.build(self)
+		# Earlier versions learned from searches that happened to find something; those lessons misled.
+		searching = tuple(f"Tool {name}:" for name in registry.names() if registry.get(name).looks)
+		self.memory.forget(lambda text: text.startswith(searching))
+		self.orchestrator = Orchestrator(self.runtime, registry, self.clawAsk, self._clawSituation, self.memory)
 		wx.CallLater(2000, self.helpers.loadEnabled)
 		self._autoCache = collections.OrderedDict()
 		self._autoGeneration = 0

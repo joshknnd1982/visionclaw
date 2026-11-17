@@ -216,9 +216,18 @@ from visionClaw.claw.catalog import CODER, VISION  # noqa: E402
 
 # --- The plugin starts, and every tool and recipe is in place ---
 
+os.makedirs(os.path.join(CONFIG_DIR, "visionClaw"), exist_ok=True)
+with open(os.path.join(CONFIG_DIR, "visionClaw", "lessons.json"), "w", encoding="utf-8") as f:
+	json.dump([
+		{"text": "Tool find_setting: this form failed: {\"words\": \"restore the voice pitch\"} (No setting matches). "
+			"This form worked: {\"words\": \"speech rate\"}.", "topic": "restore the voice pitch", "time": 1.0},
+		{"text": "Tool set_setting: this form failed: {} (x). This form worked: {}.", "topic": "x", "time": 2.0},
+	], f)
 instance = plugin.GlobalPlugin()
 registry = instance.orchestrator.registry
-assert len(registry.names()) == 32, registry.names()
+assert len(registry.names()) == 34, registry.names()
+# Lessons from searches that happened to find something misled; they are dropped when VisionClaw starts.
+assert instance.memory.all() == ["Tool set_setting: this form failed: {} (x). This form worked: {}."], instance.memory.all()
 assert set(planner.available(registry)) == set(planner.RECIPES), set(planner.RECIPES) - set(planner.available(registry))
 for name in registry.names():
 	tool = registry.get(name)
@@ -247,26 +256,30 @@ worked, result = registry.call(task, "find_setting", {"words": "zebra unicorn"})
 assert not worked and "No setting matches" in result
 
 conf["visionClaw"]["confirmChanges"] = False
-worked, result = registry.call(task, "set_setting", {"setting": "speech.rate", "value": "+10"})
+worked, result = registry.call(task, "set_setting", {"setting": "speech.rate", "value": "+10", "asked": ""})
 assert worked and synth.rate == 60 and result == "Speech rate was 50 and is now 60.", result
 assert conf["speech"]["fake"]["rate"] == 60
-worked, result = registry.call(task, "set_setting", {"setting": "speech_rate", "value": "/80"})
+worked, result = registry.call(task, "set_setting", {"setting": "speech_rate", "value": "/80", "asked": ""})
 assert worked and synth.rate == 80, result  # a near miss of the id and a stray character are forgiven
-worked, result = registry.call(task, "set_setting", {"setting": "speech.rate", "value": "500"})
+worked, result = registry.call(task, "set_setting", {"setting": "speech.rate", "value": "500", "asked": ""})
 assert not worked and "outside the allowed range" in result and synth.rate == 80
-worked, result = registry.call(task, "set_setting", {"setting": "keyboard.speakTypedCharacters", "value": "off"})
+worked, result = registry.call(task, "set_setting", {"setting": "keyboard.speakTypedCharacters", "value": "off", "asked": ""})
 assert worked and conf["keyboard"]["speakTypedCharacters"] is False
-worked, result = registry.call(task, "set_setting", {"setting": "speech.symbolLevel", "value": "all"})
+worked, result = registry.call(task, "set_setting", {"setting": "speech.symbolLevel", "value": "all", "asked": ""})
 assert worked and conf["speech"]["symbolLevel"] == 300 and result.endswith("is now all."), result
-worked, result = registry.call(task, "set_setting", {"setting": "nothing.here", "value": "on"})
+# The setting's name instead of its id is understood too.
+worked, result = registry.call(task, "set_setting", {"setting": "Keyboard: speak typed characters", "value": "on", "asked": ""})
+assert worked and conf["keyboard"]["speakTypedCharacters"] is True, result
+registry.call(task, "set_setting", {"setting": "keyboard.speakTypedCharacters", "value": "off", "asked": ""})
+worked, result = registry.call(task, "set_setting", {"setting": "nothing.here", "value": "on", "asked": ""})
 assert not worked and "Copy an id exactly from find_setting" in result
 
 # Every setting the synthesizer itself offers can be changed, not only rate, pitch and volume.
 worked, result = registry.call(task, "find_setting", {"words": "change the voice"})
 assert worked and "speech.voice: speech voice. Now: Anna. Allowed: one of: Anna, Ben." in result, result
-worked, result = registry.call(task, "set_setting", {"setting": "speech.voice", "value": "ben"})
+worked, result = registry.call(task, "set_setting", {"setting": "speech.voice", "value": "ben", "asked": ""})
 assert worked and synth.voice == "v2" and conf["speech"]["fake"]["voice"] == "v2", result
-worked, result = registry.call(task, "set_setting", {"setting": "speech.rateBoost", "value": "on"})
+worked, result = registry.call(task, "set_setting", {"setting": "speech.rateBoost", "value": "on", "asked": ""})
 assert worked and synth.rateBoost is True, result
 
 # What NVDA has and uses: the synthesizer, its voices, the braille display, the drivers.
@@ -284,15 +297,52 @@ assert nvdainfo.topicOf("what braille display do I have") == "braille"
 assert nvdainfo.topicOf("which voices does my synthesizer have") == "speech"
 assert nvdainfo.topicOf("which add-ons are installed") == "addons" and nvdainfo.topicOf("what version is this") == "general"
 
+# --- Only what was asked about is changed, every change is written down, and any change can be put back ---
+
+PITCH = "restore the voice pitch to what it was before you changed it."
+# A long sentence that says "pitch" once is about the pitch. It used to match nothing, and the model then
+# searched for something else and changed the speech rate.
+worked, result = registry.call(task, "find_setting", {"words": PITCH})
+assert worked and result.startswith("speech.pitch: speech pitch.") and "speech.rate" not in result, result
+# A setting the request says nothing about is not changed, whatever a model decides.
+rateBefore = synth.rate
+worked, result = registry.call(task, "set_setting", {"setting": "speech.rate", "value": "45", "asked": PITCH})
+assert not worked and "says nothing about speech rate" in result and synth.rate == rateBefore, result
+assert "like speech rate" not in registry.call(task, "find_setting", {"words": "zebra unicorn"})[1]  # no examples to copy
+# A change that was asked for is written down with what it was before.
+instance.changes.pending()
+instance.changes._changes = []  # the tests above changed settings too; start this part with an empty record
+worked, result = registry.call(task, "set_setting", {"setting": "speech.rate", "value": "+10", "asked": "speak a bit faster"})
+assert worked and synth.rate == rateBefore + 10, result
+worked, result = registry.call(task, "set_setting", {"setting": "speech.pitch", "value": "70", "asked": "make the pitch higher"})
+assert worked and synth.pitch == 70
+newest = instance.changes.pending()[0]
+assert newest["setting"] == "speech.pitch" and newest["old"] == 40 and newest["new"] == 70 and newest["request"] == "make the pitch higher"
+worked, result = registry.call(task, "list_changes", {})
+assert worked and "Speech pitch: from 40 to 70" in result and f"Speech rate: from {rateBefore} to {rateBefore + 10}" in result, result
+# "Restore the pitch" puts the pitch back, and leaves the rate alone.
+worked, result = registry.call(task, "undo_change", {"what": PITCH})
+assert worked and synth.pitch == 40 and synth.rate == rateBefore + 10, result
+assert result == "Speech pitch was 70 and is back to 40, as it was before.", result
+# Asked again: VisionClaw has not changed the pitch any more, says so, and changes nothing.
+worked, result = registry.call(task, "undo_change", {"what": PITCH})
+assert worked and result.startswith("VisionClaw has not changed that") and "Speech rate: from" in result
+assert synth.rate == rateBefore + 10
+# "Undo that" puts back the newest change that still stands.
+worked, result = registry.call(task, "undo_change", {"what": "undo that"})
+assert worked and synth.rate == rateBefore and instance.changes.pending() == [], result
+worked, result = registry.call(task, "undo_change", {"what": "undo that"})
+assert worked and result == "VisionClaw has not changed any setting, so there is nothing to put back."
+
 # The user is asked before a change, and saying no changes nothing.
 conf["visionClaw"]["confirmChanges"] = True
 questions = []
 instance.clawAsk = lambda question, choices: questions.append(question) or 1
-worked, result = registry.call(task, "set_setting", {"setting": "speech.rate", "value": "20"})
+worked, result = registry.call(task, "set_setting", {"setting": "speech.rate", "value": "20", "asked": "speak slower"})
 assert worked and result == "You said no, so nothing was changed." and synth.rate == 80
-assert questions == ["Change speech rate from 80 to 20?"], questions
+assert questions == ["You asked: speak slower. Change speech rate from 80 to 20?"], questions
 instance.clawAsk = lambda question, choices: 0
-worked, result = registry.call(task, "set_setting", {"setting": "speech.rate", "value": "20"})
+worked, result = registry.call(task, "set_setting", {"setting": "speech.rate", "value": "20", "asked": ""})
 assert worked and synth.rate == 20
 conf["visionClaw"]["confirmChanges"] = False
 
@@ -350,10 +400,10 @@ assert worked and result == "You said no, so nothing was changed." and synth.nam
 worked, result = registry.call(task, "switch_driver", {"kind": SYNTH, "name": "Zebra Talk"})
 assert not worked and "Installed: Fake synthesizer, eSpeak NG" in result
 # A volume too quiet to hear, without braille, is refused as well.
-worked, result = registry.call(task, "set_setting", {"setting": "speech.volume", "value": "0"})
+worked, result = registry.call(task, "set_setting", {"setting": "speech.volume", "value": "0", "asked": ""})
 assert worked and synth.volume == 100 and "too quiet to hear, and there is no braille display" in result, result
 instance.clawAsk = lambda question, choices: 0
-worked, result = registry.call(task, "set_setting", {"setting": "speech.volume", "value": "40"})
+worked, result = registry.call(task, "set_setting", {"setting": "speech.volume", "value": "40", "asked": ""})
 assert worked and synth.volume == 40
 
 # Typing goes through Windows itself: one key down and one key up per character, with the right layout

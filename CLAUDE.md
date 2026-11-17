@@ -66,6 +66,13 @@ keyboard and speech alone.
   forgotten imports and `nextHandler()`, fixes role comparisons, adds a program limit, and salvages a file that
   was cut off. Add to `tidy` whenever the real model shows a new mistake of this kind, and never show the coder
   an example that does two things: it copies all of it.
+- **Never put an example in a message a model reads after a failure.** It copies the example as if it were the
+  answer: "try other words, like speech rate" made the model change the speech rate. Say what is needed in
+  general words.
+- **Only what the user asked about is changed, and every change can be undone.** A tool that changes something
+  takes the user's own words (`asked`, an `auto` field), refuses when they say nothing about its target
+  (`nvdatools.related`), records the old value (`claw/changes.py`), and shows the request in its question.
+  Never learn a lesson from a search tool: finding something is not finding the right thing.
 - **Measure with the real model.** After any change to a prompt, a recipe or a form, run
   `python tests/live_orchestrator.py` and read every answer. A change that passes the scripted tests can still
   make a small model worse.
@@ -101,6 +108,7 @@ addon/
       match.py               forgiving matching of what a model writes against what exists
       web.py                 web addresses, search addresses, the passages of a page that matter
       drivers.py             rules that keep speech and braille alive; what happened with each driver
+      changes.py             every setting VisionClaw changed, so that it can be listed and put back
       planner.py             splits a request into parts; recipes; free plans and their repair
       consensus.py           the two models agree, or the user decides
       agent.py               the tool loop for one step
@@ -189,6 +197,8 @@ A session is done only when its "Done when" line is true.
 - [x] **3.11 Managing models.** Settings list the stored models; a window removes some or all and leads to
   choosing others; after a new choice the unused ones are offered for removal (`catalog.stored`,
   `dialogs.ManageModelsDialog`, `plugin.removeModels`). Stop the engines before deleting model files.
+- [x] **3.12 Settings stay the user's.** Changes only to what was asked about; a record of every change;
+  `undo_change` and `list_changes`.
 - [ ] **3.5 Test inside NVDA.** Install the build in NVDA (ask the user first) and walk through
   `docs/TESTPLAN.md`. Fix what breaks. *Done when:* every item in the test plan is ticked by a real run.
 

@@ -14,7 +14,7 @@ import zipfile
 import harness  # noqa: F401
 import rangeserver
 from visionClaw import net
-from visionClaw.claw import catalog, drivers, match, microaddons, policy, web
+from visionClaw.claw import catalog, changes, drivers, match, microaddons, policy, web
 from visionClaw.claw import task as taskModule
 from visionClaw.claw.catalog import CODER, VISION
 from visionClaw.claw.knowledge import Knowledge
@@ -191,6 +191,29 @@ long = "\n".join(["News today"] + [f"Paragraph {i} talks about football results.
 found = web.passages(long, "When does the library open?")
 assert found.startswith("News today") and "library opens at nine" in found and "..." in found and len(found) <= 1500
 assert web.passages(long, "zzzz").startswith("News today") and len(web.passages(long, "zzzz")) <= 1410
+
+# --- What VisionClaw changed, and putting it back ---
+
+log = changes.ChangeLog(os.path.join(tempfile.mkdtemp(), "changes.json"))
+assert log.pending() == [] and log.text() == ""
+log.add("speech.rate", "speech rate", 50, 60, "50", "60", "speak faster")
+log.add("keyboard.speakTypedCharacters", "keyboard speak typed characters", True, False, "on", "off", "no typing echo")
+assert [c["setting"] for c in log.pending()] == ["keyboard.speakTypedCharacters", "speech.rate"]  # newest first
+assert "Speech rate: from 50 to 60" in log.text() and "Keyboard speak typed characters: from on to off" in log.text()
+
+
+def known(change):
+	return changes.words(change["label"] + " " + change["setting"].replace(".", " "))
+
+
+assert changes.choose("undo that", log.pending(), known)[0]["setting"] == "keyboard.speakTypedCharacters"
+assert changes.choose("put the speech rate back to what it was", log.pending(), known)[0]["setting"] == "speech.rate"
+assert changes.choose("restore the voice pitch to what it was before you changed it", log.pending(), known) == (None, "other")
+assert changes.choose("undo that", [], known) == (None, "nothing")
+assert changes.meant("restore it to what it was before you changed it") == set()
+log.markUndone(log.pending()[0])
+again = changes.ChangeLog(log._path)  # kept between sessions
+assert [c["setting"] for c in again.pending()] == ["speech.rate"] and again.pending()[0]["old"] == 50
 
 # --- Keeping speech and braille alive ---
 
