@@ -376,8 +376,11 @@ with `net.download`, and opens the file so that NVDA installs it.
 - `tests/live_orchestrator.py` with the owner's Qwen3.5 4B and 9B, 45 requests: all done, both models agreed
   every time. "Check for a new version of VisionClaw" and "Is VisionClaw up to date?" went to the new recipe,
   and "Get the latest NVDA developer guides" still went to the guides.
-- **Not tested:** nothing of this inside NVDA. The download of a release file by `net.download` (GitHub
-  redirects it to another of its servers), whether opening the downloaded file makes NVDA ask to install it
+- **After 0.8.0 was published, against the real release, with plain Python:** seen from version 0.7.0 the
+  code found 0.8.0, and `net.download` fetched `VisionClaw-0.8.0.nvda-addon` through GitHub's redirect in about
+  a second and verified its size and SHA-256; the file is byte for byte the one built here. Seen from 0.8.0,
+  nothing newer is offered. What is read out as new is the part under the release's "New in" heading.
+- **Not tested:** nothing of this inside NVDA: whether opening the downloaded file makes NVDA ask to install it
   (it relies on Windows knowing `.nvda-addon` files, which an installed NVDA sets up and a portable one does
   not), the window and the spoken sentence, and the settings panel's new choice and button.
 - What the SHA-256 shows: it comes from GitHub like the file, so it shows the file arrived whole, not who
