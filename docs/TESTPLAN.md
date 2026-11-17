@@ -26,6 +26,18 @@ Before you start: disable VisionMate in the Add-on Store, install the VisionClaw
 - [ ] Each graphics choice works after OK: Automatic, Dedicated graphics card, Vulkan, Processor only
       (describe a window after each; with debug logging on, `engine.log` shows the device).
 
+## Managing models
+- [ ] VisionClaw's settings show a "Models on this computer" box with each model, its size and what it is in use
+      for, and the total.
+- [ ] NVDA+Alt+M opens the list. Space checks a model, and NVDA says it is checked.
+- [ ] "Remove checked models" asks first, names the models and the space, and No removes nothing.
+- [ ] Yes removes them; the list and the total change; "Removed. N GB freed." is spoken.
+- [ ] Removing the model in use for coding: asking something afterwards uses another stored coder, or opens the
+      models window if there is none.
+- [ ] "Choose or download other models", picking a smaller pair: after the download, the question "You no longer
+      use ..." appears; Yes removes the old ones.
+- [ ] "Remove all models", then NVDA+Alt+W: the models window opens.
+
 ## Two large models
 - [ ] With Qwen3.5 9B and Qwen2.5 Coder 7B chosen on a computer whose graphics card cannot hold both: ask
       something, then open NVDA+Alt+C. The Last task box says the two models ran in two different places.

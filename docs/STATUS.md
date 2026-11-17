@@ -1,6 +1,6 @@
 # VisionClaw status
 
-Updated 2026-11-17, version 0.3.1.
+Updated 2026-11-17, version 0.3.2.
 
 ## What exists
 
@@ -43,7 +43,15 @@ errors inside NVDA could not be read; what the owner heard is not recorded here 
   thinking switched on gave its thinking separately from its answer. So this engine build runs Qwen3.5, and the
   thinking switch works.
 
+The owner then tried the add-on and reported that nothing went wrong. Which of the test requests were tried
+was not written down, so the test plan is not ticked off from this.
+
 ## What was not tested
+
+- **Model management (0.3.2)** was tested against stand-ins only: listing what is stored, removing some or all
+  models, falling back to another stored model, and the offer to remove models no longer used. The window
+  itself, and deleting a model file right after its engine was stopped, have not run in NVDA. The listing was
+  run read-only against the owner's real models folder and showed Qwen3.5 4B (3.2 GB) and Qwen3.5 9B (5.3 GB).
 
 - **Inside NVDA, only loading, the models window, downloading and starting the engine have been seen to
   work** (see above). Asking, the tools, the settings panel, app helpers, the web tools, driver switching and

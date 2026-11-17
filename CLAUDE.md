@@ -186,6 +186,9 @@ A session is done only when its "Done when" line is true.
   `repair_addon` for a fix described in words.
 - [x] **3.10 More of the web.** Page outline with heading levels, moving NVDA's reading position to an item,
   back, forward and reload.
+- [x] **3.11 Managing models.** Settings list the stored models; a window removes some or all and leads to
+  choosing others; after a new choice the unused ones are offered for removal (`catalog.stored`,
+  `dialogs.ManageModelsDialog`, `plugin.removeModels`). Stop the engines before deleting model files.
 - [ ] **3.5 Test inside NVDA.** Install the build in NVDA (ask the user first) and walk through
   `docs/TESTPLAN.md`. Fix what breaks. *Done when:* every item in the test plan is ticked by a real run.
 

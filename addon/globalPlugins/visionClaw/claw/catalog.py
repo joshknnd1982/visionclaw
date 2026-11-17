@@ -204,6 +204,70 @@ class Catalog:
 			if onProgress is not None:
 				onProgress(before, total)
 
+	def stored(self):
+		"""The models on this computer's disk, one for each folder of model files, as dictionaries:
+		key (what to pass to removeStored), name, bytes, roles (what it can be used for now), ids (the catalog
+		entries that are complete), and partial (a download that was not finished).
+		One folder can serve two roles: Qwen3.5 4B with its projector is a vision model and a coder model."""
+		found = []
+		seen = []
+		for entry in CATALOG:
+			if entry["dir"] in seen:
+				continue
+			seen.append(entry["dir"])
+			family = [e for e in CATALOG if e["dir"] == entry["dir"]]
+			names = {f["name"] for e in family for f in e["files"]}
+			size, partial = 0, False
+			for name in sorted(names):
+				for path, unfinished in ((os.path.join(self.modelsDir, entry["dir"], name), False),
+						(os.path.join(self.modelsDir, entry["dir"], name + ".part"), True)):
+					try:
+						size += os.path.getsize(path)
+						partial = partial or unfinished
+					except OSError:
+						pass
+			if not size:
+				continue
+			complete = [e for e in family if self.isInstalled(e)]
+			found.append({
+				"key": entry["dir"], "name": entry["name"], "bytes": size,
+				"roles": sorted({e["role"] for e in complete}, reverse=True), "ids": [e["id"] for e in complete],
+				"partial": partial or not complete,
+			})
+		paths = self._visionMatePaths()
+		if paths:
+			found.append({
+				"key": VISIONMATE_ID, "name": "Qwen3-VL 2B, VisionMate's vision data",
+				"bytes": sum(os.path.getsize(p) for p in paths), "roles": [VISION], "ids": [VISIONMATE_ID],
+				"partial": False,
+			})
+		return found
+
+	def removeStored(self, key):
+		"""Delete one stored model with everything in its folder that belongs to it. Returns the bytes freed.
+		Raises OSError if a file cannot be deleted, for example because an engine still has it open."""
+		if key == VISIONMATE_ID:
+			paths = list(self._visionMatePaths() or ()) + [os.path.join(self._visionMateDir or "", "data.json")]
+			folder = None
+		else:
+			folder = os.path.join(self.modelsDir, key)
+			names = {f["name"] for e in CATALOG if e["dir"] == key for f in e["files"]}
+			paths = [os.path.join(folder, n + end) for n in names for end in ("", ".part")]
+		freed = 0
+		for path in paths:
+			try:
+				size = os.path.getsize(path)
+			except OSError:
+				continue
+			os.remove(path)
+			freed += size
+		if folder:
+			try:
+				os.rmdir(folder)
+			except OSError:
+				pass  # something else is in the folder; it is left alone
+		return freed
+
 	def remove(self, entry):
 		"""Delete a downloaded model, keeping any file another installed model shares."""
 		if entry["id"] == VISIONMATE_ID:

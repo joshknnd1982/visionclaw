@@ -587,8 +587,81 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 				"The VisionMate add-on is also installed. VisionClaw includes everything VisionMate does and "
 				"uses the same keys, so please disable VisionMate in the Add-on Store."
 			))
-		self._dataDialog = dialogs.ModelsDialog(gui.mainFrame, self.models, conf(), suggested, self._onDataInstalled, notes)
+		self._dataDialog = dialogs.ModelsDialog(
+			gui.mainFrame, self.models, conf(), suggested, self._onDataInstalled, notes, self._offerCleanup)
 		dialogs.show(self._dataDialog)
+
+	# --- The models on this computer ---
+
+	def modelsOnDisk(self):
+		"""(the stored models, which of them is in use for each role as {role: key})."""
+		inUse = {}
+		for role in (VISION, CODER):
+			entry = self.runtime.entry(role)
+			if entry is not None:
+				inUse[role] = entry["dir"] or entry["id"]
+		return self.models.stored(), inUse
+
+	def modelsSummary(self):
+		return dialogs.modelsSummary(*self.modelsOnDisk())
+
+	def removeModels(self, keys):
+		"""Remove stored models from the disk. Returns the bytes freed. The engines are stopped first, because
+		Windows cannot delete a file an engine has open."""
+		if self.clawTask is not None and not self.clawTask.finished:
+			# Translators: Reported when models are to be removed while a request is being worked on.
+			raise RuntimeError(_("VisionClaw is working on a request. Stop it first with NVDA+Alt+X."))
+		self._cancel.set()
+		self._backgroundCancel.set()
+		self.runtime.stop()
+		freed = 0
+		try:
+			for key in keys:
+				freed += self.models.removeStored(key)
+		finally:
+			c = conf()
+			for name in ("visionModel", "coderModel"):
+				entry = self.models.get(c[name]) if c[name] else None
+				if c[name] and (entry is None or not self.models.isInstalled(entry)):
+					c[name] = ""  # the chosen model is gone; another stored one is used, if there is one
+			self._hasData = self.runtime.hasModel(VISION)
+			self._autoCache.clear()
+			if self._dataReady() and conf()["preload"]:
+				self._startEngineInBackground()
+		return freed
+
+	def showManageModels(self):
+		if getattr(self, "_manageDialog", None):
+			self._manageDialog.Raise()
+			return
+		self._manageDialog = dialogs.ManageModelsDialog(gui.mainFrame, self)
+		dialogs.show(self._manageDialog)
+
+	def _offerCleanup(self, keep):
+		"""After other models were chosen: offer to remove the ones that are no longer used. The user decides."""
+		unused = [m for m in self.models.stored() if m["key"] not in keep and m["key"] != catalog.VISIONMATE_ID]
+		if not unused:
+			return
+		# Translators: Asked after other models were chosen. {names} are the models no longer used, {size} gigabytes.
+		question = _(
+			"You no longer use: {names}. Remove them to free {size} GB of disk space? "
+			"A removed model can be downloaded again at any time."
+		).format(names=", ".join(m["name"] for m in unused), size=dialogs._gb(sum(m["bytes"] for m in unused)))
+		gui.mainFrame.prePopup()
+		try:
+			# Translators: Title of the question about removing models that are no longer used.
+			answer = gui.messageBox(question, _("Models no longer used"), wx.YES_NO | wx.NO_DEFAULT | wx.ICON_QUESTION)
+		finally:
+			gui.mainFrame.postPopup()
+		if answer != wx.YES:
+			return
+		try:
+			freed = self.removeModels([m["key"] for m in unused])
+		except (OSError, RuntimeError) as e:
+			log.error("VisionClaw: could not remove unused models", exc_info=True)
+			ui.message(_("The models could not be removed: {error}").format(error=e))
+			return
+		ui.message(_("Removed. {size} GB freed.").format(size=dialogs._gb(freed)))
 
 	# --- Asking VisionClaw ---
 
@@ -739,11 +812,17 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 
 	@script(
 		# Translators: Description of a command in the Input Gestures dialog.
-		description=_("Opens the window for choosing and downloading VisionClaw's models."),
+		description=_(
+			"Opens the window that shows VisionClaw's models on this computer, to remove them or choose others."
+		),
 		gesture="kb:NVDA+alt+m",
 	)
 	def script_clawModels(self, gesture):
-		self.showDataDialog()
+		# With no model yet there is nothing to manage: go straight to choosing.
+		if self.models.stored():
+			self.showManageModels()
+		else:
+			self.showDataDialog()
 
 	# --- Describing ---
 

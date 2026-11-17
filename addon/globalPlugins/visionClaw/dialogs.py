@@ -57,14 +57,16 @@ class ModelsDialog(wx.Dialog):
 	Enter starts, Space reads the progress while working. Every model is always offered: the computer only
 	decides which one is suggested."""
 
-	def __init__(self, parent, models, conf, suggested, onInstalled, notes=()):
+	def __init__(self, parent, models, conf, suggested, onInstalled, notes=(), onChosen=None):
 		"""models: the catalog. conf: the add-on's settings. suggested: {role: model id}.
-		notes: sentences about this computer, shown under the welcome text."""
+		notes: sentences about this computer, shown under the welcome text.
+		onChosen(keys) is called with the stored models the new choice uses, once they are ready."""
 		# Translators: Title of the window for choosing and downloading the models.
 		super().__init__(parent, title=_("VisionClaw models"))
 		self._models = models
 		self._conf = conf
 		self._onInstalled = onInstalled
+		self._onChosen = onChosen
 		self._cancel = threading.Event()
 		self._working = False
 		self._progress = ""
@@ -258,6 +260,9 @@ class ModelsDialog(wx.Dialog):
 		self._setText(_("VisionClaw is ready to use.") + "\n\n" + USAGE)
 		self.Layout()
 		self._onInstalled()
+		if self._onChosen is not None:
+			keep = [entry["dir"] or entry["id"] for entry in chosen.values() if entry is not None]
+			wx.CallAfter(self._onChosen, keep)
 
 	def _failed(self, error):
 		self._working = False
@@ -294,6 +299,147 @@ class ModelsDialog(wx.Dialog):
 			# Translators: Reported when the download is cancelled.
 			ui.message(_("Download cancelled."))
 		self.Destroy()
+
+
+def _gb(n):
+	return f"{n / 1073741824:.1f}"
+
+
+def modelLine(model, inUse):
+	"""One stored model in words: its name, its size, and what it is used for."""
+	uses = []
+	if model["partial"] and not model["roles"]:
+		# Translators: Said of a model whose download was not finished.
+		uses.append(_("unfinished download"))
+	for role, text in (
+		# Translators: Said of a stored model that is the one in use for looking at the screen.
+		(catalog.VISION, _("in use for vision")),
+		# Translators: Said of a stored model that is the one in use for coding.
+		(catalog.CODER, _("in use for coding")),
+	):
+		if inUse.get(role) == model["key"]:
+			uses.append(text)
+	if not uses:
+		# Translators: Said of a stored model that VisionClaw is not using at the moment.
+		uses.append(_("not in use"))
+	# Translators: A model on this computer. {name} is the model, {size} its size in gigabytes, {uses} what it is used for.
+	return _("{name}, {size} GB, {uses}").format(name=model["name"], size=_gb(model["bytes"]), uses=" and ".join(uses))
+
+
+def modelsSummary(models, inUse):
+	"""All stored models in a few lines, for the settings panel and the top of the models window."""
+	if not models:
+		# Translators: Shown when no model is on the computer.
+		return _("No models are on this computer yet.")
+	lines = [modelLine(m, inUse) for m in models]
+	# Translators: The total of the models on this computer. {count} models, {size} gigabytes.
+	lines.append(_("{count} models, {size} GB on disk in all.").format(
+		count=len(models), size=_gb(sum(m["bytes"] for m in models))))
+	return "\n".join(lines)
+
+
+class ManageModelsDialog(wx.Dialog):
+	"""Shows the models on this computer, and lets the user remove some or all of them and choose others."""
+
+	def __init__(self, parent, plugin):
+		# Translators: Title of the window that shows the models on this computer.
+		super().__init__(parent, title=_("VisionClaw: models on this computer"))
+		self._plugin = plugin
+		self._models = []
+		main = wx.BoxSizer(wx.VERTICAL)
+		# Translators: Label of the list of models on this computer.
+		main.Add(wx.StaticText(self, label=_("&Models on this computer. Check the ones you want to remove:")),
+			flag=wx.LEFT | wx.RIGHT | wx.TOP, border=10)
+		try:
+			from gui import nvdaControls
+			self.list = nvdaControls.CustomCheckListBox(self, choices=[])
+		except Exception:
+			self.list = wx.CheckListBox(self, choices=[])
+		main.Add(self.list, proportion=1, flag=wx.ALL | wx.EXPAND, border=10)
+		self.total = wx.StaticText(self, label="")
+		main.Add(self.total, flag=wx.LEFT | wx.RIGHT | wx.BOTTOM, border=10)
+		buttons = wx.BoxSizer(wx.HORIZONTAL)
+		# Translators: Button that removes the checked models from the computer.
+		self.removeBtn = wx.Button(self, label=_("&Remove checked models"))
+		# Translators: Button that removes every model from the computer.
+		self.removeAllBtn = wx.Button(self, label=_("Remove &all models"))
+		# Translators: Button that opens the window for choosing and downloading models.
+		self.chooseBtn = wx.Button(self, label=_("&Choose or download other models..."))
+		# Translators: Button that closes the window.
+		closeBtn = wx.Button(self, wx.ID_CLOSE, label=_("C&lose"))
+		for button in (self.removeBtn, self.removeAllBtn, self.chooseBtn, closeBtn):
+			buttons.Add(button, flag=wx.RIGHT, border=10)
+		main.Add(buttons, flag=wx.ALL, border=10)
+		self.SetSizerAndFit(main)
+		self.SetEscapeId(wx.ID_CLOSE)
+		self.CentreOnScreen()
+		self.removeBtn.Bind(wx.EVT_BUTTON, lambda e: self._remove(checkedOnly=True))
+		self.removeAllBtn.Bind(wx.EVT_BUTTON, lambda e: self._remove(checkedOnly=False))
+		self.chooseBtn.Bind(wx.EVT_BUTTON, self._choose)
+		closeBtn.Bind(wx.EVT_BUTTON, lambda e: self.Destroy())
+		self.Bind(wx.EVT_CLOSE, lambda e: self.Destroy())
+		self.Bind(wx.EVT_ACTIVATE, lambda e: (self.refresh() if e.GetActive() else None, e.Skip()))
+		self.refresh()
+		self.list.SetFocus()
+
+	def refresh(self):
+		"""Read again what is on the disk; it changes when models are removed or downloaded."""
+		self._models, inUse = self._plugin.modelsOnDisk()
+		self.list.Set([modelLine(m, inUse) for m in self._models])
+		if self._models:
+			self.list.SetSelection(0)
+			# Translators: The total of the models on this computer. {count} models, {size} gigabytes.
+			self.total.SetLabel(_("{count} models, {size} GB on disk in all.").format(
+				count=len(self._models), size=_gb(sum(m["bytes"] for m in self._models))))
+		else:
+			# Translators: Shown when no model is on the computer.
+			self.total.SetLabel(_("No models are on this computer yet."))
+		self.removeBtn.Enable(bool(self._models))
+		self.removeAllBtn.Enable(bool(self._models))
+
+	def _remove(self, checkedOnly):
+		if checkedOnly:
+			chosen = [self._models[i] for i in self.list.GetCheckedItems() if i < len(self._models)]
+			if not chosen:
+				# Translators: Reported when Remove is pressed and no model is checked.
+				ui.message(_("No model is checked. Press Space on a model to check it."))
+				return
+		else:
+			chosen = list(self._models)
+		names = ", ".join(m["name"] for m in chosen)
+		size = _gb(sum(m["bytes"] for m in chosen))
+		# Translators: Asked before models are removed from the computer.
+		question = _(
+			"Remove {names}? This frees {size} GB. A removed model can be downloaded again at any time."
+		).format(names=names, size=size)
+		left = len(self._models) - len(chosen)
+		if not any(catalog.VISION in m["roles"] for m in self._models if m not in chosen):
+			# Translators: Added to the question when no vision model would be left.
+			question += " " + _("No vision model will be left, so VisionClaw cannot describe anything until you download one.")
+		elif not left:
+			question += ""
+		gui.mainFrame.prePopup()
+		try:
+			# Translators: Title of the question asked before models are removed.
+			answer = gui.messageBox(question, _("Remove models"), wx.YES_NO | wx.NO_DEFAULT | wx.ICON_QUESTION, self)
+		finally:
+			gui.mainFrame.postPopup()
+		if answer != wx.YES:
+			return
+		try:
+			freed = self._plugin.removeModels([m["key"] for m in chosen])
+		except (OSError, RuntimeError) as e:
+			log.error("VisionClaw: could not remove models", exc_info=True)
+			# Translators: Reported when models could not be removed. {error} is the reason.
+			ui.message(_("The models could not be removed: {error}").format(error=e))
+			self.refresh()
+			return
+		self.refresh()
+		# Translators: Reported after models were removed. {size} is the space freed in gigabytes.
+		ui.message(_("Removed. {size} GB freed.").format(size=_gb(freed)))
+
+	def _choose(self, evt):
+		self._plugin.showDataDialog()
 
 
 class ResultDialog(wx.Dialog):

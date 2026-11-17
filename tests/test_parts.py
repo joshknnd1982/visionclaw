@@ -97,6 +97,57 @@ for name in ("core.bin", "vision.bin"):
 reuse = catalog.Catalog(folder, folder)
 assert reuse.selected(VISION)["id"] == catalog.VISIONMATE_ID and reuse.paths(reuse.selected(VISION))[0].endswith("core.bin")
 
+# --- The models on the disk: what is stored, what it can be used for, and removing it ---
+
+real = list(catalog.CATALOG)
+try:
+	def small(ident, folder, role, files):
+		return {"id": ident, "dir": folder, "role": role, "name": ident.upper(), "small": True, "thinking": False,
+			"memoryGb": 1, "maxContext": 4096,
+			"files": [{"kind": kind, "name": name, "size": size, "sha256": "0" * 64, "url": ""} for kind, name, size in files]}
+	catalog.CATALOG[:] = [
+		small("big", "big", VISION, [("model", "big.gguf", 30), ("mmproj", "big-eyes.gguf", 10)]),
+		small("tiny", "tiny", CODER, [("model", "tiny.gguf", 5)]),
+		small("big-coder", "big", CODER, [("model", "big.gguf", 30)]),
+		small("other", "other", CODER, [("model", "other.gguf", 7)]),
+	]
+	folder = tempfile.mkdtemp()
+	disk = catalog.Catalog(folder)
+	assert disk.stored() == []
+
+	def put(path, size):
+		os.makedirs(os.path.dirname(path), exist_ok=True)
+		with open(path, "wb") as f:
+			f.write(b"x" * size)
+	put(os.path.join(folder, "big", "big.gguf"), 30)
+	put(os.path.join(folder, "tiny", "tiny.gguf"), 5)
+	put(os.path.join(folder, "other", "other.gguf.part"), 3)
+	found = {m["key"]: m for m in disk.stored()}
+	# One folder is one stored model, whatever it can be used for. Without its projector the big model can
+	# only be used for coding; a download that was not finished is shown as such.
+	assert list(found) == ["big", "tiny", "other"], list(found)
+	assert found["big"]["roles"] == [CODER] and found["big"]["ids"] == ["big-coder"] and found["big"]["bytes"] == 30
+	assert found["tiny"]["roles"] == [CODER] and not found["tiny"]["partial"]
+	assert found["other"]["roles"] == [] and found["other"]["partial"] and found["other"]["bytes"] == 3
+	put(os.path.join(folder, "big", "big-eyes.gguf"), 10)
+	big = disk.stored()[0]
+	assert big["roles"] == [VISION, CODER] and big["ids"] == ["big", "big-coder"] and big["bytes"] == 40
+	# Removing one leaves the others; removing frees what was there, the unfinished download included.
+	assert disk.removeStored("tiny") == 5 and not os.path.exists(os.path.join(folder, "tiny"))
+	assert disk.removeStored("other") == 3 and disk.removeStored("other") == 0
+	assert [m["key"] for m in disk.stored()] == ["big"] and disk.selected(VISION)["id"] == "big"
+	assert disk.removeStored("big") == 40 and disk.stored() == [] and disk.selected(VISION) is None
+	# VisionMate's vision data is listed too, and can be removed like the others.
+	mate = tempfile.mkdtemp()
+	for name, size in (("core.bin", 20), ("vision.bin", 8), ("data.json", 2), ("NOTICE.txt", 4)):
+		put(os.path.join(mate, name), size)
+	withMate = catalog.Catalog(folder, mate)
+	assert [(m["key"], m["bytes"], m["roles"]) for m in withMate.stored()] == [(catalog.VISIONMATE_ID, 28, [VISION])]
+	assert withMate.removeStored(catalog.VISIONMATE_ID) == 30 and withMate.stored() == []
+	assert os.path.exists(os.path.join(mate, "NOTICE.txt"))
+finally:
+	catalog.CATALOG[:] = real
+
 # --- Forgiving matching ---
 
 items = ["Space Trader - Main Menu heading", "New Game button", "Load Game button", "Options button", "Quit button"]

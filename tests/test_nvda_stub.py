@@ -658,5 +658,63 @@ sys.modules["api"].getFocusObject = lambda: Anything()
 worked, result = registry.call(task, "read_page", {"about": "anything"})
 assert not worked and "not in a web page" in result
 
+# --- The models on this computer: listed, removed, swapped ---
+
+from visionClaw import dialogs  # noqa: E402
+from visionClaw.claw import catalog  # noqa: E402
+real = list(catalog.CATALOG)
+try:
+	def small(ident, folder, role, name, files):
+		return {"id": ident, "dir": folder, "role": role, "name": name, "small": True, "thinking": False,
+			"memoryGb": 1, "maxContext": 4096,
+			"files": [{"kind": kind, "name": fileName, "size": size, "sha256": "0" * 64, "url": ""} for kind, fileName, size in files]}
+	catalog.CATALOG[:] = [
+		small("four", "four", VISION, "Qwen3.5 4B", [("model", "four.gguf", 3 * 2 ** 20), ("mmproj", "eyes.gguf", 2 ** 20)]),
+		small("coder", "coder", CODER, "Qwen2.5 Coder 1.5B", [("model", "coder.gguf", 2 ** 20)]),
+		small("nine-coder", "nine", CODER, "Qwen3.5 9B", [("model", "nine.gguf", 5 * 2 ** 20)]),
+	]
+	modelsDir = instance.models.modelsDir
+	for path, size in (("four/four.gguf", 3), ("four/eyes.gguf", 1), ("coder/coder.gguf", 1), ("nine/nine.gguf", 5)):
+		os.makedirs(os.path.dirname(os.path.join(modelsDir, path)), exist_ok=True)
+		with open(os.path.join(modelsDir, path), "wb") as f:
+			f.write(b"x" * (size * 2 ** 20))
+	conf["visionClaw"]["visionModel"], conf["visionClaw"]["coderModel"] = "four", "nine-coder"
+	stored, inUse = instance.modelsOnDisk()
+	assert [m["key"] for m in stored] == ["four", "coder", "nine"] and inUse == {VISION: "four", CODER: "nine"}
+	summary = instance.modelsSummary()
+	assert "Qwen3.5 4B, 0.0 GB, in use for vision" in summary and "Qwen3.5 9B, 0.0 GB, in use for coding" in summary, summary
+	assert "Qwen2.5 Coder 1.5B, 0.0 GB, not in use" in summary and "3 models," in summary
+	assert dialogs.modelsSummary([], {}) == "No models are on this computer yet."
+	# The window for managing models can be built and filled.
+	manage = dialogs.ManageModelsDialog(None, instance)
+	manage.refresh()
+	assert [m["key"] for m in manage._models] == ["four", "coder", "nine"]
+	# Removing the coder in use: its file is gone, the choice falls back to the coder that is left.
+	assert instance.removeModels(["nine"]) == 5 * 2 ** 20
+	assert not os.path.exists(os.path.join(modelsDir, "nine")) and conf["visionClaw"]["coderModel"] == ""
+	assert instance.modelsOnDisk()[1] == {VISION: "four", CODER: "coder"}
+	# After other models were chosen, the user is offered to remove the ones no longer used, and decides.
+	asked = []
+	sys.modules["gui"].messageBox = lambda question, *args, **kwargs: asked.append(question) or sys.modules["wx"].NO
+	instance._offerCleanup(["four"])
+	assert "You no longer use: Qwen2.5 Coder 1.5B." in asked[0] and len(instance.modelsOnDisk()[0]) == 2
+	sys.modules["gui"].messageBox = lambda question, *args, **kwargs: sys.modules["wx"].YES
+	instance._offerCleanup(["four"])
+	assert [m["key"] for m in instance.modelsOnDisk()[0]] == ["four"]
+	instance._offerCleanup(["four"])  # nothing unused: no question
+	# Removing everything: no vision model is left, and VisionClaw knows it.
+	assert instance.removeModels(["four"]) == 4 * 2 ** 20
+	assert instance.modelsOnDisk() == ([], {}) and not instance._dataReady() and conf["visionClaw"]["visionModel"] == ""
+	# Not while a request is being worked on.
+	instance.clawTask = taskModule.Task("busy")
+	try:
+		instance.removeModels(["four"])
+		raise AssertionError("models must not be removed while a request runs")
+	except RuntimeError as e:
+		assert "Stop it first" in str(e)
+	instance.clawTask = None
+finally:
+	catalog.CATALOG[:] = real
+
 instance.terminate()
 print("OK")

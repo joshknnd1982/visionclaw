@@ -68,7 +68,7 @@ class VisionClawPanel(gui.settingsDialogs.SettingsPanel):
 			SEARCH_IDS.index(c["searchEngine"]) if c["searchEngine"] in SEARCH_IDS else 0)
 		self.autoFixAddons = checkbox(
 			# Translators: Checkbox in settings.
-			_("When an add-on VisionClaw wrote fails, have the models debug and correct it by &themselves"),
+			_("When an add-on VisionClaw wrote fails, have the models debug and correct it b&y themselves"),
 			"autoFixAddons")
 		self.confirmChanges = checkbox(
 			# Translators: Checkbox in settings.
@@ -76,8 +76,16 @@ class VisionClawPanel(gui.settingsDialogs.SettingsPanel):
 		self.speakProgress = checkbox(
 			# Translators: Checkbox in settings.
 			_("Say each step while VisionClaw works on a re&quest"), "speakProgress")
+		if self.plugin is not None:
+			# Translators: Label of the box in settings that lists the models on this computer.
+			self.modelsText = helper.addLabeledControl(
+				_("&Models on this computer:"), wx.TextCtrl, value=self.plugin.modelsSummary(),
+				size=(480, 90), style=wx.TE_MULTILINE | wx.TE_READONLY)
+		# Translators: Button in settings that opens the window for seeing, removing and swapping models.
+		self.manageBtn = helper.addItem(wx.Button(self, label=_("See, remove or swa&p models...")))
+		self.manageBtn.Bind(wx.EVT_BUTTON, lambda e: self.plugin.showManageModels() if self.plugin else None)
 		# Translators: Button in settings that opens the window for choosing and downloading models.
-		self.modelsBtn = helper.addItem(wx.Button(self, label=_("Choose or download &models...")))
+		self.modelsBtn = helper.addItem(wx.Button(self, label=_("Choose or &download models...")))
 		self.modelsBtn.Bind(wx.EVT_BUTTON, lambda e: self.plugin.showDataDialog() if self.plugin else None)
 		self.autoDescribe = checkbox(
 			# Translators: Checkbox in settings.

@@ -16,7 +16,7 @@ VisionClaw is a fork of [VisionMate](https://github.com/athee06/VisionMate) by A
 everything VisionMate does: image descriptions, the overlay for windows NVDA cannot read, photo descriptions in
 chat apps, and names for unlabelled buttons.
 
-> **Status: pre-release (0.3.1).** The orchestration core has been tested with scripted models and with a
+> **Status: pre-release (0.3.2).** The orchestration core has been tested with scripted models and with a
 > real model through the bundled engine, and the whole add-on has been loaded against stand-ins for NVDA.
 > It has **not yet been run inside NVDA**. Expect rough edges and please report them. See
 > [docs/STATUS.md](docs/STATUS.md) for exactly what was tested.
@@ -60,7 +60,7 @@ You do not need to know NVDA. VisionClaw finds the right NVDA setting or command
 
 ## Install
 
-1. Download **[VisionClaw-0.3.1.nvda-addon](https://github.com/joshknnd1982/visionclaw/releases/download/v0.3.1/VisionClaw-0.3.1.nvda-addon)**
+1. Download **[VisionClaw-0.3.2.nvda-addon](https://github.com/joshknnd1982/visionclaw/releases/download/v0.3.2/VisionClaw-0.3.2.nvda-addon)**
    (or pick a version on the [releases page](https://github.com/joshknnd1982/visionclaw/releases)), open the
    file, confirm the installation, and restart NVDA.
 2. If VisionMate is installed, disable it in the Add-on Store: VisionClaw includes it and uses the same keys.
@@ -86,6 +86,19 @@ Larger models are more accurate and slower. You can change your choice at any ti
 The models come from Hugging Face. Each file is pinned to one version and checked against its SHA-256 after
 the download. You can also use VisionClaw with a vision model only; then it describes images and runs the
 overlay like VisionMate, and Ask VisionClaw waits until you add a coder model.
+
+### Seeing, removing and swapping models
+
+- **NVDA's settings, under VisionClaw,** list the models on your computer: each one's name, its size, and
+  whether it is in use for vision, for coding, or not at all, with the total disk space they take.
+- **NVDA+Alt+M** (or "See, remove or swap models" in settings) opens a window with the same list. Press Space
+  on the models you want to remove and choose "Remove checked models", or choose "Remove all models". You are
+  asked before anything is deleted, and told how much space it frees. A removed model can be downloaded again
+  at any time.
+- **"Choose or download other models"** in that window lets you pick smaller or bigger ones. When the new ones
+  are ready, VisionClaw offers to remove the ones you no longer use; you decide.
+- If you remove the model that is in use, VisionClaw uses another one that is still on the computer for that
+  job, if there is one. With no vision model left, it asks you to choose one the next time you need it.
 
 ## Where the models run
 
@@ -224,7 +237,7 @@ add-on. Small models make mistakes; read the code or ask someone you trust if an
 | NVDA+Alt+C | Ask VisionClaw |
 | NVDA+Alt+P | Say the progress of the current request |
 | NVDA+Alt+X | Stop the current request |
-| NVDA+Alt+M | Choose or download models |
+| NVDA+Alt+M | See, remove or swap the models on this computer |
 | NVDA+Alt+A | Describe the current element |
 | NVDA+Alt+W | Describe the current window |
 | NVDA+Alt+F | Describe the whole screen |
