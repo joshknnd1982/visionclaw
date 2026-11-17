@@ -1,12 +1,12 @@
 # VisionClaw status
 
-Updated 2026-11-17, version 0.7.0.
+Updated 2026-11-17, version 0.8.0.
 
 ## What exists
 
 Everything in phases 1 to 3.4 and 4.1 of `CLAUDE.md`: the fork, the model catalog and models window, the
 graphics choice with fallback, the two-model runtime, the planner with recipes, agreement between the models,
-the step runner, 43 NVDA tools and 37 recipes, the Ask VisionClaw window, app helpers, generated add-ons, the
+the step runner, 44 NVDA tools and 38 recipes, the Ask VisionClaw window, app helpers, generated add-ons, the
 knowledge base and the lessons memory. New in 0.2.0: the web through NVDA's browse mode, reporting on speech,
 braille, drivers and add-ons, safe switching of the synthesizer and braille display, and saving a generated
 add-on as a file. New in 0.3.0: a guard around generated add-ons with automatic debugging and correction,
@@ -348,6 +348,40 @@ gone through the narrowing; the new choice in the settings panel has not been op
 Qwen2.5 Coder 1.5B pair, which is the suggested one, was not run because it is not on this computer; the
 setting on Always with larger models was not measured. Quoted answers are only as good as the lines that
 were looked up: a question asked in other words than the page uses gets "does not mention".
+
+## A newer version of VisionClaw (0.8.0)
+
+The owner asked for it on 2026-11-17: VisionClaw looks for a newer version of itself on GitHub and gets it,
+when asked (NVDA+Alt+U, a button in the settings, the tool `check_update` with the recipe `update_visionclaw`)
+or, if the user turns it on, when NVDA starts, at most once a day. `claw/updates.py` decides from GitHub's list
+of releases whether a newer version exists and which one file may be downloaded; `updater.py` asks, downloads
+with `net.download`, and opens the file so that NVDA installs it.
+
+- `tests/test_updates.py`: the highest version wins, compared as numbers (0.10.0 over 0.9.0); pre-releases
+  count; the version in use or a lower one is never offered; 17 kinds of release that must be passed over are
+  (a draft, a tag that is not a version, the fixed-name copy alone, a file of another version, another server,
+  another repository, another release, no secure connection, no checksum, no size, and more); when the list
+  is read by itself; what is said.
+- `tests/test_nvda_stub.py`, with GitHub, the download and the installer replaced by stand-ins: a request in
+  words asks before going online, and a no reads nothing; the newest version is said to be the newest; a
+  newer one is offered with what is new, "not now" downloads nothing, yes downloads the release's own file
+  with its size and checksum and hands it to NVDA; a file Windows cannot open is named with its place; a page
+  that cannot be reached fails with the reason. The key: a window, a question, a download after yes. By
+  itself: nothing is scheduled with "only when I ask"; with the automatic choice one sentence is spoken, no
+  window opens, nothing is downloaded, and the list is not read twice in a day.
+- **Against the real GitHub, read-only, with plain Python:** the list of this repository's 11 releases was
+  read with `net.fetchJson`; for version 0.6.0 the code found 0.7.0 with the right file, size and SHA-256, and
+  for 0.7.0 nothing newer. All releases so far are pre-releases, so GitHub's "latest release" address answers
+  404; that is why the whole list is read.
+- `tests/live_orchestrator.py` with the owner's Qwen3.5 4B and 9B, 45 requests: all done, both models agreed
+  every time. "Check for a new version of VisionClaw" and "Is VisionClaw up to date?" went to the new recipe,
+  and "Get the latest NVDA developer guides" still went to the guides.
+- **Not tested:** nothing of this inside NVDA. The download of a release file by `net.download` (GitHub
+  redirects it to another of its servers), whether opening the downloaded file makes NVDA ask to install it
+  (it relies on Windows knowing `.nvda-addon` files, which an installed NVDA sets up and a portable one does
+  not), the window and the spoken sentence, and the settings panel's new choice and button.
+- What the SHA-256 shows: it comes from GitHub like the file, so it shows the file arrived whole, not who
+  made it. Anyone who can publish a release in the repository decides what users are offered.
 
 ## What was not tested
 

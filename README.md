@@ -16,7 +16,7 @@ VisionClaw is a fork of [VisionMate](https://github.com/athee06/VisionMate) by A
 everything VisionMate does: image descriptions, the overlay for windows NVDA cannot read, photo descriptions in
 chat apps, and names for unlabelled buttons.
 
-> **Status: pre-release (0.7.0).** The orchestration core has been tested with scripted models and with
+> **Status: pre-release (0.8.0).** The orchestration core has been tested with scripted models and with
 > real models through the bundled engine. Inside NVDA 2026.3.1 the owner has run the models window, a first
 > set of requests and five tests of version 0.4.0; **most of the test plan has not been run inside NVDA
 > yet**, and scrolling, the arrow keys for dials and the deep query not at all. Expect rough edges and please report them. See
@@ -64,7 +64,7 @@ You do not need to know NVDA. VisionClaw finds the right NVDA setting or command
 
 ## Install
 
-1. Download **[VisionClaw-0.7.0.nvda-addon](https://github.com/joshknnd1982/visionclaw/releases/download/v0.7.0/VisionClaw-0.7.0.nvda-addon)**
+1. Download **[VisionClaw-0.8.0.nvda-addon](https://github.com/joshknnd1982/visionclaw/releases/download/v0.8.0/VisionClaw-0.8.0.nvda-addon)**
    (or pick a version on the [releases page](https://github.com/joshknnd1982/visionclaw/releases)), open the
    file, confirm the installation, and restart NVDA.
 2. If VisionMate is installed, disable it in the Add-on Store: VisionClaw includes it and uses the same keys.
@@ -448,6 +448,7 @@ add-on. Small models make mistakes; read the code or ask someone you trust if an
 | NVDA+Alt+P | Say the progress of the current request |
 | NVDA+Alt+X | Stop the current request |
 | NVDA+Alt+M | See, remove or swap the models on this computer |
+| NVDA+Alt+U | Look for a newer version of VisionClaw, and get it if you want it |
 | NVDA+Alt+K | Pointer mode: work the mouse pointer with the arrow keys |
 | NVDA+Alt+A | Describe the current element |
 | NVDA+Alt+W | Describe the current window |
@@ -483,13 +484,38 @@ yet.
 These are small models. They are right most of the time on simple requests and less often on complicated ones.
 Double-check anything important.
 
+## Getting a newer version of VisionClaw
+
+VisionClaw can look on its own page on GitHub for a newer version of itself and get it for you.
+
+- **When you ask:** press **NVDA+Alt+U**, or use the button "Look for a newer version now" in VisionClaw's
+  settings, or ask in words: *check for a new version of VisionClaw*. If there is one, you hear its version,
+  its size and what is new, and you are asked whether to download it. If there is none, you are told that you
+  have the newest.
+- **By itself, if you choose that:** in VisionClaw's settings, "Look for a newer version of VisionClaw" can be
+  set to "When NVDA starts, at most once a day, and tell me". Then, a little after NVDA has started, you hear
+  one sentence if a newer version exists: "VisionClaw 0.9.0 is available. Press NVDA+Alt+U to get it." No
+  window opens and nothing is downloaded until you ask. The setting starts on "Only when I ask".
+- **Getting it:** after your yes, the add-on file of that release is downloaded and checked against the size
+  and SHA-256 that GitHub reports for it. Then it is handed to NVDA, which asks its own question about
+  installing it and restarts. Nothing is ever installed without that question.
+
+What the check can and cannot show: the SHA-256 comes from GitHub, like the file itself. It shows that the
+file arrived whole and was not changed on the way; it does not show who made it. Only files of the releases
+of `joshknnd1982/visionclaw` on github.com are ever taken, and a release whose file has no size or SHA-256 is
+passed over.
+
+Nothing about you or your computer is sent. GitHub sees your internet address, as any website does.
+
 ## Privacy
 
 VisionClaw does not collect any information. Its own code connects to the internet only to download the
 models you choose, from Hugging Face; when you press Look for newer models and say yes, to read the list
 of models from its own page on GitHub; and when you ask for the latest developer guides and say yes, to
-download those two guides from NV Access and GitHub. None of these happens by itself. Screens, photos, requests and generated
-code never leave your computer.
+download those two guides from NV Access and GitHub. None of these happens by itself. It also reads the list
+of its own versions from GitHub when you ask it to look for a newer version; only if you turn that on in the
+settings does it do so by itself, when NVDA starts and at most once a day. Screens, photos, requests and
+generated code never leave your computer.
 When you ask it to open or search the web, it hands the address to your own browser, which goes online as
 usual; a web search sends your search words to the search engine you chose.
 

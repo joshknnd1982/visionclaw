@@ -162,6 +162,10 @@ RECIPES = {
 		"let the arrow keys work a dial, knob, custom slider or other control that is only worked by dragging it "
 		"with the mouse, and say what it shows",
 		("work_control",)),
+	"update_visionclaw": (
+		"look for a newer version of VisionClaw",
+		"look for a newer version of VisionClaw itself, the add-on, and get it; check whether VisionClaw is up to date",
+		("check_update",)),
 	"update_guides": (
 		"download the latest NVDA developer guides",
 		"download the latest NVDA developer guide and add-on development guide from the internet, for the models "
@@ -185,6 +189,9 @@ RECIPES = {
 # Words that point to a recipe. Checked in this order; the first that matches is the hint given to the model,
 # and the choice when the model fails.
 _HINTS = (
+	("update_visionclaw", r"\b(update|upgrade|updates|new version|newer version|latest version|up to date)\b.*\bvisionclaw\b"
+		r"|\bvisionclaw\b.*\b(update|updates|upgrade|new version|newer version|latest version|up to date)\b"
+		r"|\b(check|look) for (an? |any )?(updates?|new(er)? version)\b"),
 	("update_guides", r"\b(download|get|pull|fetch|update|refresh|renew)\b.*\b(developer|development|dev)\b.*\bguides?\b"
 		r"|\b(developer|development|dev) guides?\b.*\b(up to date|latest|newest|download|update)\b"),
 	# A control that is dragged or turned: the arrow keys take over. Before the hotkey, mouse and drag hints.

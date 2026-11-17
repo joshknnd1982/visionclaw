@@ -1514,6 +1514,9 @@ def build(plugin):
 	# Deep inspection, lasting fixes for a website or program, and questions about installed add-ons.
 	from . import accesstools
 	accesstools.register(plugin, add, text)
+	# A newer version of VisionClaw itself, when the user asks for it in words.
+	from . import updater
+	updater.register(plugin, add, text)
 
 	registry.add(Tool(ANSWER, "tell the user the result in plain words; always the last step", lambda task: ""))
 	return registry

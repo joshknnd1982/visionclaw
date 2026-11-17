@@ -12,7 +12,7 @@ import wx
 from gui import guiHelper
 
 from . import clawui
-from .claw import backend, policy
+from .claw import backend, policy, updates
 
 addonHandler.initTranslation()
 
@@ -86,6 +86,17 @@ class VisionClawPanel(gui.settingsDialogs.SettingsPanel):
 			self.modelsText = helper.addLabeledControl(
 				_("&Models on this computer:"), wx.TextCtrl, value=self.plugin.modelsSummary(),
 				size=(480, 90), style=wx.TE_MULTILINE | wx.TE_READONLY)
+		self.updateCheck = helper.addLabeledControl(
+			# Translators: Label of the choice of when VisionClaw looks for a newer version of itself.
+			_("Look for a newer version of VisionClaw (&update):"), wx.Choice, choices=[
+				# Translators: Choices for when VisionClaw looks for a newer version of itself.
+				_("Only when I ask, with NVDA+Alt+U or the button below"),
+				_("When NVDA starts, at most once a day, and tell me"),
+			])
+		self.updateCheck.SetSelection(updates.MODES.index(c["updateCheck"]) if c["updateCheck"] in updates.MODES else 0)
+		# Translators: Button in settings that looks for a newer version of VisionClaw now.
+		self.updateBtn = helper.addItem(wx.Button(self, label=_("Look for a newer version no&w...")))
+		self.updateBtn.Bind(wx.EVT_BUTTON, lambda e: self.plugin.updater.check() if self.plugin else None)
 		# Translators: Button in settings that opens the window for seeing, removing and swapping models.
 		self.manageBtn = helper.addItem(wx.Button(self, label=_("See, remove or swa&p models...")))
 		self.manageBtn.Bind(wx.EVT_BUTTON, lambda e: self.plugin.showManageModels() if self.plugin else None)
@@ -124,6 +135,7 @@ class VisionClawPanel(gui.settingsDialogs.SettingsPanel):
 		c["backend"] = backend.CHOICES[max(0, self.backend.GetSelection())]
 		c["reasoning"] = policy.REASONING_CHOICES[max(0, self.reasoning.GetSelection())]
 		c["oneAtATime"] = policy.STEPWISE_CHOICES[max(0, self.oneAtATime.GetSelection())]
+		c["updateCheck"] = updates.MODES[max(0, self.updateCheck.GetSelection())]
 		c["sideBySide"] = self.sideBySide.GetValue()
 		c["autoFixAddons"] = self.autoFixAddons.GetValue()
 		c["searchEngine"] = SEARCH_IDS[max(0, self.searchEngine.GetSelection())]

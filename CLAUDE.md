@@ -50,6 +50,18 @@ keyboard and speech alone.
   after a question (`mustAgree`, whatever the settings say), only from the addresses and servers fixed in
   `guides.SOURCES` and `guides.HOSTS`, and nothing is sent but the two requests. What comes back is text to
   read, never run. Never add a source without the owner's yes.
+  A third exception, which the owner asked for on 2026-11-17 ("add a feature which checks for visionclaw addon
+  updates and gets the latest version for the user, either automatically or manually from my github"):
+  VisionClaw reads the list of releases of its own repository from GitHub's API (`updates.RELEASES_URL`) to
+  see whether a newer version exists (`claw/updates.py`, `updater.py`). When: only when the user asks
+  (NVDA+Alt+U, the button in the settings, the tool `check_update`, which asks first), unless the user sets
+  "Look for a newer version" to the automatic choice; then also when NVDA starts, at most once a day. The
+  default is "only when I ask", and must stay so. Found by itself, a newer version is only announced, in one
+  sentence, with no window. Nothing is downloaded without a yes, only the release's own
+  `VisionClaw-<version>.nvda-addon` at github.com under this repository may be downloaded, a file without a
+  size and SHA-256 from GitHub is refused, and the installing is left to NVDA, which asks its own question.
+  Nothing is sent but the request. The SHA-256 comes from GitHub like the file: it shows the file arrived
+  whole, not who made it; say it that way.
 - **The latest small Qwen models are always offered.** The owner wants every small size of the newest Qwen
   vision and coder models in the lists. When asked to bring them up to date, do not answer from memory: read
   Hugging Face's own listing (`https://huggingface.co/api/models?author=Qwen&sort=createdAt&direction=-1`, and
@@ -163,6 +175,7 @@ addon/
     controlkeys.py           arrow keys for a control that is dragged: taking hold, trying how it is worked,
                              telling what changed, keeping it under a hotkey
     fixruntime.py            the working part of every fixes add-on; copied into the add-on as text
+    updater.py               a newer version of VisionClaw: looking, asking, downloading, handing it to NVDA
     nvdainfo.py              what NVDA has and uses: synthesizer, voices, braille display, drivers, add-ons
     helpers.py               app helpers and generated add-ons: loading them live, their hotkeys
     (the rest)               VisionMate features: overlay, OCR, chat photos, labels ...
@@ -183,6 +196,7 @@ addon/
       fixmatch.py            controls as plain data and the rules that find them; copied into fixes add-ons
       audit.py               the inspection's findings for a page or window, and the fixes each can have
       fixes.py               fixes as data; the add-on put together from them; what it does, in sentences
+      updates.py             which release is newer, and which one file may be downloaded for it
       planner.py             splits a request into parts; recipes; free plans and their repair
       consensus.py           the two models agree, or the user decides
       agent.py               the tool loop for one step
@@ -306,6 +320,8 @@ A session is done only when its "Done when" line is true.
   Markdown; they are searched with VisionClaw's own notes, which win where both fit equally.
 - [x] **3.21 One small question at a time.** Forms narrowed to what the results allow, for every model; for
   the very smallest models one field per call and quoted answers; a setting with Automatic, Always, Never.
+- [x] **3.21 A newer version of VisionClaw.** Looking on GitHub when asked or, by the user's choice, when NVDA
+  starts; always a question before a download; the file checked; NVDA does the installing.
 - [ ] **3.5 Test inside NVDA.** Install the build in NVDA (ask the user first) and walk through
   `docs/TESTPLAN.md`. Fix what breaks. *Done when:* every item in the test plan is ticked by a real run.
 
@@ -358,6 +374,9 @@ Run `python tests/run_all.py` before every commit. Compile every add-on file wit
    VisionMate's own version tags were renamed locally to `visionmate-v...` so that they do not collide with
    VisionClaw's `v...` tags. Never push the `visionmate-` tags.
 4. Until phase 3.5 is done, releases are marked **pre-release** and the notes say what has not been run in NVDA.
+5. Installed copies find a release through `claw/updates.py`. For that the tag must be `v` and the version in
+   numbers, the release must not be a draft, and it must carry `VisionClaw-<version>.nvda-addon`. Put what is
+   new under a heading that begins "New in": that part is read out to users who are offered the version.
 
 ## Credits that must stay
 

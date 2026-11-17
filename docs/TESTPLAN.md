@@ -26,6 +26,19 @@ Before you start: disable VisionMate in the Add-on Store, install the VisionClaw
 - [ ] Each graphics choice works after OK: Automatic, Dedicated graphics card, Vulkan, Processor only
       (describe a window after each; with debug logging on, `engine.log` shows the device).
 
+## A newer version of VisionClaw
+- [ ] NVDA+Alt+U says "Looking for a newer version of VisionClaw", then a window says either that this is the
+      newest version, or which version is available, its size and what is new, and asks whether to download.
+- [ ] No: nothing is downloaded. Yes: "Downloading VisionClaw ..." is spoken, then NVDA's own install question
+      appears; after yes NVDA restarts, and NVDA+Alt+U then says this is the newest version.
+- [ ] VisionClaw's settings: "Look for a newer version of VisionClaw" starts on "Only when I ask"; the button
+      "Look for a newer version now" does the same as NVDA+Alt+U.
+- [ ] Set to "When NVDA starts, at most once a day": after restarting NVDA with an older version installed,
+      one sentence is spoken within about a minute, no window opens, and nothing is downloaded. Restarting NVDA
+      again the same day says nothing.
+- [ ] "Check for a new version of VisionClaw" in the Ask window asks before going online, then answers.
+- [ ] With no internet connection, NVDA+Alt+U says that it could not look, and that nothing was changed.
+
 ## Managing models
 - [ ] VisionClaw's settings show a "Models on this computer" box with each model, its size and what it is in use
       for, and the total.

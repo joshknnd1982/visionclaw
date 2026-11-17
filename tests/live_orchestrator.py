@@ -256,6 +256,10 @@ def makeRegistry(rt, state):
 			"direction": text("which way to scroll", enum=scrolling.DIRECTIONS, auto=scrolling.directionOf),
 			"asked": text("what the user asked for, in their own words, with how far to scroll", maxLength=300, auto=True),
 		}, changes=True)
+	simple("check_update",
+		"look on VisionClaw's own page on GitHub for a newer version of VisionClaw itself, and get it if the "
+		"user wants it",
+		"You have the newest version of VisionClaw, 0.8.0.", "Looking for a newer version of VisionClaw", tell=V)
 	simple("pointer_mode",
 		"turn on pointer mode, so the user can work any control with the keyboard: the arrow keys move the mouse "
 		"pointer, and keys click, right-click, double-click and drag",
@@ -362,6 +366,8 @@ REQUESTS = (
 	"Right-click the Options button.",
 	"Drag the New Game button onto the Quit button.",
 	"Make this control keyboard navigable.",
+	"Check for a new version of VisionClaw.",
+	"Is VisionClaw up to date?",
 	"Scroll down a page.",
 	"Scroll this window to the bottom.",
 	"Scroll up a little, then tell me what the window shows.",

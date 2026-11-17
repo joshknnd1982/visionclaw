@@ -34,7 +34,7 @@ from logHandler import log
 from scriptHandler import script
 from speech import extensions as speechExtensions
 
-from . import autodescribe, clawui, controlkeys, curtain, dialogs, explorer, followup, hardware, helpers, imaging, labels, localmedia, mousetools, nvdatools, ocr, sounds, viewers, winzapp
+from . import autodescribe, clawui, controlkeys, curtain, dialogs, explorer, followup, hardware, helpers, imaging, labels, localmedia, mousetools, nvdatools, ocr, sounds, updater, viewers, winzapp
 from .claw import catalog, drivers, guides
 from .claw.changes import ChangeLog
 from .claw import task as clawTask
@@ -155,6 +155,9 @@ confspec = {
 	"coderModel": 'string(default="")',
 	"reasoning": 'option("auto", "off", "low", "medium", "high", default="auto")',
 	"oneAtATime": 'option("auto", "always", "never", default="auto")',
+	# When to look for a newer version of VisionClaw: only when asked, or also when NVDA starts.
+	"updateCheck": 'option("manual", "auto", default="manual")',
+	"updateLastCheck": 'string(default="")',
 	"sideBySide": "boolean(default=True)",
 	"searchEngine": 'option("duckduckgo", "google", "bing", default="duckduckgo")',
 	"autoFixAddons": "boolean(default=True)",
@@ -417,6 +420,9 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		self.changes = ChangeLog(os.path.join(DATA_DIR, "changes.json"))
 		self.helpers = helpers.Helpers(self, DATA_DIR)
 		self.pointerMode = mousetools.PointerMode(self)
+		# Newer versions of VisionClaw itself. Looks by itself only if the user chose that in the settings.
+		self.updater = updater.Updater(self, DATA_DIR, conf)
+		self.updater.startLater()
 		self.controlKeys = controlkeys.ControlKeys(self)
 		self.clawTask = None
 		self._askDialog = None
@@ -499,6 +505,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		if getattr(self, "_debugTask", None) is not None:
 			self._debugTask.stop()
 		self.pointerMode.stop(say=False)
+		self.updater.stop()
 		self.controlKeys.stop(say=False)
 		self.helpers.terminate()
 		self.runtime.stop()
@@ -812,6 +819,14 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	)
 	def script_pointerMode(self, gesture):
 		self.pointerMode.toggle()
+
+	@script(
+		# Translators: Description of a command in the Input Gestures dialog.
+		description=_("Looks for a newer version of VisionClaw, and offers to get it"),
+		gesture="kb:NVDA+alt+u",
+	)
+	def script_checkUpdate(self, gesture):
+		self.updater.check()
 
 	@script(
 		# Translators: Description of a command in the Input Gestures dialog.

@@ -237,7 +237,7 @@ with open(os.path.join(CONFIG_DIR, "visionClaw", "lessons.json"), "w", encoding=
 	], f)
 instance = plugin.GlobalPlugin()
 registry = instance.orchestrator.registry
-assert len(registry.names()) == 43, registry.names()
+assert len(registry.names()) == 44, registry.names()
 # Lessons from searches that happened to find something misled; they are dropped when VisionClaw starts.
 assert instance.memory.all() == ["Tool set_setting: this form failed: {} (x). This form worked: {}."], instance.memory.all()
 assert set(planner.available(registry)) == set(planner.RECIPES), set(planner.RECIPES) - set(planner.available(registry))
@@ -1220,6 +1220,137 @@ assert worked and "Its picture shows a scrollbar at the right, 50 percent down" 
 assert "The vision model, which can be wrong, sees these things that are worked with the mouse: A volume slider at the top right." in result
 assert "Page Down and Page Up turn the mouse wheel" in result, result
 instance.runtime = realRuntime
+
+# --- A newer version of VisionClaw itself ---
+
+from visionClaw import net, updater  # noqa: E402
+
+BASE = "https://github.com/joshknnd1982/visionclaw/releases/download"
+
+
+def published(version):
+	name = f"VisionClaw-{version}.nvda-addon"
+	return {"tag_name": f"v{version}", "prerelease": True, "draft": False, "body": "* Scrolling is smoother.", "assets": [
+		{"name": name, "size": 3000000, "digest": "sha256:" + "5" * 64, "browser_download_url": f"{BASE}/v{version}/{name}"}]}
+
+
+fetched, downloaded, opened, boxes, said = [], [], [], [], []
+onGitHub = [published("0.8.0")]
+net.fetchJson = lambda url, timeout=20, limit=None: fetched.append(url) or list(onGitHub)
+
+
+def fakeDownload(url, dest, size=None, sha256=None, onProgress=None, cancel=None):
+	downloaded.append((url, size, sha256))
+	with open(dest, "wb") as f:
+		f.write(b"add-on")
+	return dest
+
+
+net.download = fakeDownload
+updater._openInstaller = opened.append
+updater.currentVersion = lambda: "0.8.0"
+sys.modules["ui"].message = said.append
+updater.gui.messageBox = lambda text, *args, **kwargs: boxes.append(text) or sys.modules["wx"].YES
+task = taskModule.Task("test")
+assert conf["visionClaw"]["updateCheck"] == "manual" and conf["visionClaw"]["updateLastCheck"] == ""
+# Asked in words: the user is asked before anything goes online. No means nothing goes online.
+instance.clawAsk = lambda question, choices: questions.append(question) or 1
+questions = []
+worked, result = registry.call(task, "check_update", {})
+assert worked and result == "You said no, so VisionClaw did not go online." and fetched == [], result
+assert questions[0].startswith("VisionClaw will go online once, to its own page on GitHub"), questions
+# Yes, and the version in use is the newest: that is said, and nothing is downloaded.
+instance.clawAsk = lambda question, choices: questions.append(question) or 0
+worked, result = registry.call(task, "check_update", {})
+assert worked and result == "You have the newest version of VisionClaw, 0.8.0." and downloaded == [], result
+assert fetched == ["https://api.github.com/repos/joshknnd1982/visionclaw/releases?per_page=20"]
+assert float(conf["visionClaw"]["updateLastCheck"]) > 0
+# A newer one is there: it is offered with what is new, and "not now" downloads nothing.
+onGitHub.append(published("0.9.0"))
+answers = [0, 1]
+instance.clawAsk = lambda question, choices: questions.append(question) or answers.pop(0)
+worked, result = registry.call(task, "check_update", {})
+assert worked and result.startswith("VisionClaw 0.9.0 is available. You have 0.8.0. It is a download of 3 MB. What is new: "
+	"Scrolling is smoother. You said not now, so nothing was downloaded."), result
+assert downloaded == [] and opened == []
+# Yes: the release's own file is downloaded with its size and checksum, and handed to NVDA to install.
+instance.clawAsk = lambda question, choices: 0
+worked, result = registry.call(task, "check_update", {})
+assert worked and result.startswith("VisionClaw 0.9.0 was downloaded and checked. NVDA now asks whether to install it"), result
+assert downloaded == [(f"{BASE}/v0.9.0/VisionClaw-0.9.0.nvda-addon", 3000000, "5" * 64)], downloaded
+assert len(opened) == 1 and opened[0].endswith(os.path.join("updates", "VisionClaw-0.9.0.nvda-addon")) and os.path.isfile(opened[0])
+# Windows cannot open the file: the user is told where it is.
+updater._openInstaller = lambda path: (_ for _ in ()).throw(OSError("no program"))
+worked, result = registry.call(task, "check_update", {})
+assert worked and "but Windows could not open it. The file is " in result, result
+updater._openInstaller = opened.append
+# The page cannot be reached: the step fails with the reason, and nothing is changed.
+net.fetchJson = lambda url, timeout=20, limit=None: (_ for _ in ()).throw(OSError("no connection"))
+worked, result = registry.call(task, "check_update", {})
+assert not worked and result == "The list of versions could not be read: no connection", result
+net.fetchJson = lambda url, timeout=20, limit=None: fetched.append(url) or list(onGitHub)
+
+
+def idle():
+	for _ in range(300):
+		if not instance.updater._busy:
+			return
+		time.sleep(0.01)
+	raise AssertionError("the updater did not finish")
+
+
+# With the key (NVDA+Alt+U) or the button: a window says that a newer version is there and asks before the
+# download; yes downloads it and hands it to NVDA.
+del downloaded[:], opened[:], boxes[:], said[:]
+instance.updater.check()
+idle()
+time.sleep(0.05)
+idle()
+assert said[0] == "Looking for a newer version of VisionClaw." and "Downloading VisionClaw 0.9.0." in said, said
+assert boxes[0].startswith("VisionClaw 0.9.0 is available. You have 0.8.0.") and "Download it now?" in boxes[0], boxes
+assert len(downloaded) == 1 and len(opened) == 1 and said[-1].startswith("VisionClaw 0.9.0 was downloaded and checked."), said
+# No: nothing is downloaded.
+updater.gui.messageBox = lambda text, *args, **kwargs: boxes.append(text) or sys.modules["wx"].NO
+del downloaded[:], opened[:]
+instance.updater.check()
+idle()
+assert downloaded == [] and opened == []
+# With the newest version in use, the window says so.
+updater.currentVersion = lambda: "0.9.0"
+del boxes[:]
+instance.updater.check()
+idle()
+assert boxes == ["You have the newest version of VisionClaw, 0.9.0."], boxes
+# By itself after NVDA has started: only with the automatic choice, and then one spoken sentence, no window,
+# and no download. With "only when I ask" nothing is even scheduled.
+timers = []
+sys.modules["wx"].CallLater = lambda ms, fn, *args: timers.append((ms, fn, args))
+conf["visionClaw"]["updateLastCheck"] = ""
+instance.updater.startLater()
+assert timers == []
+conf["visionClaw"]["updateCheck"] = "auto"
+instance.updater.startLater()
+assert len(timers) == 1 and timers[0][0] == updater.START_DELAY_MS and timers[0][2] == (False,)
+instance.updater.startLater()  # the list was not read yet, so it is still due
+assert len(timers) == 2
+updater.currentVersion = lambda: "0.8.0"
+del boxes[:], said[:], downloaded[:], fetched[:]
+timers[0][1](*timers[0][2])
+idle()
+assert said == ["VisionClaw 0.9.0 is available. Press NVDA+Alt+U to get it."] and boxes == [] and downloaded == [], (said, boxes)
+assert len(fetched) == 1
+del timers[:]
+instance.updater.startLater()  # read a moment ago: not again today
+assert timers == []
+# Nothing newer, found by itself: nothing is said at all.
+updater.currentVersion = lambda: "0.9.0"
+del said[:]
+instance.updater.check(False)
+idle()
+assert said == [] and boxes == []
+conf["visionClaw"]["updateCheck"] = "manual"
+sys.modules["ui"].message = lambda text: None
+sys.modules["wx"].CallLater = lambda ms, fn, *args: None
 
 # What looking for newer models found is said in plain sentences.
 from visionClaw import dialogs  # noqa: E402
