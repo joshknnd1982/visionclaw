@@ -2,8 +2,15 @@ dist/
 __pycache__/
 *.pyc
 *.gguf
+*.bin
 *.vmdata
 *.part
 *.log
 token*.txt
 *token*
+# The engine binaries come from a release package, see BUILD.md.
+addon/engine/*.dll
+addon/engine/*.exe
+# Reference clone of SmallClaw, not part of this repository.
+SmallClaw/
+.claude/

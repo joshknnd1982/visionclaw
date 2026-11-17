@@ -1,4 +1,5 @@
 # Copyright (C) 2026 Athiban Vijay
+# Modified for VisionClaw, 2026, by Josh Kennedy.
 # This file is licensed under the GNU General Public License, version 2 or later.
 # See LICENSE for the full terms.
 
@@ -7,7 +8,7 @@ import os
 import re
 import threading
 
-SRC = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "addon", "globalPlugins", "visionMate", "__init__.py")
+SRC = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "addon", "globalPlugins", "visionClaw", "__init__.py")
 src = open(SRC, encoding="utf-8").read()
 out = []
 ns = {"re": re, "_speak": out.append}

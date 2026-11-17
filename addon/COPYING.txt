@@ -1,4 +1,9 @@
-VisionMate add-on code
-Copyright (C) 2026 Athiban Vijay
+VisionClaw add-on code
+Copyright (C) 2026 Josh Kennedy
+Based on VisionMate, Copyright (C) 2026 Athiban Vijay
 
-The Python code under globalPlugins/visionMate is licensed under the GNU General Public License, version 2 or later. See LICENSE. Third-party engine and vision-data components retain their own licenses.
+The Python code under globalPlugins/visionClaw is licensed under the GNU General Public License, version 2 or later. See LICENSE. Files that came from VisionMate were modified for VisionClaw in 2026 and say so at their top.
+
+The agent core in globalPlugins/visionClaw/claw follows the design of SmallClaw (https://github.com/XposeMarket/SmallClaw, MIT licence); it contains none of SmallClaw's code.
+
+The engine (llama.cpp and its dependencies, in the engine folder) and the separately downloaded models (Qwen, Apache License 2.0) retain their own licences.

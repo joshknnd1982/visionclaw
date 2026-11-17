@@ -1,18 +1,17 @@
 # Copyright (C) 2026 Athiban Vijay
+# Modified for VisionClaw, 2026, by Josh Kennedy.
 # This file is licensed under the GNU General Public License, version 2 or later.
 # See LICENSE for the full terms.
 
-"""Builds the VisionMate add-on. Updates reach users through the NVDA Add-on Store.
+"""Builds the VisionClaw add-on.
 
 Usage:
   python build.py
 
-Needs dist/data.json from tools/make_datapack.py. Writes to dist/:
-  VisionMate-<version>.nvda-addon   the add-on (submit this to the Add-on Store)
-  VisionMate.nvda-addon             the same file under a fixed name, for the README's direct download link
+Needs the engine binaries in addon/engine (see BUILD.md). Writes to dist/:
+  VisionClaw-<version>.nvda-addon   the add-on
+  VisionClaw.nvda-addon             the same file under a fixed name, for the README's direct download link
 """
-import argparse
-import json
 import os
 import re
 import shutil
@@ -21,46 +20,30 @@ import zipfile
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 SRC = os.path.join(ROOT, "addon")
-PLUGIN = os.path.join(SRC, "globalPlugins", "visionMate")
 DIST = os.path.join(ROOT, "dist")
-# Files in addon/ that only the build and tools use; the add-on itself never imports them.
-BUILD_ONLY = {os.path.join("globalPlugins", "visionMate", "release.py")}
-sys.path.insert(0, PLUGIN)
-import release  # noqa: E402
+ENGINE = os.path.join(SRC, "engine", "vcengine.exe")
 
 
 def main():
-	ap = argparse.ArgumentParser()
-	ap.add_argument("--allow-placeholder", action="store_true", help="Build even if GITHUB_REPO is not set (testing)")
-	a = ap.parse_args()
-	if release.GITHUB_REPO.startswith("OWNER/") and not a.allow_placeholder:
-		sys.exit("Set GITHUB_REPO in addon/globalPlugins/visionMate/release.py first.")
+	if not os.path.isfile(ENGINE):
+		sys.exit("The engine is missing: addon/engine/vcengine.exe. See BUILD.md for where to get it.")
 	manifest = open(os.path.join(SRC, "manifest.ini"), encoding="utf-8").read()
 	version = re.search(r"^version\s*=\s*(\S+)", manifest, re.M).group(1)
-	with open(os.path.join(DIST, "data.json"), encoding="utf-8") as f:
-		data = json.load(f)
-	base = f"https://github.com/{release.GITHUB_REPO}/releases/download"
-	dataInfo = {
-		"version": data["version"], "size": data["size"], "sha256": data["sha256"],
-		"url": f"{base}/data-{data['version']}/{data['file']}",
-	}
-	# The add-on carries the data download details so the welcome window works without an update check.
-	with open(os.path.join(PLUGIN, "datainfo.json"), "w", encoding="utf-8") as f:
-		json.dump(dataInfo, f, indent=2)
-
-	out = os.path.join(DIST, f"VisionMate-{version}.nvda-addon")
-	with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
+	os.makedirs(DIST, exist_ok=True)
+	out = os.path.join(DIST, f"VisionClaw-{version}.nvda-addon")
+	count = 0
+	with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as z:
 		for dirpath, dirnames, files in os.walk(SRC):
-			dirnames[:] = [d for d in dirnames if d != "__pycache__"]
-			for name in files:
-				full = os.path.join(dirpath, name)
-				rel = os.path.relpath(full, SRC)
-				if rel in BUILD_ONLY or name.endswith(".pyc"):
+			dirnames[:] = sorted(d for d in dirnames if d != "__pycache__")
+			for name in sorted(files):
+				if name.endswith((".pyc", ".log", ".part")):
 					continue
-				z.write(full, rel)
-	# releases/latest/download/VisionMate.nvda-addon then always downloads the newest version.
-	shutil.copyfile(out, os.path.join(DIST, "VisionMate.nvda-addon"))
-	print(f"Built {out} ({os.path.getsize(out) // 2**20} MB)")
+				full = os.path.join(dirpath, name)
+				z.write(full, os.path.relpath(full, SRC))
+				count += 1
+	# releases/latest/download/VisionClaw.nvda-addon then always downloads the newest version.
+	shutil.copyfile(out, os.path.join(DIST, "VisionClaw.nvda-addon"))
+	print(f"Built {out}: {count} files, {os.path.getsize(out) / 2 ** 20:.1f} MB")
 
 
 if __name__ == "__main__":

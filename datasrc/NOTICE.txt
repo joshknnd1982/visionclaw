@@ -1,5 +1,8 @@
-VisionMate vision data includes the Qwen3-VL-2B-Instruct model by the Qwen team, Alibaba Cloud,
-converted to GGUF and with its metadata changed. It is licensed under the Apache License 2.0:
+The models VisionClaw downloads are by the Qwen team, Alibaba Cloud: Qwen3.5 (2B, 4B, 9B), as GGUF files
+converted by Unsloth, and Qwen2.5-Coder (1.5B, 7B), as GGUF files published by the Qwen team. They are
+downloaded unchanged from Hugging Face; claw/catalog.py lists each file. VisionMate's vision data, which
+VisionClaw can reuse where it is already installed, includes the Qwen3-VL-2B-Instruct model.
+All of these models are licensed under the Apache License 2.0:
 
 
                                  Apache License
