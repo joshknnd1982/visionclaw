@@ -184,7 +184,6 @@ stub("synthDriverHandler", getSynth=lambda: synth, getSynthList=lambda: SYNTHS, 
 stub("braille", handler=types.SimpleNamespace(display=types.SimpleNamespace(name="noBraille"), displaySize=0),
 	getDisplayList=lambda: [("noBraille", "No braille"), ("freedomScientific", "Freedom Scientific Focus")])
 typed = []
-stub("brailleInput", handler=types.SimpleNamespace(sendChars=typed.append))
 os.environ["USERPROFILE"] = CONFIG_DIR  # so that nothing is written to the real Documents folder
 stub("wx", IsMainThread=lambda: True, CallAfter=lambda fn, *args: fn(*args), CallLater=lambda ms, fn, *args: None)
 stub("inputCore", normalizeGestureIdentifier=lambda ident: ident.lower())
@@ -210,6 +209,7 @@ sys.modules["contentRecog"].recogUi = sys.modules["contentRecog.recogUi"]
 sys.path.insert(0, os.path.join(ROOT, "addon", "globalPlugins"))
 plugin = importlib.import_module("visionClaw")
 from visionClaw import nvdatools, webtools  # noqa: E402
+nvdatools.typeUnicode = typed.append  # nothing is really typed into the computer during the tests
 from visionClaw.claw import orchestrator, planner  # noqa: E402
 from visionClaw.claw import task as taskModule  # noqa: E402
 from visionClaw.claw.catalog import CODER, VISION  # noqa: E402
@@ -355,6 +355,15 @@ assert worked and synth.volume == 100 and "too quiet to hear, and there is no br
 instance.clawAsk = lambda question, choices: 0
 worked, result = registry.call(task, "set_setting", {"setting": "speech.volume", "value": "40"})
 assert worked and synth.volume == 40
+
+# Typing goes through Windows itself: one key down and one key up per character, with the right layout
+# of the structure Windows expects (40 bytes on 64-bit Windows, 28 on 32-bit).
+import ctypes  # noqa: E402
+events = nvdatools.unicodeInputs("a\u00e9\nb")
+assert len(events) == 8 and [e.u.ki.wScan for e in events[::2]] == [ord("a"), 0xE9, 13, ord("b")]
+assert events[0].u.ki.dwFlags == 0x0004 and events[1].u.ki.dwFlags == 0x0006 and events[0].type == 1
+assert ctypes.sizeof(nvdatools._INPUT) == (40 if ctypes.sizeof(ctypes.c_void_p) == 8 else 28)
+assert len(nvdatools.unicodeInputs("\U0001F600")) == 4  # a character outside the basic plane is two units
 
 # --- Other tools that need no screen ---
 

@@ -5,6 +5,7 @@
 # VisionClaw - the tools the models can use inside NVDA. Each tool is a small form and a function.
 # The functions run on the task's worker thread; everything that touches NVDA is passed to NVDA's main thread.
 
+import ctypes
 import difflib
 import html
 import importlib
@@ -145,6 +146,57 @@ def onMain(fn, *args, timeout=20):
 	if "error" in box:
 		raise box["error"]
 	return box.get("value")
+
+
+class _MOUSEINPUT(ctypes.Structure):
+	_fields_ = [
+		("dx", ctypes.c_long), ("dy", ctypes.c_long), ("mouseData", ctypes.c_ulong), ("dwFlags", ctypes.c_ulong),
+		("time", ctypes.c_ulong), ("dwExtraInfo", ctypes.c_size_t),
+	]
+
+
+class _KEYBDINPUT(ctypes.Structure):
+	_fields_ = [
+		("wVk", ctypes.c_ushort), ("wScan", ctypes.c_ushort), ("dwFlags", ctypes.c_ulong), ("time", ctypes.c_ulong),
+		("dwExtraInfo", ctypes.c_size_t),
+	]
+
+
+class _INPUTUNION(ctypes.Union):
+	_fields_ = [("mi", _MOUSEINPUT), ("ki", _KEYBDINPUT)]
+
+
+class _INPUT(ctypes.Structure):
+	_fields_ = [("type", ctypes.c_ulong), ("u", _INPUTUNION)]
+
+
+_INPUT_KEYBOARD, _KEYEVENTF_KEYUP, _KEYEVENTF_UNICODE = 1, 0x0002, 0x0004
+
+
+def unicodeInputs(text):
+	"""The key events that type a text as characters, whatever the keyboard layout: for each character a key
+	down and a key up carrying the character itself."""
+	units = text.replace("\r\n", "\r").replace("\n", "\r").encode("utf-16-le")
+	events = []
+	for i in range(0, len(units), 2):
+		code = units[i] | (units[i + 1] << 8)
+		for flags in (_KEYEVENTF_UNICODE, _KEYEVENTF_UNICODE | _KEYEVENTF_KEYUP):
+			event = _INPUT(type=_INPUT_KEYBOARD)
+			event.u.ki = _KEYBDINPUT(wVk=0, wScan=code, dwFlags=flags, time=0, dwExtraInfo=0)
+			events.append(event)
+	return events
+
+
+def typeUnicode(text):
+	"""Type a text into the program in front, through Windows itself. This does not rely on any part of NVDA,
+	which has moved its own typing function between versions."""
+	events = unicodeInputs(text)
+	if not events:
+		return
+	block = (_INPUT * len(events))(*events)
+	sent = ctypes.windll.user32.SendInput(len(events), block, ctypes.sizeof(_INPUT))
+	if sent != len(events):
+		raise ToolError("Windows did not accept the typing. The program in front may not allow it.")
 
 
 def pickItem(reference, items, prefer=()):
@@ -842,10 +894,9 @@ def build(plugin):
 		title="Pressing keys")
 
 	def typeText(task, textToType):
-		import brailleInput
 		# Translators: Asked before VisionClaw types text for the user. {text} is the text.
 		confirm(_("Type \"{text}\" into the program?").format(text=clip(textToType, 80)))
-		onMain(brailleInput.handler.sendChars, textToType)
+		onMain(typeUnicode, textToType)
 		return f"Typed: {clip(textToType, 80)}"
 
 	registry.add(Tool("type_text", "type text into the program in front", guarded(lambda task, text: typeText(task, text)),
@@ -1277,7 +1328,6 @@ def build(plugin):
 		title="Moving between pages", tell=VERBATIM)
 
 	def fillField(task, field, typed, enter):
-		import brailleInput
 		from keyboardHandler import KeyboardInputGesture
 		result = getattr(task, "items", None) or screen.items()
 		if getattr(result, "web", False):
@@ -1291,7 +1341,7 @@ def build(plugin):
 		confirm(_("Type \"{text}\" into {field}?").format(text=clip(typed, 80), field=found["text"]))
 		onMain(Screen.click, result, found)  # in a web page this goes into the field, as Enter does
 		time.sleep(0.5)
-		onMain(brailleInput.handler.sendChars, typed)
+		onMain(typeUnicode, typed)
 		if enter == "yes":
 			time.sleep(0.2)
 			onMain(KeyboardInputGesture.fromName("enter").send)

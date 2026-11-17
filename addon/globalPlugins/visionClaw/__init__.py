@@ -175,6 +175,11 @@ def conf():
 	return config.conf[CONF_SECTION]
 
 
+def _runtimeSettings():
+	c = conf()
+	return {key: c[key] for key in ("backend", "visionModel", "coderModel", "sideBySide")}
+
+
 def _languageInstruction():
 	if not conf()["answerInNvdaLanguage"]:
 		return ""
@@ -390,7 +395,8 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		debug = log.isEnabledFor(logging.DEBUG)
 		logs = {VISION: os.path.join(DATA_DIR, "engine.log"), CODER: os.path.join(DATA_DIR, "coder.log")} if debug else None
 		self.models = catalog.Catalog(MODELS_DIR, VISIONMATE_DATA)
-		self.runtime = ModelRuntime(ENGINE_DIR, self.models, lambda: conf(), hardware.freeMemoryGb, logs)
+		# The runtime is given the user's choices as a plain dictionary, so it needs nothing of NVDA's settings object.
+		self.runtime = ModelRuntime(ENGINE_DIR, self.models, _runtimeSettings, hardware.freeMemoryGb, logs)
 		self._engine = _VisionEngine(self.runtime)
 		self._cancel = threading.Event()
 		self._speakingCancel = None
