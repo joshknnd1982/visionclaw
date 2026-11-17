@@ -100,6 +100,13 @@ keyboard and speech alone.
   of fix goes into `fixruntime.py` and `fixes.py` together, with a case in `tests/test_access.py` that runs the
   generated add-on against the stand-in page. Whatever `fixruntime.py` uses must pass `microaddons.check`
   (no ctypes, setattr or files) and must never let an error reach NVDA.
+- **No fixed pixel sizes.** Screens differ in size and scaling, and NVDA works in real pixels on each
+  monitor. A size that should look the same to the eye is written for a plain screen at 100 percent and
+  turned into pixels with `scrolling.pixels(size, scale)`, where the scale comes from `mousetools.scaleAt`;
+  a distance inside a window is a share of the window. A place that is kept, as in a fix or a helper, is kept
+  as a name or a share, never as pixels.
+- **Say whether it moved.** After the wheel is turned, the picture before and after is compared
+  (`scrolling.moved`), and the user is told what happened, not what was attempted.
 - **Measure with the real model.** After any change to a prompt, a recipe or a form, run
   `python tests/live_orchestrator.py` and read every answer. A change that passes the scripted tests can still
   make a small model worse.
@@ -123,7 +130,8 @@ addon/
     clawui.py                Ask VisionClaw window, choice prompts, progress speech
     nvdatools.py             the tools the models can call, written against the NVDA API
     webtools.py              the web through NVDA's browse mode: a page's links, buttons, fields and text
-    mousetools.py            the mouse from the keyboard: click, right-click, double-click, drag, pointer mode
+    mousetools.py            the mouse from the keyboard: click, right-click, double-click, drag, the wheel,
+                             the screen's scaling, pointer mode
     accesstools.py           deep inspection, lasting fixes for a website or program, installed add-ons
     fixruntime.py            the working part of every fixes add-on; copied into the add-on as text
     nvdainfo.py              what NVDA has and uses: synthesizer, voices, braille display, drivers, add-ons
@@ -140,6 +148,8 @@ addon/
       web.py                 web addresses, search addresses, the passages of a page that matter
       drivers.py             rules that keep speech and braille alive; what happened with each driver
       pointer.py             which mouse action is meant, where a drag ends, how pointer mode moves
+      scrolling.py           how far to scroll, steps that follow the screen, whether a scroll moved anything,
+                             scrollbars found in a picture
       changes.py             every setting VisionClaw changed, so that it can be listed and put back
       fixmatch.py            controls as plain data and the rules that find them; copied into fixes add-ons
       audit.py               the inspection's findings for a page or window, and the fixes each can have
@@ -245,6 +255,10 @@ A session is done only when its "Done when" line is true.
 - [x] **3.16 The latest small models.** Qwen3.5 0.8B and Qwen2.5 Coder 0.5B built in; `models.json`, written
   from the catalog by `tools/write_models_list.py`; "Look for newer models" in the models window, which asks
   first; every fetched entry checked by `catalog.checkEntry`.
+- [x] **3.17 Scrolling on any screen.** `scroll_view` turns the wheel and says whether anything moved; Page
+  Down, Page Up and S in pointer mode; pointer steps and areas follow the monitor's scaling and the window's
+  size; scrollbars found in a window's picture by plain code, and the vision model asked for other things
+  worked with the mouse, in the deep inspection of a window.
 - [ ] **3.5 Test inside NVDA.** Install the build in NVDA (ask the user first) and walk through
   `docs/TESTPLAN.md`. Fix what breaks. *Done when:* every item in the test plan is ticked by a real run.
 

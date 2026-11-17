@@ -93,7 +93,10 @@ class Layout:
 	"""Background regions of a window picture. Text and icons are painted over first, so only backgrounds,
 	borders and lines are left."""
 
-	def __init__(self, image, itemBoxes):
+	def __init__(self, image, itemBoxes, scale=1.0):
+		"""scale: how much larger than plain the screen draws things, so that sizes meant for a plain screen
+		fit a high-resolution one."""
+		self.scale = max(1.0, scale)
 		self.image = image.convert("RGB")
 		w, h = self.image.size
 		self.size = (w, h)
@@ -155,9 +158,11 @@ class Layout:
 			left, top, right, bottom = r.box
 			rw, rh = right - left, bottom - top
 			bw, bh = (rw // cell) or 1, (rh // cell) or 1
-			if r.cells / total >= AREA_MIN_SHARE and rw >= AREA_MIN_WIDTH and rh >= AREA_MIN_HEIGHT:
+			if (r.cells / total >= AREA_MIN_SHARE and rw >= AREA_MIN_WIDTH * self.scale
+					and rh >= AREA_MIN_HEIGHT * self.scale):
 				r.kind = "area"
-			elif (BOX_MIN_HEIGHT <= rh <= BOX_MAX_HEIGHT and rw >= 0.8 * rh and rw <= BOX_MAX_WIDTH_SHARE * w
+			elif (BOX_MIN_HEIGHT * self.scale <= rh <= BOX_MAX_HEIGHT * self.scale and rw >= 0.8 * rh
+					and rw <= BOX_MAX_WIDTH_SHARE * w
 					and r.cells / (bw * bh) >= BOX_MIN_FILL):
 				r.kind = "box"
 		areas = [r for r in regions if r.kind == "area"]
@@ -393,13 +398,13 @@ def _readingOrder(items):
 	return _readingOrder(best[1]) + _readingOrder(best[2])
 
 
-def arrange(image, items):
+def arrange(image, items, scale=1.0):
 	"""Find kinds and areas for the overlay's items, which have "text", "box" and "kind" ("text" or "icon").
 	Sets item["role"] to "button", "field", "heading", "link", "checkbox" or "radio" when it is one, adds edit
 	fields that have no text in them, and returns a list of (area, items) in reading order. area is None when the
 	window has only one area, otherwise {"kind": "dialog"/"panel"/"top"/"bottom"/"left"/"right"/"main", "title": ...}.
 	Within an area, items are in reading order."""
-	layout = Layout(image, [_textBox(it) for it in items])
+	layout = Layout(image, [_textBox(it) for it in items], scale)
 	image = layout.image
 	heights = sorted(_lineHeight(it) for it in items if it["kind"] == "text")
 	usual = heights[len(heights) // 2] if heights else 0

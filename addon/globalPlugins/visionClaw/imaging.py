@@ -252,14 +252,16 @@ def _ringInk(cells, gw, gh, box):
 	return ink / total if total else 1
 
 
-def findIcons(image, textBoxes=()):
+def findIcons(image, textBoxes=(), scale=1.0):
 	"""Find icon-like shapes that are not text. Returns boxes (left, top, right, bottom) in image pixels,
-	top to bottom and left to right."""
+	top to bottom and left to right. scale: how much larger than plain the screen draws things (2.0 at 200
+	percent), so that an icon is still an icon on a high-resolution screen, where it has more pixels."""
 	cells, gw, gh = _inkCells(image, textBoxes)
 	icons = []
+	smallest, largest = ICON_MIN_SIDE * max(1.0, scale), ICON_MAX_SIDE * max(1.0, scale)
 	for x0, y0, x1, y1, n in _components(cells, gw, gh):
 		w, h = (x1 - x0) * CELL, (y1 - y0) * CELL
-		if n < 3 or not (ICON_MIN_SIDE <= w <= ICON_MAX_SIDE and ICON_MIN_SIDE <= h <= ICON_MAX_SIDE):
+		if n < 3 or not (smallest <= w <= largest and smallest <= h <= largest):
 			continue
 		if max(w, h) > ICON_MAX_ASPECT * min(w, h):
 			continue

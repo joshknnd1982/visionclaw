@@ -16,9 +16,10 @@ VisionClaw is a fork of [VisionMate](https://github.com/athee06/VisionMate) by A
 everything VisionMate does: image descriptions, the overlay for windows NVDA cannot read, photo descriptions in
 chat apps, and names for unlabelled buttons.
 
-> **Status: pre-release (0.4.0).** The orchestration core has been tested with scripted models and with a
-> real model through the bundled engine, and the whole add-on has been loaded against stand-ins for NVDA.
-> It has **not yet been run inside NVDA**. Expect rough edges and please report them. See
+> **Status: pre-release (0.5.0).** The orchestration core has been tested with scripted models and with
+> real models through the bundled engine. Inside NVDA 2026.3.1 the owner has run the models window, a first
+> set of requests and five tests of version 0.4.0; **most of the test plan has not been run inside NVDA
+> yet**, and scrolling not at all. Expect rough edges and please report them. See
 > [docs/STATUS.md](docs/STATUS.md) for exactly what was tested.
 
 ## What you can ask
@@ -63,7 +64,7 @@ You do not need to know NVDA. VisionClaw finds the right NVDA setting or command
 
 ## Install
 
-1. Download **[VisionClaw-0.4.0.nvda-addon](https://github.com/joshknnd1982/visionclaw/releases/download/v0.4.0/VisionClaw-0.4.0.nvda-addon)**
+1. Download **[VisionClaw-0.5.0.nvda-addon](https://github.com/joshknnd1982/visionclaw/releases/download/v0.5.0/VisionClaw-0.5.0.nvda-addon)**
    (or pick a version on the [releases page](https://github.com/joshknnd1982/visionclaw/releases)), open the
    file, confirm the installation, and restart NVDA.
 2. If VisionMate is installed, disable it in the Add-on Store: VisionClaw includes it and uses the same keys.
@@ -284,15 +285,28 @@ on to. VisionClaw lets you do all of that without a mouse, in three ways.
 - "Right-click the file icon", "double-click the folder", "point at the Help button".
 - "Drag the file onto the Trash", "drag the volume slider to the right a little", "drag the handle down 50
   pixels".
-You are asked first, except for pointing, which changes nothing.
+- "Scroll down", "scroll up a little", "scroll down a page", "scroll this window to the bottom", "scroll
+  right". VisionClaw turns the mouse wheel in the middle of the window, or over the control you are on, and
+  then compares the window's picture before and after. So it can tell you honestly whether anything moved:
+  at the end of a list it says that nothing moved, and "to the bottom" stops when nothing moves any more.
+  Where the window shows a scrollbar, you also hear how far along the view now stands, in percent.
+You are asked first, except for pointing, which changes nothing. The wheel is never turned over a slider, a
+combo box or a similar control, where it would change a value instead of scrolling.
 
 **In the overlay** (NVDA+Alt+O), on any item: Enter or Space clicks, Shift+Enter double-clicks, the Applications
 key right-clicks, and **G picks the item up; G on another item drops it there.**
 
 **Pointer mode** (NVDA+Alt+K, or ask "make this control keyboard navigable") is for a control, canvas or game
 where nothing can be listed at all. The arrow keys move the mouse pointer inside the window:
-- Arrow keys: 20 pixels. With Shift: 4 pixels. With Control: 100 pixels. A short tone tells you how high the
-  pointer is, and a low tone that it has reached the edge.
+- Arrow keys move one step; with Shift a fine step; with Control a far one. On a plain screen these are 20, 4
+  and 100 pixels. They follow your screen: at 200 percent scaling they are twice as many pixels, so a step is
+  the same to the eye on a small laptop screen and on a large 4K one, and in a small window they are made
+  smaller so the pointer does not leap across it. A short tone tells you how high the pointer is, and a low
+  tone that it has reached the edge.
+- **Page Down and Page Up turn the mouse wheel about a page** where the pointer is; with Shift one notch; with
+  Control sideways. You hear how far along the view stands, or that nothing moved.
+- **S finds the scrollbars** in the window's picture, tells you where one is and how far along it stands, and
+  puts the pointer on it. G then holds it, the arrow keys move it, and G lets go.
 - Enter or Space clicks, Shift+Enter double-clicks, the Applications key right-clicks.
 - **G holds the mouse button down; move; G again lets go.** That is a drag done by hand.
 - W has the vision model say what is at the pointer. R reads the text there. P says where the pointer is in the
@@ -301,6 +315,14 @@ All other keys keep working as usual.
 
 **App helpers** can right-click or double-click their item as well as click it: "give this program a hotkey
 that right-clicks the canvas".
+
+**Scrollbars and other things made only for the mouse.** A deep inspection of a window ("inspect this window")
+now also looks at its picture: plain code finds the scrollbars by their look, on a screen of any size and
+scaling, and the vision model is asked what else is worked with the mouse, such as sliders, switches or a
+drawing area. You are told what was found and how to work it from the keyboard. What the vision model names
+is marked as its view, because it can be wrong. Scrollbars that only appear while the mouse is over them,
+and scrollbars in the middle of a window rather than at its right or bottom edge, are not found by their
+look; the wheel still scrolls there.
 
 When you name the things yourself, as in "drag the New Game button onto the Quit button", your own words decide
 which items are meant, not the model's copy of them.

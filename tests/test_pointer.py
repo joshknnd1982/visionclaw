@@ -56,7 +56,17 @@ assert pointer.dragOffset("the Trash icon", BOX) is None and pointer.dragOffset(
 
 # Every key of pointer mode does something known, and the keys a user needs are all there.
 commands = {command[0] for command in pointer.KEYS.values()}
-assert commands == {"move", "click", "double", "right", "grab", "look", "read", "where", "help", "centre", "exit"}
+assert commands == {
+	"move", "click", "double", "right", "grab", "look", "read", "where", "help", "centre", "exit", "scroll", "bars"}
+assert pointer.KEYS["kb:pagedown"] == ("scroll", "down", pointer.PAGE) and pointer.KEYS["kb:shift+pageup"] == ("scroll", "up", pointer.NOTCH)
+assert pointer.KEYS["kb:control+pagedown"] == ("scroll", "right", pointer.PAGE) and pointer.KEYS["kb:s"] == ("bars",)
+assert pointer.notchesFor(pointer.PAGE) == 8 and pointer.notchesFor(pointer.NOTCH) == 1
+# A step is the same to the eye on every screen: twice the pixels at twice the scaling, and smaller in a
+# small window so that the pointer does not leap across it.
+assert [pointer.stepFor(size, (0, 0, 1366, 768), 1.0) for size in (pointer.STEP, pointer.FINE, pointer.FAR)] == [20, 4, 100]
+assert [pointer.stepFor(size, (0, 0, 3840, 2160), 2.0) for size in (pointer.STEP, pointer.FINE, pointer.FAR)] == [40, 8, 200]
+assert [pointer.stepFor(size, (0, 0, 2560, 1440), 1.25) for size in (pointer.STEP, pointer.FINE, pointer.FAR)] == [25, 5, 125]
+assert [pointer.stepFor(size, (0, 0, 200, 120), 2.0) for size in (pointer.STEP, pointer.FINE, pointer.FAR)] == [10, 5, 30]
 assert pointer.KEYS["kb:shift+leftarrow"] == ("move", "left", pointer.FINE)
 assert pointer.KEYS["kb:control+downarrow"] == ("move", "down", pointer.FAR)
 assert all(key == key.lower() and key.startswith("kb:") for key in pointer.KEYS)

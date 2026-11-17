@@ -9,10 +9,15 @@
 
 import re
 
+from . import scrolling
+
 CLICK, DOUBLE, RIGHT, HOVER = "click", "double click", "right click", "hover"
 ACTIONS = [CLICK, DOUBLE, RIGHT, HOVER]
-# How far one press of an arrow key moves the pointer, in pixels: plain, with Shift (fine), with Control (far).
+# How far one press of an arrow key moves the pointer: plain, with Shift (fine), with Control (far). These are
+# sizes on a plain screen at 100 percent; stepFor turns them into the pixels of the user's screen and window.
 STEP, FINE, FAR = 20, 4, 100
+# How far the wheel is turned by the scroll keys of pointer mode: about a page, or one notch.
+PAGE, NOTCH = "page", "notch"
 DIRECTIONS = {"left": (-1, 0), "right": (1, 0), "up": (0, -1), "down": (0, 1)}
 # How far "a little" and "a lot" are, as a share of the window, when a drag is asked for in words.
 _AMOUNTS = (
@@ -33,7 +38,22 @@ KEYS = {
 	"kb:shift+enter": ("double",), "kb:applications": ("right",), "kb:shift+f10": ("right",),
 	"kb:g": ("grab",), "kb:w": ("look",), "kb:r": ("read",), "kb:p": ("where",), "kb:h": ("help",),
 	"kb:home": ("centre",), "kb:escape": ("exit",),
+	"kb:pagedown": ("scroll", "down", PAGE), "kb:pageup": ("scroll", "up", PAGE),
+	"kb:shift+pagedown": ("scroll", "down", NOTCH), "kb:shift+pageup": ("scroll", "up", NOTCH),
+	"kb:control+pagedown": ("scroll", "right", PAGE), "kb:control+pageup": ("scroll", "left", PAGE),
+	"kb:s": ("bars",),
 }
+
+
+def stepFor(amount, box, scale):
+	"""One key press's move in the pixels of this screen: STEP, FINE or FAR, made to fit the screen's scaling
+	and the window's size, so a step looks the same on a small laptop screen and on a large 4K one."""
+	plain, fine, far = scrolling.steps(box, scale)
+	return {STEP: plain, FINE: fine, FAR: far}.get(amount, amount)
+
+
+def notchesFor(amount):
+	return scrolling.PAGE_NOTCHES if amount == PAGE else 1
 
 
 def actionOf(part):

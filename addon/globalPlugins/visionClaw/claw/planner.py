@@ -157,6 +157,11 @@ RECIPES = {
 		"drag something with the mouse",
 		"drag an item with the mouse onto another item or in a direction, or move a slider",
 		("list_items", "drag_item")),
+	"scroll": (
+		"scroll with the mouse wheel",
+		"scroll what the window shows up, down, left or right with the mouse wheel, a little, a page or to the "
+		"end, where the keyboard does not scroll it",
+		("scroll_view",)),
 	"keyboard_mouse": (
 		"let you work the mouse pointer with the keyboard",
 		"turn on pointer mode, so the user can work a control, canvas or game that has nothing to list: the arrow "
@@ -218,6 +223,7 @@ _HINTS = (
 	("keyboard_mouse", r"\bpointer mode\b|\bmouse (mode|keys)\b|\b(keyboard|arrow keys?)\b.*\b(mouse|pointer)\b"
 		r"|\b(mouse|pointer)\b.*\b(keyboard|arrow keys?)\b|\bkeyboard[- ](navigable|accessible)\b"),
 	("drag", r"\bdrag\b|\bslider\b|\bdrop\b.*\b(on|onto|into)\b"),
+	("scroll", r"\bscroll(s|ed|ing)?\b|\bmouse wheel\b"),
 	("change_setting", r"speed|rate\b|faster|slower|louder|quieter|volume|pitch|voice|punctuation|echo|braille|setting|turn (on|off)|switch (on|off)|enable|disable|stop (saying|reading|announcing|speaking)"),
 	("click", r"\bright[- ]click\b|\bdouble[- ]click\b|\bhover\b|\bpoint (at|to)\b"),
 	("click", r"\b(click|press|push|activate|select|choose|start|open)\b.*\b(button|link|item|menu|tab|icon|game|option)|\bclick\b"),
@@ -370,7 +376,7 @@ def quickTriage(request):
 	return {
 		"kind": recipes[0],
 		"complexity": complexity(recipes),
-		"needs_vision": any(r in ("describe", "click", "make_hotkey", "read_text", "fix_access") for r in recipes),
+		"needs_vision": any(r in ("describe", "click", "make_hotkey", "read_text", "fix_access", "check_access") for r in recipes),
 		"needs_code": "write_addon" in recipes,
 	}
 

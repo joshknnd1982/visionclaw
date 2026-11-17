@@ -24,8 +24,8 @@ import config
 import inputCore
 from logHandler import log
 
-from . import fixruntime, nvdainfo, ocr
-from .claw import audit, fixes, match, microaddons, web
+from . import fixruntime, mousetools, nvdainfo, ocr
+from .claw import audit, fixes, match, microaddons, scrolling, web
 from .claw.fixmatch import hostOf, labelOf, matches, nodeFromObject, plainText
 from .claw.llm import clip
 from .claw.tools import VERBATIM, ToolError
@@ -128,6 +128,36 @@ def _drawn(plugin, box):
 	return [line for line in ocr.rowsText(lines).splitlines() if line.strip()]
 
 
+def _visual(plugin, task, box):
+	"""What a window's picture shows that is worked with the mouse: the scrollbars, found by plain code from
+	their look on a screen of any size and scaling, and what the vision model names when asked. Returns
+	(scrollbars in words, the vision model's answer or "")."""
+	if box is None:
+		return [], ""
+	try:
+		picture = plugin._grab(box)
+	except Exception:
+		log.debugWarning("VisionClaw: no picture of the window for the inspection", exc_info=True)
+		return [], ""
+	scale = onMain(mousetools.scaleAt, (box[0] + box[2]) // 2, (box[1] + box[3]) // 2)
+	bars = [scrolling.barText(bar) for bar in _safe(lambda: scrolling.scrollbars(picture, scale), [])]
+	seen = ""
+	try:
+		answer = plugin.runtime.describe(
+			prepareImage(picture, config.conf["visionClaw"]["detailSize"]),
+			"Look at this picture of a window. Does it show sliders, scrollbars, switches, colour pickers, drawing "
+			"areas or other things that are worked by dragging or clicking with the mouse? Name each in a few "
+			"words with where it is in the window, in one sentence. If there are none, answer only: none.",
+			90, cancel=task.cancel)
+		answer = " ".join(str(answer or "").split())
+		if answer and not re.match(r"^(none|no)\b[.!]?$", answer.lower()):
+			seen = clip(answer, 300)
+	except Exception:
+		task.check()
+		log.debugWarning("VisionClaw: the vision model could not look at the window", exc_info=True)
+	return bars, seen
+
+
 def _boxOf(obj):
 	"""The place of a control on the screen, or None if it is not showing. Main thread."""
 	if obj is None or _safe(lambda: obj.hasIrrelevantLocation, True):
@@ -224,11 +254,14 @@ def inspect(plugin, task, target="auto", depth="deep"):
 	task.emit("detail", "Reading every control NVDA knows in the window.")
 	nodes = _windowNodes(task, window)
 	later = drawn = None
+	bars, seen = [], ""
 	if deep:
-		drawn = _drawn(plugin, onMain(plugin.clawScreen.box, "window"))
+		box = onMain(plugin.clawScreen.box, "window")
+		drawn = _drawn(plugin, box)
+		bars, seen = _visual(plugin, task, box)
 		_wait(task, CHANGE_WAIT_SECONDS)
 		later = _windowNodes(task, window)
-	report = audit.auditWindow(nodes, title=title, app=app, later=later, drawn=drawn)
+	report = audit.auditWindow(nodes, title=title, app=app, later=later, drawn=drawn, bars=bars, seen=seen)
 	return Inspection("window", fixes.scopeOf(app=app), nodes, window, report, title, focus)
 
 

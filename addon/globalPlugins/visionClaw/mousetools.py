@@ -21,17 +21,22 @@ import wx
 from logHandler import log
 
 from . import ocr
-from .claw import pointer
+from .claw import pointer, scrolling
 from .claw.tools import VERBATIM, ToolError
 from .engine import EngineError, prepareImage
 
 addonHandler.initTranslation()
 
 _LEFTDOWN, _LEFTUP, _RIGHTDOWN, _RIGHTUP = 0x0002, 0x0004, 0x0008, 0x0010
+_WHEEL, _HWHEEL = 0x0800, 0x1000
 # Pauses that give a program time to notice each part of a mouse action.
 _SETTLE, _DRAG_STEP, _HOLD = 0.04, 0.012, 0.08
-# The size of the area around the pointer that is read or described, in pixels.
+# Between the notches of the wheel, and before looking at what a scroll did.
+_WHEEL_STEP, _SCROLL_SETTLE = 0.012, 0.35
+# The size of the area around the pointer that is read or described, on a plain screen at 100 percent.
 _READ_AREA, _LOOK_AREA = (320, 70), (420, 260)
+# Kinds of control whose value the wheel changes when the pointer is over them. Never scrolled by accident.
+_WHEEL_CHANGES = ("SLIDER", "COMBOBOX", "SPINBUTTON", "TAB", "TABCONTROL", "DROPDOWNBUTTON")
 
 
 def position():
@@ -54,6 +59,76 @@ def press():
 
 def release():
 	_button(_LEFTUP)
+
+
+def _wheel(flag, amount):
+	ctypes.windll.user32.mouse_event(flag, 0, 0, amount, 0)
+
+
+def _dpi(x, y):
+	"""The dots per inch of the monitor a point is on; 96 is a scaling of 100 percent. NVDA works in real
+	pixels on every monitor, so this is only needed for sizes that should look the same to the eye."""
+	try:
+		user32, shcore = ctypes.windll.user32, ctypes.windll.shcore
+		user32.MonitorFromPoint.restype = ctypes.c_void_p
+		user32.MonitorFromPoint.argtypes = [wintypes.POINT, wintypes.DWORD]
+		shcore.GetDpiForMonitor.argtypes = [
+			ctypes.c_void_p, ctypes.c_int, ctypes.POINTER(ctypes.c_uint), ctypes.POINTER(ctypes.c_uint)]
+		monitor = user32.MonitorFromPoint(wintypes.POINT(int(x), int(y)), 2)  # the nearest monitor
+		across, down = ctypes.c_uint(), ctypes.c_uint()
+		if shcore.GetDpiForMonitor(monitor, 0, ctypes.byref(across), ctypes.byref(down)) == 0 and across.value:
+			return across.value
+	except Exception:
+		log.debugWarning("VisionClaw: the screen's scaling could not be read", exc_info=True)
+	return scrolling.BASE_DPI
+
+
+def scaleAt(x, y):
+	"""How much larger than plain things are drawn on the monitor a point is on: 1.0, 1.25, 2.0 and so on."""
+	return scrolling.scaleOf(_dpi(x, y))
+
+
+def wheel(x, y, direction, notches):
+	"""Turn the mouse wheel with the pointer at a point of the screen, one notch at a time as a hand does:
+	some programs take no notice of one large turn. Leaves the pointer there."""
+	moveTo(x, y)
+	time.sleep(_SETTLE)
+	flag = _WHEEL if direction in (scrolling.UP, scrolling.DOWN) else _HWHEEL
+	amount = scrolling.wheelAmount(direction, 1)
+	for _ in range(max(1, min(scrolling.MAX_NOTCHES, notches))):
+		_wheel(flag, amount)
+		time.sleep(_WHEEL_STEP)
+
+
+def scrollView(grab, box, point, direction, notches, toEnd=False, cancel=None):
+	"""Scroll with the pointer at a point and look whether anything moved, by comparing the picture of the box
+	before and after. toEnd: go on, a page at a time, until nothing moves any more.
+	grab(box) gives a picture. Returns (whether anything moved, how many notches were scrolled, the last picture)."""
+	moveTo(*point)
+	time.sleep(_SCROLL_SETTLE)  # anything that lights up under the pointer has done so before the first look
+	before = grab(box)
+	done, picture = 0, before
+	for _round in range(scrolling.MAX_PAGES if toEnd else 1):
+		if cancel is not None and cancel.is_set():
+			break
+		wheel(point[0], point[1], direction, notches)
+		time.sleep(_SCROLL_SETTLE)
+		picture = grab(box)
+		if scrolling.moved(before, picture) < scrolling.MOVED_SHARE:
+			break
+		done += notches
+		before = picture
+	return done > 0, done, picture
+
+
+def _barFor(picture, scale, direction):
+	"""The scrollbar in a picture that belongs to a direction of scrolling, or None."""
+	wanted = direction in (scrolling.UP, scrolling.DOWN)
+	try:
+		return next((bar for bar in scrolling.scrollbars(picture, scale) if bar["vertical"] == wanted), None)
+	except Exception:
+		log.debugWarning("VisionClaw: the picture could not be searched for scrollbars", exc_info=True)
+		return None
 
 
 def click(x, y, action=pointer.CLICK):
@@ -96,6 +171,8 @@ class PointerMode:
 		self.active = False
 		self.holding = False
 		self.x = self.y = 0
+		self.scale = 1.0
+		self._bar = -1
 
 	def _box(self):
 		loc = self._plugin.windowBox(api.getForegroundObject())
@@ -114,12 +191,16 @@ class PointerMode:
 			pass
 		moveTo(self.x, self.y)
 		self.active, self.holding = True, False
+		# Steps and areas follow the scaling of the monitor the window is on.
+		self.scale = scaleAt(self.x, self.y)
 		# Translators: Spoken when pointer mode is turned on.
 		text = _(
 			"Pointer mode is on. The arrow keys move the mouse pointer in this window; with Shift in small steps, "
 			"with Control in large ones. Enter clicks, Shift+Enter double-clicks, the Applications key right-clicks. "
-			"G holds the mouse button down, and G again lets go, for dragging. W says what is at the pointer, "
-			"R reads the text there, P says where the pointer is, H repeats this help. Escape turns pointer mode off."
+			"G holds the mouse button down, and G again lets go, for dragging. Page Down and Page Up turn the mouse "
+			"wheel about a page; with Shift one notch, with Control sideways. S finds the scrollbars and puts the "
+			"pointer on one. W says what is at the pointer, R reads the text there, P says where the pointer is, "
+			"H repeats this help. Escape turns pointer mode off."
 		)
 		ui.message(text)
 		return text
@@ -155,7 +236,7 @@ class PointerMode:
 			return
 		name = command[0]
 		if name == "move":
-			x, y = pointer.move(self.x, self.y, command[1], command[2], box)
+			x, y = pointer.move(self.x, self.y, command[1], pointer.stepFor(command[2], box, self.scale), box)
 			atEdge = (x, y) == (self.x, self.y)
 			self.x, self.y = x, y
 			moveTo(x, y)
@@ -191,13 +272,57 @@ class PointerMode:
 			threading.Thread(target=self._read, args=(box,), daemon=True).start()
 		elif name == "look":
 			threading.Thread(target=self._look, args=(box,), daemon=True).start()
+		elif name == "scroll":
+			threading.Thread(
+				target=self._scroll, args=(box, command[1], pointer.notchesFor(command[2])), daemon=True).start()
+		elif name == "bars":
+			threading.Thread(target=self._bars, args=(box,), daemon=True).start()
 		elif name == "help":
 			self.start()
 		elif name == "exit":
 			self.stop()
 
+	def _scroll(self, box, direction, notches):
+		"""Turn the wheel at the pointer, and say where the view now stands, or that it did not move."""
+		try:
+			moved, _done, picture = scrollView(self._plugin._grab, box, (self.x, self.y), direction, notches)
+		except Exception:
+			log.debugWarning("VisionClaw: could not scroll at the pointer", exc_info=True)
+			# Translators: Spoken in pointer mode when scrolling was not possible.
+			wx.CallAfter(ui.message, _("Scrolling did not work here."))
+			return
+		if not moved:
+			# Translators: Spoken in pointer mode when turning the wheel moved nothing.
+			wx.CallAfter(ui.message, _("Nothing moved. This is the end, or nothing scrolls under the pointer."))
+			return
+		bar = _barFor(picture, self.scale, direction)
+		# Translators: Spoken in pointer mode after scrolling when no scrollbar shows how far. {direction} is up, down, left or right.
+		wx.CallAfter(ui.message, scrolling.positionText(bar) if bar else _("Scrolled {direction}.").format(direction=direction))
+
+	def _bars(self, box):
+		"""Find the scrollbars in the window's picture and put the pointer on the next one's thumb."""
+		try:
+			found = scrolling.scrollbars(self._plugin._grab(box), self.scale)
+		except Exception:
+			log.debugWarning("VisionClaw: could not look for scrollbars", exc_info=True)
+			found = []
+		if not found:
+			# Translators: Spoken in pointer mode when no scrollbar was found in the window's picture.
+			wx.CallAfter(ui.message, _(
+				"No scrollbar was found in this window's picture. Page Down and Page Up still turn the wheel."))
+			return
+		self._bar = (self._bar + 1) % len(found)
+		bar = found[self._bar]
+		self.x, self.y = pointer.clamp(box[0] + bar["grip"][0], box[1] + bar["grip"][1], box)
+		moveTo(self.x, self.y)
+		# Translators: Spoken in pointer mode when the pointer was put on a scrollbar. {bar} describes it.
+		wx.CallAfter(ui.message, _(
+			"{bar}. The pointer is on it: G holds it, the arrow keys move it, G lets go."
+		).format(bar=scrolling.barText(bar).capitalize()))
+
 	def _area(self, box, size):
-		"""A picture of the area around the pointer, kept inside the window."""
+		"""A picture of the area around the pointer, kept inside the window. size is for a plain screen."""
+		size = (scrolling.pixels(size[0], self.scale), scrolling.pixels(size[1], self.scale))
 		left, top = pointer.clamp(self.x - size[0] // 2, self.y - size[1] // 2, box)
 		right, bottom = pointer.clamp(self.x + size[0] // 2, self.y + size[1] // 2, box)
 		return self._plugin._grab((left, top, max(left + 16, right), max(top + 16, bottom)))
@@ -226,6 +351,28 @@ class PointerMode:
 			answer = ""
 		# Translators: Spoken in pointer mode when the vision model could not say what is at the pointer.
 		wx.CallAfter(ui.message, answer or _("VisionClaw could not tell what is here."))
+
+
+def _onMain(fn, timeout=10):
+	"""Run fn on NVDA's main thread and return its result."""
+	if wx.IsMainThread():
+		return fn()
+	done = threading.Event()
+	box = {}
+
+	def run():
+		try:
+			box["value"] = fn()
+		except Exception as e:
+			box["error"] = e
+		done.set()
+
+	wx.CallAfter(run)
+	if not done.wait(timeout):
+		raise ToolError("NVDA did not answer in time.")
+	if "error" in box:
+		raise box["error"]
+	return box.get("value")
 
 
 def _windowBox(result):
@@ -286,6 +433,68 @@ def register(add, plugin, text, confirm, screen, pickItem, mentioned):
 				maxLength=80),
 			"asked": text("what the user asked for, in their own words", maxLength=300, auto=True),
 		}, changes=True, before="list_items", title="Dragging the item")
+
+	def scrollTool(task, direction, asked):
+		words = asked or task.request
+		notches, toEnd = scrolling.amountOf(words)
+
+		def place():
+			"""Where to scroll: over the focused control if it is a sizeable part of the window, else the
+			middle of the window. Never over a control whose value the wheel would change. Main thread."""
+			fg = api.getForegroundObject()
+			loc = plugin.windowBox(fg)
+			box = (loc.left, loc.top, loc.left + loc.width, loc.top + loc.height)
+			point = pointer.centre(box)
+			scale = scaleAt(*point)
+			spot = None
+			try:
+				spot = api.getFocusObject().location
+			except Exception:
+				pass
+			if spot and spot.width >= scrolling.pixels(80, scale) and spot.height >= scrolling.pixels(60, scale):
+				point = pointer.clamp(spot.left + spot.width // 2, spot.top + spot.height // 2, box)
+			for candidate in (point, pointer.centre(box)):
+				try:
+					under = api.getDesktopObject().objectFromPoint(*candidate)
+					kind = getattr(getattr(under, "role", None), "name", "")
+				except Exception:
+					kind = ""
+				if kind not in _WHEEL_CHANGES:
+					return box, candidate, scale, " ".join(str(getattr(fg, "name", "") or "").split())
+			return box, None, scale, ""
+
+		box, point, scale, title = _onMain(place)
+		if point is None:
+			raise ToolError(
+				"The mouse pointer would be over a control whose value the wheel changes, so nothing was scrolled. "
+				"Pointer mode lets the user choose the place.")
+		where = f"the window {title}" if title else "the window in front"
+		far = "to the end" if toEnd else ("about a page" if notches == scrolling.PAGE_NOTCHES else f"{notches} notches of the wheel")
+		# Translators: Asked before VisionClaw scrolls with the mouse wheel. {direction} is up, down, left or right.
+		confirm(_("Scroll {direction} {far} in {where}?").format(direction=direction, far=far, where=where))
+		old = position()
+		try:
+			moved, done, picture = scrollView(plugin._grab, box, point, direction, notches, toEnd, task.cancel)
+		finally:
+			moveTo(*old)
+		task.items = None  # what the window shows has changed
+		if not moved:
+			return (
+				f"Nothing moved in {where}. It is already as far {direction} as it goes, or nothing scrolls where "
+				"the mouse pointer was put.")
+		bar = _barFor(picture, scale, direction)
+		stands = f" It now stands {scrolling.positionText(bar)}." if bar else ""
+		if toEnd:
+			return f"Scrolled {direction} in {where} until nothing moved any more.{stands}"
+		return f"Scrolled {direction} {far} in {where}.{stands}"
+
+	add("scroll_view",
+		"scroll what the window in front shows with the mouse wheel, up, down, left or right, a little, a page or "
+		"to the end; says whether anything moved and how far along the view now stands",
+		scrollTool, {
+			"direction": text("which way to scroll", enum=scrolling.DIRECTIONS, auto=scrolling.directionOf),
+			"asked": text("what the user asked for, in their own words, with how far to scroll", maxLength=300, auto=True),
+		}, changes=True, title="Scrolling")
 
 	def pointerMode(task):
 		done = threading.Event()

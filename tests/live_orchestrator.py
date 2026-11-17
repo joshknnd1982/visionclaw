@@ -15,7 +15,7 @@ import sys
 import time
 
 import harness
-from visionClaw.claw import audit, catalog, fixes, match, orchestrator, pointer, runtime, tools, web
+from visionClaw.claw import audit, catalog, fixes, match, orchestrator, pointer, runtime, scrolling, tools, web
 from visionClaw.claw import task as taskModule
 from visionClaw.claw.catalog import CODER, VISION
 from visionClaw.claw.memory import Memory, score
@@ -222,6 +222,14 @@ def makeRegistry(rt, state):
 				maxLength=80),
 			"asked": text("what the user asked for, in their own words", maxLength=300, auto=True),
 		}, changes=True, before="list_items")
+	simple("scroll_view",
+		"scroll what the window in front shows with the mouse wheel, up, down, left or right, a little, a page or "
+		"to the end; says whether anything moved and how far along the view now stands",
+		"Scrolled {direction} in the window Space Trader. It now stands 40 percent down. The user said: {asked}",
+		"Scrolling", {
+			"direction": text("which way to scroll", enum=scrolling.DIRECTIONS, auto=scrolling.directionOf),
+			"asked": text("what the user asked for, in their own words, with how far to scroll", maxLength=300, auto=True),
+		}, changes=True)
 	simple("pointer_mode",
 		"turn on pointer mode, so the user can work any control with the keyboard: the arrow keys move the mouse "
 		"pointer, and keys click, right-click, double-click and drag",
@@ -328,6 +336,9 @@ REQUESTS = (
 	"Right-click the Options button.",
 	"Drag the New Game button onto the Quit button.",
 	"Make this control keyboard navigable.",
+	"Scroll down a page.",
+	"Scroll this window to the bottom.",
+	"Scroll up a little, then tell me what the window shows.",
 	"Do a deep inspection of this website.",
 	"Fix the accessibility problems on this page.",
 	"Make this website accessible.",

@@ -19,7 +19,7 @@ from contentRecog import ContentRecognizer, LinesWordsResult, recogUi
 from logHandler import log
 from PIL import ImageStat
 
-from . import imaging, labels, layout, ocr, sounds
+from . import imaging, labels, layout, mousetools, ocr, sounds
 
 addonHandler.initTranslation()
 
@@ -396,8 +396,14 @@ class OverlayRecognizer(ContentRecognizer):
 		for item in texts:
 			item["textBox"] = item["box"]  # before icons beside it are joined to it
 		textBoxes = [(b[0], b[1], b[2] - b[0], b[3] - b[1]) for b in (it["box"] for it in texts)]
+		# Icons and boxes have more pixels on a screen that draws things larger; the sizes looked for follow it.
+		try:
+			scale = mousetools.scaleAt(
+				imageInfo.screenLeft + imageInfo.screenWidth // 2, imageInfo.screenTop + imageInfo.screenHeight // 2)
+		except Exception:
+			scale = 1.0
 		icons, unnamed = [], []
-		for box in imaging.findIcons(image, textBoxes):
+		for box in imaging.findIcons(image, textBoxes, scale):
 			check = layout.checkKind(image, box)
 			label = layout.textRightOf(box, texts) if check else None
 			if label is not None and "role" not in label:
@@ -417,7 +423,7 @@ class OverlayRecognizer(ContentRecognizer):
 				unnamed.append((iconKey, crop))
 			icons.append({"kind": "icon", "key": iconKey, "box": box, "name": name})
 		try:
-			groups = layout.arrange(image, texts + icons)
+			groups = layout.arrange(image, texts + icons, scale)
 		except Exception:
 			log.error("VisionClaw: could not find the window's layout", exc_info=True)
 			groups = [(None, orderItems(texts + icons))]

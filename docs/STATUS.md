@@ -1,12 +1,12 @@
 # VisionClaw status
 
-Updated 2026-11-17, version 0.4.0.
+Updated 2026-11-17, version 0.5.0.
 
 ## What exists
 
 Everything in phases 1 to 3.4 and 4.1 of `CLAUDE.md`: the fork, the model catalog and models window, the
 graphics choice with fallback, the two-model runtime, the planner with recipes, agreement between the models,
-the step runner, 40 NVDA tools and 34 recipes, the Ask VisionClaw window, app helpers, generated add-ons, the
+the step runner, 41 NVDA tools and 35 recipes, the Ask VisionClaw window, app helpers, generated add-ons, the
 knowledge base and the lessons memory. New in 0.2.0: the web through NVDA's browse mode, reporting on speech,
 braille, drivers and add-ons, safe switching of the synthesizer and braille display, and saving a generated
 add-on as a file. New in 0.3.0: a guard around generated add-ons with automatic debugging and correction,
@@ -49,6 +49,22 @@ was not written down, so the test plan is not ticked off from this.
 After installing 0.3.2 the owner reported that the models window (NVDA+Alt+M) works in NVDA 2026.3.1. Which of
 its buttons were used was not written down; removing a model for real is not confirmed.
 
+## Five tests inside NVDA (2026-11-17, NVDA 2026.3.1, version 0.4.0)
+
+The owner installed 0.4.0, restarted NVDA and ran five tests given to him in chat, with Qwen3.5 4B for vision
+and Qwen3.5 9B for coding. He reported that all five pass. NVDA's logging level was Off, and nothing beyond
+"all pass" was written down, so what exactly was spoken is not recorded.
+
+1. Pointer mode in Notepad: NVDA+Alt+K turns it on, the arrow keys move the pointer, Escape turns it off.
+2. "Which add-ons are installed?" and a question about one of them.
+3. "What are the headings on this page?" on a web page.
+4. "Inspect this page for accessibility problems" on a web page.
+5. "Speak a little faster", then "Undo that".
+
+The matching lines in `docs/TESTPLAN.md` are ticked. Not covered by these five: making fixes and the fixes
+add-on, dragging, right-click, typing into web fields, switching drivers, generated add-ons and their
+correction, scrolling, and the two smallest models.
+
 ## A wrong change in real use, and what was done about it (0.3.3)
 
 In NVDA the owner asked "restore the voice pitch to what it was before you changed it". VisionClaw changed the
@@ -88,7 +104,7 @@ fields; since then the user's own words decide which items are meant (`nvdatools
 **None of it has moved a real mouse**: whether programs accept the clicks and drags, and how pointer mode feels
 in use, must be found out in NVDA.
 
-## Websites and programs made accessible for good; installed add-ons (not yet released)
+## Websites and programs made accessible for good; installed add-ons (0.4.0)
 
 Four tools and four recipes, which makes 40 tools and 34 recipes. `check_access` inspects the web page, the
 window or the focused control; `fix_access` makes the fixes for what was found; `add_fix` makes one fix asked
@@ -151,7 +167,7 @@ Tested, and how:
   task; and a website's name was written into the add-on without limiting its characters. Looking again for a
   watched control that has gone is now done every 30 seconds with smaller limits.
 
-## The latest small models (not yet released)
+## The latest small models (0.4.0)
 
 Read from Hugging Face's own listing on 2026-11-17: the newest Qwen family that comes in small sizes is still
 Qwen3.5 (0.8B, 2B, 4B, 9B); Qwen3.6 and Qwen3.8 start at 27B. The newest small coder models are still
@@ -174,6 +190,37 @@ licence is not Apache 2.0. New: `models.json` in the repository, written from th
 - **The button and its window have not run inside NVDA**, and the list has not been fetched from GitHub by the
   add-on: `models.json` is not on GitHub until this is pushed. The address in the code is
   `raw.githubusercontent.com/joshknnd1982/visionclaw/main/models.json`.
+
+## Scrolling and screen scaling (0.5.0)
+
+New: the tool `scroll_view` and the recipe `scroll` (41 tools, 35 recipes); Page Down, Page Up and S in pointer
+mode; pointer steps and the areas read or described around the pointer follow the monitor's scaling
+(`mousetools.scaleAt`) and the window's size; `claw/scrolling.py` finds scrollbars in a picture; the deep
+inspection of a window reports them and asks the vision model what else is worked with the mouse.
+
+- `tests/test_scrolling.py`: scrollbars are found in drawn pictures of a window with text at 1366 by 768 (100
+  percent), 1920 by 1080 (125), 3840 by 2160 (200) and 1280 by 720 (150), light and dark, thick and thin,
+  upright and lying, each within 6 percent of where the thumb was drawn and in under a quarter of a second;
+  a window without scrollbars gives none, and lines of text are not taken for scrollbars. What a request asks
+  for ("a little", "a page", "3 pages", "to the bottom"); steps at four scalings; whether a picture moved.
+  **These are drawings. No real program's scrollbar has been looked at.**
+- `tests/test_nvda_stub.py`, with the wheel, the mouse and the screen's scaling replaced by stand-ins and drawn
+  pictures: the wheel is turned the asked number of notches in the middle of the window and the pointer put
+  back; the answer says how far the view stands; at the end it says that nothing moved; "to the bottom" goes
+  on until nothing moves; sideways uses the other wheel; a no turns nothing; the wheel is refused over a
+  slider; the pointer-mode keys; the inspection's sentences.
+- The overlay's finding of icons and boxes (`imaging.findIcons`, `layout.Layout`) had sizes in fixed pixels,
+  so a normal icon on a screen at 200 percent was too large to count as an icon. The sizes now follow the
+  monitor's scaling; tested with a drawn icon 150 pixels across, which is found at 200 percent and not at 100.
+- `tests/live_orchestrator.py` with the owner's two models, 38 requests, three of them new ("scroll down a
+  page", "scroll this window to the bottom", "scroll up a little, then tell me what the window shows"): all 38
+  done, both models agreed every time, and the scrolling requests went to the scroll recipe, the last one as
+  two parts.
+- **Nothing here has turned a real wheel, read a real monitor's scaling, or run in NVDA.** Open questions for
+  the run in NVDA: whether programs accept wheel events sent this way; whether 0.35 seconds is long enough
+  before the second picture; smooth scrolling that is still moving when the picture is taken; windows on a
+  second monitor with another scaling. Scrollbars that only show while the mouse is over them, and scrollbars
+  that are not at the right or bottom edge of the window, are not found by their look.
 
 ## What was not tested
 

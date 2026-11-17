@@ -15,6 +15,7 @@ import json
 import os
 import sys
 import tempfile
+import time
 import types
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -215,6 +216,11 @@ mousetools.moveTo = lambda x, y: moves.append((x, y))
 mousetools._button = buttons.append
 mousetools.position = lambda: (7, 7)
 mousetools._SETTLE = mousetools._DRAG_STEP = mousetools._HOLD = 0
+# The wheel is not really turned either, and the screen's scaling is a plain 100 percent.
+wheels = []
+mousetools._wheel = lambda flag, amount: wheels.append((flag, amount))
+mousetools._dpi = lambda x, y: 96
+mousetools._WHEEL_STEP = mousetools._SCROLL_SETTLE = 0
 nvdatools.typeUnicode = typed.append  # nothing is really typed into the computer during the tests
 from visionClaw.claw import orchestrator, planner  # noqa: E402
 from visionClaw.claw import task as taskModule  # noqa: E402
@@ -231,7 +237,7 @@ with open(os.path.join(CONFIG_DIR, "visionClaw", "lessons.json"), "w", encoding=
 	], f)
 instance = plugin.GlobalPlugin()
 registry = instance.orchestrator.registry
-assert len(registry.names()) == 40, registry.names()
+assert len(registry.names()) == 41, registry.names()
 # Lessons from searches that happened to find something misled; they are dropped when VisionClaw starts.
 assert instance.memory.all() == ["Tool set_setting: this form failed: {} (x). This form worked: {}."], instance.memory.all()
 assert set(planner.available(registry)) == set(planner.RECIPES), set(planner.RECIPES) - set(planner.available(registry))
@@ -1099,6 +1105,121 @@ worked, result = registry.call(task, "addon_info", {"addon": "teleporter", "abou
 assert not worked and "No installed add-on is called \"teleporter\"" in result, result
 # The help texts of the add-ons that are on can be read up on like NVDA's own user guide.
 assert any("Alarms ring at the time you set." in body for _title, body, source in accesstools.addonSections() if source == "addons")
+
+# --- Scrolling with the mouse wheel ---
+
+from PIL import Image, ImageDraw  # noqa: E402
+
+
+def shot(offset, bar=None):
+	"""A picture of a window whose lines stand at an offset, with a scrollbar at a share of its way down."""
+	image = Image.new("L", (800, 600), 255)
+	draw = ImageDraw.Draw(image)
+	for row in range(40):
+		y = 20 + row * 30 - offset
+		if 0 <= y < 580:
+			draw.rectangle((20, y, 200 + (row * 37) % 400, y + 10), fill=20)
+	if bar is not None:
+		draw.rectangle((783, 0, 799, 599), fill=240)
+		top = round((600 - 150) * bar)
+		draw.rectangle((784, top, 798, top + 150), fill=150)
+	return image
+
+
+WHEEL, HWHEEL = 0x0800, 0x1000
+sys.modules["api"].getForegroundObject = lambda: types.SimpleNamespace(
+	name="Notes", appModule=types.SimpleNamespace(appName="notes"),
+	location=types.SimpleNamespace(left=0, top=0, width=800, height=600))
+sys.modules["api"].getFocusObject = lambda: types.SimpleNamespace(location=None)
+under = types.SimpleNamespace(role=types.SimpleNamespace(name="PANE"))
+sys.modules["api"].getDesktopObject = lambda: types.SimpleNamespace(objectFromPoint=lambda x, y: under)
+conf["visionClaw"]["confirmChanges"] = True
+questions = []
+instance.clawAsk = lambda question, choices: questions.append(question) or 0
+task = taskModule.Task("test")
+# Three notches down, in the middle of the window; the picture moved, and the scrollbar says how far it stands.
+pictures = [shot(0, 0.0), shot(90, 0.3)]
+instance._grab = lambda box: pictures.pop(0)
+del wheels[:], moves[:]
+worked, result = registry.call(task, "scroll_view", {"direction": "down", "asked": "scroll down"})
+assert worked and result == "Scrolled down 3 notches of the wheel in the window Notes. It now stands 30 percent down.", result
+assert wheels == [(WHEEL, -120)] * 3 and moves[0] == (400, 300) and moves[-1] == (7, 7), (wheels, moves)
+assert questions == ["Scroll down 3 notches of the wheel in the window Notes?"], questions
+# At the end nothing moves, and that is what is said. Nothing is claimed that did not happen.
+pictures = [shot(300, 1.0), shot(300, 1.0)]
+worked, result = registry.call(task, "scroll_view", {"direction": "down", "asked": "scroll down a page"})
+assert worked and result.startswith("Nothing moved in the window Notes. It is already as far down as it goes"), result
+# To the end: a page at a time until nothing moves any more.
+pictures = [shot(0, 0.0), shot(240, 0.4), shot(480, 0.8), shot(600, 1.0), shot(600, 1.0)]
+del wheels[:]
+worked, result = registry.call(task, "scroll_view", {"direction": "down", "asked": "scroll to the bottom"})
+assert worked and result == "Scrolled down in the window Notes until nothing moved any more. It now stands at the bottom.", result
+assert len(wheels) == 4 * 8 and not pictures
+# Sideways uses the other wheel; up turns it the other way.
+pictures = [shot(0), shot(60)]
+del wheels[:]
+worked, result = registry.call(task, "scroll_view", {"direction": "right", "asked": "scroll right a little"})
+assert worked and wheels == [(HWHEEL, 120)] and result == "Scrolled right 1 notches of the wheel in the window Notes.", (result, wheels)
+# The user says no: the wheel is not turned.
+instance.clawAsk = lambda question, choices: 1
+pictures = [shot(0), shot(60)]
+del wheels[:]
+worked, result = registry.call(task, "scroll_view", {"direction": "down", "asked": "scroll down"})
+assert worked and result == "You said no, so nothing was changed." and wheels == [], result
+instance.clawAsk = lambda question, choices: 0
+# Over a slider or a combo box the wheel would change a value, so nothing is scrolled there.
+under.role.name = "SLIDER"
+worked, result = registry.call(task, "scroll_view", {"direction": "down", "asked": "scroll down"})
+assert not worked and "whose value the wheel changes" in result and wheels == [], result
+under.role.name = "PANE"
+conf["visionClaw"]["confirmChanges"] = False
+
+# In pointer mode Page Down turns the wheel where the pointer is and says where the view then stands; at the
+# end it says so; S puts the pointer on the scrollbar.
+said = []
+sys.modules["ui"].message = said.append
+
+
+def settle(count):
+	for _ in range(200):
+		if len(said) >= count:
+			return
+		time.sleep(0.01)
+	raise AssertionError(said)
+
+
+instance.pointerMode.start()
+del said[:], wheels[:]
+pictures = [shot(0, 0.0), shot(240, 0.5)]
+press("pagedown")
+settle(1)
+assert said == ["50 percent down"] and wheels == [(WHEEL, -120)] * 8, (said, wheels)
+pictures = [shot(600, 1.0), shot(600, 1.0)]
+press("shift+pagedown")
+settle(2)
+assert said[-1] == "Nothing moved. This is the end, or nothing scrolls under the pointer." and len(wheels) == 9
+pictures = [shot(0, 0.5)]
+press("s")
+settle(3)
+assert said[-1].startswith("A scrollbar at the right, 50 percent down, showing 25 percent of the whole at a time. The pointer is on it"), said[-1]
+assert (instance.pointerMode.x, instance.pointerMode.y) == (791, 300), (instance.pointerMode.x, instance.pointerMode.y)
+pictures = [shot(0)]
+press("s")
+settle(4)
+assert said[-1].startswith("No scrollbar was found in this window's picture.")
+instance.pointerMode.stop()
+sys.modules["ui"].message = lambda text: None
+
+# The inspection of a window says what its picture shows of scrollbars, and what the vision model sees.
+pictures = [shot(0, 0.5)] * 3
+instance._grab = lambda box: pictures[0]
+realRuntime, instance.runtime = instance.runtime, types.SimpleNamespace(
+	describe=lambda image, prompt, maxTokens, cancel=None: "A volume slider at the top right.")
+worked, result = registry.call(taskModule.Task("test"), "check_access", {"target": "window", "depth": "deep"})
+assert worked and "Its picture shows a scrollbar at the right, 50 percent down" in result, result
+assert "The vision model, which can be wrong, sees these things that are worked with the mouse: A volume slider at the top right." in result
+assert "Page Down and Page Up turn the mouse wheel" in result, result
+instance.runtime = realRuntime
 
 # What looking for newer models found is said in plain sentences.
 from visionClaw import dialogs  # noqa: E402

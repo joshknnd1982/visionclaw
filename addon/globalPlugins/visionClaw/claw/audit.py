@@ -561,8 +561,9 @@ def _player(nodes, media):
 		"after NVDA+Space switches to focus mode.")
 
 
-def auditWindow(nodes, title="", app="", later=None, drawn=None):
-	"""The report for a program's window, from the controls NVDA knows in it."""
+def auditWindow(nodes, title="", app="", later=None, drawn=None, bars=(), seen=""):
+	"""The report for a program's window, from the controls NVDA knows in it. bars: the scrollbars found in
+	its picture, in words. seen: what the vision model says the window has that is worked with the mouse."""
 	scope = fixes.scopeOf(app=app)
 	acted = [node for node in nodes if node.get("role") in INTERACTIVE or "FOCUSABLE" in (node.get("states") or ())]
 	named = [node for node in nodes if plainText(node.get("name"))]
@@ -588,6 +589,20 @@ def auditWindow(nodes, title="", app="", later=None, drawn=None):
 	summary = (
 		f"Checked the window {title or 'without a title'} of the program {app}. NVDA knows {_plural(len(nodes), 'control')} "
 		f"in it, {len(acted)} that can be used and {len(named)} with a name.")
+	known = sum(1 for node in nodes if node.get("role") in ("SCROLLBAR", "SLIDER"))
+	visual = []
+	if bars:
+		visual.append("Its picture shows " + " and ".join(bars[:2]) + ".")
+	if seen:
+		visual.append("The vision model, which can be wrong, sees these things that are worked with the mouse: " + seen)
+	if visual or known:
+		if known and not bars:
+			visual.insert(0, f"NVDA knows {_plural(known, 'scrollbar or slider')} in it.")
+		# How to work them is the same on every screen, so it is said once, here.
+		visual.append(
+			"Ask VisionClaw to scroll down, up or to the end; or press NVDA+Alt+K for pointer mode, where Page Down "
+			"and Page Up turn the mouse wheel and S puts the pointer on a scrollbar.")
+		summary += " " + " ".join(visual)
 	return Report("window", title, scope, summary, findings)
 
 

@@ -14,6 +14,19 @@ window instead: text is read with Windows OCR and icons are named by the vision 
 numbered list of what is there; click_item clicks one. The overlay (NVDA+Alt+O) shows the same list for
 the user to move through with the arrow keys and press Enter on.
 
+## Scrolling a window the keyboard does not scroll
+scroll_view turns the mouse wheel in the window in front: up, down, left or right, a little, a page, or to
+the end. It compares the window's picture before and after, so it says truthfully whether anything moved,
+and where the window shows a scrollbar it says how far along the view stands. To scroll what is under a
+certain place, use pointer mode (NVDA+Alt+K): Page Down and Page Up turn the wheel at the pointer, and S puts
+the pointer on a scrollbar so that it can be dragged with G and the arrow keys. NVDA also has its own
+commands for the mouse wheel, without keys assigned; find_command finds them by the words mouse scroll.
+
+## Screens of different sizes and scalings
+Nothing in VisionClaw is a fixed number of pixels. Items are found in the picture of the window as it is
+on this screen, clicks go to the middle of the item found, steps in pointer mode follow the screen's
+scaling, and distances given in words, like a little, are a share of the window.
+
 ## App helpers: hotkeys for a program that has none
 An app helper belongs to one program. It maps a key to an item in the window, found by its text each
 time the key is pressed, so it still works when the window moves or is resized. Action click presses the

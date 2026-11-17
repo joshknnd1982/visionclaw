@@ -54,7 +54,7 @@ Before you start: disable VisionMate in the Add-on Store, install the VisionClaw
 - [ ] Installing or updating VisionClaw changes no NVDA setting (compare the speech rate before and after).
 - [ ] "Speak a bit faster": the question reads "You asked: speak a bit faster. Change speech rate from X to Y?".
 - [ ] "What did you change?" names that change.
-- [ ] "Undo that" asks, then puts the rate back to X, and says so.
+- [x] "Undo that" asks, then puts the rate back to X, and says so. (Owner, 0.4.0, 2026-11-17.)
 - [ ] "Restore the voice pitch to what it was before you changed it", with the pitch never changed by
       VisionClaw: it says it has not changed that, and nothing changes.
 - [ ] After restarting NVDA, "what did you change?" still knows the changes.
@@ -89,7 +89,7 @@ Before you start: disable VisionMate in the Add-on Store, install the VisionClaw
 - [ ] On an article: "What does this page say about ...?" answers from the page.
 - [ ] "Click the ... link" follows it without a question; "Press the ... button" asks first.
 - [ ] "Type ... into the search box and search": the text goes into the field and Enter is pressed.
-- [ ] "What are the headings on this page?" lists them with their levels.
+- [x] "What are the headings on this page?" lists them with their levels. (Owner, 0.4.0, 2026-11-17.)
 - [ ] "Take me to the heading ...": NVDA says the heading, and say all reads on from there.
 - [ ] "Go back" and "reload this page".
 - [ ] The same in Firefox, Chrome and Edge.
@@ -124,7 +124,7 @@ Do each of these once in Firefox and once in a Chromium browser (Chrome, Edge or
 - [ ] A very long page (a feed scrolled far down): the inspection finishes, and NVDA does not freeze.
 
 ## Installed add-ons
-- [ ] "Which add-ons do I have": the list matches NVDA's add-on store, with versions and enabled or disabled.
+- [x] "Which add-ons do I have" (owner, 0.4.0, 2026-11-17): the list matches NVDA's add-on store, with versions and enabled or disabled.
 - [ ] "What does the ... add-on do": answered from its description and help. "Which keys does the ... add-on
   have": the keys match NVDA's Input gestures dialog.
 - [ ] A command of an installed add-on can be found and run by describing it.
@@ -141,18 +141,37 @@ Do these with someone sighted nearby, or with a second way to get speech back, u
 - [ ] "Set the volume to 0", with no braille display: refused.
 - [ ] "Turn speech mode off" (an NVDA command): asks first and says how to undo it.
 
+## Scrolling and screen scaling
+Try these at the scaling the computer normally uses and, if possible, once more at another one (Windows
+Settings, Display, Scale).
+- [ ] In a window with a long list or text: "scroll down" asks first, then the view moves, and the answer says
+      how far it stands if the window shows a scrollbar.
+- [ ] "Scroll this window to the bottom" stops by itself at the end. Asking to scroll down again says that
+      nothing moved.
+- [ ] "Scroll up a little" moves less than "scroll up a page".
+- [ ] With the focus on a slider or a combo box: "scroll down" does not change its value.
+- [ ] Pointer mode (NVDA+Alt+K): Page Down and Page Up scroll what is under the pointer; Shift+Page Down
+      scrolls one notch; at the end "Nothing moved" is spoken.
+- [ ] Pointer mode: S says where a scrollbar is and how far along it stands, and the pointer is on its thumb:
+      G, Down arrow a few times, G moves the view.
+- [ ] Pointer mode: an arrow key moves the pointer about the same distance on the screen at 100 percent and
+      at 150 or 200 percent scaling, and less in a very small window.
+- [ ] On a second monitor with another scaling, the same holds, and clicks land where the pointer is.
+- [ ] "Inspect this window for accessibility problems" in a program with a scrollbar says that its picture
+      shows a scrollbar, and what the vision model sees that is worked with the mouse.
+
 ## The mouse from the keyboard
 - [ ] On the desktop or in File Explorer: "right-click the ... icon" opens its context menu.
 - [ ] "Double-click the ... icon" opens it.
 - [ ] In a program with a slider NVDA cannot move: "drag the ... slider to the right a little" moves it.
 - [ ] In the overlay (NVDA+Alt+O): G on an item says "Picked up"; G on another says "Dropped ... on ..." and the
       program shows the result (try moving a file onto a folder).
-- [ ] NVDA+Alt+K turns pointer mode on and says the keys. The arrow keys move the pointer with a tone; at the
+- [x] (Owner, 0.4.0, 2026-11-17, in Notepad.) NVDA+Alt+K turns pointer mode on and says the keys. The arrow keys move the pointer with a tone; at the
       edge the tone is low.
 - [ ] In pointer mode: Enter clicks what is under the pointer; the Applications key opens a context menu.
 - [ ] In pointer mode: G, arrow keys, G drags (try a slider or a window's title bar).
 - [ ] In pointer mode: W says what is at the pointer; R reads the text there; P says the position.
-- [ ] Escape turns pointer mode off, and the arrow keys work as usual again. Letters other than G, W, R, P, H
+- [x] (Owner, 0.4.0, 2026-11-17.) Escape turns pointer mode off, and the arrow keys work as usual again. Letters other than G, W, R, P, H
       were typed into the program as usual while it was on.
 - [ ] "Make this control keyboard navigable" turns pointer mode on.
 
