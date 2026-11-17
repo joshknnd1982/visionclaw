@@ -46,9 +46,12 @@ errors inside NVDA could not be read; what the owner heard is not recorded here 
 The owner then tried the add-on and reported that nothing went wrong. Which of the test requests were tried
 was not written down, so the test plan is not ticked off from this.
 
+After installing 0.3.2 the owner reported that the models window (NVDA+Alt+M) works in NVDA 2026.3.1. Which of
+its buttons were used was not written down; removing a model for real is not confirmed.
+
 ## What was not tested
 
-- **Model management (0.3.2)** was tested against stand-ins only: listing what is stored, removing some or all
+- **Model management (0.3.2)**, apart from the owner's report above, was tested against stand-ins only: listing what is stored, removing some or all
   models, falling back to another stored model, and the offer to remove models no longer used. The window
   itself, and deleting a model file right after its engine was stopped, have not run in NVDA. The listing was
   run read-only against the owner's real models folder and showed Qwen3.5 4B (3.2 GB) and Qwen3.5 9B (5.3 GB).
