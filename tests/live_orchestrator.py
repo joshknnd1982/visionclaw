@@ -15,7 +15,7 @@ import sys
 import time
 
 import harness
-from visionClaw.claw import catalog, match, orchestrator, runtime, tools
+from visionClaw.claw import catalog, match, orchestrator, runtime, tools, web
 from visionClaw.claw import task as taskModule
 from visionClaw.claw.catalog import CODER, VISION
 from visionClaw.claw.memory import Memory, score
@@ -79,9 +79,10 @@ def makeRegistry(rt, state):
 		return rt.describe(screenshot(), f"Look at this picture of the user's {target} and answer: {question}", 250,
 			cancel=task.cancel)
 
-	items = ["Space Trader - Main Menu heading", "New Game button", "Load Game button", "Options button", "Quit button"]
+	items = ["Space Trader - Main Menu heading", "New Game button", "Load Game button", "Options button", "Quit button",
+		"Search edit field"]
 
-	def listItems(task):
+	def listItems(task, about):
 		return f"{len(items)} items in the window:\n" + "\n".join(f"{i}. {n}" for i, n in enumerate(items, 1))
 
 	def clickItem(task, item):
@@ -114,7 +115,8 @@ def makeRegistry(rt, state):
 			"question": text("what to find out, as a full question", maxLength=200, auto=True)},
 		looks=True, title="Looking at the screen", tell=V))
 	reg.add(tools.Tool("list_items", "list the buttons, texts and icons in the window in front, even when NVDA cannot read it",
-		listItems, looks=True, title="Listing what is in the window"))
+		listItems, {"about": text("what is being looked for, in a few words", maxLength=120, auto=True)},
+		looks=True, title="Listing what is there"))
 	reg.add(tools.Tool("click_item", "click one item from list_items in the real window", clickItem,
 		{"item": text("the number or the name of the item, from list_items", maxLength=80)},
 		changes=True, before="list_items", title="Clicking the item"))
@@ -132,6 +134,75 @@ def makeRegistry(rt, state):
 	reg.add(tools.Tool("run_command", "run one NVDA command for the user", runCommand,
 		{"command": text("the id of the command, copied from find_command", maxLength=60)},
 		changes=True, before="find_command", title="Running the command"))
+	page = (
+		"Example Shop\nWelcome to our shop. We sell garden tools.\n"
+		"Refund policy\nYou can return any product within 30 days for a full refund.\n"
+		"Opening hours\nWe are open Monday to Friday from nine to five."
+	)
+
+	def webOpen(task, address):
+		state["opened"] = web.normalizeAddress(address)
+		return "Opened the web page BBC Home."
+
+	def webSearch(task, words):
+		state["searched"] = words
+		return f"Searched the web for {words}."
+
+	def readPage(task, about):
+		state["read"] = about
+		return "From the web page Example Shop:\n" + web.passages(page, about)
+
+	def fillField(task, field, typed, enter):
+		state["filled"] = (field, typed, enter)
+		return f"Typed \"{typed}\" into Search edit field" + (" and pressed Enter." if enter == "yes" else ".")
+
+	def nvdaInfo(task, topic):
+		state["info"] = topic
+		return {
+			"speech": "Speech synthesizer in use: eSpeak NG (driver name espeak).\nVoice in use: English (America).\n"
+				"Rate: 60.\nSynthesizers installed (3): eSpeak NG, Windows OneCore voices, Microsoft Speech API version 5.",
+			"braille": "Braille display in use: Freedom Scientific Focus (driver name freedomScientific).\n"
+				"It has 40 cells.\nOutput table: English (U.S.) 8 dot computer braille.",
+		}.get(topic, "NVDA version: 2026.2.")
+
+	def switchDriver(task, kind, name):
+		installed = ["eSpeak NG", "Windows OneCore voices", "Microsoft Speech API version 5"]
+		index = match.best(name, installed)
+		if index is None:
+			raise tools.ToolError(f"There is no {kind} called \"{name}\". Installed: {', '.join(installed)}.")
+		state["switched"] = installed[index]
+		return f"The {kind} is now {installed[index]}. Before, it was eSpeak NG."
+
+	reg.add(tools.Tool("switch_driver",
+		"switch NVDA to another speech synthesizer or braille display; refuses a switch that would leave the user "
+		"with neither speech nor braille, and switches back if the new one is not confirmed to work",
+		switchDriver, {
+			"kind": text("which kind of driver", enum=["synthesizer", "braille display"],
+				auto=lambda part: "braille display" if "braille" in part.lower() else "synthesizer"),
+			"name": text("the name of the synthesizer or braille display to switch to, from nvda_info", maxLength=80),
+		}, changes=True, before="nvda_info", title="Switching the driver"))
+	reg.add(tools.Tool("web_open", "open a web address in the user's browser", webOpen,
+		{"address": text("the web address, like example.com", maxLength=300, auto=web.addressIn)},
+		title="Opening the web page", tell=V))
+	reg.add(tools.Tool("web_search", "search the web for something, in the user's browser", webSearch,
+		{"words": text("what to search for, as a few words", maxLength=200, auto=web.searchWords)},
+		title="Searching the web", tell=V))
+	reg.add(tools.Tool("read_page", "read the web page the user is in: the parts of its text that matter for the question",
+		readPage, {"about": text("the question, or what to look for on the page", maxLength=200, auto=True)},
+		looks=True, title="Reading the web page"))
+	reg.add(tools.Tool("fill_field", "type text into one field from list_items, such as a search box or a field of a form",
+		lambda task, field, text, enter: fillField(task, field, text, enter), {
+			"field": text("the number or the name of the field, from list_items", maxLength=80),
+			"text": text("the text to type into it", maxLength=400),
+			"enter": text("yes to press Enter afterwards, to search or send", enum=["yes", "no"],
+				auto=lambda part: "yes" if "search" in part.lower() else "no"),
+		}, changes=True, before="list_items", title="Typing into the field"))
+	reg.add(tools.Tool("nvda_info",
+		"report what NVDA has and uses: the speech synthesizer, its voices and settings, the braille display and "
+		"tables, the installed drivers, the add-ons, NVDA's version", nvdaInfo,
+		{"topic": text("what to report on", enum=["speech", "braille", "addons", "general"],
+			auto=lambda part: "braille" if "braille" in part.lower() else "speech")},
+		looks=True, title="Asking NVDA"))
 	reg.add(tools.Tool(tools.ANSWER, "tell the user the result in plain words; always the last step", lambda task: ""))
 	return reg
 
@@ -144,6 +215,13 @@ REQUESTS = (
 	"Read the window title.",
 	"Turn off the typing echo and set punctuation to all.",
 	"Click Options, then tell me what the window shows.",
+	"Open bbc.co.uk",
+	"Search the web for the weather in Boston.",
+	"What does this page say about refunds?",
+	"Type garden gloves into the search box and search.",
+	"Which speech synthesizer am I using?",
+	"What braille display do I have, and how many cells does it have?",
+	"Switch my speech synthesizer to the Windows OneCore voices.",
 )
 
 

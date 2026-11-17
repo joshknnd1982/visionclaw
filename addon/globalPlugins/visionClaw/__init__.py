@@ -35,7 +35,7 @@ from scriptHandler import script
 from speech import extensions as speechExtensions
 
 from . import autodescribe, clawui, curtain, dialogs, explorer, followup, hardware, helpers, imaging, labels, localmedia, nvdatools, ocr, sounds, viewers, winzapp
-from .claw import catalog
+from .claw import catalog, drivers
 from .claw import task as clawTask
 from .claw.catalog import CODER, VISION
 from .claw.knowledge import Knowledge
@@ -154,6 +154,7 @@ confspec = {
 	"coderModel": 'string(default="")',
 	"reasoning": 'option("auto", "off", "low", "medium", "high", default="auto")',
 	"sideBySide": "boolean(default=True)",
+	"searchEngine": 'option("duckduckgo", "google", "bing", default="duckduckgo")',
 	"confirmChanges": "boolean(default=True)",
 	"speakProgress": "boolean(default=True)",
 	"preload": "boolean(default=True)",
@@ -399,6 +400,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		self.knowledge = Knowledge()
 		self.knowledge.addSource("userGuide", nvdatools.userGuideSections)
 		self.memory = Memory(os.path.join(DATA_DIR, "lessons.json"))
+		self.driverNotes = drivers.DriverNotes(os.path.join(DATA_DIR, "drivers.json"))
 		self.helpers = helpers.Helpers(self, DATA_DIR)
 		self.clawTask = None
 		self._askDialog = None
@@ -592,6 +594,11 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		task = self.clawTask
 		_sound("receive")
 		return clawui.choose(question, choices, task.cancel if task is not None else None)
+
+	def clawKeep(self, question, seconds):
+		"""Ask whether a new synthesizer or braille display works. Not answering in time counts as no."""
+		task = self.clawTask
+		return clawui.confirmKeep(question, seconds, task.cancel if task is not None else None)
 
 	def clawAskText(self, question):
 		task = self.clawTask

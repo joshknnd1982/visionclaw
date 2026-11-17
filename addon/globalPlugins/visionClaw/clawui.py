@@ -82,6 +82,47 @@ def askText(question, cancel=None):
 	return _fromWorker(show, cancel) or ""
 
 
+class _KeepDialog(wx.Dialog):
+	"""Asks whether to keep a change, and closes by itself, with the answer no, after some seconds.
+	Used after switching the speech synthesizer or braille display: if the new one gives no output, the user
+	cannot answer, and not answering switches back."""
+
+	def __init__(self, parent, question, keepLabel, backLabel, seconds):
+		# Translators: Title of the window that asks whether a new synthesizer or braille display works.
+		super().__init__(parent, title=_("VisionClaw: does it work?"))
+		main = wx.BoxSizer(wx.VERTICAL)
+		main.Add(wx.StaticText(self, label=question), flag=wx.ALL, border=10)
+		buttons = wx.BoxSizer(wx.HORIZONTAL)
+		keep = wx.Button(self, wx.ID_YES, label=keepLabel)
+		back = wx.Button(self, wx.ID_NO, label=backLabel)
+		buttons.Add(keep)
+		buttons.Add(back, flag=wx.LEFT, border=10)
+		main.Add(buttons, flag=wx.ALL | wx.ALIGN_RIGHT, border=10)
+		self.SetSizerAndFit(main)
+		self.CentreOnScreen()
+		keep.Bind(wx.EVT_BUTTON, lambda e: self.EndModal(wx.ID_YES))
+		back.Bind(wx.EVT_BUTTON, lambda e: self.EndModal(wx.ID_NO))
+		self.Bind(wx.EVT_CLOSE, lambda e: self.EndModal(wx.ID_NO))
+		self._timer = wx.Timer(self)
+		self.Bind(wx.EVT_TIMER, lambda e: self.EndModal(wx.ID_NO) if self.IsModal() else None, self._timer)
+		self._timer.StartOnce(int(seconds * 1000))
+		keep.SetFocus()
+
+
+def confirmKeep(question, seconds, cancel=None):
+	"""Ask whether to keep a change. True only if the user says yes within the time; silence means no."""
+	def show():
+		dialog = _KeepDialog(
+			gui.mainFrame, question,
+			# Translators: Buttons of the window that asks whether a new synthesizer or braille display works.
+			_("&Keep it"), _("&Switch back"), seconds)
+		try:
+			return _popup(dialog) == wx.ID_YES
+		finally:
+			dialog.Destroy()
+	return bool(_fromWorker(show, cancel))
+
+
 def progressText(task):
 	"""Where a task is, in a sentence."""
 	state, step, steps, activity, seconds = task.progress()

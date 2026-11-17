@@ -17,6 +17,8 @@ from .claw import backend, policy
 addonHandler.initTranslation()
 
 CONF_SECTION = "visionClaw"
+SEARCH_IDS = ("duckduckgo", "google", "bing")
+SEARCH_ENGINES = ["DuckDuckGo", "Google", "Bing"]
 
 
 def backendLabels():
@@ -60,6 +62,10 @@ class VisionClawPanel(gui.settingsDialogs.SettingsPanel):
 			_("How much the models &think before acting:"), wx.Choice, choices=clawui.reasoningLabels())
 		self.reasoning.SetSelection(
 			policy.REASONING_CHOICES.index(c["reasoning"]) if c["reasoning"] in policy.REASONING_CHOICES else 0)
+		# Translators: Label of the choice of search engine used when the user asks to search the web.
+		self.searchEngine = helper.addLabeledControl(_("Search the &web with:"), wx.Choice, choices=SEARCH_ENGINES)
+		self.searchEngine.SetSelection(
+			SEARCH_IDS.index(c["searchEngine"]) if c["searchEngine"] in SEARCH_IDS else 0)
 		self.confirmChanges = checkbox(
 			# Translators: Checkbox in settings.
 			_("Ask me before VisionClaw &changes a setting, clicks, presses keys or types"), "confirmChanges")
@@ -101,6 +107,7 @@ class VisionClawPanel(gui.settingsDialogs.SettingsPanel):
 		c["backend"] = backend.CHOICES[max(0, self.backend.GetSelection())]
 		c["reasoning"] = policy.REASONING_CHOICES[max(0, self.reasoning.GetSelection())]
 		c["sideBySide"] = self.sideBySide.GetValue()
+		c["searchEngine"] = SEARCH_IDS[max(0, self.searchEngine.GetSelection())]
 		c["confirmChanges"] = self.confirmChanges.GetValue()
 		c["speakProgress"] = self.speakProgress.GetValue()
 		c["readAhead"] = self.readAhead.GetValue()

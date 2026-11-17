@@ -117,14 +117,30 @@ class Conf(dict):
 		return self[section]
 
 
+class DriverSetting:
+	def __init__(self, id, displayName, minVal=0, maxVal=100):
+		self.id, self.displayName, self.minVal, self.maxVal = id, displayName, minVal, maxVal
+
+
+class NumericDriverSetting(DriverSetting):
+	pass
+
+
+class BooleanDriverSetting(DriverSetting):
+	pass
+
+
 class Synth:
 	name = "fake"
+	description = "Fake synthesizer"
 	rate, pitch, volume = 50, 40, 100
+	rateBoost = False
 	voice = "v1"
-	availableVoices = {"v1": Anything(), "v2": Anything()}
-
-	def isSupported(self, setting):
-		return setting in ("rate", "pitch", "volume")
+	availableVoices = {"v1": types.SimpleNamespace(displayName="Anna"), "v2": types.SimpleNamespace(displayName="Ben")}
+	supportedSettings = [
+		DriverSetting("voice", "Voice"), NumericDriverSetting("rate", "Rate"), BooleanDriverSetting("rateBoost", "Rate boost"),
+		NumericDriverSetting("pitch", "Pitch"), NumericDriverSetting("volume", "Volume"),
+	]
 
 
 class GlobalPlugin:
@@ -154,7 +170,22 @@ running = set()
 stub("globalPluginHandler", GlobalPlugin=GlobalPlugin, runningPlugins=running)
 stub("scriptHandler", script=script)
 synth = Synth()
-stub("synthDriverHandler", getSynth=lambda: synth)
+SYNTHS = [("fake", "Fake synthesizer"), ("espeak", "eSpeak NG"), ("silence", "No speech"), ("broken", "Broken voice")]
+
+
+def setSynth(name):
+	if name == "broken":
+		return False  # this one never starts; NVDA keeps the synthesizer it had
+	synth.name, synth.description = name, dict(SYNTHS)[name]
+	return True
+
+
+stub("synthDriverHandler", getSynth=lambda: synth, getSynthList=lambda: SYNTHS, setSynth=setSynth)
+stub("braille", handler=types.SimpleNamespace(display=types.SimpleNamespace(name="noBraille"), displaySize=0),
+	getDisplayList=lambda: [("noBraille", "No braille"), ("freedomScientific", "Freedom Scientific Focus")])
+typed = []
+stub("brailleInput", handler=types.SimpleNamespace(sendChars=typed.append))
+os.environ["USERPROFILE"] = CONFIG_DIR  # so that nothing is written to the real Documents folder
 stub("wx", IsMainThread=lambda: True, CallAfter=lambda fn, *args: fn(*args), CallLater=lambda ms, fn, *args: None)
 stub("inputCore", normalizeGestureIdentifier=lambda ident: ident.lower())
 stub("keyboardHandler", KeyboardInputGesture=types.SimpleNamespace(
@@ -162,9 +193,10 @@ stub("keyboardHandler", KeyboardInputGesture=types.SimpleNamespace(
 for name in (
 	"api", "controlTypes", "gui", "gui.guiHelper", "gui.settingsDialogs", "languageHandler", "queueHandler", "speech",
 	"speech.extensions", "textInfos", "ui", "contentRecog", "contentRecog.recogUi", "contentRecog.uwpOcr",
-	"documentationUtils", "globalCommands", "mouseHandler", "winUser", "brailleInput", "NVDAObjects", "core",
+	"documentationUtils", "globalCommands", "mouseHandler", "winUser", "NVDAObjects", "core",
 	"screenCurtain", "vision", "locationHelper", "winVersion", "tones", "nvwave", "appModuleHandler", "eventHandler",
-	"NVDAObjects.UIA", "NVDAObjects.IAccessible", "UIAHandler", "braille", "winKernel", "browseMode", "cursorManager",
+	"NVDAObjects.UIA", "NVDAObjects.IAccessible", "UIAHandler", "winKernel", "browseMode", "cursorManager",
+	"buildVersion", "brailleTables",
 ):
 	if name not in sys.modules:
 		stub(name)
@@ -177,7 +209,7 @@ sys.modules["contentRecog"].recogUi = sys.modules["contentRecog.recogUi"]
 # The real add-on package this time, with its own __init__.
 sys.path.insert(0, os.path.join(ROOT, "addon", "globalPlugins"))
 plugin = importlib.import_module("visionClaw")
-from visionClaw import nvdatools  # noqa: E402
+from visionClaw import nvdatools, webtools  # noqa: E402
 from visionClaw.claw import orchestrator, planner  # noqa: E402
 from visionClaw.claw import task as taskModule  # noqa: E402
 from visionClaw.claw.catalog import CODER, VISION  # noqa: E402
@@ -186,7 +218,7 @@ from visionClaw.claw.catalog import CODER, VISION  # noqa: E402
 
 instance = plugin.GlobalPlugin()
 registry = instance.orchestrator.registry
-assert len(registry.names()) == 21, registry.names()
+assert len(registry.names()) == 28, registry.names()
 assert set(planner.available(registry)) == set(planner.RECIPES), set(planner.RECIPES) - set(planner.available(registry))
 for name in registry.names():
 	tool = registry.get(name)
@@ -229,6 +261,29 @@ assert worked and conf["speech"]["symbolLevel"] == 300 and result.endswith("is n
 worked, result = registry.call(task, "set_setting", {"setting": "nothing.here", "value": "on"})
 assert not worked and "Copy an id exactly from find_setting" in result
 
+# Every setting the synthesizer itself offers can be changed, not only rate, pitch and volume.
+worked, result = registry.call(task, "find_setting", {"words": "change the voice"})
+assert worked and "speech.voice: speech voice. Now: Anna. Allowed: one of: Anna, Ben." in result, result
+worked, result = registry.call(task, "set_setting", {"setting": "speech.voice", "value": "ben"})
+assert worked and synth.voice == "v2" and conf["speech"]["fake"]["voice"] == "v2", result
+worked, result = registry.call(task, "set_setting", {"setting": "speech.rateBoost", "value": "on"})
+assert worked and synth.rateBoost is True, result
+
+# What NVDA has and uses: the synthesizer, its voices, the braille display, the drivers.
+worked, result = registry.call(task, "nvda_info", {"topic": "speech"})
+assert worked and "Speech synthesizer in use: Fake synthesizer (driver name fake)." in result, result
+assert "Voice in use: Ben." in result and "Voices of this synthesizer (2): Anna, Ben." in result
+assert "Rate: 80." in result and "Synthesizers installed (4): Fake synthesizer, eSpeak NG, No speech, Broken voice." in result
+worked, result = registry.call(task, "nvda_info", {"topic": "braille"})
+assert worked and "No braille display is in use." in result, result
+assert "Braille display drivers installed (2): No braille, Freedom Scientific Focus." in result
+worked, result = registry.call(task, "nvda_info", {"topic": "general"})
+assert worked and "Keyboard layout: desktop." in result and "Speech synthesizer in use" in result, result
+from visionClaw import nvdainfo  # noqa: E402
+assert nvdainfo.topicOf("what braille display do I have") == "braille"
+assert nvdainfo.topicOf("which voices does my synthesizer have") == "speech"
+assert nvdainfo.topicOf("which add-ons are installed") == "addons" and nvdainfo.topicOf("what version is this") == "general"
+
 # The user is asked before a change, and saying no changes nothing.
 conf["visionClaw"]["confirmChanges"] = True
 questions = []
@@ -240,6 +295,66 @@ instance.clawAsk = lambda question, choices: 0
 worked, result = registry.call(task, "set_setting", {"setting": "speech.rate", "value": "20"})
 assert worked and synth.rate == 20
 conf["visionClaw"]["confirmChanges"] = False
+
+# --- Switching the speech synthesizer: never leave the user without speech and braille ---
+
+from visionClaw.claw import drivers  # noqa: E402
+SYNTH = drivers.SYNTH
+questions, keeps = [], []
+instance.clawAsk = lambda question, choices: questions.append(question) or 0
+instance.clawKeep = lambda question, seconds: keeps.append(question) or True
+# The user is always asked first, even with questions turned off, and confirms afterwards that it works.
+assert conf["visionClaw"]["confirmChanges"] is False
+worked, result = registry.call(task, "switch_driver", {"kind": SYNTH, "name": "espeak ng"})
+assert worked and synth.name == "espeak" and result == "The synthesizer is now eSpeak NG. Before, it was Fake synthesizer.", result
+assert "Switch the synthesizer from Fake synthesizer to eSpeak NG?" in questions[-1] and "switches back" in questions[-1]
+assert "This is eSpeak NG. Does it work?" in keeps[-1] and instance.driverNotes.get(SYNTH, "espeak")["worked"] == 1
+# Not confirmed in time: switched back, and remembered.
+instance.clawKeep = lambda question, seconds: False
+worked, result = registry.call(task, "switch_driver", {"kind": SYNTH, "name": "Fake synthesizer"})
+assert worked and synth.name == "espeak", result
+assert result == "Switched back to eSpeak NG, because Fake synthesizer was not confirmed to work."
+# The next time, the user is warned before it is tried again.
+instance.clawKeep = lambda question, seconds: True
+worked, result = registry.call(task, "switch_driver", {"kind": SYNTH, "name": "Fake synthesizer"})
+assert worked and synth.name == "fake", result
+assert questions[-1].startswith(
+	"Earlier on this computer, Fake synthesizer was switched back once because it was not confirmed to work."), questions[-1]
+# A synthesizer that does not start: the old one stays, and that is remembered too.
+worked, result = registry.call(task, "switch_driver", {"kind": SYNTH, "name": "Broken voice"})
+assert worked and synth.name == "fake", result
+assert result == "Broken voice could not be started, so Fake synthesizer is still the synthesizer in use."
+assert instance.driverNotes.get(SYNTH, "broken")["failed"] == 1 and instance.memory.search("Broken voice could not be started")
+worked, result = registry.call(task, "nvda_info", {"topic": "speech"})
+assert "Earlier on this computer, broken could not be started once." in result, result
+# "No speech" with no braille display would leave nothing: refused, without even asking.
+asked = len(questions)
+worked, result = registry.call(task, "switch_driver", {"kind": SYNTH, "name": "No speech"})
+assert worked and synth.name == "fake" and len(questions) == asked, result
+assert result.startswith("VisionClaw did not do this. That would leave you with no speech and no braille"), result
+# With a braille display it is allowed, after a warning.
+sys.modules["braille"].handler.display = types.SimpleNamespace(name="freedomScientific", description="Focus 40")
+worked, result = registry.call(task, "switch_driver", {"kind": SYNTH, "name": "No speech"})
+assert worked and synth.name == "silence" and questions[-1].startswith("This turns speech off completely. You will have braille only.")
+# ... and then braille cannot be switched off, because nothing would be left.
+sys.modules["braille"].handler.setDisplayByName = lambda name: setattr(sys.modules["braille"].handler.display, "name", name)
+worked, result = registry.call(task, "switch_driver", {"kind": drivers.DISPLAY, "name": "No braille"})
+assert worked and result.startswith("VisionClaw did not do this. That would leave you with no braille and no speech"), result
+assert sys.modules["braille"].handler.display.name == "freedomScientific"
+sys.modules["braille"].handler.display = types.SimpleNamespace(name="noBraille")
+setSynth("fake")
+# The user says no: nothing changes. An unknown name: the installed ones are named.
+instance.clawAsk = lambda question, choices: 1
+worked, result = registry.call(task, "switch_driver", {"kind": SYNTH, "name": "eSpeak NG"})
+assert worked and result == "You said no, so nothing was changed." and synth.name == "fake"
+worked, result = registry.call(task, "switch_driver", {"kind": SYNTH, "name": "Zebra Talk"})
+assert not worked and "Installed: Fake synthesizer, eSpeak NG" in result
+# A volume too quiet to hear, without braille, is refused as well.
+worked, result = registry.call(task, "set_setting", {"setting": "speech.volume", "value": "0"})
+assert worked and synth.volume == 100 and "too quiet to hear, and there is no braille display" in result, result
+instance.clawAsk = lambda question, choices: 0
+worked, result = registry.call(task, "set_setting", {"setting": "speech.volume", "value": "40"})
+assert worked and synth.volume == 40
 
 # --- Other tools that need no screen ---
 
@@ -317,6 +432,109 @@ try:
 except ValueError as e:
 	assert "subprocess is not allowed" in str(e)
 assert not running
+
+# A generated add-on is saved as a normal add-on file, to install for good or to share.
+helpers.store.save("Hello Key", source, "say hello on NVDA+shift+h")
+worked, result = registry.call(task, "export_addon", {"name": "hello key"})
+saved = os.path.join(CONFIG_DIR, "Documents", "VisionClaw add-ons", "visionClaw_hello_key.nvda-addon")
+assert worked and os.path.isfile(saved) and saved in result, result
+worked, result = registry.call(task, "export_addon", {"name": "nothing like it"})
+assert not worked and "Use a name from list_helpers" in result
+helpers.store.remove("hello_key")
+
+# --- The web, through the browser and NVDA's browse mode ---
+
+activated = []
+
+
+def node(label):
+	return types.SimpleNamespace(label=label, activate=lambda: activated.append(label))
+
+
+PAGE = "\n".join(
+	["Example Shop", "Welcome to our shop."]
+	+ [f"Product number {i} is a fine product that many people like to buy." for i in range(60)]
+	+ ["Refund policy", "You can return any product within 30 days for a full refund."]
+	+ [f"More about delivery, part {i}, with many words about parcels and vans." for i in range(40)]
+)
+
+
+class Page(sys.modules["browseMode"].BrowseModeDocumentTreeInterceptor):
+	isReady = True
+	documentConstantIdentifier = "https://example.com/"
+	nodes = {
+		"link": [node("Home"), node("Sign in"), node("Refund policy")],
+		"button": [node("Buy now")],
+		"edit": [node("Search the shop")],
+	}
+
+	def __init__(self):
+		self.rootNVDAObject = types.SimpleNamespace(name="Example Shop")
+
+	def _iterNodesByType(self, kind):
+		return iter(self.nodes.get(kind, []))
+
+	def makeTextInfo(self, position):
+		return types.SimpleNamespace(text=PAGE)
+
+
+document = Page()
+focus = Anything()
+focus.treeInterceptor = document
+sys.modules["api"].getFocusObject = lambda: focus
+nvdatools.CLICK_SETTLE_SECONDS = nvdatools.WEB_SETTLE_SECONDS = 0
+nvdatools.WEB_WAIT_SECONDS = 2
+task = taskModule.Task("test")
+
+# The page's own links, buttons and fields are listed, what is looked for first.
+worked, result = registry.call(task, "list_items", {"about": "sign in to my account"})
+assert worked and result.startswith("5 items on the web page Example Shop:\n1. Sign in link"), result
+assert "Buy now button" in result and "Search the shop edit field" in result
+# Following a link needs no question; pressing a button does.
+conf["visionClaw"]["confirmChanges"] = True
+questions = []
+instance.clawAsk = lambda question, choices: questions.append(question) or 0
+worked, result = registry.call(task, "click_item", {"item": "Sign in"})
+assert worked and activated == ["Sign in"] and not questions and result == "Clicked Sign in link.", result
+registry.call(task, "list_items", {"about": "buy"})
+worked, result = registry.call(task, "click_item", {"item": "the Buy now button"})
+assert worked and activated[-1] == "Buy now" and questions == ["Click Buy now button?"], (result, questions)
+# Typing into a field: "the search box" finds the page's one field; Enter is pressed when asked.
+registry.call(task, "list_items", {"about": "search box"})
+worked, result = registry.call(task, "fill_field", {"field": "the search box", "text": "cats", "enter": "yes"})
+assert worked and activated[-1] == "Search the shop" and typed == ["cats"], result
+assert result == "Typed \"cats\" into Search the shop edit field and pressed Enter.", result
+assert questions[-1] == "Type \"cats\" into Search the shop edit field?"
+conf["visionClaw"]["confirmChanges"] = False
+# Reading a long page: the beginning and the passage that answers the question, not the whole page.
+worked, result = registry.call(task, "read_page", {"about": "What is the refund policy?"})
+assert worked and result.startswith("From the web page Example Shop:") and "within 30 days for a full refund" in result
+assert len(result) < 1600 and "part 39" not in result
+# Opening an address and searching the web go to the user's own browser.
+opened = []
+
+
+def startfile(url):
+	opened.append(url)
+	document.documentConstantIdentifier = url
+	document.rootNVDAObject.name = "BBC Home" if "bbc" in url else "weather in Boston at DuckDuckGo"
+
+
+webtools.os = types.SimpleNamespace(startfile=startfile)
+worked, result = registry.call(task, "web_open", {"address": "bbc.co.uk"})
+assert worked and opened == ["https://bbc.co.uk"] and result == "Opened the web page BBC Home.", result
+for bad, why in (("javascript:alert(1)", "Only web addresses"), ("the bbc", "is not a web address"), ("", "is not a web address")):
+	worked, result = registry.call(task, "web_open", {"address": bad})
+	assert not worked and why in result and len(opened) == 1, (bad, result)
+worked, result = registry.call(task, "web_search", {"words": "weather in Boston"})
+assert worked and opened[-1] == "https://duckduckgo.com/?q=weather+in+Boston" and result == "Searched the web for weather in Boston."
+conf["visionClaw"]["searchEngine"] = "bing"
+registry.call(task, "web_search", {"words": "weather in Boston"})
+assert opened[-1] == "https://www.bing.com/search?q=weather+in+Boston"
+# Outside a web page, read_page says so.
+sys.modules["api"].getFocusObject = lambda: Anything()
+worked, result = registry.call(task, "read_page", {"about": "anything"})
+assert not worked and "not in a web page" in result
 
 instance.terminate()
 print("OK")

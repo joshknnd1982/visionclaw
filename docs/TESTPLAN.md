@@ -50,11 +50,35 @@ Before you start: disable VisionMate in the Add-on Store, install the VisionClaw
 - [ ] With "Say each step" off, only the answer is spoken.
 - [ ] With the coder model missing, asking opens the models window.
 
+## The web
+- [ ] "Open nvaccess.org": the browser opens it and the answer names the page.
+- [ ] "Search the web for NVDA user guide": a results page opens and the answer says something about the results.
+- [ ] On an article: "What does this page say about ...?" answers from the page.
+- [ ] "Click the ... link" follows it without a question; "Press the ... button" asks first.
+- [ ] "Type ... into the search box and search": the text goes into the field and Enter is pressed.
+- [ ] The same in Firefox, Chrome and Edge.
+
+## Speech, braille and drivers
+Do these with someone sighted nearby, or with a second way to get speech back, until they have passed once.
+- [ ] "Which speech synthesizer am I using?" and "What braille display do I have?" answer correctly.
+- [ ] "Change the voice to ...": the voice changes after the question.
+- [ ] "Switch my speech synthesizer to eSpeak": asks; switches; the "does it work?" window is spoken by the
+      new synthesizer; Keep it keeps it.
+- [ ] The same, but do nothing for 20 seconds: the old synthesizer comes back and says so.
+- [ ] Asking again warns that it was switched back before.
+- [ ] "Switch to no speech", with no braille display: refused, with the reason, and nothing changes.
+- [ ] "Set the volume to 0", with no braille display: refused.
+- [ ] "Turn speech mode off" (an NVDA command): asks first and says how to undo it.
+
 ## Add-ons
 - [ ] "Write an add-on that says hello when I press NVDA+shift+H": asks to turn it on; "Let me read the code
       first" shows the code; after "Turn it on" the key works at once.
 - [ ] After restarting NVDA the key still works.
+- [ ] "Save the add-on ... as a file": the file is in Documents, VisionClaw add-ons, and installs as a normal
+      add-on.
 - [ ] "Remove the add-on ...": the key stops working.
+- [ ] With an unlabelled button focused: "Write an add-on that calls this button Play". The Last task box shows
+      what the vision model saw and the control's details, and the button is then announced as Play.
 - [ ] "Write an add-on that beeps when a link gets the focus": works in a browser, and NVDA still reads links.
 
 ## Agreement

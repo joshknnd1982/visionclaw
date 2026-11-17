@@ -32,8 +32,13 @@ keyboard and speech alone.
 
 ## Rules that always apply
 
-- **Local only.** The add-on connects to the internet only to download models, and only after the user says yes.
-  Never add telemetry, cloud APIs, or update checks.
+- **Local only.** The add-on's own code connects to the internet only to download models, and only after the
+  user says yes. Never add telemetry, cloud APIs, or update checks. The web tools hand an address to the user's
+  own browser when the user asks; the models never go online.
+- **Never cut off speech and braille.** Anything that could leave a screen reader user with neither goes
+  through `claw/drivers.py`: refuse what is certain to, always ask first, switch back unless the user confirms
+  that it works, and remember what failed. New tools that touch speech, braille, audio or NVDA's own running
+  must use `mustAgree`, never the optional `confirm`.
 - **Never break the screen reader.** Do not install, enable, disable or reload add-ons in the user's running
   NVDA, and do not restart NVDA, without asking first in chat. Test with plain Python and the stub harness.
 - **Small models first.** Every prompt must work on a 1.5B to 4B model. That means: constrained JSON
@@ -73,6 +78,8 @@ addon/
     dialogs.py               models window, description window
     clawui.py                Ask VisionClaw window, choice prompts, progress speech
     nvdatools.py             the tools the models can call, written against the NVDA API
+    webtools.py              the web through NVDA's browse mode: a page's links, buttons, fields and text
+    nvdainfo.py              what NVDA has and uses: synthesizer, voices, braille display, drivers, add-ons
     helpers.py               app helpers and generated add-ons: loading them live, their hotkeys
     (the rest)               VisionMate features: overlay, OCR, chat photos, labels ...
     claw/                    SmallClaw-style core. NO NVDA imports.
@@ -82,6 +89,8 @@ addon/
       policy.py              picks context size, token limits, temperature, reasoning per task
       llm.py                 JSON-constrained calls, reasoning levels, prompt trimming
       match.py               forgiving matching of what a model writes against what exists
+      web.py                 web addresses, search addresses, the passages of a page that matter
+      drivers.py             rules that keep speech and braille alive; what happened with each driver
       planner.py             splits a request into parts; recipes; free plans and their repair
       consensus.py           the two models agree, or the user decides
       agent.py               the tool loop for one step
@@ -152,9 +161,16 @@ A session is done only when its "Done when" line is true.
   introspection of NVDA modules, knowledge search, ask the user.
 - [x] **3.2 Ask VisionClaw window**, progress speech, stop command, reasoning choice, settings panel.
 - [x] **3.3 Micro add-ons.** Generate, check, review, confirm, load live, repair on error, list, remove.
-  Export as `.nvda-addon` exists in code (`Helpers.export`) but has no command yet.
+  Export as `.nvda-addon`: see 3.8.
 - [x] **3.4 App helpers.** A saved, declarative helper for one app: hotkeys that click or read named items found
   in the window's picture. No generated code, so small models get it right more often.
+- [x] **3.6 The web.** Open, search, ask about the page, follow links, press buttons, fill fields, through the
+  user's browser and NVDA's browse mode. In a web page `list_items` and `click_item` use the page's own
+  elements instead of the picture.
+- [x] **3.7 Speech and braille.** `nvda_info` reports synthesizer, voices, braille display, tables, drivers and
+  add-ons; every setting of the driver in use can be changed; `switch_driver` switches safely.
+- [x] **3.8 Permanent fixes.** A generated add-on can be saved as an `.nvda-addon` file; the vision model and
+  NVDA's facts about the focused control inform the coder.
 - [ ] **3.5 Test inside NVDA.** Install the build in NVDA (ask the user first) and walk through
   `docs/TESTPLAN.md`. Fix what breaks. *Done when:* every item in the test plan is ticked by a real run.
 

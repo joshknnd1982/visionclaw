@@ -48,7 +48,7 @@ RECIPES = {
 		("read_text",)),
 	"click": (
 		"click an item in the window",
-		"click or press a button, link or other item in the window in front",
+		"click or press a button, link or other item, in the window in front or on the web page",
 		("list_items", "click_item")),
 	"press_keys": (
 		"press keys in the program",
@@ -79,6 +79,35 @@ RECIPES = {
 		"remove something VisionClaw made",
 		"remove a helper or add-on VisionClaw made",
 		("list_helpers", "remove_helper")),
+	"open_website": (
+		"open a website",
+		"open a website or a web address in the browser",
+		("web_open",)),
+	"search_web": (
+		"search the web",
+		"search the web for something and say what was found",
+		("web_search", "read_page")),
+	"web_page": (
+		"read the web page and answer",
+		"answer a question about the web page that is open in the browser, or summarize it",
+		("read_page",)),
+	"fill_field": (
+		"type into a field",
+		"type text into a named field or box, such as a search box or a field of a form",
+		("list_items", "fill_field")),
+	"nvda_info": (
+		"tell you what NVDA has and uses",
+		"say which speech synthesizer, voice, braille display, braille table, driver, add-on or version NVDA "
+		"has or uses, and how they are set",
+		("nvda_info",)),
+	"switch_driver": (
+		"switch the speech synthesizer or braille display",
+		"switch NVDA to a different speech synthesizer or a different braille display",
+		("nvda_info", "switch_driver")),
+	"save_addon": (
+		"save an add-on as a file",
+		"save an add-on VisionClaw wrote as a file that can be installed for good or shared",
+		("list_helpers", "export_addon")),
 	"where_am_i": (
 		"say where you are",
 		"say which program, window and control the user is in",
@@ -87,11 +116,18 @@ RECIPES = {
 # Words that point to a recipe. Checked in this order; the first that matches is the hint given to the model,
 # and the choice when the model fails.
 _HINTS = (
-	("write_addon", r"add-?on|plug-?in|write (me )?(a |some )?(code|script)|every time|whenever|automatically|when (a|an|the|i) .* (gets?|gains?|changes?|appears?|opens?)"),
+	("save_addon", r"\b(save|export|package|share)\b.*\badd-?on"),
 	("remove_made", r"\b(remove|delete|get rid of)\b.*\b(helper|hot ?key|add-?on)"),
-	("list_made", r"\b(list|show|which|what)\b.*\b(helpers?|add-?ons?)\b.*\b(made|have|wrote|written|created)"),
+	("list_made", r"\b(list|show|which|what)\b.*\b(helpers?|add-?ons?)\b.*\b(you|visionclaw)\b.*\b(made|wrote|written|created)"),
+	("write_addon", r"\b(write|make|create|build|code|program)\b.*\b(add-?on|plug-?in|code|script)\b|every time|whenever|automatically|when (a|an|the|i) .* (gets?|gains?|changes?|appears?|opens?)"),
 	("make_hotkey", r"hot ?key|shortcut (key )?(for|to|that)|\bkey (for|to|that)\b"),
 	("name_button", r"\b(name|label|call)\b.*\b(button|control|icon)|unlabel|no label|has no name"),
+	("switch_driver", r"\b(switch|change|use|set)\b.*\b(synthesi[sz]ers?|synths?|braille (display|driver))\b"
+		r"|\b(switch|change) to (espeak|one ?core|sapi|eloquence|no speech|no braille)"),
+	("search_web", r"\b(search|look up|google)\b.*\b(web|internet|online|for)\b"),
+	("open_website", r"\b(open|go to|visit|load|browse to)\b.*(\w\.[a-z]{2,}\b|web ?site|web ?page|\burl\b)"),
+	("fill_field", r"\b(type|enter|write|fill|put)\b.*\b(in|into)\b.*\b(field|box|form|search)\b"),
+	("nvda_info", r"\b(which|what|list|show|tell me|do i have)\b.*\b(synthesi[sz]ers?|synths?|voices?|braille|drivers?|add-?ons?|version)\b"),
 	("explain_keys", r"how (do|can|would|to) |what (key|keys|command|shortcut)|which (key|keys|command)|shortcut for"),
 	("change_setting", r"speed|rate\b|faster|slower|louder|quieter|volume|pitch|voice|punctuation|echo|braille|setting|turn (on|off)|switch (on|off)|enable|disable|stop (saying|reading|announcing|speaking)"),
 	("click", r"\b(click|press|push|activate|select|choose|start|open)\b.*\b(button|link|item|menu|tab|icon|game|option)|\bclick\b"),
@@ -99,12 +135,15 @@ _HINTS = (
 	("type_text", r"\btype\b|\bwrite\b.*\binto\b"),
 	("do_command", r"\b(read|say|speak|tell me|report)\b.*\b(title|time|date|battery|clipboard|status|focus)\b|say all|start reading"),
 	("read_text", r"\bread\b.*\b(text|everything)\b|\bread (me )?(the |this |all of the )?(whole )?(window|screen)\b"),
+	("web_page", r"\b(this|the|current) (web ?page|page|web ?site|site|article)\b|summari[sz]e"),
 	("describe", r"what('s| is| does)? .*(look|show|screen|window|picture|image|photo)|describe|look at|colou?r|what do you see|on (the|my) screen"),
 	("where_am_i", r"where am i|which (program|app|window|control)|what (program|app|window) (is|am)"),
 	("nvda_question", r"what (is|are|does)|explain|tell me about|why"),
 )
 _CONNECTORS = re.compile(r"\b(and|then|also|after that|afterwards|plus)\b|[;]|,\s*(and|then)?", re.IGNORECASE)
 MAX_PARTS = 4
+# A part that speaks of "it" cannot be understood without the part before it.
+_REFERS_BACK = re.compile(r"\b(it|its|they|them|their|that one|this one)\b", re.IGNORECASE)
 
 _SPLIT_SCHEMA = {
 	"type": "object",
@@ -173,7 +212,25 @@ def split(llm, role, request, note=""):
 		mine = set(re.findall(r"[a-z0-9]{3,}", part.lower()))
 		if mine and len(mine & words) / len(mine) < 0.5:
 			return [request]
-	return parts[:MAX_PARTS] or [request]
+	return settle(parts[:MAX_PARTS]) or [request]
+
+
+def settle(parts):
+	"""Make every part understandable alone, by plain rules, since small models split too eagerly.
+	A fragment of one or two words ("search", "press it") belongs to the part before it. A part that speaks of
+	"it" is given the part before it as its background."""
+	settled, plain = [], []
+	for part in parts:
+		if settled and len(part.split()) < 3:
+			settled[-1] = f"{settled[-1]} and {part[0].lower()}{part[1:]}"
+			plain[-1] = settled[-1]
+		elif settled and _REFERS_BACK.search(part):
+			settled.append(f"{part} (this follows: {plain[-1]})")
+			plain.append(part)
+		else:
+			settled.append(part)
+			plain.append(part)
+	return settled
 
 
 def classify(llm, role, part, context, registry, note=""):

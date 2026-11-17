@@ -14,7 +14,7 @@ import zipfile
 import harness  # noqa: F401
 import rangeserver
 from visionClaw import net
-from visionClaw.claw import catalog, match, microaddons, policy
+from visionClaw.claw import catalog, drivers, match, microaddons, policy, web
 from visionClaw.claw import task as taskModule
 from visionClaw.claw.catalog import CODER, VISION
 from visionClaw.claw.knowledge import Knowledge
@@ -115,6 +115,59 @@ assert match.toBool("On") is True and match.toBool("disabled") is False and matc
 assert match.toOption("ALL", ["none", "some", "most", "all"]) == "all"
 assert match.label("speakTypedWords") == "speak typed words"
 assert plainSpeech("Seen:\n- A **game** menu\n- Four buttons") == "Seen: A game menu, Four buttons."
+
+# --- The web: addresses, searches, and the passages of a page that matter ---
+
+assert web.addressIn("please open bbc.co.uk for me") == "bbc.co.uk"
+assert web.addressIn("go to https://example.com/a?b=1.") == "https://example.com/a?b=1"
+assert web.addressIn("open the BBC website") == ""
+assert web.normalizeAddress("bbc.co.uk") == "https://bbc.co.uk" and web.normalizeAddress("http://a.org/x") == "http://a.org/x"
+assert web.normalizeAddress("localhost.example:8080/x") == "https://localhost.example:8080/x"
+for bad in ("javascript:alert(1)", "file:///c:/windows/system32", "ftp://a.org", "the bbc", "", "data:text/html,x"):
+	try:
+		web.normalizeAddress(bad)
+		raise AssertionError(bad)
+	except ValueError:
+		pass
+assert web.searchWords("Search the web for cheap flights to Rome online.") == "cheap flights to Rome"
+assert web.searchWords("look up the weather in Boston") == "the weather in Boston"
+assert web.searchWords("google NVDA add-on development") == "NVDA add-on development"
+assert web.searchUrl("google", "a b&c") == "https://www.google.com/search?q=a+b%26c"
+assert web.searchUrl("nothing", "x").startswith("https://duckduckgo.com/")
+assert web.passages("Short page.\n\nTwo lines.", "anything") == "Short page.\nTwo lines."
+long = "\n".join(["News today"] + [f"Paragraph {i} talks about football results." for i in range(80)]
+	+ ["The library opens at nine and closes at five on weekdays."] + [f"Advert {i} for shoes." for i in range(80)])
+found = web.passages(long, "When does the library open?")
+assert found.startswith("News today") and "library opens at nine" in found and "..." in found and len(found) <= 1500
+assert web.passages(long, "zzzz").startswith("News today") and len(web.passages(long, "zzzz")) <= 1410
+
+# --- Keeping speech and braille alive ---
+
+S, D = drivers.SYNTH, drivers.DISPLAY
+assert drivers.judge(S, "espeak", "oneCore", None) == (drivers.FINE, "")
+assert drivers.judge(S, "silence", "espeak", None)[0] == drivers.REFUSE
+assert drivers.judge(S, "silence", "espeak", "noBraille")[0] == drivers.REFUSE
+assert drivers.judge(S, "silence", "espeak", "freedomScientific")[0] == drivers.WARN
+assert drivers.judge(D, "noBraille", "espeak", "freedomScientific")[0] == drivers.WARN
+assert drivers.judge(D, "noBraille", "silence", "freedomScientific")[0] == drivers.REFUSE
+assert drivers.judge(D, "noBraille", None, "freedomScientific")[0] == drivers.REFUSE
+assert drivers.judge(D, "freedomScientific", "espeak", "noBraille") == (drivers.FINE, "")
+notes = drivers.DriverNotes(os.path.join(tempfile.mkdtemp(), "drivers.json"))
+assert notes.warning(S, "sapi5") == "" and drivers.judge(S, "sapi5", "espeak", None, notes)[0] == drivers.FINE
+notes.record(S, "sapi5", drivers.FAILED)
+notes.record(S, "sapi5", drivers.FAILED)
+notes.record(S, "sapi5", drivers.REVERTED)
+verdict, why = drivers.judge(S, "sapi5", "espeak", None, notes, "Microsoft Speech API")
+assert verdict == drivers.WARN, why
+assert why == ("Earlier on this computer, Microsoft Speech API could not be started 2 times and was switched back "
+	"once because it was not confirmed to work."), why
+notes.record(S, "sapi5", drivers.WORKED)
+assert notes.warning(S, "sapi5").endswith("The last time it worked.")
+again = drivers.DriverNotes(notes._path)  # kept between sessions
+assert again.get(S, "sapi5")["failed"] == 2 and again.problems(S) and not again.problems(D)
+assert drivers.judgeVolume(50, None)[0] == drivers.FINE and drivers.judgeVolume(3, None)[0] == drivers.REFUSE
+assert drivers.judgeVolume(3, "freedomScientific")[0] == drivers.WARN
+assert drivers.kindOf("switch my braille display to Focus") == D and drivers.kindOf("use eSpeak") == S
 
 # --- The check generated add-ons must pass ---
 

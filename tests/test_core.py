@@ -286,11 +286,35 @@ for request, recipe in (
 	("how do I read the window title", "explain_keys"),
 	("give this program a hotkey that clicks Send", "make_hotkey"),
 	("read the window title", "do_command"),
+	("open bbc.co.uk", "open_website"),
+	("go to the NV Access website", "open_website"),
+	("search the web for the weather in Boston", "search_web"),
+	("what does this page say about refunds", "web_page"),
+	("summarize the article", "web_page"),
+	("type cats into the search box and search", "fill_field"),
+	("which speech synthesizer am I using", "nvda_info"),
+	("what braille display do I have", "nvda_info"),
+	("list my voices", "nvda_info"),
+	("save the add-on hello key as a file", "save_addon"),
+	("switch the synthesizer to eSpeak", "switch_driver"),
+	("change to no speech", "switch_driver"),
+	("use a different braille display", "switch_driver"),
+	("change the voice to Ben", "change_setting"),
+	("list the add-ons you have made", "list_made"),
+	("click the Sign in link", "click"),
 ):
 	assert planner.hint(request) == recipe, (request, planner.hint(request))
 assert planner.quickTriage("write an add-on that beeps when a link gets focus")["needs_code"]
 assert planner.complexity(["change_setting"]) == "moderate" and planner.complexity(["describe"]) == "simple"
 assert planner.complexity(["describe", "click", "describe"]) == "complex"
+
+# 17b. Parts are made understandable alone: a fragment joins the part before it, and a part that speaks
+#      of "it" is given the part before it as its background.
+assert planner.settle(["Type garden gloves into the search box", "Search"]) == [
+	"Type garden gloves into the search box and search"]
+assert planner.settle(["What braille display do I have", "How many cells does it have"]) == [
+	"What braille display do I have", "How many cells does it have (this follows: What braille display do I have)"]
+assert planner.settle(["Click Options", "Tell me what the window shows"]) == ["Click Options", "Tell me what the window shows"]
 
 # 18. Finding things by the user's own words.
 assert score("Make NVDA speak a little faster", "speech rate speed fast faster slow talk speaking") >= 0.5

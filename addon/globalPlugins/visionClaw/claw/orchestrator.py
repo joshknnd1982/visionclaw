@@ -242,7 +242,8 @@ class Orchestrator:
 		pieces = list(told)
 		if info:
 			user = "\n\n".join(f"The user asked: \"{clip(part, 300)}\"\nInformation found:\n{clip(result, 1200)}"
-				for part, result in info) + "\n\nAnswer the user."
+				for part, result in info) + (
+					"\n\nAnswer each of these questions, in order." if len(info) > 1 else "\n\nAnswer the user.")
 			try:
 				summary = llm.text(self.lead, _ANSWER_SYSTEM, user, maxTokens=params.answerTokens, reasoning=params.reasoning)
 			except LLMError:

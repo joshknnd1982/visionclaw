@@ -1,13 +1,15 @@
 # VisionClaw status
 
-Updated 2026-11-17, version 0.1.1.
+Updated 2026-11-17, version 0.2.0.
 
 ## What exists
 
 Everything in phases 1 to 3.4 and 4.1 of `CLAUDE.md`: the fork, the model catalog and models window, the
 graphics choice with fallback, the two-model runtime, the planner with recipes, agreement between the models,
-the step runner, 21 NVDA tools, the Ask VisionClaw window, app helpers, generated add-ons, the knowledge base
-and the lessons memory.
+the step runner, 28 NVDA tools and 22 recipes, the Ask VisionClaw window, app helpers, generated add-ons, the
+knowledge base and the lessons memory. New in 0.2.0: the web through NVDA's browse mode, reporting on speech,
+braille, drivers and add-ons, safe switching of the synthesizer and braille display, and saving a generated
+add-on as a file.
 
 ## What was tested, and how
 
@@ -15,8 +17,8 @@ and the lessons memory.
 |---|---|---|
 | `tests/test_core.py` | Whole requests through the orchestrator with scripted models: splitting into parts, recipes, agreement, a corrected choice, disagreement decided by the user, a wrong form fixed from the tool's error, a hint from the other model, an honest answer when a part fails, a plan the model writes itself, stopping | passes |
 | `tests/test_parts.py` | Catalog entries, a resumable download from a local server that is cut off half way, a damaged file refused, cancelling, shared model files, forgiving matching, the code check, the write-check-repair-review loop for add-ons, storing and packaging an add-on, the knowledge base | passes |
-| `tests/test_nvda_stub.py` | The real plugin and all its files load against stand-ins for NVDA; all 21 tools and 15 recipes are in place; settings are found by plain words and changed through the configuration; the user is asked before a change; an app helper is saved and removed; a generated add-on is checked, loaded into the running plugins and removed | passes |
-| `tests/live_orchestrator.py` | Seven real requests with a real model in the bundled engine, on a GeForce RTX 5060 Laptop GPU, with stand-in tools | 7 of 7 did the right thing, 0.4 to 3.5 seconds each |
+| `tests/test_nvda_stub.py` | The real plugin and all its files load against stand-ins for NVDA; all 28 tools and 22 recipes are in place; settings are found by plain words and changed through the configuration; the user is asked before a change; an app helper is saved and removed; a generated add-on is checked, loaded into the running plugins, saved as a file and removed; a stand-in web page is listed, a link followed, a button pressed after a question, a field filled, a long page read by passage, an address opened and a search made; the synthesizer is reported, switched, switched back when not confirmed, warned about the next time, and refused when it would leave no speech and no braille | passes |
+| `tests/live_orchestrator.py` | Fourteen real requests with a real model in the bundled engine, on a GeForce RTX 5060 Laptop GPU, with stand-in tools: settings, commands, looking, clicking, the web, a search box, speech and braille questions, switching the synthesizer | 14 of 14 were handled the right way, 0.2 to 3.9 seconds each. The answer to the web search was "could not find", because the stand-in page was not a search result. |
 | Engine backends | The engine started and answered on the dedicated card, on the built-in chip through Vulkan, and on the processor; the context grew from 4096 to 8192; a running answer was cancelled in 0.7 seconds | worked |
 | `tests/test_runtime.py` | Where the two models are put, with stand-ins for the engines and chips: together when they fit, the second on another chip or the processor when they do not, taking turns only when there is no room anywhere, falling back when a chip does not start, never moving a model that is only restarted for a larger context | passes |
 | `tests/live_side_by_side.py` | Two real engines on this computer, the first chip reported as full: one model on the GeForce RTX 5060, the other on the Radeon 780M through Vulkan, both loaded, six alternating answers in 0.4 seconds | worked |
@@ -35,6 +37,13 @@ and the lessons memory.
 - **No real download from Hugging Face** was made by the add-on's own code; the download code was tested
   against a local server only.
 - **Generated add-ons** have only been written by a scripted stand-in for the coder model.
+- **The web tools have only met a stand-in page.** They rely on NVDA's browse mode (`_iterNodesByType`, the
+  document's text, activating an element), which differs between browsers and NVDA versions. Waiting for a page
+  to load is a guess of up to 25 seconds.
+- **Switching drivers has only met stand-in drivers.** NVDA's `setSynth` and `setDisplayByName`, and the window
+  that asks "does it work?" and closes itself after 20 seconds, have not run in NVDA. Until they have, try a
+  switch only with someone sighted nearby or a second way to get speech back. A braille display that needs a
+  port to be chosen is not handled.
 - Speed on the processor alone and on low-memory computers.
 - Side by side was tested with the 2B model loaded twice. How fast a 7B or 9B model answers on a built-in chip
   or on the processor has not been measured, and the memory each model needs (`memoryGb` in the catalog) is an
@@ -43,8 +52,7 @@ and the lessons memory.
 ## Known limits
 
 - The models window, settings and tool results are in English; translations are phase 6.4.
-- A generated add-on can be exported as an `.nvda-addon` file only from code (`Helpers.export`); there is no
-  command for it yet.
+- Settings that are a free text in NVDA, such as the braille tables, are reported but cannot be changed yet.
 - `run_command` runs NVDA's script directly; a few scripts that depend on how they were triggered may behave
   differently than when pressed.
 - App helpers find their item by text, so an item that is only an unnamed icon cannot be a helper's target yet.

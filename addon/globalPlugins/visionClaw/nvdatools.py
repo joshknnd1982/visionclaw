@@ -23,19 +23,26 @@ import ui
 import wx
 from logHandler import log
 
-from . import ocr
-from .claw import match, microaddons
+from . import nvdainfo, ocr, webtools
+from .claw import drivers, match, microaddons, web
 from .claw.catalog import CODER, VISION
 from .claw.llm import LLM, clip
 from .claw.memory import score
 from .claw.tools import ANSWER, VERBATIM, Registry, Tool, ToolError
-from .engine import prepareImage
+from .engine import EngineError, prepareImage
 
 addonHandler.initTranslation()
 
 MAX_ITEMS_SHOWN = 45
 MAX_FOUND = 6
 CLICK_SETTLE_SECONDS = 0.7
+# After an address is given to the browser: the shortest and longest wait for the page to be there.
+WEB_SETTLE_SECONDS = 1.5
+WEB_WAIT_SECONDS = 25
+# An add-on about something on screen is written with the vision model's view of the window.
+_ABOUT_SCREEN = re.compile(
+	r"\b(this|these|that|current|focused|unlabell?ed|no name|button|window|program|app|game|screen|control)\b", re.IGNORECASE)
+_SUBMITS = re.compile(r"\b(search|submit|send|go|log ?in|sign ?in|press enter|and enter)\b", re.IGNORECASE)
 # Settings that are not for changing by a model: they can lock the user out, need a restart, or hold secrets.
 _SKIP_SECTIONS = frozenset((
 	"update", "addonStore", "development", "upgrade", "debugLog", "visionClaw", "remote", "automatedImageDescriptions",
@@ -68,11 +75,30 @@ _ALIASES = {
 	"reviewCursor.followFocus": "review cursor follow focus",
 	"virtualBuffers.autoSayAllOnPageLoad": "web page read automatically say all browse",
 	"audio.audioDuckingMode": "ducking lower other sounds music volume while speaking",
+	"speech.variant": "voice variant style",
+	"speech.inflection": "intonation expressive monotone",
+	"speech.rateBoost": "rate boost extra fast speed",
+	"braille.tetherTo": "braille follow focus review cursor tether",
+	"braille.showCursor": "braille cursor show",
+	"braille.cursorBlink": "braille cursor blink",
+	"braille.showMessages": "braille messages show",
+	"braille.wordWrap": "braille word wrap avoid splitting words",
+	"braille.readByParagraph": "braille paragraph",
+	"braille.expandAtCursor": "braille computer braille expand cursor word",
 	"speech.speakTypedCharacters": "echo",
 }
 _NAMED_VALUES = {"speech.symbolLevel": {"none": 0, "some": 100, "most": 200, "all": 300}}
 _SYNTH_NUMBERS = ("rate", "pitch", "volume")
 _TARGETS = ["window", "screen", "control"]
+# After a switch of synthesizer or braille display, how long the user has to say that it works.
+KEEP_SECONDS = 20
+# NVDA commands that can take speech or NVDA itself away. The user is always asked first, and told how to undo it.
+_RISKY_COMMANDS = {
+	"speechMode": "This can turn NVDA's speech off. Running the same command again brings it back.",
+	"quit": "This closes NVDA, so the computer stops talking until NVDA is started again.",
+	"restart": "This restarts NVDA. Speech stops for a few seconds.",
+	"toggleCurrentAppSleepMode": "This makes NVDA silent in the current program until it is run again there.",
+}
 
 
 def targetOf(part):
@@ -112,6 +138,11 @@ def _safe(fn, default=None):
 		return fn()
 	except Exception:
 		return default
+
+
+class Refused(Exception):
+	"""VisionClaw will not do this, because it would leave the user without speech and braille. Not an error
+	to retry: the step is finished, with nothing changed, and the reason is told to the user."""
 
 
 class UserSaidNo(Exception):
@@ -203,33 +234,52 @@ def _walkSpec(spec, path=()):
 			yield path + (key,), value
 
 
-def _synthSettings():
-	synth = synthDriverHandler.getSynth()
+def _driverSettings(driver, prefix, label, section):
+	"""Every setting a synthesizer or braille display driver offers, such as voice, variant, rate, pitch and
+	whatever else that driver has. prefix starts the setting's id; section is where NVDA saves it."""
 	found = []
-	if synth is None:
+	if driver is None:
 		return found
 
 	def save(name, value):
-		setattr(synth, name, value)
+		setattr(driver, name, value)
 		try:
-			config.conf["speech"][synth.name][name] = value
+			config.conf[section][driver.name][name] = value
 		except Exception:
-			log.debugWarning("VisionClaw: could not save the synthesizer setting", exc_info=True)
+			log.debugWarning("VisionClaw: could not save the driver setting", exc_info=True)
 
-	for name in _SYNTH_NUMBERS:
-		if _safe(lambda n=name: synth.isSupported(n)):
+	for setting in _safe(lambda: list(driver.supportedSettings), []) or []:
+		name = _safe(lambda s=setting: s.id)
+		if not name:
+			continue
+		ident, shown = f"{prefix}.{name}", f"{label} {match.label(name)}"
+		kind = type(setting).__name__
+		if kind == "NumericDriverSetting":
 			found.append(_Setting(
-				f"speech.{name}", f"speech {name}", "number",
-				lambda n=name: int(getattr(synth, n)), lambda v, n=name: save(n, v), 0, 100,
+				ident, shown, "number", lambda n=name: int(getattr(driver, n)), lambda v, n=name: save(n, v),
+				_safe(lambda s=setting: int(s.minVal), 0), _safe(lambda s=setting: int(s.maxVal), 100),
 			))
-	voices = _safe(lambda: synth.availableVoices) or {}
-	if len(voices) > 1:
-		names = {info.displayName: ident for ident, info in voices.items()}
-		found.append(_Setting(
-			"speech.voice", "speech voice", "option",
-			lambda: next((n for n, i in names.items() if i == synth.voice), synth.voice),
-			lambda v: save("voice", names.get(v, v)), options=list(names)[:40],
-		))
+		elif kind == "BooleanDriverSetting":
+			found.append(_Setting(ident, shown, "bool", lambda n=name: bool(getattr(driver, n)), lambda v, n=name: save(n, v)))
+		else:
+			choices = _safe(lambda n=name: getattr(driver, f"available{n[0].upper()}{n[1:]}s")) or {}
+			if len(choices) < 2:
+				continue
+			names = {info.displayName: key for key, info in choices.items()}
+			found.append(_Setting(
+				ident, shown, "option",
+				lambda n=name, names=names: next((d for d, k in names.items() if k == getattr(driver, n)), getattr(driver, n)),
+				lambda v, n=name, names=names: save(n, names.get(v, v)), options=list(names)[:40],
+			))
+	return found
+
+
+def _synthSettings():
+	import braille
+	found = _driverSettings(synthDriverHandler.getSynth(), "speech", "speech", "speech")
+	display = _safe(lambda: braille.handler.display)
+	if display is not None and _safe(lambda: display.name) not in (None, "noBraille"):
+		found += _driverSettings(display, "brailleDisplay", "braille display", "braille")
 	return found
 
 
@@ -300,6 +350,35 @@ def _commands():
 				ident = f"{ident}{used[ident]}"
 			found.append(_Command(ident, info, keys))
 	return found
+
+
+def _driverState():
+	"""The speech synthesizer and braille display in use, and those installed, as (name, description) pairs."""
+	import braille
+	synth = synthDriverHandler.getSynth()
+	display = _safe(lambda: braille.handler.display)
+	return {
+		drivers.SYNTH: (_safe(lambda: synth.name), _safe(lambda: synth.description) or _safe(lambda: synth.name)),
+		drivers.DISPLAY: (_safe(lambda: display.name), _safe(lambda: display.description) or _safe(lambda: display.name)),
+		"installed": {
+			drivers.SYNTH: [(n, d) for n, d in (_safe(synthDriverHandler.getSynthList, []) or [])],
+			drivers.DISPLAY: [(n, d) for n, d in (_safe(lambda: braille.getDisplayList(), []) or [])],
+		},
+	}
+
+
+def _setDriver(kind, name):
+	"""Switch the speech synthesizer or the braille display. True only if it is really in use afterwards."""
+	import braille
+	try:
+		if kind == drivers.SYNTH:
+			synthDriverHandler.setSynth(name)
+			return synthDriverHandler.getSynth().name == name
+		braille.handler.setDisplayByName(name)
+		return braille.handler.display.name == name
+	except Exception:
+		log.warning(f"VisionClaw: could not switch the {kind} to {name}", exc_info=True)
+		return False
 
 
 def _commandTarget(cls):
@@ -376,6 +455,22 @@ class Screen:
 		focus = api.getFocusObject()
 		return (_safe(lambda: fg.appModule.appName) or "?", _safe(lambda: fg.name) or "", fg, focus)
 
+	def controlFacts(self):
+		"""What NVDA knows about the focused control, in the terms add-on code uses to pick it out."""
+		app, title, fg, focus = self.where()
+		role = _safe(lambda: focus.role.name) or "UNKNOWN"
+		lines = [
+			f"The focused control: appName {app!r}, role controlTypes.Role.{role}, name {_safe(lambda: focus.name)!r}, "
+			f"windowClassName {_safe(lambda: focus.windowClassName)!r}, windowControlID {_safe(lambda: focus.windowControlID)!r}.",
+		]
+		parent = _safe(lambda: focus.parent)
+		if parent is not None:
+			lines.append(
+				f"Its parent: role controlTypes.Role.{_safe(lambda: parent.role.name) or 'UNKNOWN'}, "
+				f"name {_safe(lambda: parent.name)!r}.")
+		lines.append(f"The window in front: windowClassName {_safe(lambda: fg.windowClassName)!r}, title {title!r}.")
+		return "\n".join(lines)
+
 	def situation(self):
 		app, title, _fg, focus = self.where()
 		role = _safe(lambda: focus.role.displayString) or ""
@@ -402,7 +497,11 @@ class Screen:
 			raise ToolError(f"The screen could not be captured: {e}")
 
 	def items(self):
-		"""The texts and icons in the window in front, read from its picture. Returns the overlay's result."""
+		"""What can be acted on where the user is. In a web page: its links, buttons and fields, as NVDA knows
+		them. Anywhere else: the texts and icons of the window in front, read from its picture."""
+		found = onMain(webtools.pageItems)
+		if found is not None and found.items:
+			return found
 		from contentRecog import RecogImageInfo
 		from . import overlay
 		app, title, _fg, _focus = onMain(self.where)
@@ -418,7 +517,11 @@ class Screen:
 
 	@staticmethod
 	def click(result, item):
-		"""Click the middle of an item, and put the mouse back. Main thread."""
+		"""Activate a web page item the way NVDA does, or click the middle of an item in a window and put the
+		mouse back. Main thread."""
+		if item.get("web") is not None:
+			webtools.activate(item)
+			return
 		import mouseHandler
 		import winUser
 		x, y = result.screenPoint(item)
@@ -502,6 +605,12 @@ def build(plugin):
 		if plugin.clawAsk(question, [_("Yes, do it"), _("No, leave it")]) != 0:
 			raise UserSaidNo()
 
+	def mustAgree(question):
+		"""For anything that could take speech or braille away: always asked, whatever the settings say."""
+		# Translators: The two choices when VisionClaw asks before something that could cut off speech or braille.
+		if plugin.clawAsk(question, [_("Yes, do it"), _("No, leave it")]) != 0:
+			raise UserSaidNo()
+
 	def guarded(fn):
 		"""A tool function where the user saying no ends the step quietly instead of as an error."""
 		def run(task, **form):
@@ -509,6 +618,8 @@ def build(plugin):
 				return fn(task, **form)
 			except UserSaidNo:
 				return "You said no, so nothing was changed."
+			except Refused as e:
+				return f"VisionClaw did not do this. {e}"
 			except ValueError as e:
 				raise ToolError(str(e))
 		return run
@@ -555,18 +666,25 @@ def build(plugin):
 		{"target": text("where to read", enum=_TARGETS, auto=targetOf)}, looks=True, title="Reading the text",
 		tell=VERBATIM)
 
-	def listItems(task):
+	def listItems(task, about):
 		result = screen.items()
+		isWeb = getattr(result, "web", False)
+		# What is being looked for comes first, so it is among the items a small model is shown.
+		result.items.sort(key=lambda item: -score(about, item["text"]))
 		task.items = result
 		names = [item["text"] for item in result.items]
 		if not names:
 			return "Nothing was found in this window."
 		shown = "\n".join(f"{i}. {name}" for i, name in enumerate(names[:MAX_ITEMS_SHOWN], 1))
 		more = f"\n... and {len(names) - MAX_ITEMS_SHOWN} more." if len(names) > MAX_ITEMS_SHOWN else ""
-		return f"{len(names)} items in the window:\n{shown}{more}"
+		where = f"on the web page {result.title}" if isWeb else "in the window"
+		return f"{len(names)} items {where}:\n{shown}{more}"
 
-	add("list_items", "list the buttons, texts and icons in the window in front, even when NVDA cannot read it",
-		listItems, looks=True, title="Listing what is in the window")
+	add("list_items",
+		"list what can be clicked or filled in: the links, buttons and fields of a web page, or the buttons, texts "
+		"and icons of a window, even one NVDA cannot read",
+		listItems, {"about": text("what is being looked for, in a few words", maxLength=120, auto=True)},
+		looks=True, title="Listing what is there")
 
 	def clickItem(task, item):
 		result = getattr(task, "items", None)
@@ -578,14 +696,16 @@ def build(plugin):
 		if index is None:
 			raise ToolError(f"There is no item called \"{item}\". Use a number or a name from list_items.")
 		found = result.items[index]
-		# Translators: Asked before VisionClaw clicks something. {item} is what will be clicked.
-		confirm(_("Click {item}?").format(item=found["text"]))
+		if found.get("kind") != "link":  # following a link only goes to another page
+			# Translators: Asked before VisionClaw clicks something. {item} is what will be clicked.
+			confirm(_("Click {item}?").format(item=found["text"]))
 		onMain(Screen.click, result, found)
 		time.sleep(CLICK_SETTLE_SECONDS)
 		task.items = None  # the window has probably changed
 		return f"Clicked {found['text']}."
 
-	add("click_item", "click one item from list_items in the real window", clickItem,
+	add("click_item", "click one item from list_items: follow a link, press a button, click an item in a window",
+		clickItem,
 		{"item": text("the number or the name of the item, from list_items", maxLength=80)},
 		changes=True, before="list_items", title="Clicking the item")
 
@@ -654,11 +774,18 @@ def build(plugin):
 				raise ToolError(f"There is no setting with the id {setting}. Copy an id exactly from find_setting.")
 			new = found.parse(value)
 			old = found.shown()
+			if found.id == "speech.volume":
+				verdict, why = drivers.judgeVolume(new, _driverState()[drivers.DISPLAY][0])
+				if verdict == drivers.REFUSE:
+					raise Refused(why)
+				if verdict == drivers.WARN:
+					return found, new, old, f"{why} " + _("Change {setting} from {old} to {new}?").format(
+						setting=found.label, old=old, new=found.shown(new)), True
 			# Translators: Asked before VisionClaw changes an NVDA setting.
 			return found, new, old, _("Change {setting} from {old} to {new}?").format(
-				setting=found.label, old=old, new=found.shown(new))
-		found, new, old, question = onMain(work)
-		confirm(question)
+				setting=found.label, old=old, new=found.shown(new)), False
+		found, new, old, question, risky = onMain(work)
+		mustAgree(question) if risky else confirm(question)
 		onMain(found.write, new)
 		return f"{found.label.capitalize()} was {old} and is now {onMain(found.shown)}."
 
@@ -689,6 +816,10 @@ def build(plugin):
 		if index is None:
 			raise ToolError(f"There is no command with the id {command}. Copy an id exactly from find_command.")
 		chosen = commands[index]
+		risk = _RISKY_COMMANDS.get(chosen.info.scriptName)
+		if risk:
+			# Translators: Asked before an NVDA command that can silence or close NVDA. {command} is the command.
+			mustAgree(f"{risk} " + _("Run the command: {command}?").format(command=chosen.info.displayName))
 		with _SpeechCapture() as heard:
 			onMain(_runCommand, chosen)
 			time.sleep(0.6)
@@ -762,7 +893,14 @@ def build(plugin):
 	def createAddon(task, name, purpose):
 		params = task.params
 		llm = LLM(plugin.runtime, task)
-		facts = onMain(screen.situation)
+		facts = onMain(screen.situation) + "\n" + onMain(screen.controlFacts)
+		if _ABOUT_SCREEN.search(purpose):
+			# The two models work together: the vision model says what is there, the coder writes the fix for it.
+			try:
+				seen = look(task, "window", "Which buttons, labels and controls does this window show? Name them briefly.")
+				facts += "\nWhat the vision model sees in the window: " + clip(seen, 500)
+			except (ToolError, EngineError):
+				pass
 		notes = plugin.knowledge.text(purpose, limit=3, chars=700, sources=("addon-development", "objects-and-events"))
 		source = microaddons.write(llm, task, purpose, facts, notes, params, CODER, VISION)
 		keys = microaddons.gestures(source)
@@ -820,6 +958,172 @@ def build(plugin):
 	add("remove_helper", "remove an app helper hotkey or an add-on that VisionClaw made", removeHelper,
 		{"name": text("the add-on's name or the helper's key, from list_helpers", maxLength=60)},
 		changes=True, before="list_helpers", title="Removing it")
+
+	def exportAddon(task, name):
+		names = [meta["name"] for meta in plugin.helpers.store.list()]
+		index = match.best(name, names)
+		if index is None:
+			raise ToolError(f"There is no add-on called \"{name}\". Use a name from list_helpers.")
+		folder = os.path.join(os.path.expanduser("~"), "Documents", "VisionClaw add-ons")
+		path = plugin.helpers.export(names[index], folder)
+		return (
+			f"Saved the add-on {names[index]} as the file {path}. Open that file to install it in NVDA for good, or "
+			"share it. After installing it, remove it from VisionClaw so that it does not run twice."
+		)
+
+	add("export_addon", "save an add-on VisionClaw wrote as an .nvda-addon file, to install for good or to share",
+		exportAddon, {"name": text("the add-on's name, from list_helpers", maxLength=60)},
+		before="list_helpers", title="Saving the add-on as a file", tell=VERBATIM)
+
+	# What NVDA has and uses.
+	add("nvda_info",
+		"report what NVDA has and uses: the speech synthesizer, its voices and settings, the braille display and "
+		"tables, the installed drivers, the add-ons, NVDA's version",
+		lambda task, topic: "\n".join(
+			[onMain(nvdainfo.about, topic)]
+			+ (plugin.driverNotes.problems(drivers.SYNTH) if topic == nvdainfo.SPEECH else [])
+			+ (plugin.driverNotes.problems(drivers.DISPLAY) if topic == nvdainfo.BRAILLE else [])),
+		{"topic": text("what to report on", enum=nvdainfo.TOPICS, auto=nvdainfo.topicOf)},
+		looks=True, title="Asking NVDA")
+
+	def switchDriver(task, kind, name):
+		state = onMain(_driverState)
+		installed = state["installed"][kind]
+		if not installed:
+			raise ToolError(f"NVDA did not say which {kind} drivers are installed.")
+		index = match.best(name, [shown for _name, shown in installed])
+		if index is None:
+			index = match.best(name, [driver for driver, _shown in installed], least=0.8)
+		if index is None:
+			raise ToolError(
+				f"There is no {kind} called \"{name}\". Installed: {', '.join(shown for _n, shown in installed[:20])}.")
+		target, targetShown = installed[index]
+		current, currentShown = state[kind]
+		if target == current:
+			return f"{targetShown} is already the {kind} in use."
+		verdict, why = drivers.judge(
+			kind, target, state[drivers.SYNTH][0], state[drivers.DISPLAY][0], plugin.driverNotes, targetShown)
+		if verdict == drivers.REFUSE:
+			raise Refused(why)
+		# Translators: Asked before the speech synthesizer or braille display is switched.
+		mustAgree((f"{why} " if why else "") + _(
+			"Switch the {kind} from {old} to {new}? If {new} does not work, do nothing: "
+			"VisionClaw switches back to {old} after {seconds} seconds."
+		).format(kind=kind, old=currentShown, new=targetShown, seconds=KEEP_SECONDS))
+		if not onMain(_setDriver, kind, target, timeout=60):
+			onMain(_setDriver, kind, current, timeout=60)
+			plugin.driverNotes.record(kind, target, drivers.FAILED)
+			plugin.memory.add(f"On this computer the {kind} {targetShown} could not be started.", topic=kind)
+			return f"{targetShown} could not be started, so {currentShown} is still the {kind} in use."
+		# Translators: Asked right after switching. Not answering switches back.
+		kept = plugin.clawKeep(_(
+			"This is {new}. Does it work? Choose Keep it within {seconds} seconds, or VisionClaw switches back to {old}."
+		).format(new=targetShown, old=currentShown, seconds=KEEP_SECONDS), KEEP_SECONDS)
+		if not kept:
+			onMain(_setDriver, kind, current, timeout=60)
+			plugin.driverNotes.record(kind, target, drivers.REVERTED)
+			plugin.memory.add(
+				f"On this computer the {kind} {targetShown} was switched back because it was not confirmed to work.",
+				topic=kind)
+			return f"Switched back to {currentShown}, because {targetShown} was not confirmed to work."
+		plugin.driverNotes.record(kind, target, drivers.WORKED)
+		return f"The {kind} is now {targetShown}. Before, it was {currentShown}."
+
+	add("switch_driver",
+		"switch NVDA to another speech synthesizer or braille display; refuses a switch that would leave the user "
+		"with neither speech nor braille, and switches back if the new one is not confirmed to work",
+		switchDriver, {
+			"kind": text("which kind of driver", enum=drivers.KINDS, auto=drivers.kindOf),
+			"name": text("the name of the synthesizer or braille display to switch to, from nvda_info", maxLength=80),
+		}, changes=True, before="nvda_info", title="Switching the driver")
+
+	# The web, through the user's own browser and NVDA's browse mode.
+	def pageNow():
+		document = webtools.page()
+		return (webtools.address(document), webtools.title(document)) if document is not None else None
+
+	def openPage(task, url):
+		before = onMain(pageNow)
+		onMain(webtools.openAddress, url)
+		time.sleep(WEB_SETTLE_SECONDS)
+		deadline = time.monotonic() + WEB_WAIT_SECONDS
+		while time.monotonic() < deadline:
+			task.check()
+			now = onMain(pageNow)
+			if now is not None and now[1] and (before is None or now[0] != before[0]):
+				return now[1]
+			time.sleep(0.5)
+		now = onMain(pageNow)
+		return now[1] if now is not None else ""
+
+	def webOpen(task, address):
+		pageTitle = openPage(task, web.normalizeAddress(address))
+		if not pageTitle:
+			return "The address was given to the browser, but the page was not ready in time."
+		return f"Opened the web page {pageTitle}."
+
+	add("web_open", "open a web address in the user's browser", webOpen,
+		{"address": text("the web address, like example.com", maxLength=300, auto=web.addressIn)},
+		title="Opening the web page", tell=VERBATIM)
+
+	def webSearch(task, words):
+		words = " ".join(str(words).split())
+		if not words:
+			raise ToolError("Say what to search for.")
+		pageTitle = openPage(task, web.searchUrl(config.conf["visionClaw"]["searchEngine"], words))
+		if not pageTitle:
+			raise ToolError("The search page was not ready in time. Try again.")
+		return f"Searched the web for {words}."
+
+	add("web_search", "search the web for something, in the user's browser", webSearch,
+		{"words": text("what to search for, as a few words", maxLength=200, auto=web.searchWords)},
+		title="Searching the web", tell=VERBATIM)
+
+	def readPage(task, about):
+		found = onMain(webtools.pageText)
+		if found is None:
+			raise ToolError("The user is not in a web page. Open one first; for other windows use look or read_text.")
+		pageTitle, pageBody = found
+		body = web.passages(pageBody, about)
+		if not body:
+			return f"The web page {pageTitle} has no text."
+		return f"From the web page {pageTitle or 'without a title'}:\n{body}"
+
+	add("read_page", "read the web page the user is in: the parts of its text that matter for the question", readPage,
+		{"about": text("the question, or what to look for on the page", maxLength=200, auto=True)},
+		looks=True, title="Reading the web page")
+
+	def fillField(task, field, typed, enter):
+		import brailleInput
+		from keyboardHandler import KeyboardInputGesture
+		result = getattr(task, "items", None) or screen.items()
+		if getattr(result, "web", False):
+			index = webtools.fieldIndex(field, result.items)
+		else:
+			index = match.itemIndex(field, Screen.names(result))
+		if index is None:
+			raise ToolError(f"There is no field called \"{field}\". Use a number or a name from list_items.")
+		found = result.items[index]
+		# Translators: Asked before VisionClaw types into a field. {text} is the text, {field} the field.
+		confirm(_("Type \"{text}\" into {field}?").format(text=clip(typed, 80), field=found["text"]))
+		onMain(Screen.click, result, found)  # in a web page this goes into the field, as Enter does
+		time.sleep(0.5)
+		onMain(brailleInput.handler.sendChars, typed)
+		if enter == "yes":
+			time.sleep(0.2)
+			onMain(KeyboardInputGesture.fromName("enter").send)
+			time.sleep(CLICK_SETTLE_SECONDS)
+		task.items = None
+		return f"Typed \"{clip(typed, 80)}\" into {found['text']}" + (" and pressed Enter." if enter == "yes" else ".")
+
+	registry.add(Tool(
+		"fill_field", "type text into one field from list_items, such as a search box or a field of a form",
+		guarded(lambda task, field, text, enter: fillField(task, field, text, enter)), {
+			"field": text("the number or the name of the field, from list_items", maxLength=80),
+			"text": text("the text to type into it", maxLength=400),
+			"enter": text("yes to press Enter afterwards, to search or send", enum=["yes", "no"],
+				auto=lambda part: "yes" if _SUBMITS.search(part) else "no"),
+		}, changes=True, before="list_items", title="Typing into the field"))
 
 	registry.add(Tool(ANSWER, "tell the user the result in plain words; always the last step", lambda task: ""))
 	return registry

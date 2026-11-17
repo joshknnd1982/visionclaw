@@ -16,7 +16,7 @@ VisionClaw is a fork of [VisionMate](https://github.com/athee06/VisionMate) by A
 everything VisionMate does: image descriptions, the overlay for windows NVDA cannot read, photo descriptions in
 chat apps, and names for unlabelled buttons.
 
-> **Status: pre-release (0.1.1).** The orchestration core has been tested with scripted models and with a
+> **Status: pre-release (0.2.0).** The orchestration core has been tested with scripted models and with a
 > real model through the bundled engine, and the whole add-on has been loaded against stand-ins for NVDA.
 > It has **not yet been run inside NVDA**. Expect rough edges and please report them. See
 > [docs/STATUS.md](docs/STATUS.md) for exactly what was tested.
@@ -32,6 +32,11 @@ Press **NVDA+Alt+C**, type a request, and press Enter. For example:
 - *Press the Play button in this window.* (Works in windows and games NVDA cannot read.)
 - *Give this program a hotkey that clicks Send.*
 - *Write an add-on that beeps when a link gets the focus.*
+- *Open bbc.co.uk*, *Search the web for the weather in Boston*, *What does this page say about refunds?*
+- *Type garden gloves into the search box and search.*
+- *Which speech synthesizer am I using? What braille display do I have, and how many cells does it have?*
+- *Switch my speech synthesizer to eSpeak.*
+- *Save the add-on hello key as a file.*
 
 You do not need to know NVDA. VisionClaw finds the right NVDA setting or command from your description.
 
@@ -55,7 +60,7 @@ You do not need to know NVDA. VisionClaw finds the right NVDA setting or command
 
 ## Install
 
-1. Download **[VisionClaw-0.1.1.nvda-addon](https://github.com/joshknnd1982/visionclaw/releases/download/v0.1.1/VisionClaw-0.1.1.nvda-addon)**
+1. Download **[VisionClaw-0.2.0.nvda-addon](https://github.com/joshknnd1982/visionclaw/releases/download/v0.2.0/VisionClaw-0.2.0.nvda-addon)**
    (or pick a version on the [releases page](https://github.com/joshknnd1982/visionclaw/releases)), open the
    file, confirm the installation, and restart NVDA.
 2. If VisionMate is installed, disable it in the Add-on Store: VisionClaw includes it and uses the same keys.
@@ -120,6 +125,41 @@ VisionClaw tries the simplest way first:
 - **Names**: "call this button Play" names an unlabelled button from then on.
 - **Add-ons**: for behaviour nothing else can give, the coder model writes a small NVDA add-on. See below.
 
+## The web
+
+VisionClaw uses your own browser, through NVDA's browse mode. NVDA already knows a page as links, headings,
+buttons and form fields, so nothing has to be guessed from a picture.
+
+- **Open** a web address, or **search the web** with the search engine you choose in settings (DuckDuckGo,
+  Google or Bing).
+- **Ask about the page** you are on. For a long page, VisionClaw picks the passages that match your question
+  and has the model answer from those.
+- **Follow a link or press a button** by name. Following a link needs no question; pressing a button asks
+  first, because a button can send or buy something.
+- **Type into a field**, and press Enter if you asked to search or send.
+
+The models still run only on your computer. The browser goes online, as it does when you use it yourself.
+
+## Asking NVDA about itself: speech, braille, drivers
+
+- Ask which speech synthesizer, voice, braille display, braille tables, drivers and add-ons NVDA has and uses,
+  and how they are set.
+- Every setting the synthesizer in use offers can be changed by describing it: voice, variant, rate, pitch,
+  volume, and whatever else that synthesizer has. The same goes for the braille display's own settings.
+- **Switching the speech synthesizer or braille display** is done with care, because a wrong switch could
+  leave you without speech:
+  - VisionClaw asks NVDA what is installed and in use first.
+  - It **refuses** a switch that would leave you with neither speech nor braille, such as "No speech" with no
+    braille display connected, and says why. It also refuses a speech volume too quiet to hear when there is
+    no braille.
+  - It always asks before switching, whatever your settings.
+  - After the switch you confirm that the new one works. If you do not answer within 20 seconds, for example
+    because nothing can be heard, **it switches back by itself**.
+  - It remembers which drivers could not be started or had to be switched back on this computer, and warns you
+    before trying one of those again.
+- NVDA commands that can silence or close NVDA (speech mode, sleep mode, quit, restart) are also always asked
+  about first, with a word on how to undo them.
+
 ## Add-ons written by VisionClaw
 
 The coder model writes the add-on. Before it can run, the code must pass a check (it must be valid, must not
@@ -128,6 +168,14 @@ commands), the other model reviews it (unless reasoning is set to Off), and **yo
 read the code first. If NVDA cannot start it, the error goes back to the coder model to fix. Generated add-ons
 load without restarting NVDA and come back after a restart. "List what you have made" and "remove the add-on
 ..." manage them.
+
+**The two models work together on a fix.** When the add-on is about something on screen, the vision model
+first says what the window shows, NVDA supplies the exact details of the focused control (program, kind, window
+class, control number), and the coder model writes the fix for that control.
+
+**Fixes are permanent.** A generated add-on is kept and starts again with NVDA. "Save the add-on ... as a file"
+writes it as a normal `.nvda-addon` file in your Documents folder, under "VisionClaw add-ons", which you can
+install like any other add-on or share with someone who has the same problem.
 
 The check prevents accidents. It is not a sandbox: once you say yes, the code runs inside NVDA like any other
 add-on. Small models make mistakes; read the code or ask someone you trust if an add-on matters to you.
@@ -154,7 +202,7 @@ can ask questions about the image. Press Control to stop speaking. All commands 
 Gestures dialog, under VisionClaw.
 
 By default VisionClaw asks before it changes a setting, clicks, presses keys or types. You can turn that off in
-settings.
+settings. Anything that could take speech or braille away is always asked about, whatever the setting.
 
 ## Requirements
 
@@ -176,8 +224,10 @@ Double-check anything important.
 
 ## Privacy
 
-VisionClaw does not collect any information. It connects to the internet only to download the models you
-choose, from Hugging Face. Screens, photos, requests and generated code never leave your computer.
+VisionClaw does not collect any information. Its own code connects to the internet only to download the
+models you choose, from Hugging Face. Screens, photos, requests and generated code never leave your computer.
+When you ask it to open or search the web, it hands the address to your own browser, which goes online as
+usual; a web search sends your search words to the search engine you chose.
 
 ## How this relates to SmallClaw
 
