@@ -380,11 +380,40 @@ with `net.download`, and opens the file so that NVDA installs it.
   code found 0.8.0, and `net.download` fetched `VisionClaw-0.8.0.nvda-addon` through GitHub's redirect in about
   a second and verified its size and SHA-256; the file is byte for byte the one built here. Seen from 0.8.0,
   nothing newer is offered. What is read out as new is the part under the release's "New in" heading.
-- **Not tested:** nothing of this inside NVDA: whether opening the downloaded file makes NVDA ask to install it
+- **Inside NVDA 2026.3.1, by the owner, on 2026-11-17, with 0.8.0 installed** (the built file was opened
+  for him from this computer, NVDA asked to install it, and he installed it): he was given two things to try
+  and reported "all two tests pass. nothing went wrong." They were: NVDA+Alt+U, which should say that it is
+  looking and then show a window saying that 0.8.0 is the newest version; and the setting "Look for a newer
+  version of VisionClaw", which should stand on "Only when I ask". He gave no more detail, and NVDA's logging
+  is off, so there is no log. That 0.8.0 loads in NVDA, with the new settings choice in the panel, follows
+  from it. The other case, a newer version being offered, downloaded and installed from inside NVDA, cannot
+  be tried until a release after 0.8.0 exists.
+- **Not tested inside NVDA:** a newer version being offered; whether opening the downloaded file makes NVDA ask to install it
   (it relies on Windows knowing `.nvda-addon` files, which an installed NVDA sets up and a portable one does
   not), the window and the spoken sentence, and the settings panel's new choice and button.
 - What the SHA-256 shows: it comes from GitHub like the file, so it shows the file arrived whole, not who
   made it. Anyone who can publish a release in the repository decides what users are offered.
+
+## Five tests of what 0.6.0 added, inside NVDA (2026-11-17, NVDA 2026.3.1, with 0.8.0 installed)
+
+The owner was given five things to try: (1) "let the arrow keys work the ... dial" in a program with a dial or
+custom slider, then Up, Down, End, R, K, Escape; (2) pointer mode, the pointer on a slider, D; (3) "do a deep
+inspection of this window" in a program with custom controls; (4) "do a deep query of this control"; (5) "get
+the latest NVDA developer guides", then a question about binding a gesture to a script.
+
+- **His report:** "yes they are there. so all five of your questions now pass." He said this after asking
+  where the guides are kept and finding them. He named no program and did not say what was spoken, and NVDA's
+  logging is off, so tests 1 to 4 rest on his word alone. An earlier "all five pass", about a minute after
+  NVDA had restarted with 0.6.0 and before anything a run leaves behind was on the disk, was not recorded.
+- **Confirmed by what is on the disk:** the download of test 5. `guides` in VisionClaw's data folder was
+  written at 16:47, a minute after 0.8.0 was installed: the NVDA Developer Guide, 109,742 bytes of Markdown in
+  79 sections, and the NVDA Add-on Development Guide, 173,781 bytes in 119 sections. This is the first time
+  `net.fetchText`, `guides.update` and the turning of NV Access's real page into Markdown ran for real.
+- **Not confirmed, and the disk speaks against it:** K in test 1. There is no `helpers.json` in the data
+  folder, so no control has been kept under a hotkey: K was not pressed, or it kept nothing. Not ticked.
+- **Not known:** which way a real dial turned out to be worked; whether what was said after a key press
+  matched the program; what the models said about a real control; whether the answer to the question about
+  gestures used words from the guides.
 
 ## What was not tested
 

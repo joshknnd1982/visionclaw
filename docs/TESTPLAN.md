@@ -27,12 +27,15 @@ Before you start: disable VisionMate in the Add-on Store, install the VisionClaw
       (describe a window after each; with debug logging on, `engine.log` shows the device).
 
 ## A newer version of VisionClaw
-- [ ] NVDA+Alt+U says "Looking for a newer version of VisionClaw", then a window says either that this is the
-      newest version, or which version is available, its size and what is new, and asks whether to download.
+- [x] NVDA+Alt+U says "Looking for a newer version of VisionClaw", then a window says that this is the newest
+      version. (Owner, 0.8.0, 2026-11-17.)
+- [ ] With an older version installed than the newest release: NVDA+Alt+U says which version is available, its
+      size and what is new, and asks whether to download.
 - [ ] No: nothing is downloaded. Yes: "Downloading VisionClaw ..." is spoken, then NVDA's own install question
       appears; after yes NVDA restarts, and NVDA+Alt+U then says this is the newest version.
-- [ ] VisionClaw's settings: "Look for a newer version of VisionClaw" starts on "Only when I ask"; the button
-      "Look for a newer version now" does the same as NVDA+Alt+U.
+- [x] VisionClaw's settings: "Look for a newer version of VisionClaw" starts on "Only when I ask". (Owner,
+      0.8.0, 2026-11-17.)
+- [ ] The button "Look for a newer version now" in the settings does the same as NVDA+Alt+U.
 - [ ] Set to "When NVDA starts, at most once a day": after restarting NVDA with an older version installed,
       one sentence is spoken within about a minute, no window opens, and nothing is downloaded. Restarting NVDA
       again the same day says nothing.
@@ -190,35 +193,41 @@ Settings, Display, Scale).
 - [ ] "Make this control keyboard navigable" turns pointer mode on.
 
 ## Dials and sliders that are dragged (0.6.0)
-- [ ] In a program with a dial or knob NVDA cannot move (a music program, a plug-in, a game's settings): "let
+- [x] In a program with a dial or knob NVDA cannot move (a music program, a plug-in, a game's settings): "let
       the arrow keys work the ... dial" asks first, then says how it is worked. The control is where it was.
+      (Owner's report, 0.8.0, 2026-11-17, without detail.)
 - [ ] Up, Down, Shift+Up and Control+Up change it, and what is said matches what the program shows.
 - [ ] End runs to the end and says so; another Up says that nothing moved.
 - [ ] R reads the text at the control; W gives the vision model's guess; M changes the way and says it.
 - [ ] K keeps it and says the hotkey; Escape gives the arrow keys back and the mouse pointer goes back.
+      (Not ticked: on 2026-11-17 no kept hotkey was in the data folder after the owner's run.)
 - [ ] After restarting NVDA the hotkey takes hold of the control at once, without trying anything.
 - [ ] In another program the hotkey does what it did before.
-- [ ] NVDA+Alt+K, pointer on a slider's thumb, D: the arrow keys move the thumb, also after several presses.
+- [x] NVDA+Alt+K, pointer on a slider's thumb, D: the arrow keys move the thumb, also after several presses.
+      (Owner's report, 0.8.0, 2026-11-17, without detail.)
 - [ ] On a standard Windows slider that does not take the focus: it is worked through Windows itself, and the
       mouse pointer does not move.
 - [ ] On something that is not dragged (a plain picture): VisionClaw says that nothing changed, and nothing is kept.
 - [ ] In a game window: D on a slider of the settings screen works it, or says honestly that nothing changed.
 
 ## How controls are worked, and the deep query (0.6.0)
-- [ ] "Do a deep inspection of this window" in a program with custom controls: the report says how many
+- [x] "Do a deep inspection of this window" in a program with custom controls: the report says how many
       controls are clicked, typed into and dragged, and what both models say about those NVDA cannot tell.
+      (Owner's report, 0.8.0, 2026-11-17, without detail.)
 - [ ] "Fix number ..." for controls that are dragged makes hotkeys after a question; each hotkey works.
 - [ ] "Fix number ..." for controls the Tab key never reaches makes keys that press them.
-- [ ] With a control focused: "do a deep query of this control" names its kind, states, actions, what UI
+- [x] With a control focused: "do a deep query of this control" names its kind, states, actions, what UI
       Automation offers, its window's class and toolkit, and how a sighted person works it.
+      (Owner's report, 0.8.0, 2026-11-17, without detail.)
 - [ ] The inspection of an ordinary, accessible program (Notepad, a settings window) reports no false problems
       of these kinds.
 
 ## The developer guides (0.6.0)
 - [ ] "Get the latest NVDA developer guides" asks first, also with "ask before changes" turned off. No downloads nothing.
-- [ ] Yes downloads both and says how many sections each has. The files are in VisionClaw's data folder under guides.
-- [ ] Afterwards a question about writing add-ons ("how does an add-on bind a gesture to a script?") is answered
-      with words from the guides.
+- [x] Yes downloads both and says how many sections each has. The files are in VisionClaw's data folder under guides.
+      (Seen on the disk, 0.8.0, 2026-11-17: 79 and 119 sections.)
+- [x] Afterwards a question about writing add-ons ("how does an add-on bind a gesture to a script?") is answered
+      with words from the guides. (Owner's report, 0.8.0, 2026-11-17, without detail.)
 - [ ] Without an internet connection it says that the guides could not be downloaded, and earlier copies stay.
 
 ## The very small models, one question at a time (after 0.6.0)
