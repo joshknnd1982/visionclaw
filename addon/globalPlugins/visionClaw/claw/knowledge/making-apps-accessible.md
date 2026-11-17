@@ -27,6 +27,20 @@ Nothing in VisionClaw is a fixed number of pixels. Items are found in the pictur
 on this screen, clicks go to the middle of the item found, steps in pointer mode follow the screen's
 scaling, and distances given in words, like a little, are a share of the window.
 
+## Dials, knobs and custom sliders that are only dragged with the mouse
+work_control lets the arrow keys work a control that a sighted person drags or turns: a dial, a knob, a fader,
+a custom slider. It finds out how the control is worked by trying: through Windows itself, the mouse wheel,
+dragging up and down, sideways, or around. After each key press the user hears what changed. K keeps it under
+a hotkey. For a control with nothing to name, the user turns on pointer mode (NVDA+Alt+K), moves the pointer
+onto it and presses D. Use drag_item only for one single drag, such as dropping one thing on another.
+
+## Finding out how a control is worked: a deep query
+check_access with the target control asks everything about the focused control: what NVDA reports, what
+Windows UI Automation offers (an action to press it, a value that can be set), its window and the toolkit or
+game engine that draws it, and the text NVDA's off-screen model caught. It says how a sighted person works
+the control and what to ask for. A deep inspection of a window or page does this for every control whose
+kind NVDA cannot tell, and offers a key that presses, or arrow keys, for those the keyboard does not reach.
+
 ## App helpers: hotkeys for a program that has none
 An app helper belongs to one program. It maps a key to an item in the window, found by its text each
 time the key is pressed, so it still works when the window moves or is resized. Action click presses the

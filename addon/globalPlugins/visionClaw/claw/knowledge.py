@@ -39,6 +39,12 @@ class Knowledge:
 	def addSource(self, name, loader):
 		self._lazy[name] = loader
 
+	def replaceSource(self, name, loader):
+		"""Read a source again, after what it reads from has changed."""
+		if self._sections is not None:
+			self._sections = [section for section in self._sections if section[2] != name]
+		self._lazy[name] = loader
+
 	def _load(self):
 		if self._sections is None:
 			self._sections = []
@@ -66,6 +72,10 @@ class Knowledge:
 				continue
 			# A match in the title counts for more than one in the body.
 			s = score(query, body) + 1.5 * score(query, title)
+			if source == "guides":
+				# The downloaded guides are long and written for programmers; VisionClaw's own short notes,
+				# written for small models, win where both fit equally well.
+				s *= 0.8
 			if s >= least:
 				scored.append((s, title, body, source))
 		scored.sort(key=lambda x: -x[0])

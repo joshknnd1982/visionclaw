@@ -8,6 +8,9 @@
 #   add_fix        one fix the user asks for in words: a key that presses or reads something, keys that move
 #                  between items, a name for a control, or being told when something changes
 #   addon_info     what an add-on installed in this NVDA is, what its commands are, and what its help says
+# The inspection also works out how a sighted person works each control: from NVDA's facts where they say
+# it, and for the controls whose kind NVDA cannot tell by asking both models, the vision model about the
+# control's picture and the coder model about a deep query of it. From that it chooses the fix.
 # Code inspects, decides what is a problem, and puts the add-on together from fixed, tested parts. The models
 # choose what the user means and name icons from their pictures; they never write this add-on's code.
 # The functions run on the task's worker thread; everything that touches NVDA is passed to NVDA's main thread.
@@ -17,6 +20,7 @@ import os
 import re
 import sys
 import time
+import types
 
 import addonHandler
 import api
@@ -24,10 +28,11 @@ import config
 import inputCore
 from logHandler import log
 
-from . import fixruntime, mousetools, nvdainfo, ocr
-from .claw import audit, fixes, match, microaddons, scrolling, web
+from . import controlkeys, deepquery, fixruntime, mousetools, nvdainfo, ocr
+from .claw import audit, dragcontrol, fixes, match, microaddons, scrolling, web, working
+from .claw.catalog import CODER, VISION
 from .claw.fixmatch import hostOf, labelOf, matches, nodeFromObject, plainText
-from .claw.llm import clip
+from .claw.llm import LLM, clip
 from .claw.tools import VERBATIM, ToolError
 from .engine import prepareImage
 from .nvdatools import UserSaidNo, _safe, onMain
@@ -228,6 +233,233 @@ def controlText(inspection):
 	return " ".join(lines)
 
 
+def _calling(node):
+	"""What to call a control when talking about it."""
+	name = clip(labelOf(node), 40)
+	return name or f"a {str(node.get('role') or 'control').lower()} without a name"
+
+
+def judge(plugin, task, place, node=None, obj=None):
+	"""How a sighted person works one control whose kind NVDA cannot tell. The vision model is shown its picture,
+	the coder model is given what a deep query found, and their answers are settled. Returns a dictionary:
+	way, sure (they agree), by (who said so), facts, focusable."""
+	if obj is None:
+		obj = onMain(lambda: _controlOf(place, node))
+	if obj is not None:
+		facts = onMain(deepquery.facts, obj)
+	else:
+		states = list(node.get("states") or ())
+		facts = {"role": node.get("role") or "", "name": labelOf(node), "states": states, "focusable": "FOCUSABLE" in states}
+	# What a deep query says outright needs no model.
+	known = working.byFacts(facts)
+	if known is not None:
+		return {"way": known, "sure": True, "by": "what Windows reports about it", "facts": facts,
+			"focusable": bool(facts.get("focusable"))}
+	llm = LLM(plugin.runtime, task)
+	seen = thought = None
+	box = facts.get("box")
+	if box is not None:
+		try:
+			image = plugin._grab((box[0] - 12, box[1] - 12, box[2] + 12, box[3] + 12))
+			seen = working.wayFrom(llm.json(
+				VISION, working.VISION_SYSTEM, "How does a person work the control in the middle of this picture with a mouse?",
+				working.JUDGE_SCHEMA, maxTokens=30, image=prepareImage(image, 448)))
+		except Exception:
+			task.check()
+			log.debugWarning("VisionClaw: the vision model could not judge a control", exc_info=True)
+	try:
+		# A bare window gives the coder model nothing to reason from; then it is not asked.
+		thought = None if not working.telling(facts) else working.wayFrom(llm.json(
+			CODER, working.CODER_SYSTEM, "What is reported about the control:\n" + working.factsText(facts),
+			working.JUDGE_SCHEMA, maxTokens=30))
+	except Exception:
+		task.check()
+		log.debugWarning("VisionClaw: the coder model could not judge a control", exc_info=True)
+	way, sure, by = working.settle(seen, thought)
+	task.emit("talk", f"How {facts.get('name') or 'a control without a name'} is worked: the vision model says "
+		f"{seen or 'nothing'}, the coder model says {thought or 'nothing'}.")
+	return {"way": way, "sure": sure, "by": by, "facts": facts, "focusable": bool(facts.get("focusable"))}
+
+
+def _controlFor(plugin, place, node, way, site):
+	"""A dragged control of the inspection as something the arrow keys can take hold of, or None when it is
+	not showing."""
+	def located():
+		obj = _controlOf(place, node)
+		return obj, _boxOf(obj), plugin.controlKeys._box()
+	obj, box, window = onMain(located)
+	if box is None:
+		return None
+	rule = audit.signature(node)
+	kind = "dial" if way == working.AROUND else "slider" if way in (working.UPDOWN, working.SIDEWAYS) else "control"
+	control = controlkeys.newControl(
+		labelOf(node), kind, ((box[0] + box[2]) // 2, (box[1] + box[3]) // 2), window,
+		max(4, min(box[2] - box[0], box[3] - box[1]) * 7 // 20), find={"rule": rule} if rule else None, site=site)
+	control["way"] = way
+	return control
+
+
+def _pictured(plugin, task, window):
+	"""In a window that is one picture to NVDA: the icons found in it that the vision model says are dragged or
+	turned, as controls the arrow keys can take hold of."""
+	found = []
+	try:
+		result = plugin.clawScreen.items()
+	except Exception:
+		task.check()
+		log.debugWarning("VisionClaw: the window's picture could not be listed for the inspection", exc_info=True)
+		return found, 0
+	if getattr(result, "web", False):
+		return found, 0
+	llm = LLM(plugin.runtime, task)
+	icons = [index for index, item in enumerate(result.items) if item.get("kind") == "icon"]
+	info = result.imageInfo
+	for index in icons[:working.MAX_JUDGED]:
+		task.check()
+		item = result.items[index]
+		left, top, right, bottom = item["box"]
+		box = (info.convertXToScreen(left) - 12, info.convertYToScreen(top) - 12, info.convertXToScreen(right) + 12, info.convertYToScreen(bottom) + 12)
+		try:
+			way = working.wayFrom(llm.json(
+				VISION, working.VISION_SYSTEM, "How does a person work the control in the middle of this picture with a mouse?",
+				working.JUDGE_SCHEMA, maxTokens=30, image=prepareImage(plugin._grab(box), 448)))
+		except Exception:
+			task.check()
+			continue
+		name = item.get("plain") or item.get("name") or item["text"]
+		task.emit("talk", f"How {name} is worked, from its picture: the vision model says {way or 'nothing'}.")
+		if way in working.TURNED:
+			x, y, radius = dragcontrol.handleOf(result.items, index)
+			control = controlkeys.newControl(
+				name, "dial" if way == working.AROUND else "slider", (info.convertXToScreen(x), info.convertYToScreen(y)),
+				window, radius or None, find={"item": name})
+			control["way"] = way
+			found.append(control)
+	return found, max(0, len(icons) - working.MAX_JUDGED)
+
+
+def _worked(plugin, task, place, deep, site=""):
+	"""How a sighted person works what is here, and what the keyboard cannot do. Returns (a sentence for the
+	report's summary, the findings)."""
+	page = place.kind == "page"
+	found = working.survey(place.nodes, page=page)
+	sentences = [working.waysText(found["ways"])]
+	turned = [(node, working.byRole(node)) for node in found["mouseOnly"] if working.byRole(node) in working.TURNED]
+	pressed = [] if page else [node for node in found["mouseOnly"]
+		if working.byRole(node) in working.PRESSED and plainText(labelOf(node))]
+	if deep and found["unsure"]:
+		task.emit("detail", "Finding out how the controls are worked whose kind NVDA cannot tell.")
+		told = []
+		for node in found["unsure"][:working.MAX_JUDGED]:
+			task.check()
+			verdict = judge(plugin, task, place, node)
+			told.append(f"{_calling(node)}: {verdict['way']}, says {verdict['by']}")
+			fix = working.remedy(verdict["way"], verdict["focusable"])
+			if fix == working.ARROW_KEYS:
+				turned.append((node, verdict["way"]))
+			elif fix == working.PRESS_KEY and not page and plainText(labelOf(node)):
+				pressed.append(node)
+		left = len(found["unsure"]) - len(told)
+		sentences.append(
+			"NVDA cannot tell the kind of " + audit._plural(len(found["unsure"]), "thing") + " here that may be worked. "
+			"VisionClaw looked into " + ("them" if left <= 0 else f"{len(told)} of them")
+			+ ", with a deep query and, where that did not say, with both models, and a model can be wrong: "
+			+ "; ".join(told) + ".")
+	elif found["unsure"]:
+		sentences.append(
+			"NVDA cannot tell the kind of " + audit._plural(len(found["unsure"]), "thing") + " here that may be worked; a "
+			"deep inspection has both models look at them.")
+	controls = [control for control in (_controlFor(plugin, place, node, way, site) for node, way in turned[:working.MAX_KEYS_OFFERED])
+		if control is not None]
+	if deep and not page and sum(found["ways"].values()) <= 1:
+		window = onMain(plugin.controlKeys._box)
+		pictured, left = _pictured(plugin, task, window)
+		controls += pictured[:working.MAX_KEYS_OFFERED - len(controls)]
+	findings = []
+	if controls:
+		names = ", ".join(control["name"] or f"a {control['kind']} without a name" for control in controls)
+		finding = audit.Finding("turned",
+			f"{audit._plural(len(controls), 'control')} here "
+			f"{'is' if len(controls) == 1 else 'are'} worked by dragging or turning with the mouse and "
+			f"{'does' if len(controls) == 1 else 'do'} not take the keyboard: {names}.",
+			"dial dials knob knobs slider sliders drag dragged dragging turn turned mouse",
+			advice="VisionClaw can give each a hotkey after which the arrow keys work it.")
+		finding.controls = controls
+		findings.append(finding)
+	if pressed:
+		offered = pressed[:working.MAX_KEYS_OFFERED]
+		names = ", ".join(clip(labelOf(node), 30) for node in offered)
+		more = f", and {len(pressed) - len(offered)} more" if len(pressed) > len(offered) else ""
+		findings.append(audit.Finding("unreached",
+			f"{audit._plural(len(pressed), 'control')} here never "
+			f"{'takes' if len(pressed) == 1 else 'take'} the keyboard focus, so the Tab key does not reach "
+			f"{'it' if len(pressed) == 1 else 'them'}; a sighted person clicks {'it' if len(pressed) == 1 else 'them'}: {names}{more}.",
+			"focus tab reach reached unreachable click clicked mouse",
+			fixes=[{"kind": fixes.PRESS, "rule": audit.pressRule(node), "label": clip(labelOf(node), 40), "keys": []} for node in offered],
+			advice="VisionClaw can make a key that presses each."))
+	return " ".join(sentence for sentence in sentences if sentence), findings
+
+
+def keepControls(plugin, task, entries):
+	"""Give dragged controls a hotkey each, after the user has agreed. Returns the sentence that says so."""
+	app = onMain(lambda: _situation()[3])
+	if not app:
+		raise ToolError("VisionClaw could not tell which program this is, so no hotkeys were made.")
+	used = set(onMain(usedKeys, plugin))
+	made = []
+	for control in entries:
+		free = fixes.freeKeys(1, used)
+		if not free:
+			break
+		used.add(fixes.normKey(free[0]))
+		made.append((control, free[0]))
+	if not made:
+		raise ToolError("No hotkey is free for the dragged controls, so none was made.")
+	listed = "; ".join(f"{key} for {control['name'] or 'a ' + control['kind'] + ' without a name'}" for control, key in made)
+	# Translators: Asked before hotkeys for dials and sliders are made. {listed} names each key and control.
+	question = _(
+		"Make these hotkeys in {app}? {listed}. After pressing one, the arrow keys work that control, and Escape "
+		"gives them back. The first time, VisionClaw finds out how the control is worked by turning the mouse wheel "
+		"on it and dragging it a little."
+	).format(app=app, listed=listed)
+	# Translators: The choices when hotkeys for dials and sliders are ready.
+	if plugin.clawAsk(question, [_("Make the hotkeys"), _("Do not make them")]) != 0:
+		raise UserSaidNo()
+	for control, key in made:
+		plugin.helpers.addBinding(app, onMain(plugin.helpers.keyId, key), controlkeys.bindingOf(control, key))
+	return (
+		f"Made {len(made)} {'hotkey' if len(made) == 1 else 'hotkeys'} in {app}: {listed}. After pressing one, the arrow "
+		"keys work that control and Escape gives them back. Ask VisionClaw to remove a hotkey to undo one.")
+
+
+def controlDeep(plugin, task, found):
+	"""The focused control, queried in depth: what NVDA, Windows and the picture say about it, how a sighted
+	person works it, and what can be done for it."""
+	text = onMain(controlText, found)
+	focus = onMain(api.getFocusObject)
+	facts = onMain(deepquery.facts, focus)
+	way = working.byRole({"role": facts["role"]}, facts.get("box"))
+	by = "the kind NVDA reports"
+	if way is None:
+		verdict = judge(plugin, task, found, obj=focus)
+		way, by = verdict["way"], verdict["by"]
+	lines = [text, "The deep query found this. " + working.factsText(facts)]
+	if way == working.UNSURE:
+		lines.append("How a sighted person works it could not be told.")
+	else:
+		lines.append(f"A sighted person works it like this: {way}. That comes from {by}.")
+	fix = working.remedy(way, facts["focusable"])
+	if fix == working.ARROW_KEYS:
+		lines.append(
+			"The keyboard does not work it by itself. Ask VisionClaw to let the arrow keys work this control"
+			+ (", which it can do through Windows itself, without the mouse." if deepquery.canTurn(focus) else "."))
+	elif fix == working.PRESS_KEY:
+		lines.append("It does not take the keyboard focus. Ask VisionClaw for a key that presses it.")
+	elif fix == working.ADVICE:
+		lines.append(working.adviceFor(way))
+	return " ".join(lines)
+
+
 def inspect(plugin, task, target="auto", depth="deep"):
 	"""Inspect where the user is. Raises ToolError when the target is not there."""
 	focus, window, document, app, title = onMain(_situation)
@@ -246,7 +478,8 @@ def inspect(plugin, task, target="auto", depth="deep"):
 			task.emit("detail", "Watching the page for a moment, to see what changes by itself.")
 			_wait(task, CHANGE_WAIT_SECONDS)
 			later = _pageNodes(task, document)
-		report = audit.auditPage(nodes, title=title, site=site, later=later, drawn=drawn, browser=app)
+		ways, more = _worked(plugin, task, types.SimpleNamespace(kind="page", nodes=nodes, where=document), deep, site)
+		report = audit.auditPage(nodes, title=title, site=site, later=later, drawn=drawn, browser=app, ways=ways, more=more)
 		found = Inspection("page", fixes.scopeOf(site=site), nodes, document, report, title, focus)
 		if not site:
 			found.extra = "This page has no web address, so fixes cannot be tied to it."
@@ -261,7 +494,8 @@ def inspect(plugin, task, target="auto", depth="deep"):
 		bars, seen = _visual(plugin, task, box)
 		_wait(task, CHANGE_WAIT_SECONDS)
 		later = _windowNodes(task, window)
-	report = audit.auditWindow(nodes, title=title, app=app, later=later, drawn=drawn, bars=bars, seen=seen)
+	ways, more = _worked(plugin, task, types.SimpleNamespace(kind="window", nodes=nodes, where=window), deep)
+	report = audit.auditWindow(nodes, title=title, app=app, later=later, drawn=drawn, bars=bars, seen=seen, ways=ways, more=more)
 	return Inspection("window", fixes.scopeOf(app=app), nodes, window, report, title, focus)
 
 
@@ -539,7 +773,7 @@ def register(plugin, add, text):
 			# This report is told to the user. A number they say later means a problem of this report.
 			plugin.accessHeard = (found.scope, {finding.number: finding.id for finding in found.report.findings}, time.monotonic())
 		if target == "control":
-			return onMain(controlText, found)
+			return controlDeep(plugin, task, found)
 		return (found.report.text() + " " + found.extra).strip()
 
 	add("check_access",
@@ -560,9 +794,10 @@ def register(plugin, add, text):
 			chosen = audit.choose(found.report, which, numbers)
 		except ValueError as e:
 			raise ToolError(str(e))
-		new, notes, looked = [], [], 0
+		new, notes, looked, controls = [], [], 0, []
 		for finding in chosen:
 			new += [dict(fix) for fix in finding.fixes]
+			controls += finding.controls
 			unnamed = 0
 			for group in finding.look:
 				if looked >= MAX_NAMES_BY_LOOKING:
@@ -578,11 +813,21 @@ def register(plugin, add, text):
 				notes.append(
 					f"{unnamed} controls without a name were left as they are: they are not showing on the screen, "
 					"or their pictures did not say clearly what they are.")
+		if controls and not new:
+			return keepControls(plugin, task, controls)
 		if not new:
 			raise ToolError(
 				"Nothing could be fixed for this: " + (" ".join(notes) or "no fix is known for it.")
 				+ " Move to a control and say what it should be called, or ask for a key for something by its name.")
-		return install(plugin, task, found, new, notes)
+		said = install(plugin, task, found, new, notes)
+		if controls:
+			try:
+				said += " " + keepControls(plugin, task, controls)
+			except UserSaidNo:
+				said += " The hotkeys for the dragged controls were not made, as you said."
+			except ToolError as e:
+				said += f" {e}"
+		return said
 
 	add("fix_access",
 		"fix the accessibility problems that check_access found, with an add-on for this website or program that "

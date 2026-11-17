@@ -57,7 +57,7 @@ assert pointer.dragOffset("the Trash icon", BOX) is None and pointer.dragOffset(
 # Every key of pointer mode does something known, and the keys a user needs are all there.
 commands = {command[0] for command in pointer.KEYS.values()}
 assert commands == {
-	"move", "click", "double", "right", "grab", "look", "read", "where", "help", "centre", "exit", "scroll", "bars"}
+	"move", "click", "double", "right", "grab", "look", "read", "where", "help", "centre", "exit", "scroll", "bars", "take"}
 assert pointer.KEYS["kb:pagedown"] == ("scroll", "down", pointer.PAGE) and pointer.KEYS["kb:shift+pageup"] == ("scroll", "up", pointer.NOTCH)
 assert pointer.KEYS["kb:control+pagedown"] == ("scroll", "right", pointer.PAGE) and pointer.KEYS["kb:s"] == ("bars",)
 assert pointer.notchesFor(pointer.PAGE) == 8 and pointer.notchesFor(pointer.NOTCH) == 1

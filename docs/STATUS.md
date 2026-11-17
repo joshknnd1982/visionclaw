@@ -1,12 +1,12 @@
 # VisionClaw status
 
-Updated 2026-11-17, version 0.5.0.
+Updated 2026-11-17, version 0.6.0.
 
 ## What exists
 
 Everything in phases 1 to 3.4 and 4.1 of `CLAUDE.md`: the fork, the model catalog and models window, the
 graphics choice with fallback, the two-model runtime, the planner with recipes, agreement between the models,
-the step runner, 41 NVDA tools and 35 recipes, the Ask VisionClaw window, app helpers, generated add-ons, the
+the step runner, 43 NVDA tools and 37 recipes, the Ask VisionClaw window, app helpers, generated add-ons, the
 knowledge base and the lessons memory. New in 0.2.0: the web through NVDA's browse mode, reporting on speech,
 braille, drivers and add-ons, safe switching of the synthesizer and braille display, and saving a generated
 add-on as a file. New in 0.3.0: a guard around generated add-ons with automatic debugging and correction,
@@ -221,6 +221,67 @@ inspection of a window reports them and asks the vision model what else is worke
   before the second picture; smooth scrolling that is still moving when the picture is taken; windows on a
   second monitor with another scaling. Scrollbars that only show while the mouse is over them, and scrollbars
   that are not at the right or bottom edge of the window, are not found by their look.
+
+## Arrow keys for dragged controls, how controls are worked, the developer guides (0.6.0)
+
+Two tools and two recipes, which makes 43 tools and 37 recipes: `work_control` and `update_guides`. New files:
+`claw/working.py`, `claw/dragcontrol.py`, `claw/guides.py`, `deepquery.py`, `controlkeys.py`.
+
+- **Arrow keys for a dial, knob or custom slider** (`controlkeys.ControlKeys`). Taken hold of by asking in
+  words, by D in pointer mode, or by a kept hotkey. The way it is worked is found by trying one step and one
+  step back: through UI Automation's range value where the program offers it, then the wheel, then dragging up
+  and down, sideways, and around. Whether it changed is read from its picture; what it shows is the text near
+  it that is new. A slider's thumb that goes along with the mouse is noticed, and the place held moves with it.
+  K keeps the control in `helpers.json` as data.
+- **How a sighted person works each control** (`working.survey`, `accesstools.judge`). From NVDA's kind where
+  that says it; from what a deep query says outright (`working.byFacts`); only then from the models, the
+  vision model on the control's picture and the coder model on the deep query, at most six controls per
+  inspection. New findings: controls that are dragged and take no keys (hotkeys with arrow keys), and
+  controls in a window that never take the focus (keys that press them).
+- **A deep query of one control** (`deepquery.facts`): NVDA's facts, UI Automation's patterns and range,
+  actions, the window's class and the toolkit or game engine it means, the off-screen model's text, and what
+  Windows finds at its middle.
+- **The developer guides** (`claw/guides.py`, `update_guides`): fixed addresses, always asked, HTML turned
+  into Markdown, kept in the data folder, searched with the other knowledge at 0.8 of the weight of
+  VisionClaw's own notes.
+
+How it was tested:
+
+- `tests/test_working.py` (plain): kinds and ways, the survey of a window and of a page, what facts say
+  outright, settling two answers, remedies, toolkits from window classes; strokes at two scalings, the arc of
+  a circular drag, values, a drawn dial that changed or did not, new text, places as shares, where to hold a
+  thing named by the text beside it; a web page turned into Markdown, guides fetched by a stand-in, a failed
+  fetch leaving the earlier copy.
+- `tests/test_nvda_stub.py`, with a stand-in program that draws a knob and a slider and answers to a stand-in
+  mouse: the tool asks, finds "up and down" after the wheel did nothing, and leaves the knob where it was;
+  Up, Shift+Down, End, a press at the end, R, K, Escape, the kept hotkey (no trying the second time), another
+  program; a slider whose thumb follows; a thing that answers to nothing; a value set through a stand-in for
+  UI Automation without one mouse event; the inspection of a window with a slider that takes no focus and a
+  pane both stand-in models judge; hotkeys made from the finding; the first press of one finding the control
+  by its rule; the deep query of the focused control; `update_guides` saying no and yes, and `search_help`
+  finding words of the downloaded guide.
+- `tests/live_working.py` with the owner's two models (Qwen3.5 4B, Qwen3.5 9B): of six drawn controls the
+  vision model named five as a sighted person would (round dial, flat slider, button, text field, line of
+  text) and called an upright fader "drag sideways"; that miss does no harm, because the way of dragging is
+  found by trying. In the first run the coder model was wrong on two of six fact sets (a text value: "open
+  and choose"; a bare game window: "only shows something"). Both are now decided without a model
+  (`byFacts`, `telling`); after that, 11 of 12.
+- `tests/live_orchestrator.py` with the same models, 43 requests, five new: all 43 done, both models agreed
+  every time, nothing had to be asked. "Let the arrow keys work the volume dial", "This program has a dial
+  that is only used by clicking and dragging. Make it work with the keyboard" and "Give me a hotkey for the
+  gain knob" went to `work_control`; "Get the latest NVDA developer guides" to `update_guides`; "Do a deep
+  query of this control and tell me how a sighted person works it" to the inspection of the control.
+- The four addresses were asked once by hand on 2026-11-17 and answered: the Developer Guide (169 KB, HTML)
+  and the Add-on Development Guide (175 KB, Markdown). The add-on's own download code (`net.fetchText`) has
+  not fetched them yet; the tests use a stand-in.
+
+**Not tested, and not known:** anything here inside NVDA or on a real program. Whether real dials answer to a
+pointer moved with `SetCursorPos` and buttons sent with `mouse_event` (games that read the mouse directly will
+not); whether a quarter of a second is long enough before the second look; controls that redraw all the time,
+which would always seem to have changed; dials where a press on the rim sets the value at once; the UI
+Automation calls in `deepquery.py` (the property and pattern numbers are Windows' own, but no real control was
+asked); NVDA's off-screen model in a real program; how the vision model does on real controls rather than
+drawings; whether the long developer guides make a small model's answers better or worse.
 
 ## What was not tested
 

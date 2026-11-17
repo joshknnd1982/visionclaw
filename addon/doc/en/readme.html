@@ -115,7 +115,36 @@ and scaling. Enter clicks, Shift+Enter double-clicks, the Applications key right
 button down and G again lets go, for dragging. Page Down and Page Up turn the mouse wheel about a page, with
 Shift one notch, with Control sideways. S finds the scrollbars and puts the pointer on one. W says what is
 at the pointer, R reads the text there, P says where the pointer is, Home goes to the middle, H repeats the
-keys, and Escape turns pointer mode off.</p>
+keys, D tries what is under the pointer as a dial or slider, and Escape turns pointer mode off.</p>
+
+<h2>Dials, knobs and sliders that are only worked by dragging</h2>
+<p>Some programs, music tools and games have a dial, a knob or a slider of their own that takes no keys. Ask
+"let the arrow keys work the volume dial" or "give me a hotkey for the gain knob". VisionClaw asks first, then
+finds out by itself how the control is worked: through Windows itself where the program offers its value, else
+with the mouse wheel, else by dragging it up and down, sideways, or around in a circle. It tries each one step
+and puts it back. From then on, until you press Escape:</p>
+<ul>
+<li>Up and Right turn it up, Down and Left turn it down; with Shift a small step, with Control a large one.</li>
+<li>Home and End go to its ends.</li>
+<li>After every press you hear what changed: the new text at the control, or "Up", or that nothing moved.</li>
+<li>R reads the text at it, W asks the vision model what it shows, M tries another way of working it.</li>
+<li>K keeps it under a hotkey for this program.</li>
+</ul>
+<p>Where nothing can be named, as in many games: press NVDA+Alt+K for pointer mode, move the pointer onto the
+control, and press D. This is new and has only been tested with a stand-in program. A game that reads the mouse
+directly, as most 3D action games do, will not follow.</p>
+
+<h2>How a sighted person works each control</h2>
+<p>An inspection now also says how a sighted person works what is there. Where NVDA can tell the kind of a
+control, that is known. Controls NVDA cannot tell the kind of are put to both models: the vision model looks
+at the picture, the coder model reads a deep query of NVDA, Windows and NVDA's off-screen model. The report
+says who said what, and a model can be wrong. With a control focused, ask "do a deep query of this control" to
+hear all that is reported about it, how it is worked, and what to ask for.</p>
+
+<h2>The latest developer guides</h2>
+<p>Ask "get the latest NVDA developer guides". VisionClaw asks first, then downloads the NVDA Developer Guide
+from NV Access and the NVDA Add-on Development Guide from the NVDA add-ons community, and keeps them on your
+computer as text for the models to read when they plan, answer and write add-ons. It never happens by itself.</p>
 
 <h2>Add-ons written by VisionClaw</h2>
 <p>You never have to read, write or debug code. The coder model writes the add-on, the code is checked and
@@ -174,8 +203,9 @@ when NVDA starts, answering in NVDA's language, and the tick while waiting.</li>
 
 <h2>Privacy</h2>
 <p>VisionClaw does not collect any information. It connects to the internet only to download the models you
-choose and, when you press Look for newer models in the models window and say yes, to read the list of models
-from its own page on GitHub. Neither happens by itself. Screens, photos, requests and generated code never
+choose; when you press Look for newer models in the models window and say yes, to read the list of models
+from its own page on GitHub; and when you ask for the latest developer guides and say yes, to download those
+two guides. None of these happens by itself. Screens, photos, requests and generated code never
 leave your computer.</p>
 
 <h2>Credits</h2>

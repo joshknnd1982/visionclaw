@@ -34,8 +34,8 @@ from logHandler import log
 from scriptHandler import script
 from speech import extensions as speechExtensions
 
-from . import autodescribe, clawui, curtain, dialogs, explorer, followup, hardware, helpers, imaging, labels, localmedia, mousetools, nvdatools, ocr, sounds, viewers, winzapp
-from .claw import catalog, drivers
+from . import autodescribe, clawui, controlkeys, curtain, dialogs, explorer, followup, hardware, helpers, imaging, labels, localmedia, mousetools, nvdatools, ocr, sounds, viewers, winzapp
+from .claw import catalog, drivers, guides
 from .claw.changes import ChangeLog
 from .claw import task as clawTask
 from .claw.catalog import CODER, VISION
@@ -407,12 +407,16 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		self.clawScreen = nvdatools.Screen(self)
 		self.knowledge = Knowledge()
 		self.knowledge.addSource("userGuide", nvdatools.userGuideSections)
+		# The developer guides, if the user had them downloaded. Read from this computer; nothing goes online here.
+		self.guidesDir = os.path.join(DATA_DIR, "guides")
+		self.knowledge.addSource(guides.SOURCE, lambda: guides.load(self.guidesDir))
 		self.memory = Memory(os.path.join(DATA_DIR, "lessons.json"))
 		self.driverNotes = drivers.DriverNotes(os.path.join(DATA_DIR, "drivers.json"))
 		# Every setting VisionClaw changes is written down, so that it can be put back.
 		self.changes = ChangeLog(os.path.join(DATA_DIR, "changes.json"))
 		self.helpers = helpers.Helpers(self, DATA_DIR)
 		self.pointerMode = mousetools.PointerMode(self)
+		self.controlKeys = controlkeys.ControlKeys(self)
 		self.clawTask = None
 		self._askDialog = None
 		registry = nvdatools.build(self)
@@ -493,6 +497,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		if getattr(self, "_debugTask", None) is not None:
 			self._debugTask.stop()
 		self.pointerMode.stop(say=False)
+		self.controlKeys.stop(say=False)
 		self.helpers.terminate()
 		self.runtime.stop()
 		try:
@@ -678,7 +683,9 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	def getScript(self, gesture):
 		# An app helper's hotkey works only in its own program, and only if nothing else uses the key.
 		# In pointer mode the arrow keys and a few others work the mouse pointer.
-		return super().getScript(gesture) or self.pointerMode.scriptFor(gesture) or self.helpers.scriptFor(gesture)
+		# While a dial or slider is held, the arrow keys work it.
+		return (super().getScript(gesture) or self.controlKeys.scriptFor(gesture) or self.pointerMode.scriptFor(gesture)
+			or self.helpers.scriptFor(gesture))
 
 	def clawAsk(self, question, choices):
 		"""Ask the user to choose. Called from a task's thread. Returns the index, or None."""

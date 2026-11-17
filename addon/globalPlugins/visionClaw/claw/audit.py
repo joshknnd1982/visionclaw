@@ -248,7 +248,8 @@ def _plural(count, word):
 class Finding:
 	"""One problem. text: the sentence for the user. fixes: fixes an add-on can make for it, without keys yet.
 	look: controls a vision model must look at to name them, as {"rule", "nodes", "kind"}. words: what a user
-	might call this problem."""
+	might call this problem. controls: things that are dragged with the mouse, each of which can get a hotkey
+	after which the arrow keys work it; these are kept as VisionClaw's own hotkeys, not in the add-on."""
 
 	def __init__(self, ident, text, words="", fixes=None, look=None, advice=""):
 		self.id = ident
@@ -257,11 +258,12 @@ class Finding:
 		self.fixes = fixes or []
 		self.look = look or []
 		self.advice = advice
+		self.controls = []
 		self.number = 0
 
 	@property
 	def fixable(self):
-		return bool(self.fixes or self.look)
+		return bool(self.fixes or self.look or self.controls)
 
 
 class Report:
@@ -295,9 +297,14 @@ class Report:
 		fixable = [finding.number for finding in self.findings if finding.fixable]
 		if fixable:
 			which = "all of them" if len(fixable) == len(self.findings) else "number " + ", ".join(str(n) for n in fixable)
-			lines.append(
-				f"VisionClaw can fix {which} with an add-on for {fixes.scopeText(self.scope)}, which stays until you "
-				"have it removed. Ask for all of it to be fixed, or for one number.")
+			if any(finding.controls for finding in self.findings):
+				lines.append(
+					f"VisionClaw can fix {which} for {fixes.scopeText(self.scope)}, with an add-on or with hotkeys of "
+					"its own, which stay until you have them removed. Ask for all of it to be fixed, or for one number.")
+			else:
+				lines.append(
+					f"VisionClaw can fix {which} with an add-on for {fixes.scopeText(self.scope)}, which stays until you "
+					"have it removed. Ask for all of it to be fixed, or for one number.")
 		return " ".join(lines)
 
 
@@ -419,7 +426,7 @@ def _generic(nodes):
 		advice="Read the text before one to learn what it is for.")
 
 
-def auditPage(nodes, title="", site="", later=None, drawn=None, browser=""):
+def auditPage(nodes, title="", site="", later=None, drawn=None, browser="", ways="", more=()):
 	"""The report for a web page. nodes: its controls in reading order. later: the same a few seconds on, to
 	see what changes by itself. drawn: lines of text read from the page's picture."""
 	scope = fixes.scopeOf(site=site)
@@ -501,6 +508,9 @@ def auditPage(nodes, title="", site="", later=None, drawn=None, browser=""):
 		f"{_plural(count.get('BUTTON', 0) + count.get('TOGGLEBUTTON', 0), 'button')} and {_plural(fields, 'form field')}"
 		+ (f", and {_plural(landmarks, 'landmark')}" if landmarks else "") + ".",
 	]
+	if ways:
+		parts.append(ways)
+	findings.extend(more)
 	return Report("page", title, scope, " ".join(parts), findings)
 
 
@@ -561,7 +571,7 @@ def _player(nodes, media):
 		"after NVDA+Space switches to focus mode.")
 
 
-def auditWindow(nodes, title="", app="", later=None, drawn=None, bars=(), seen=""):
+def auditWindow(nodes, title="", app="", later=None, drawn=None, bars=(), seen="", ways="", more=()):
 	"""The report for a program's window, from the controls NVDA knows in it. bars: the scrollbars found in
 	its picture, in words. seen: what the vision model says the window has that is worked with the mouse."""
 	scope = fixes.scopeOf(app=app)
@@ -603,6 +613,9 @@ def auditWindow(nodes, title="", app="", later=None, drawn=None, bars=(), seen="
 			"Ask VisionClaw to scroll down, up or to the end; or press NVDA+Alt+K for pointer mode, where Page Down "
 			"and Page Up turn the mouse wheel and S puts the pointer on a scrollbar.")
 		summary += " " + " ".join(visual)
+	if ways:
+		summary += " " + ways
+	findings.extend(more)
 	return Report("window", title, scope, summary, findings)
 
 

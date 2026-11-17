@@ -199,8 +199,9 @@ class PointerMode:
 			"with Control in large ones. Enter clicks, Shift+Enter double-clicks, the Applications key right-clicks. "
 			"G holds the mouse button down, and G again lets go, for dragging. Page Down and Page Up turn the mouse "
 			"wheel about a page; with Shift one notch, with Control sideways. S finds the scrollbars and puts the "
-			"pointer on one. W says what is at the pointer, R reads the text there, P says where the pointer is, "
-			"H repeats this help. Escape turns pointer mode off."
+			"pointer on one. D tries what is under the pointer as a dial or slider: it turns the wheel on it and drags "
+			"it a little, and then the arrow keys work it. W says what is at the pointer, R reads the text there, "
+			"P says where the pointer is, H repeats this help. Escape turns pointer mode off."
 		)
 		ui.message(text)
 		return text
@@ -275,6 +276,8 @@ class PointerMode:
 		elif name == "scroll":
 			threading.Thread(
 				target=self._scroll, args=(box, command[1], pointer.notchesFor(command[2])), daemon=True).start()
+		elif name == "take":
+			self._plugin.controlKeys.takeAtPointer()
 		elif name == "bars":
 			threading.Thread(target=self._bars, args=(box,), daemon=True).start()
 		elif name == "help":

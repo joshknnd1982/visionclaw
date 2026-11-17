@@ -16,10 +16,10 @@ VisionClaw is a fork of [VisionMate](https://github.com/athee06/VisionMate) by A
 everything VisionMate does: image descriptions, the overlay for windows NVDA cannot read, photo descriptions in
 chat apps, and names for unlabelled buttons.
 
-> **Status: pre-release (0.5.0).** The orchestration core has been tested with scripted models and with
+> **Status: pre-release (0.6.0).** The orchestration core has been tested with scripted models and with
 > real models through the bundled engine. Inside NVDA 2026.3.1 the owner has run the models window, a first
 > set of requests and five tests of version 0.4.0; **most of the test plan has not been run inside NVDA
-> yet**, and scrolling not at all. Expect rough edges and please report them. See
+> yet**, and scrolling, the arrow keys for dials and the deep query not at all. Expect rough edges and please report them. See
 > [docs/STATUS.md](docs/STATUS.md) for exactly what was tested.
 
 ## What you can ask
@@ -64,7 +64,7 @@ You do not need to know NVDA. VisionClaw finds the right NVDA setting or command
 
 ## Install
 
-1. Download **[VisionClaw-0.5.0.nvda-addon](https://github.com/joshknnd1982/visionclaw/releases/download/v0.5.0/VisionClaw-0.5.0.nvda-addon)**
+1. Download **[VisionClaw-0.6.0.nvda-addon](https://github.com/joshknnd1982/visionclaw/releases/download/v0.6.0/VisionClaw-0.6.0.nvda-addon)**
    (or pick a version on the [releases page](https://github.com/joshknnd1982/visionclaw/releases)), open the
    file, confirm the installation, and restart NVDA.
 2. If VisionMate is installed, disable it in the Add-on Store: VisionClaw includes it and uses the same keys.
@@ -327,6 +327,58 @@ look; the wheel still scrolls there.
 When you name the things yourself, as in "drag the New Game button onto the Quit button", your own words decide
 which items are meant, not the model's copy of them.
 
+## Dials, knobs and sliders that are only worked by dragging
+
+Some programs, music tools and games have a dial, a knob or a slider of their own that a sighted person drags
+with the mouse, and that takes no keys at all. Say what you want: "let the arrow keys work the volume dial",
+"make the gain knob work with the keyboard", "give me a hotkey for the pan slider". VisionClaw asks first, then
+finds out by itself how the control is worked: through Windows itself where the program offers its value, else
+with the mouse wheel, else by dragging it up and down, sideways, or around in a circle. It tries each one step
+and puts it back, and compares the control's picture before and after to see what worked.
+
+From then on, until you press Escape:
+
+- Up and Right turn it up, Down and Left turn it down; with Shift a small step, with Control a large one.
+- Home and End go to its ends.
+- After every press you hear what changed: the text at the control that is new, such as "58 percent", or "Up",
+  or that nothing moved.
+- R reads the text at it, W asks the vision model what it shows (a guess), M tries another way of working it.
+- K keeps it under a hotkey for this program. The next time, that hotkey takes hold of it at once.
+
+Where nothing can be named, as in many games, press NVDA+Alt+K for pointer mode, move the pointer onto the
+control with the arrow keys (W says what is under it), and press D. The same then happens for what is there.
+
+What is kept is data, not code: the control's name or its place as a share of the window, and how it is
+worked. Limits, stated plainly: this has been tested with a stand-in program, not with real programs yet.
+A game that reads the mouse directly, as most 3D action games do, will not follow a pointer moved this way.
+A control whose change shows nowhere near it cannot be told to have moved.
+
+## How a sighted person works each control, and a deep query
+
+When VisionClaw inspects a window, a page or one control, it now also works out how a sighted person works
+what is there. For controls whose kind NVDA can tell, that is known: a button is clicked, a field is typed
+into, a slider is dragged. Controls whose kind NVDA cannot tell are put to both models, one small question
+each: the vision model looks at the control's picture, and the coder model reads what a deep query found.
+Their answers are compared, and the report says who said what, and that a model can be wrong.
+
+A deep query asks everything that can be asked without touching the control: what NVDA reports; what Windows
+UI Automation and the older accessibility interfaces offer for it, such as an action to press it or a value
+that can be set; its window, and which toolkit or game engine draws it; the text NVDA's off-screen model
+caught being drawn; and what Windows itself finds at that spot. Ask "do a deep query of this control" or
+"how would a sighted person use this" with the control focused.
+
+From that, plain code chooses the fix: a key that presses a control the Tab key never reaches; arrow keys for
+a control that is dragged or turned; a name for one that has none; or advice where no fix is known.
+
+## The latest developer guides, for the models to read
+
+Ask "get the latest NVDA developer guides". VisionClaw asks first, then downloads the NVDA Developer Guide
+from NV Access and the NVDA Add-on Development Guide from the NVDA add-ons community, turns them into plain
+Markdown text and keeps them on your computer. From then on the models read up in them, together with NVDA's
+user guide and VisionClaw's own notes, when they plan a settings change, answer a question about NVDA, or
+write and correct an add-on. Ask again whenever you want newer copies. It never happens by itself, only the
+two requests are sent, and what is downloaded is text to read, never a program.
+
 ## Add-ons written by VisionClaw
 
 **You never have to read, write or debug code.** You say what you need; the coder model writes a small add-on.
@@ -416,8 +468,9 @@ Double-check anything important.
 ## Privacy
 
 VisionClaw does not collect any information. Its own code connects to the internet only to download the
-models you choose, from Hugging Face, and, when you press Look for newer models and say yes, to read the list
-of models from its own page on GitHub. Neither happens by itself. Screens, photos, requests and generated
+models you choose, from Hugging Face; when you press Look for newer models and say yes, to read the list
+of models from its own page on GitHub; and when you ask for the latest developer guides and say yes, to
+download those two guides from NV Access and GitHub. None of these happens by itself. Screens, photos, requests and generated
 code never leave your computer.
 When you ask it to open or search the web, it hands the address to your own browser, which goes online as
 usual; a web search sends your search words to the search engine you chose.

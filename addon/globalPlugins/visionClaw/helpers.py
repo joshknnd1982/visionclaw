@@ -22,7 +22,7 @@ from logHandler import log
 
 import addonHandler
 
-from .claw import match, microaddons
+from .claw import dragcontrol, match, microaddons
 
 addonHandler.initTranslation()
 
@@ -79,6 +79,24 @@ class Helpers:
 			self._bindings.setdefault(app, {})[keyId] = {"key": key, "action": action, "item": item}
 			self._save()
 
+	def addBinding(self, app, keyId, binding):
+		"""Keep a helper given as data. Used for controls that the arrow keys work."""
+		with self._lock:
+			self._bindings.setdefault(app, {})[keyId] = dict(binding)
+			self._save()
+
+	def binding(self, app, keyId):
+		return self._bindings.get(app, {}).get(keyId) or {}
+
+	def patch(self, app, keyId, values):
+		"""Change what is kept of a helper, if it is still there."""
+		with self._lock:
+			kept = self._bindings.get(app, {}).get(keyId)
+			if kept is None or all(kept.get(name) == value for name, value in values.items()):
+				return
+			kept.update(values)
+			self._save()
+
 	def scriptFor(self, gesture):
 		"""The helper for a pressed key in the program in front, as a script, or None."""
 		if not self._bindings:
@@ -93,6 +111,16 @@ class Helpers:
 		for identifier in gesture.normalizedIdentifiers:
 			binding = bindings.get(identifier)
 			if binding is not None:
+				if binding.get("action") == dragcontrol.ACTION:
+					# A control kept for a website works only on that website; elsewhere the key is the program's.
+					from . import controlkeys
+					if binding.get("site") and controlkeys.siteNow() != binding["site"]:
+						return None
+
+					def script_controlHelper(gesture, binding=binding, identifier=identifier, app=app):
+						self._plugin.controlKeys.takeSaved(app, identifier, binding)
+					return script_controlHelper
+
 				def script_appHelper(gesture, binding=binding):
 					threading.Thread(target=self._run, args=(binding,), name="visionClaw-helper", daemon=True).start()
 				return script_appHelper
@@ -232,6 +260,9 @@ class Helpers:
 		lines = []
 		for app, bindings in sorted(self._bindings.items()):
 			for binding in bindings.values():
+				if binding.get("action") == dragcontrol.ACTION:
+					lines.append(f"App helper in {app}: {dragcontrol.describe(binding)}.")
+					continue
 				lines.append(f"App helper in {app}: {binding['key']} does {binding['action']} \"{binding['item']}\".")
 		for meta in self.store.list():
 			state = "on" if meta["name"] in self._loaded else "off"

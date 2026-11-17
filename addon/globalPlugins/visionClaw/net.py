@@ -135,6 +135,20 @@ def fetchJson(url, timeout=20, limit=None):
 	return json.loads(body.decode("utf-8"))
 
 
+def fetchText(url, timeout=30, limit=None, hosts=None):
+	"""Read a text from an address. limit: the most bytes it may have. hosts: the only servers the answer may
+	come from, also after a redirect; anything else is refused."""
+	req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Cache-Control": "no-cache"})
+	with _open(req, timeout) as r:
+		host = urllib.parse.urlsplit(r.geturl()).hostname or ""
+		if hosts is not None and host not in hosts:
+			raise ValueError("The answer came from a place it may not come from.")
+		body = r.read() if limit is None else r.read(limit + 1)
+	if limit is not None and len(body) > limit:
+		raise ValueError("The answer is longer than it may be.")
+	return body.decode("utf-8", "replace")
+
+
 def download(url, dest, size=None, sha256=None, onProgress=None, cancel=None):
 	"""Download url to dest, resuming from dest + '.part' if a previous attempt was interrupted.
 	Calls onProgress(doneBytes, totalBytes). Raises Cancelled, OSError, or ValueError if the file is corrupt."""

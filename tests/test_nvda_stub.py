@@ -237,7 +237,7 @@ with open(os.path.join(CONFIG_DIR, "visionClaw", "lessons.json"), "w", encoding=
 	], f)
 instance = plugin.GlobalPlugin()
 registry = instance.orchestrator.registry
-assert len(registry.names()) == 41, registry.names()
+assert len(registry.names()) == 43, registry.names()
 # Lessons from searches that happened to find something misled; they are dropped when VisionClaw starts.
 assert instance.memory.all() == ["Tool set_setting: this form failed: {} (x). This form worked: {}."], instance.memory.all()
 assert set(planner.available(registry)) == set(planner.RECIPES), set(planner.RECIPES) - set(planner.available(registry))
@@ -1230,6 +1230,287 @@ assert dialogs.lookResult({"new": ["Qwen9 1B", "Qwen9 Coder 1B"], "tooNew": 1, "
 	"2 entries of the list were left out, because they did not pass VisionClaw's checks.")
 assert dialogs.lookResult({"new": [], "tooNew": 0, "refused": 0, "updated": ""}) == (
 	"There are no newer models. The lists here already offer every model on VisionClaw's list.")
+
+# --- Arrow keys for a control that is dragged: a dial, a slider, a value Windows offers ---
+
+import math  # noqa: E402
+
+from visionClaw import controlkeys, deepquery  # noqa: E402
+from visionClaw.claw import dragcontrol  # noqa: E402
+
+# A stand-in program: a window 800 by 600 with one control at a place. A knob takes drags up and down; a
+# slider's thumb goes along with the mouse sideways. Neither takes the wheel. Nothing real is moved.
+world = types.SimpleNamespace(kind="knob", handle=(400, 300), level=50, thumb=200, down=False, at=(7, 7))
+
+
+def worldMove(x, y):
+	if world.down:
+		if world.kind == "knob":
+			world.level = max(0, min(100, world.level + world.at[1] - y))
+		else:
+			world.thumb = max(100, min(700, world.thumb + x - world.at[0]))
+	world.at = (x, y)
+	moves.append((x, y))
+
+
+def worldButton(flag):
+	buttons.append(flag)
+	if flag != LEFT_DOWN:
+		world.down = False
+	elif world.kind == "knob":
+		world.down = math.hypot(world.at[0] - world.handle[0], world.at[1] - world.handle[1]) <= 24
+	else:
+		world.down = abs(world.at[0] - world.thumb) <= 10 and abs(world.at[1] - world.handle[1]) <= 10
+
+
+def scene(box):
+	image = Image.new("L", (800, 600), 230)
+	draw = ImageDraw.Draw(image)
+	x, y = world.handle
+	if world.kind == "knob":
+		draw.ellipse((x - 24, y - 24, x + 24, y + 24), fill=90)
+		angle = world.level / 100 * 4 - 2
+		draw.line((x, y, x + 20 * math.sin(angle), y - 20 * math.cos(angle)), fill=250, width=5)
+	else:
+		draw.rectangle((100, y - 2, 700, y + 2), fill=120)
+		draw.rectangle((world.thumb - 8, y - 10, world.thumb + 8, y + 10), fill=40)
+	return image.crop(box)
+
+
+def idle():
+	for _ in range(600):
+		if not instance.controlKeys.busy():
+			return
+		time.sleep(0.01)
+	raise AssertionError("still at work")
+
+
+mousetools.moveTo, mousetools._button, mousetools.position = worldMove, worldButton, lambda: world.at
+controlkeys._LOOK_SETTLE = 0
+controlkeys.ocr = types.SimpleNamespace(recognize=lambda image: None, rowsText=lambda lines: f"Gain\n{world.level} dB")
+instance._grab = scene
+said = []
+sys.modules["ui"].message = said.append
+sys.modules["api"].getForegroundObject = lambda: types.SimpleNamespace(
+	name="Mixer", appModule=types.SimpleNamespace(appName="mixer"),
+	location=types.SimpleNamespace(left=0, top=0, width=800, height=600), windowHandle=0)
+sys.modules["api"].getFocusObject = lambda: types.SimpleNamespace(location=None, treeInterceptor=None)
+conf["visionClaw"]["confirmChanges"] = True
+conf["visionClaw"]["useOcr"] = True
+questions = []
+instance.clawAsk = lambda question, choices: questions.append(question) or 0
+task = taskModule.Task("test")
+keys = instance.controlKeys
+assert instance.getScript(key("uparrow")) is None and "work_control" in planner.RECIPES["work_control"][2]
+
+# Asked for in words, with the pointer put on the dial in pointer mode: VisionClaw asks, finds out by trying
+# that the dial is dragged up and down (the wheel did nothing), puts it back, and the arrow keys take over.
+instance.pointerMode.start()
+instance.pointerMode.x, instance.pointerMode.y = 400, 300
+del wheels[:]
+worked, result = registry.call(task, "work_control", {"item": "", "asked": "let the arrow keys work the dial under the mouse pointer"})
+assert worked and result.startswith("The arrow keys now work this dial, by dragging it up and down."), result
+assert result.endswith("To keep this for next time, press K now."), result
+assert questions[-1].startswith("Let the arrow keys work what is at the mouse pointer? To find out how it is worked"), questions
+assert world.level == 50 and len(wheels) == 1 and not world.down and buttons[-1] == LEFT_UP, (world, wheels)
+assert keys.active and not instance.pointerMode.active and keys.control["method"] == dragcontrol.UPDOWN
+assert keys.control["follows"] is False and keys.control["share"] == (0.5, 0.5), keys.control
+idle()
+# Up turns it up, and what is said is the text at the dial that changed.
+press("uparrow")
+idle()
+assert world.level == 58 and said[-1] == "58 dB", (world.level, said[-3:])
+press("shift+downarrow")
+idle()
+assert world.level == 56 and said[-1] == "56 dB", (world.level, said[-3:])
+# End goes on until nothing moves any more, and then the next press says that nothing moved.
+press("end")
+idle()
+assert world.level == 100 and said[-1] == "At the end. 100 dB", (world.level, said[-3:])
+press("uparrow")
+idle()
+assert said[-1].startswith("Nothing moved. It may be at its end"), said[-1]
+press("r")
+idle()
+assert said[-1] == "Gain 100 dB", said[-1]
+# K keeps it under a hotkey for this program, as data: a place as a share of the window, and the way.
+press("k")
+assert said[-1].startswith("Kept. In mixer, NVDA+alt+") and "takes hold of this dial" in said[-1], said[-1]
+kept = list(instance.helpers._bindings["mixer"].values())[0]
+assert kept["action"] == "work" and kept["method"] == dragcontrol.UPDOWN and kept["share"] == [0.5, 0.5] and kept["find"] is None, kept
+assert "takes hold of a dial, so the arrow keys work it by dragging it up and down" in instance.helpers.listText()
+# Escape gives the arrow keys back.
+press("escape")
+assert not keys.active and said[-1] == "The arrow keys are yours again." and instance.getScript(key("uparrow")) is None
+# The hotkey takes hold of it again, without trying anything: how it is worked is remembered.
+world.level = 20
+del wheels[:], buttons[:]
+press(kept["key"].lower())
+for _ in range(300):
+	if keys.active:
+		break
+	time.sleep(0.01)
+idle()
+assert keys.active and wheels == [] and buttons == [] and said[-1].startswith("The arrow keys now work this dial"), said[-1]
+press("control+uparrow")
+idle()
+assert world.level == 52 and said[-1] == "52 dB", (world.level, said[-2:])
+# In another program the hotkey is not VisionClaw's.
+press("escape")
+sys.modules["api"].getForegroundObject = lambda: types.SimpleNamespace(
+	name="Other", appModule=types.SimpleNamespace(appName="other"),
+	location=types.SimpleNamespace(left=0, top=0, width=800, height=600), windowHandle=0)
+assert instance.getScript(key(kept["key"].lower())) is None
+sys.modules["api"].getForegroundObject = lambda: types.SimpleNamespace(
+	name="Mixer", appModule=types.SimpleNamespace(appName="mixer"),
+	location=types.SimpleNamespace(left=0, top=0, width=800, height=600), windowHandle=0)
+assert instance.helpers.remove(kept["key"])
+
+# A slider whose thumb goes along with the mouse: dragging sideways is found, and the place that is held
+# moves with the thumb, so the next press takes hold of it where it now is.
+world.kind, world.thumb = "slider", 200
+controlkeys.ocr = types.SimpleNamespace(recognize=lambda image: None, rowsText=lambda lines: "Balance")
+box = keys._box()
+taken, text = keys.start(controlkeys.newControl("Balance", "slider", (200, 300), box))
+assert taken and text.startswith("The arrow keys now work Balance, a slider, by dragging it sideways."), text
+assert world.thumb == 200 and keys.control["follows"] is True and keys.control["share"] == (0.25, 0.5), (world.thumb, keys.control)
+idle()
+press("rightarrow")
+idle()
+assert world.thumb == 208 and keys.control["share"] == (0.26, 0.5) and said[-1] == "Up.", (world.thumb, keys.control["share"], said[-1])
+press("leftarrow")
+press("escape")
+idle()
+# Something that does not answer to the wheel or to any drag is not taken, and that is said.
+world.kind, world.handle = "knob", (50, 50)
+taken, text = keys.start(controlkeys.newControl("Nothing", "control", (400, 300), box))
+assert not taken and text.startswith("Nothing VisionClaw can see changed at Nothing when it turned the mouse wheel"), text
+assert not keys.active and buttons[-1] == LEFT_UP
+
+# Where Windows offers the control's value, it is set through Windows itself: the mouse is not touched.
+pattern = types.SimpleNamespace(CurrentMinimum=0, CurrentMaximum=10, CurrentValue=5, CurrentSmallChange=1, CurrentIsReadOnly=False)
+pattern.SetValue = lambda value: setattr(pattern, "CurrentValue", value)
+speed = types.SimpleNamespace(value=None)
+realPattern, deepquery._rangePattern = deepquery._rangePattern, lambda obj: pattern if obj is speed else None
+del moves[:], buttons[:]
+taken, text = keys.start(controlkeys.newControl("Speed", "slider", (400, 300), box, obj=speed))
+assert taken and "through Windows itself, without the mouse" in text and keys.control["method"] == dragcontrol.VALUE, text
+idle()
+press("uparrow")
+idle()
+assert pattern.CurrentValue == 6 and said[-1] == "60 percent" and buttons == [], (pattern.CurrentValue, said[-1], buttons)
+press("escape")
+
+# --- The inspection works out how a sighted person works each control, and chooses the fix ---
+
+
+def thing(role, name, states=(), box=(0, 0, 10, 10), children=(), autoId=""):
+	return types.SimpleNamespace(
+		role=types.SimpleNamespace(name=role, displayString=role.lower()), name=name, value="",
+		states=[types.SimpleNamespace(name=state, displayString=state.lower()) for state in states],
+		location=types.SimpleNamespace(left=box[0], top=box[1], width=box[2] - box[0], height=box[3] - box[1]),
+		children=list(children), windowControlID=0, UIAAutomationId=autoId, windowClassName="JUCE_1a",
+		hasIrrelevantLocation=False, windowHandle=0, appModule=types.SimpleNamespace(appName="mixer"))
+
+
+volumeSlider = thing("SLIDER", "Volume", box=(100, 100, 300, 120), autoId="volumeSlider")
+drive = thing("PANE", "", ["CLICKABLE"], box=(376, 276, 424, 324))
+okButton = thing("BUTTON", "OK", ["FOCUSABLE"], box=(600, 500, 700, 540))
+mixer = thing("WINDOW", "Mixer", box=(0, 0, 800, 600), children=[volumeSlider, drive, okButton])
+sys.modules["api"].getForegroundObject = lambda: mixer
+sys.modules["api"].getFocusObject = lambda: drive
+
+
+class JudgeRuntime(FakeRuntime):
+	asked = []
+
+	def chat(self, role, messages, maxTokens, **options):
+		system = messages[0]["content"]
+		self.asked.append(system[:24])
+		if system.startswith("You look at a picture of one control"):
+			return json.dumps({"way": "turn in a circle"})
+		if system.startswith("You know how programs and web pages are built"):
+			return json.dumps({"way": "drag up and down"})
+		raise AssertionError(system[:60])
+
+	def describe(self, image, prompt, maxTokens, cancel=None):
+		return "none"
+
+
+realRuntime, instance.runtime = instance.runtime, JudgeRuntime()
+world.kind, world.handle, world.level = "knob", (200, 110), 50
+task = taskModule.Task("test")
+worked, result = registry.call(task, "check_access", {"target": "window", "depth": "deep"})
+assert worked and "with a mouse 1 is clicked, 1 is dragged sideways." in result, result
+# The pane NVDA cannot tell the kind of was shown to both models: the vision model saw its picture, the
+# coder model read the deep query, and both mean a thing that is turned.
+assert "a pane without a name: turn in a circle, says both models." in result and "a model can be wrong" in result, result
+assert len(JudgeRuntime.asked) == 2, JudgeRuntime.asked
+assert ("2 controls here are worked by dragging or turning with the mouse and do not take the keyboard: Volume, "
+	"a dial without a name.") in result, result
+assert "with an add-on or with hotkeys of its own" in result, result
+# Fixing them makes a hotkey for each, after a question. Nothing is tried yet, and no code is written.
+del questions[:], buttons[:]
+worked, result = registry.call(task, "fix_access", {"which": "fix the dials and sliders"})
+assert worked and result.startswith("Made 2 hotkeys in mixer: NVDA+alt+"), result
+assert questions[-1].startswith("Make these hotkeys in mixer?") and "for Volume" in questions[-1] and buttons == [], questions
+made = {binding["name"]: binding for binding in instance.helpers._bindings["mixer"].values()}
+assert made["Volume"]["find"] == {"rule": {"role": "SLIDER", "autoId": "volumeSlider"}} and made["Volume"]["method"] is None, made
+assert made[""]["kind"] == "dial" and made[""]["find"] is None and made[""]["share"] == [0.5, 0.5], made
+# The first press of a hotkey finds the control by what tells it apart, finds out how it is worked, and
+# remembers that.
+press(made["Volume"]["key"].lower())
+for _ in range(300):
+	if keys.active:
+		break
+	time.sleep(0.01)
+idle()
+assert keys.active and keys.control["method"] == dragcontrol.UPDOWN and keys.control["share"] == (0.25, 0.1833), keys.control
+press("escape")
+assert [b for b in instance.helpers._bindings["mixer"].values() if b["name"] == "Volume"][0]["method"] == dragcontrol.UPDOWN
+# One control queried in depth: what is reported, how it is worked, and what to ask for.
+del JudgeRuntime.asked[:]
+worked, result = registry.call(taskModule.Task("test"), "check_access", {"target": "control", "depth": "deep"})
+assert worked and "The deep query found this. It is reported as: pane, with no name." in result, result
+assert "Its window has the class JUCE_1a, which is JUCE, used by music programs and plug-ins." in result, result
+assert "A sighted person works it like this: turn in a circle. That comes from both models." in result, result
+assert "Ask VisionClaw to let the arrow keys work this control" in result, result
+for binding in list(made.values()):
+	assert instance.helpers.remove(binding["key"])
+instance.runtime = realRuntime
+deepquery._rangePattern = realPattern
+
+# --- The developer guides: downloaded only after a yes, kept as Markdown, and read by the models ---
+
+GUIDE = "<html><body><h1>NVDA Developer Guide</h1>" + "".join(
+	f"<h2>Chapter {n}</h2><p>{'A quokkabinding ties a gesture to a script in chapter %d. ' % n * 30}</p>" for n in range(8)) + "</body></html>"
+WIKI = "".join(f"## Lesson {n}\n\n{'An add-on is a package, says lesson %d. ' % n * 40}\n\n" for n in range(8))
+fetched = []
+
+
+def fakeFetch(url, limit=None, hosts=None):
+	fetched.append((url, hosts))
+	return GUIDE if url.endswith(".html") else WIKI
+
+
+nvdatools.net.fetchText = fakeFetch
+conf["visionClaw"]["confirmChanges"] = False
+# It is asked about even when the user turned confirmations off, and a no downloads nothing.
+del questions[:]
+instance.clawAsk = lambda question, choices: questions.append(question) or 1
+worked, result = registry.call(taskModule.Task("test"), "update_guides", {})
+assert worked and result == "You said no, so nothing was changed." and fetched == [], (result, fetched)
+assert questions[0].startswith("Download the latest NVDA Developer Guide from NV Access") and "Only these two requests are sent" in questions[0]
+instance.clawAsk = lambda question, choices: 0
+worked, result = registry.call(taskModule.Task("test"), "update_guides", {})
+assert worked and result.startswith("Downloaded the NVDA Developer Guide and kept it as Markdown, 8 sections."), result
+assert [url.split("/")[2] for url, _hosts in fetched] == ["download.nvaccess.org", "raw.githubusercontent.com"], fetched
+assert all(hosts and "download.nvaccess.org" in hosts for _url, hosts in fetched)
+assert os.path.isfile(os.path.join(instance.guidesDir, "nvda-developer-guide.md"))
+# What the models read up in now includes the guide.
+worked, result = registry.call(taskModule.Task("test"), "search_help", {"words": "quokkabinding gesture script"})
+assert worked and "A quokkabinding ties a gesture to a script" in result, result
+assert registry.get("update_guides").tell == "verbatim" and "update_guides" in planner.RECIPES
 
 instance.terminate()
 print("OK")

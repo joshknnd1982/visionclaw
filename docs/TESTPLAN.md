@@ -175,6 +175,38 @@ Settings, Display, Scale).
       were typed into the program as usual while it was on.
 - [ ] "Make this control keyboard navigable" turns pointer mode on.
 
+## Dials and sliders that are dragged (0.6.0)
+- [ ] In a program with a dial or knob NVDA cannot move (a music program, a plug-in, a game's settings): "let
+      the arrow keys work the ... dial" asks first, then says how it is worked. The control is where it was.
+- [ ] Up, Down, Shift+Up and Control+Up change it, and what is said matches what the program shows.
+- [ ] End runs to the end and says so; another Up says that nothing moved.
+- [ ] R reads the text at the control; W gives the vision model's guess; M changes the way and says it.
+- [ ] K keeps it and says the hotkey; Escape gives the arrow keys back and the mouse pointer goes back.
+- [ ] After restarting NVDA the hotkey takes hold of the control at once, without trying anything.
+- [ ] In another program the hotkey does what it did before.
+- [ ] NVDA+Alt+K, pointer on a slider's thumb, D: the arrow keys move the thumb, also after several presses.
+- [ ] On a standard Windows slider that does not take the focus: it is worked through Windows itself, and the
+      mouse pointer does not move.
+- [ ] On something that is not dragged (a plain picture): VisionClaw says that nothing changed, and nothing is kept.
+- [ ] In a game window: D on a slider of the settings screen works it, or says honestly that nothing changed.
+
+## How controls are worked, and the deep query (0.6.0)
+- [ ] "Do a deep inspection of this window" in a program with custom controls: the report says how many
+      controls are clicked, typed into and dragged, and what both models say about those NVDA cannot tell.
+- [ ] "Fix number ..." for controls that are dragged makes hotkeys after a question; each hotkey works.
+- [ ] "Fix number ..." for controls the Tab key never reaches makes keys that press them.
+- [ ] With a control focused: "do a deep query of this control" names its kind, states, actions, what UI
+      Automation offers, its window's class and toolkit, and how a sighted person works it.
+- [ ] The inspection of an ordinary, accessible program (Notepad, a settings window) reports no false problems
+      of these kinds.
+
+## The developer guides (0.6.0)
+- [ ] "Get the latest NVDA developer guides" asks first, also with "ask before changes" turned off. No downloads nothing.
+- [ ] Yes downloads both and says how many sections each has. The files are in VisionClaw's data folder under guides.
+- [ ] Afterwards a question about writing add-ons ("how does an add-on bind a gesture to a script?") is answered
+      with words from the guides.
+- [ ] Without an internet connection it says that the guides could not be downloaded, and earlier copies stay.
+
 ## Add-ons
 - [ ] "Write an add-on that says hello when I press NVDA+shift+H": asks to turn it on; "Let me read the code
       first" shows the code; after "Turn it on" the key works at once.

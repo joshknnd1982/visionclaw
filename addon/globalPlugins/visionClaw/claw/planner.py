@@ -157,6 +157,16 @@ RECIPES = {
 		"drag something with the mouse",
 		"drag an item with the mouse onto another item or in a direction, or move a slider",
 		("list_items", "drag_item")),
+	"work_control": (
+		"let the arrow keys work a dial or slider",
+		"let the arrow keys work a dial, knob, custom slider or other control that is only worked by dragging it "
+		"with the mouse, and say what it shows",
+		("work_control",)),
+	"update_guides": (
+		"download the latest NVDA developer guides",
+		"download the latest NVDA developer guide and add-on development guide from the internet, for the models "
+		"to read up in",
+		("update_guides",)),
 	"scroll": (
 		"scroll with the mouse wheel",
 		"scroll what the window shows up, down, left or right with the mouse wheel, a little, a page or to the "
@@ -175,6 +185,13 @@ RECIPES = {
 # Words that point to a recipe. Checked in this order; the first that matches is the hint given to the model,
 # and the choice when the model fails.
 _HINTS = (
+	("update_guides", r"\b(download|get|pull|fetch|update|refresh|renew)\b.*\b(developer|development|dev)\b.*\bguides?\b"
+		r"|\b(developer|development|dev) guides?\b.*\b(up to date|latest|newest|download|update)\b"),
+	# A control that is dragged or turned: the arrow keys take over. Before the hotkey, mouse and drag hints.
+	("work_control", r"\b(dial|knob|fader)s?\b"
+		r"|\barrow keys?\b.*\b(work|turn|move|operate|control)\b.*\b(slider|control|lever)\b"
+		r"|\b(work|turn|operate|move)\b.*\b(slider|control|lever)\b.*\b(arrow keys?|keyboard|keys)\b"
+		r"|\b(used|worked|operated|moved) (only )?by (clicking and )?dragging\b"),
 	("save_addon", r"\b(save|export|package|share)\b.*\badd-?on"),
 	("list_changes", r"\bwhat\b.*\b(did|have|has)\b.*\b(you|visionclaw)\b.*\bchanged?\b|\bwhich settings\b.*\bchanged\b"),
 	("undo_change", r"\b(undo|revert|restore)\b|\b(put|change|set|turn)\b.*\bback\b|\bback to (what|how|the way)\b"

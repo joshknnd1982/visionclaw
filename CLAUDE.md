@@ -44,6 +44,12 @@ keyboard and speech alone.
   "Look for newer models", that asks first and then reads one file, `models.json`, from VisionClaw's own
   GitHub repository (`catalog.LIST_URL`). It must never run by itself, on a timer, or at start-up, and it must
   never send anything but the request.
+  A second exception, which the owner asked for on 2026-11-17: the tool `update_guides` downloads the NVDA
+  Developer Guide (NV Access) and the NVDA Add-on Development Guide (the NVDA add-ons community) and keeps
+  them as Markdown for the models to read (`claw/guides.py`). Only when the user asks for exactly this, always
+  after a question (`mustAgree`, whatever the settings say), only from the addresses and servers fixed in
+  `guides.SOURCES` and `guides.HOSTS`, and nothing is sent but the two requests. What comes back is text to
+  read, never run. Never add a source without the owner's yes.
 - **The latest small Qwen models are always offered.** The owner wants every small size of the newest Qwen
   vision and coder models in the lists. When asked to bring them up to date, do not answer from memory: read
   Hugging Face's own listing (`https://huggingface.co/api/models?author=Qwen&sort=createdAt&direction=-1`, and
@@ -107,6 +113,14 @@ keyboard and speech alone.
   as a name or a share, never as pixels.
 - **Say whether it moved.** After the wheel is turned, the picture before and after is compared
   (`scrolling.moved`), and the user is told what happened, not what was attempted.
+- **A dragged control is worked the least risky way that works.** Through Windows itself where the program
+  offers its value, then the wheel, then dragging up and down, sideways, and around last (a press on the rim
+  of some dials sets the value at once). The way is found by trying one step and one step back
+  (`ControlKeys.probe`), after the user said yes, and the user is told whether anything changed. A kept control
+  is data in `helpers.json`; never generate code for it.
+- **How a control is worked is decided by facts first.** A model is asked only about controls whose kind NVDA
+  cannot tell, one small form each (`working.JUDGE_SCHEMA`), at most `working.MAX_JUDGED` per inspection, and
+  the report says that a model can be wrong.
 - **Measure with the real model.** After any change to a prompt, a recipe or a form, run
   `python tests/live_orchestrator.py` and read every answer. A change that passes the scripted tests can still
   make a small model worse.
@@ -132,7 +146,11 @@ addon/
     webtools.py              the web through NVDA's browse mode: a page's links, buttons, fields and text
     mousetools.py            the mouse from the keyboard: click, right-click, double-click, drag, the wheel,
                              the screen's scaling, pointer mode
-    accesstools.py           deep inspection, lasting fixes for a website or program, installed add-ons
+    accesstools.py           deep inspection, lasting fixes for a website or program, installed add-ons;
+                             both models judging how a control is worked
+    deepquery.py             a deep query of one control: NVDA, UI Automation, the window, the off-screen model
+    controlkeys.py           arrow keys for a control that is dragged: taking hold, trying how it is worked,
+                             telling what changed, keeping it under a hotkey
     fixruntime.py            the working part of every fixes add-on; copied into the add-on as text
     nvdainfo.py              what NVDA has and uses: synthesizer, voices, braille display, drivers, add-ons
     helpers.py               app helpers and generated add-ons: loading them live, their hotkeys
@@ -160,6 +178,10 @@ addon/
       tools.py               tool registry
       memory.py              lessons learned, kept between sessions
       knowledge.py           searchable NVDA add-on knowledge (claw/knowledge/*.md)
+      guides.py              the downloaded developer guides: fixed addresses, web page to Markdown, sections
+      working.py             how a control is worked, from NVDA's facts or from both models; which remedy fits;
+                             what a window's class says about the toolkit or game engine
+      dragcontrol.py         the drags, wheel turns and values behind the arrow keys; whether a control changed
       microaddons.py         check, store, package generated add-ons
       task.py                task state, progress events, cancel
       orchestrator.py        runs a whole request from start to finish
@@ -259,6 +281,16 @@ A session is done only when its "Done when" line is true.
   Down, Page Up and S in pointer mode; pointer steps and areas follow the monitor's scaling and the window's
   size; scrollbars found in a window's picture by plain code, and the vision model asked for other things
   worked with the mouse, in the deep inspection of a window.
+- [x] **3.18 Arrow keys for controls that are dragged.** `work_control` and D in pointer mode take hold of a
+  dial, knob or custom slider; the way it is worked (through UI Automation, the wheel, dragging up and down,
+  sideways or around) is found by trying and comparing its picture; every press says what changed; K keeps
+  it under a hotkey as data.
+- [x] **3.19 How a sighted person works each control.** The inspection sorts controls by how they are worked
+  from NVDA's facts; what the facts do not say is put to both models (the vision model sees the picture, the
+  coder model reads a deep query of NVDA, UI Automation, the window and the off-screen model); the remedy is
+  chosen by plain code (`working.remedy`).
+- [x] **3.20 The latest developer guides.** `update_guides` downloads them after a question and keeps them as
+  Markdown; they are searched with VisionClaw's own notes, which win where both fit equally.
 - [ ] **3.5 Test inside NVDA.** Install the build in NVDA (ask the user first) and walk through
   `docs/TESTPLAN.md`. Fix what breaks. *Done when:* every item in the test plan is ticked by a real run.
 
@@ -294,6 +326,7 @@ python tests/run_all.py                  every plain-Python test (no model neede
 python tests/live_orchestrator.py        needs the engine and a model on this computer
 python tests/live_side_by_side.py        two real engines on two backends; needs VisionMate's vision data
 python tests/live_addon.py               a real model writes four add-ons and debugs one; read every result
+python tests/live_working.py             both real models say how drawn and described controls are worked
 python tools/write_models_list.py        writes models.json from the catalog; run after every change to CATALOG
 python build.py                          writes dist/VisionClaw-<version>.nvda-addon
 ```

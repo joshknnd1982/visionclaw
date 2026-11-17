@@ -25,8 +25,8 @@ import ui
 import wx
 from logHandler import log
 
-from . import mousetools, nvdainfo, ocr, webtools
-from .claw import changes, drivers, fixes, match, microaddons, pointer, policy, web
+from . import mousetools, net, nvdainfo, ocr, webtools
+from .claw import changes, drivers, fixes, guides, match, microaddons, pointer, policy, web
 from .claw.catalog import CODER, VISION
 from .claw.llm import LLM, clip
 from .claw.memory import score, wordList, words as wordsOf
@@ -1130,7 +1130,24 @@ def build(plugin):
 			raise ToolError("Nothing was found for those words. Try other words.")
 		return found
 
-	add("search_help", "read NVDA's user guide and VisionClaw's notes on NVDA and its add-on system", searchHelp,
+	def updateGuides(task):
+		# Going online is always asked about, whatever the settings say.
+		# Translators: Asked before the developer guides are downloaded from the internet.
+		mustAgree(_(
+			"Download the latest NVDA Developer Guide from NV Access, and the NVDA Add-on Development Guide from the "
+			"NVDA add-ons community on GitHub? Only these two requests are sent, with nothing about you or this "
+			"computer. The guides are kept on this computer as text for the models to read."))
+		result = guides.update(
+			plugin.guidesDir, lambda url: net.fetchText(url, limit=guides.MAX_BYTES, hosts=guides.HOSTS), task.cancel)
+		plugin.knowledge.replaceSource(guides.SOURCE, lambda: guides.load(plugin.guidesDir))
+		return guides.summary(result)
+
+	add("update_guides",
+		"download the latest NVDA developer guide and NVDA add-on development guide from the internet and keep them "
+		"for the models to read; only when the user asks for exactly this",
+		updateGuides, changes=True, title="Getting the latest developer guides", tell=VERBATIM)
+
+	add("search_help", "read NVDA's user guide, the developer guides and VisionClaw's notes on NVDA and its add-on system", searchHelp,
 		{"words": text("2 to 4 keywords for what you need to know", maxLength=80, auto=True)}, looks=True,
 		title="Reading up on it")
 
@@ -1492,6 +1509,8 @@ def build(plugin):
 
 	# The mouse from the keyboard: dragging, and pointer mode.
 	mousetools.register(add, plugin, text, confirm, screen, pickItem, mentioned)
+	from . import controlkeys
+	controlkeys.register(add, plugin, text, confirm, screen, pickItem, mentioned)
 	# Deep inspection, lasting fixes for a website or program, and questions about installed add-ons.
 	from . import accesstools
 	accesstools.register(plugin, add, text)

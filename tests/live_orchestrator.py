@@ -222,6 +222,19 @@ def makeRegistry(rt, state):
 				maxLength=80),
 			"asked": text("what the user asked for, in their own words", maxLength=300, auto=True),
 		}, changes=True, before="list_items")
+	simple("work_control",
+		"let the arrow keys work a dial, knob, custom slider or other control that is only worked by dragging it "
+		"with the mouse, and say what it shows after each press; can keep it under a hotkey",
+		"The arrow keys now work {item}, by dragging it up and down. The user said: {asked}",
+		"Taking hold of the control", {
+			"item": text("the name of the dial, slider or control, as the user said it", maxLength=80),
+			"asked": text("what the user asked for, in their own words", maxLength=300, auto=True),
+		}, changes=True, tell=V)
+	simple("update_guides",
+		"download the latest NVDA developer guide and NVDA add-on development guide from the internet and keep them "
+		"for the models to read; only when the user asks for exactly this",
+		"Downloaded the NVDA Developer Guide and kept it as Markdown, 120 sections.", "Getting the latest developer guides",
+		changes=True, tell=V)
 	simple("scroll_view",
 		"scroll what the window in front shows with the mouse wheel, up, down, left or right, a little, a page or "
 		"to the end; says whether anything moved and how far along the view now stands",
@@ -350,6 +363,11 @@ REQUESTS = (
 	"Fix number 2.",
 	"What does the Clock add-on do?",
 	"Which keys does the Clock add-on have?",
+	"Let the arrow keys work the volume dial.",
+	"This program has a dial that is only used by clicking and dragging. Make it work with the keyboard.",
+	"Give me a hotkey for the gain knob.",
+	"Get the latest NVDA developer guides.",
+	"Do a deep query of this control and tell me how a sighted person works it.",
 )
 
 

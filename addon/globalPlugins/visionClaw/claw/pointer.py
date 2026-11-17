@@ -41,7 +41,7 @@ KEYS = {
 	"kb:pagedown": ("scroll", "down", PAGE), "kb:pageup": ("scroll", "up", PAGE),
 	"kb:shift+pagedown": ("scroll", "down", NOTCH), "kb:shift+pageup": ("scroll", "up", NOTCH),
 	"kb:control+pagedown": ("scroll", "right", PAGE), "kb:control+pageup": ("scroll", "left", PAGE),
-	"kb:s": ("bars",),
+	"kb:s": ("bars",), "kb:d": ("take",),
 }
 
 
