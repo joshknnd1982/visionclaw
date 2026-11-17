@@ -1,6 +1,6 @@
 # VisionClaw status
 
-Updated 2026-11-17, version 0.6.0.
+Updated 2026-11-17, version 0.7.0.
 
 ## What exists
 
@@ -192,10 +192,9 @@ licence is not Apache 2.0. New: `models.json` in the repository, written from th
   several times; twice the two models disagreed and the user was asked. One made-up answer was seen: "The
   weather in Boston is currently sunny", which the stand-in page does not say; the 4B and 9B pair says it
   could not find it. So these two are worth offering for computers that can run nothing larger, and are
-  rightly never suggested. Not done: a sentence in the models window saying that they are fast but often
-  wrong. The live test's stand-in tools raise ValueError where the real tools turn it into a failed step, so
-  with a model this small the run was done through a wrapper outside the checkout; the live test should catch
-  that itself.
+  rightly never suggested. That run was done through a wrapper outside the checkout, because the live test's
+  stand-in tools raised ValueError where the real tools turn it into a failed step.
+- What was done about it is under "One small question at a time" below (0.7.0).
 - `tests/test_parts.py`: every built-in model follows the rules a fetched one must; `models.json` is exactly
   the catalog; a newer model on a list is offered, kept, found again after a restart, and its files are listed
   and removed like any model's; 23 kinds of entry that must not be accepted are refused while the rest of the
@@ -298,6 +297,57 @@ which would always seem to have changed; dials where a press on the rim sets the
 Automation calls in `deepquery.py` (the property and pattern numbers are Windows' own, but no real control was
 asked); NVDA's off-screen model in a real program; how the vision model does on real controls rather than
 drawings; whether the long developer guides make a small model's answers better or worse.
+
+## One small question at a time; forms narrowed to what was found (0.7.0)
+
+The owner asked that the very smallest models be fed and asked in very small steps. New: `claw/shapes.py`,
+`agent.fillOneByOne`, `orchestrator._quoted`, `policy.stepwise`, the setting `oneAtATime` (Automatic, Always,
+Never) with its choice in the settings panel.
+
+- **For every model:** where the step before found the possible answers, the form allows nothing else: the
+  ids of found settings and commands, the names of listed items, on or off, a setting's options, a number
+  (`shapes.shapes`, `Tool.schema(skip, shapes)`). A list that is not whole narrows nothing.
+- **What the user's own words say is filled in by code** (`shapes.said`): "to all", "turn off", "a little
+  faster" (+10), "much slower" (-25), "to 70", an item named in full, both ends of a drag.
+- **For a lead model that is never suggested** (Qwen3.5 0.8B): one field per call, each answer narrowing the
+  next; an answer that repeats the question is asked for once more and then replaced by the user's words;
+  looked-up information is answered with a line of it, word for word, found by plain code and at most chosen
+  among by the model; if nothing found mentions what was asked, that is said.
+
+How it was tested:
+
+- `tests/test_shapes.py` (plain, scripted stand-in for the model): what results allow; lists that are cut or
+  not whole; the form given to the engine; one field per call with the second narrowed by the first; code
+  filling in what the words say; an answer that repeats the question; quoted answers; when the mode is used.
+- A first try with the real 0.8B model: asked one question with a fixed list or a number pattern, it gave the
+  right value, command id and on or off, twice each. Asked which of three lines answers a question that none
+  answers, with 0 allowed for "none", it chose line 1 both times, and so did the 0.5B coder model. **A very
+  small model cannot say "none of these."** So plain code decides whether anything fits.
+- `tests/live_orchestrator.py` with **Qwen3.5 0.8B and Qwen2.5 Coder 0.5B**, 43 requests, every answer read.
+  Before any of this, the second session counted about 31 of 43 handled the right way. With narrowing only
+  (the setting on Never), by my count 34: wrong were the speech rate (set to 100), the made-up weather
+  answer, the add-on's name, the item of four fixes, and the item of two dial requests. With the finished
+  mode, 41: the rate went from 50 to 60, punctuation to all, the weather answer is "What was looked up does
+  not mention weather or boston", the add-on and the dials are named rightly, a drag has both its ends.
+  Still wrong: "tell me when the inbox count changes" names "5 posts" as the thing to watch, and "make
+  NVDA+alt+P press the Play button" gives the whole sentence as the item, which the real tool would answer
+  with "nothing of that name". Twice the two models disagreed on the recipe and the user was asked, as before.
+  It took 39 seconds for all 43, against 38.
+- The same with the owner's **Qwen3.5 4B and Qwen3.5 9B** (the mode is off for them; narrowing and the code
+  filling are on): all 43 done, nothing asked, no failed form at all where the 0.6.0 run had four, both items
+  that were written as ", " in 0.6.0 are now right ("Search edit field", "New Game button"), the three
+  answers I compared are the same or shorter, and it took 160 seconds against 173.
+- In the models window the two smallest models now end with "very small: fast, less accurate", and the
+  welcome text says they are asked one small question at a time (`dialogs.ModelsDialog._label`; checked
+  against the stand-ins, the window not opened in NVDA). The live test turns a stand-in's ValueError into a
+  failed step itself (`LiveRegistry`). Both by the second session.
+
+**Not tested:** any of it inside NVDA. The real tools give the same result lines as the stand-ins
+(`_findSettings`, `findCommand`, `listItems`), but no real list of settings, commands or window items has
+gone through the narrowing; the new choice in the settings panel has not been opened; the Qwen3.5 2B and
+Qwen2.5 Coder 1.5B pair, which is the suggested one, was not run because it is not on this computer; the
+setting on Always with larger models was not measured. Quoted answers are only as good as the lines that
+were looked up: a question asked in other words than the page uses gets "does not mention".
 
 ## What was not tested
 

@@ -40,7 +40,7 @@ Before you start: disable VisionMate in the Add-on Store, install the VisionClaw
 
 ## Newer models
 - [ ] The models window lists Qwen3.5 0.8B first among the vision models and Qwen2.5 Coder 0.5B first among
-      the coder models; neither is marked as suggested.
+      the coder models; neither is marked as suggested, and each says "very small: fast, less accurate".
 - [ ] "Look for newer models" asks first and says what goes online. No: nothing happens, and nothing went
       online.
 - [ ] Yes: after a moment the text says there are no newer models, with the list's date, or names the models
@@ -207,6 +207,15 @@ Settings, Display, Scale).
 - [ ] Afterwards a question about writing add-ons ("how does an add-on bind a gesture to a script?") is answered
       with words from the guides.
 - [ ] Without an internet connection it says that the guides could not be downloaded, and earlier copies stay.
+
+## The very small models, one question at a time (after 0.6.0)
+- [ ] VisionClaw's settings have "Ask the models one small question at a time" with Automatic, Always, Never,
+      and the choice is kept after OK.
+- [ ] With Qwen3.5 0.8B and Qwen2.5 Coder 0.5B chosen: "make NVDA speak a little faster" asks about the speech
+      rate with a number, and changes it. "Turn off the typing echo" turns it off.
+- [ ] With them: on a web page, a question about something the page does not say is answered with "What was
+      looked up does not mention ...", not with a made-up answer.
+- [ ] With the usual models and the setting on Always: the same requests still work, only slower.
 
 ## Add-ons
 - [ ] "Write an add-on that says hello when I press NVDA+shift+H": asks to turn it on; "Let me read the code

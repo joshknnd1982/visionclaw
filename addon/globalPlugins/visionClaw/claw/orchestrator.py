@@ -7,7 +7,7 @@
 # time, check the result, tell the user what really happened, and remember what was learned.
 # No NVDA dependencies.
 
-from . import agent, consensus, planner, policy
+from . import agent, consensus, planner, policy, shapes
 from . import task as taskModule
 from .catalog import CODER, VISION
 from .llm import LLM, LLMError, clip, plainSpeech
@@ -21,6 +21,10 @@ _ANSWER_SYSTEM = (
 	"Rules: Use only the information given; never add anything that is not in it. "
 	"If it names keys for a command, say the keys. If the information does not answer the question, say that "
 	"you could not find it. Do not mention tools, steps, forms or models. Do not say that anything was changed."
+)
+_PICK_SYSTEM = (
+	"You are VisionClaw, an assistant inside the NVDA screen reader. You are given what a user asked and some "
+	"numbered lines that were looked up. You choose the one line that answers the user best, by its number."
 )
 _VERIFY_SCHEMA = {
 	"type": "object",
@@ -50,6 +54,14 @@ class Orchestrator:
 		self.memory = memory
 		self.lead = lead
 		self.other = other
+		# The user's choice of whether the models are asked one small question at a time: auto, always, never.
+		self.stepwise = lambda: policy.AUTO
+
+	def _oneByOne(self):
+		try:
+			return policy.stepwise(self.stepwise(), self.runtime.entry(self.lead))
+		except Exception:
+			return False
 
 	def run(self, task):
 		"""Carry out a task. Never raises: the outcome is in task.state and task.answer."""
@@ -86,13 +98,17 @@ class Orchestrator:
 
 		task.setState(taskModule.UNDERSTANDING, "Understanding your request.")
 		# A first idea of how hard this is, from its words; corrected once the plan is known.
-		params = task.params = policy.select(planner.quickTriage(request), task.reasoning)
+		small = self._oneByOne()
+		params = task.params = policy.select(planner.quickTriage(request), task.reasoning)._replace(oneByOne=small)
 		context = self._context(request)
 		steps, how, recipes = consensus.agree(
 			llm, task, request, context, self.registry, params, self.askUser, self.lead, self.other)
 		task.steps = steps
 		params = task.params = policy.select(
-			{"complexity": planner.complexity(recipes), "needs_code": "write_addon" in recipes}, task.reasoning)
+			{"complexity": planner.complexity(recipes), "needs_code": "write_addon" in recipes}, task.reasoning,
+		)._replace(oneByOne=small)
+		if small:
+			task.emit(taskModule.DETAIL, "The model is asked one small question at a time, and answers are quoted from what was looked up.")
 		task.emit(taskModule.DETAIL, (
 			f"Parts of the request: {', '.join(recipes)}. Reasoning level: {params.reasoning}."
 		))
@@ -213,6 +229,7 @@ class Orchestrator:
 		"""What really happened, taken from the steps:
 		(sentences for the user as they are, information a model must put in words, what could not be done)."""
 		told, info, failed = [], [], []
+		task.infoTools = []
 		work = self._work(task)
 		for i, step in enumerate(work):
 			lastOfPart = i + 1 == len(work) or work[i + 1].part != step.part
@@ -228,6 +245,7 @@ class Orchestrator:
 				told.append(step.result)
 			elif tool.tell == SUMMARIZE and lastOfPart:
 				info.append((step.part or task.request, step.result))
+				task.infoTools.append(step.tool)
 		return told, info, failed
 
 	def _answer(self, llm, task, request, params):
@@ -240,7 +258,10 @@ class Orchestrator:
 		task.emit(taskModule.STEP, f"Step {last + 1} of {len(steps)}: {steps[last].title}.")
 		told, info, failed = self._outcome(task)
 		pieces = list(told)
-		if info:
+		if info and params.oneByOne:
+			# A very small model is not asked to put what was found into its own words: it makes things up.
+			pieces += [self._quoted(llm, part, result, tool) for (part, result), tool in zip(info, task.infoTools)]
+		elif info:
 			user = "\n\n".join(f"The user asked: \"{clip(part, 300)}\"\nInformation found:\n{clip(result, 1200)}"
 				for part, result in info) + (
 					"\n\nAnswer each of these questions, in order." if len(info) > 1 else "\n\nAnswer the user.")
@@ -254,6 +275,27 @@ class Orchestrator:
 		answer = " ".join(plainSpeech(p) for p in pieces if p) or "Nothing was done."
 		steps[last].status, steps[last].result = taskModule.STEP_DONE, answer
 		return answer
+
+	def _quoted(self, llm, part, result, toolName):
+		"""An answer made of what was looked up, word for word: the line that mentions what was asked. Plain
+		code finds the lines; where there are several, the model only chooses among them."""
+		if toolName in shapes.AS_IS:
+			return clip(result, 700)
+		lines, _asked = shapes.quote(part, result)
+		if not lines:
+			return shapes.notMentioned(part)
+		chosen = 0
+		if len(lines) > 1:
+			numbered = "\n".join(f"{number}. {clip(line, 240)}" for number, line in enumerate(lines, 1))
+			try:
+				chosen = int(llm.json(
+					self.lead, _PICK_SYSTEM,
+					f"The user asked: \"{clip(part, 300)}\"\nLines found:\n{numbered}\nWhich line answers what the user asked? Give its number.",
+					{"type": "object", "properties": {"line": {"type": "integer", "enum": list(range(1, len(lines) + 1))}},
+						"required": ["line"]}, maxTokens=20).get("line") or 1) - 1
+			except (LLMError, TypeError, ValueError):
+				chosen = 0
+		return clip(lines[max(0, min(len(lines) - 1, chosen))], 500)
 
 	def _verify(self, llm, task, request, params, answer):
 		"""The other model checks the result. If a part is missing, a few more steps are planned and run, once."""

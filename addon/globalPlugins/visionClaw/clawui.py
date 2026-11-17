@@ -28,6 +28,15 @@ def reasoningLabels():
 	]
 
 
+def stepwiseLabels():
+	return [
+		# Translators: Choices for whether the models are asked one small question at a time.
+		_("Automatic: only for the very small models"),
+		_("Always: slower, for any model that makes mistakes"),
+		_("Never"),
+	]
+
+
 def _popup(dialog):
 	"""Show a modal dialog the way NVDA's own windows appear, and return its result."""
 	gui.mainFrame.prePopup()

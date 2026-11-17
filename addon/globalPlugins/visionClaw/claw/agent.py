@@ -9,7 +9,7 @@
 
 import json
 
-from . import policy
+from . import policy, shapes
 from . import task as taskModule
 from .llm import LLMError, clip
 
@@ -19,6 +19,14 @@ _FORM_SYSTEM = (
 	"Rules: Use only what the user asked for and the results so far. Never make up names, ids or numbers: "
 	"copy them exactly as they appear in the results. Fill in every field, as briefly as possible."
 )
+_FIELD_SYSTEM = (
+	"You are VisionClaw, an assistant inside the NVDA screen reader, helping a blind person. "
+	"You answer one small question at a time, with one value.\n"
+	"Rules: Use only what the user asked for and the results so far. Copy names, ids and numbers exactly as they "
+	"appear in the results. Give the value itself, never the question or its description."
+)
+# In a form filled in one field at a time, an answer needs no more room than this.
+FIELD_TOKENS = 90
 _HINT_SCHEMA = {
 	"type": "object",
 	"properties": {"hint": {"type": "string", "maxLength": 260}},
@@ -30,6 +38,10 @@ _HINT_SYSTEM = (
 	"so the step works. Use only names and ids that appear in the results."
 )
 RESULT_CHARS = 500
+
+
+class _Filled(Exception):
+	"""Every field of a form was filled in from the user's own words."""
 
 
 def resultsText(steps, upTo):
@@ -48,13 +60,66 @@ def _asked(request, step):
 	return step.part or request
 
 
-def _formPrompt(request, steps, index, tool, tries, hint, skip):
+def _fieldPrompt(request, steps, index, tool, name, shape, form, tries, hint):
+	"""The prompt for one field of a form: as little as a very small model needs for one answer."""
+	step = steps[index]
+	parts = [
+		f"The user asked: \"{clip(_asked(request, step), 400)}\"",
+		f"Results so far:\n{resultsText(steps, index)}",
+		f"Step: {step.title}.",
+	]
+	done = [f"{field} = {value}" for field, value in form.items() if not tool.fields[field].get("auto")]
+	if done:
+		parts.append("Already filled in: " + "; ".join(done))
+	for old, error in tries[-1:]:
+		if name in old:
+			parts.append(f"Before, {name} = {json.dumps(old[name])} was tried. It failed: {clip(error, 300)}")
+	if hint:
+		parts.append(f"Hint from the other model: {hint}")
+	parts.append("Fill in one thing. " + tool.fieldText(name, shape))
+	return "\n".join(parts)
+
+
+def fillOneByOne(llm, task, lead, request, steps, index, tool, skip, form, tries, hint, params):
+	"""Fill in a form one field at a time: one small question, one value, and what the value may be is
+	narrowed by the fields already filled in. For models too small to fill in a whole form at once."""
+	for name, spec in tool.fields.items():
+		if name in skip:
+			continue
+		task.check()
+		if not tries:
+			# What the user's own words already say is not asked of a model.
+			known = shapes.said(tool.name, name, _asked(request, steps[index]), steps, index, form)
+			if known is not None:
+				form[name] = known
+				continue
+		shape = shapes.shapes(tool.name, [name], steps, index, form).get(name, {})
+		schema = tool.schema([other for other in tool.fields if other != name], {name: shape})
+		prompt = _fieldPrompt(request, steps, index, tool, name, shape, form, tries, hint)
+		value = None
+		for _again in range(2):
+			value = llm.json(
+				lead, _FIELD_SYSTEM, prompt, schema, maxTokens=min(params.formTokens, FIELD_TOKENS), reasoning=params.reasoning,
+			).get(name)
+			free = "enum" not in spec and "enum" not in shape and isinstance(value, str)
+			if not free or not shapes.echoes(value, tool.name, name, spec.get("description", "")):
+				break
+			# Said in general words: a small model copies an example as if it were the answer.
+			prompt += "\nThat answer repeated the question. Give the value itself."
+		else:
+			# It repeated the question twice. The user's own words are at least true, and the tools read them.
+			value = clip(_asked(request, steps[index]), spec.get("maxLength", 80)).replace(" ...[cut]", "")
+		form[name] = value
+	return form
+
+
+def _formPrompt(request, steps, index, tool, tries, hint, skip, narrowed=None):
 	step = steps[index]
 	parts = [
 		f"The user asked: \"{clip(_asked(request, step), 600)}\"",
 		f"Results so far:\n{resultsText(steps, index)}",
 		f"Now do this step: {step.title}." + (f" {step.detail}" if step.detail and step.detail != step.part else ""),
-		tool.formText(skip),
+		tool.formText(skip, narrowed),
 	]
 	for form, error in tries[-2:]:
 		parts.append(f"This form was tried: {json.dumps(form)}\nIt failed: {clip(error, 400)}\nCorrect the form.")
@@ -93,13 +158,32 @@ def runStep(llm, task, registry, request, steps, index, params, lead=policy.LEAD
 		task.check()
 		attempt += 1
 		skip = tuple(auto) if not tries else ()  # after a failure the model fills in every field itself
+		if params.oneByOne and tries:
+			# A very small model never rewrites the user's own words; it corrects the other fields.
+			skip = tuple(name for name in auto if name == "asked")
 		form = {name: auto[name] for name in skip}
 		if any(name not in skip for name in tool.fields):
 			try:
-				form.update(llm.json(
-					lead, _FORM_SYSTEM, _formPrompt(request, steps, index, tool, tries, hint, skip), tool.schema(skip),
-					maxTokens=params.formTokens, reasoning=params.reasoning,
-				))
+				if params.oneByOne:
+					fillOneByOne(llm, task, lead, request, steps, index, tool, skip, form, tries, hint, params)
+				else:
+					if not tries:
+						# What the user's own words already say is not asked of a model.
+						for name in tool.fields:
+							known = None if name in skip else shapes.said(tool.name, name, _asked(request, step), steps, index, form)
+							if known is not None:
+								form[name] = known
+								skip += (name,)
+					if all(name in skip for name in tool.fields):
+						raise _Filled()
+					# What the results so far allow for a field is all the model can write there.
+					narrowed = shapes.shapes(tool.name, [name for name in tool.fields if name not in skip], steps, index, form)
+					form.update(llm.json(
+						lead, _FORM_SYSTEM, _formPrompt(request, steps, index, tool, tries, hint, skip, narrowed),
+						tool.schema(skip, narrowed), maxTokens=params.formTokens, reasoning=params.reasoning,
+					))
+			except _Filled:
+				pass  # code filled in every field; no model was needed
 			except LLMError as e:
 				tries.append(({}, str(e)))
 				continue

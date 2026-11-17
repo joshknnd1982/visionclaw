@@ -62,6 +62,11 @@ class VisionClawPanel(gui.settingsDialogs.SettingsPanel):
 			_("How much the models &think before acting:"), wx.Choice, choices=clawui.reasoningLabels())
 		self.reasoning.SetSelection(
 			policy.REASONING_CHOICES.index(c["reasoning"]) if c["reasoning"] in policy.REASONING_CHOICES else 0)
+		self.oneAtATime = helper.addLabeledControl(
+			# Translators: Label of the choice of whether the models are asked one small question at a time.
+			_("Ask the models &one small question at a time:"), wx.Choice, choices=clawui.stepwiseLabels())
+		self.oneAtATime.SetSelection(
+			policy.STEPWISE_CHOICES.index(c["oneAtATime"]) if c["oneAtATime"] in policy.STEPWISE_CHOICES else 0)
 		# Translators: Label of the choice of search engine used when the user asks to search the web.
 		self.searchEngine = helper.addLabeledControl(_("Search the &web with:"), wx.Choice, choices=SEARCH_ENGINES)
 		self.searchEngine.SetSelection(
@@ -118,6 +123,7 @@ class VisionClawPanel(gui.settingsDialogs.SettingsPanel):
 			c["autoDescribe"] = self.autoDescribe.GetValue()
 		c["backend"] = backend.CHOICES[max(0, self.backend.GetSelection())]
 		c["reasoning"] = policy.REASONING_CHOICES[max(0, self.reasoning.GetSelection())]
+		c["oneAtATime"] = policy.STEPWISE_CHOICES[max(0, self.oneAtATime.GetSelection())]
 		c["sideBySide"] = self.sideBySide.GetValue()
 		c["autoFixAddons"] = self.autoFixAddons.GetValue()
 		c["searchEngine"] = SEARCH_IDS[max(0, self.searchEngine.GetSelection())]

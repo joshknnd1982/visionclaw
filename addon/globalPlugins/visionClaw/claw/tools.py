@@ -52,21 +52,37 @@ class Tool:
 				form[name] = auto(part)
 		return form
 
-	def schema(self, skip=()):
-		properties = {
-			name: {k: v for k, v in spec.items() if k not in ("description", "auto")}
-			for name, spec in self.fields.items() if name not in skip
-		}
-		return {"type": "object", "properties": properties, "required": list(properties)}
-
-	def formText(self, skip=()):
-		"""The tool as shown to a model that is about to fill it in."""
-		lines = [f"Tool: {self.name} - {self.description}"]
+	def schema(self, skip=(), shapes=None):
+		"""The form as the engine enforces it. shapes: {field: {"enum": [...]} or {"pattern": ...}}, what a
+		field may be according to the results so far (claw/shapes.py); the model can then write nothing else."""
+		properties = {}
 		for name, spec in self.fields.items():
 			if name in skip:
 				continue
-			options = f" One of: {', '.join(spec['enum'])}." if "enum" in spec else ""
-			lines.append(f"  {name}: {spec.get('description', '')}{options}")
+			properties[name] = {k: v for k, v in spec.items() if k not in ("description", "auto")}
+			shape = (shapes or {}).get(name)
+			if shape:
+				# A list of allowed answers needs no limit on its length, and some engines refuse both together.
+				properties[name].pop("maxLength", None)
+				properties[name].update(shape)
+		return {"type": "object", "properties": properties, "required": list(properties)}
+
+	def fieldText(self, name, shape=None):
+		"""One field as shown to a model: its name, what it is, and the allowed answers if there are only some."""
+		spec = self.fields[name]
+		choices = (shape or {}).get("enum") or spec.get("enum")
+		options = f" One of: {', '.join(str(choice) for choice in choices)}." if choices else ""
+		if (shape or {}).get("pattern"):
+			options = " A number only, with + or - in front to change it by that much."
+		return f"{name}: {spec.get('description', '')}{options}"
+
+	def formText(self, skip=(), shapes=None):
+		"""The tool as shown to a model that is about to fill it in."""
+		lines = [f"Tool: {self.name} - {self.description}"]
+		for name in self.fields:
+			if name in skip:
+				continue
+			lines.append("  " + self.fieldText(name, (shapes or {}).get(name)))
 		return "\n".join(lines)
 
 

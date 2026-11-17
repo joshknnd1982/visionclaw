@@ -121,6 +121,17 @@ keyboard and speech alone.
 - **How a control is worked is decided by facts first.** A model is asked only about controls whose kind NVDA
   cannot tell, one small form each (`working.JUDGE_SCHEMA`), at most `working.MAX_JUDGED` per inspection, and
   the report says that a model can be wrong.
+- **A model writes only what the results allow.** Where the step before found the possible answers (the ids
+  of settings or commands, the names of listed items, on or off, a setting's options, a number), plain code
+  turns them into the form's only allowed answers (`claw/shapes.py`, `Tool.schema(skip, shapes)`), for every
+  model. A new tool whose field takes something an earlier tool found gets a line in `shapes.SOURCES`.
+- **The very smallest models get one small question at a time.** When the model that fills in forms is one
+  that is never suggested (`policy.stepwise`; the user can also choose Always or Never), a form is filled in
+  one field per call (`agent.fillOneByOne`), each answer narrowing the next; an answer that repeats the
+  question is asked for again; and looked-up information is answered with a line of it, word for word, chosen
+  by plain code and at most picked among by the model (`orchestrator._quoted`), never rephrased. A very small
+  model cannot say "none of these", so never give it that as a choice: let plain code decide whether anything
+  fits.
 - **Measure with the real model.** After any change to a prompt, a recipe or a form, run
   `python tests/live_orchestrator.py` and read every answer. A change that passes the scripted tests can still
   make a small model worse.
@@ -176,6 +187,8 @@ addon/
       consensus.py           the two models agree, or the user decides
       agent.py               the tool loop for one step
       tools.py               tool registry
+      shapes.py              what a model may write in a field, from the results so far; an answer that only
+                             repeats the question; answers quoted from what was looked up
       memory.py              lessons learned, kept between sessions
       knowledge.py           searchable NVDA add-on knowledge (claw/knowledge/*.md)
       guides.py              the downloaded developer guides: fixed addresses, web page to Markdown, sections
@@ -291,6 +304,8 @@ A session is done only when its "Done when" line is true.
   chosen by plain code (`working.remedy`).
 - [x] **3.20 The latest developer guides.** `update_guides` downloads them after a question and keeps them as
   Markdown; they are searched with VisionClaw's own notes, which win where both fit equally.
+- [x] **3.21 One small question at a time.** Forms narrowed to what the results allow, for every model; for
+  the very smallest models one field per call and quoted answers; a setting with Automatic, Always, Never.
 - [ ] **3.5 Test inside NVDA.** Install the build in NVDA (ask the user first) and walk through
   `docs/TESTPLAN.md`. Fix what breaks. *Done when:* every item in the test plan is ticked by a real run.
 

@@ -21,6 +21,19 @@ from visionClaw.claw.catalog import CODER, VISION
 from visionClaw.claw.memory import Memory, score
 
 
+class LiveRegistry(tools.Registry):
+	"""A stand-in tool that is handed a value it cannot use, such as the word "on" where a number belongs,
+	raises ValueError. In VisionClaw itself that comes back to the model as a failed step to correct
+	(nvdatools' guarded does it), so it must do the same here. Without this, one badly filled form from a very
+	small model ended the whole run."""
+
+	def call(self, task, name, form):
+		try:
+			return super().call(task, name, form)
+		except ValueError as e:
+			return False, tools.clip(str(e), tools.RESULT_CHARS)
+
+
 class OneModelCatalog(catalog.Catalog):
 	"""Uses VisionMate's vision data for both roles when no coder model is installed."""
 
@@ -46,7 +59,7 @@ def screenshot():
 
 
 def makeRegistry(rt, state):
-	reg = tools.Registry()
+	reg = LiveRegistry()
 	settings = {
 		"speech.rate": ["speech: rate", 50, "a number from 0 to 100"],
 		"speech.symbolLevel": ["speech: symbol level", "some", "one of: none, some, most, all"],
@@ -394,6 +407,8 @@ def main():
 		for request in REQUESTS:
 			state = {}
 			orch = orchestrator.Orchestrator(rt, makeRegistry(rt, state), askUser, lambda: "Program: spacetrader.", Memory("nul"))
+			# A fifth argument says whether the model is asked one small question at a time: auto, always or never.
+			orch.stepwise = lambda: sys.argv[5] if len(sys.argv) > 5 else "auto"
 			task = taskModule.Task(request, reasoning=reasoning)
 			start = time.time()
 			orch.run(task)

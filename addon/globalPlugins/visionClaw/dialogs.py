@@ -112,6 +112,8 @@ class ModelsDialog(wx.Dialog):
 			"in plain language. Nothing you do is sent to the internet.\n\n"
 			"Choose the models below. Larger models are more accurate and slower, and need more memory. "
 			"All of them are offered whatever your computer is; the suggested ones are the safe choice. "
+			"The very small ones are for a computer that can run nothing larger: they make more mistakes, so "
+			"VisionClaw asks them one small question at a time. "
 			"A model is downloaded only once, and you can change your choice here at any time."
 		)
 		if notes:
@@ -170,6 +172,9 @@ class ModelsDialog(wx.Dialog):
 		if entry["id"] == suggestedId:
 			# Translators: Added to the model that is suggested for this computer.
 			label += _(", suggested")
+		if entry.get("suggest") is False:
+			# Translators: Added to the very smallest models in the list, which are offered but never suggested.
+			label += _(", very small: fast, less accurate")
 		return label
 
 	def _firstSelection(self, role, suggestedId):

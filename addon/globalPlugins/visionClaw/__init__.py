@@ -154,6 +154,7 @@ confspec = {
 	"visionModel": 'string(default="")',
 	"coderModel": 'string(default="")',
 	"reasoning": 'option("auto", "off", "low", "medium", "high", default="auto")',
+	"oneAtATime": 'option("auto", "always", "never", default="auto")',
 	"sideBySide": "boolean(default=True)",
 	"searchEngine": 'option("duckduckgo", "google", "bing", default="duckduckgo")',
 	"autoFixAddons": "boolean(default=True)",
@@ -424,6 +425,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		searching = tuple(f"Tool {name}:" for name in registry.names() if registry.get(name).looks)
 		self.memory.forget(lambda text: text.startswith(searching))
 		self.orchestrator = Orchestrator(self.runtime, registry, self.clawAsk, self._clawSituation, self.memory)
+		self.orchestrator.stepwise = lambda: config.conf["visionClaw"]["oneAtATime"]
 		wx.CallLater(2000, self.helpers.loadEnabled)
 		self._autoCache = collections.OrderedDict()
 		self._autoGeneration = 0

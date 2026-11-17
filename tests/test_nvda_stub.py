@@ -1230,6 +1230,14 @@ assert dialogs.lookResult({"new": ["Qwen9 1B", "Qwen9 Coder 1B"], "tooNew": 1, "
 	"2 entries of the list were left out, because they did not pass VisionClaw's checks.")
 assert dialogs.lookResult({"new": [], "tooNew": 0, "refused": 0, "updated": ""}) == (
 	"There are no newer models. The lists here already offer every model on VisionClaw's list.")
+# In the lists of the models window, the very smallest models say what they are, so that it is heard while
+# moving through the list; the others, and the suggested one, are worded as before.
+shelf = types.SimpleNamespace(_models=types.SimpleNamespace(isInstalled=lambda entry: False, missingBytes=lambda entry: 703 * 2 ** 20))
+labelOf = lambda ident, suggested=None: dialogs.ModelsDialog._label(shelf, catalog.Catalog("nowhere").get(ident), suggested)  # noqa: E731
+assert labelOf("qwen3.5-0.8b") == "Qwen3.5 0.8B, 703 MB to download, very small: fast, less accurate", labelOf("qwen3.5-0.8b")
+assert labelOf("qwen2.5-coder-0.5b").endswith(", very small: fast, less accurate")
+assert labelOf("qwen3.5-2b", "qwen3.5-2b") == "Qwen3.5 2B, 703 MB to download, suggested"
+assert labelOf("qwen3.5-9b") == "Qwen3.5 9B, 703 MB to download"
 
 # --- Arrow keys for a control that is dragged: a dial, a slider, a value Windows offers ---
 

@@ -33,7 +33,20 @@ Params = collections.namedtuple("Params", (
 	"codeRepairs",   # tries to fix generated code that fails its checks
 	"codeReviews",   # times the other model reviews generated code
 	"verify",        # whether the other model checks the result at the end
+	"oneByOne",      # ask for one field at a time and answer with quotes: for the very smallest models
 ))
+Params.__new__.__defaults__ = (False,)
+STEPWISE_CHOICES = (AUTO, "always", "never")
+
+
+def stepwise(choice, entry):
+	"""Whether the model that fills in the forms is asked one small question at a time. choice: the user's
+	setting; Automatic means: for a very small model. entry: that model's entry in the catalog."""
+	if choice == "always":
+		return True
+	if choice == "never":
+		return False
+	return bool(entry) and entry.get("suggest") is False
 
 _AUTO_LEVEL = {SIMPLE: OFF, MODERATE: LOW, COMPLEX: MEDIUM}
 _BY_LEVEL = {
@@ -65,5 +78,5 @@ def select(triage, userReasoning=AUTO):
 	)
 
 
-__all__ = ["AUTO", "REASONING_CHOICES", "LEAD", "OTHER", "ROLE_NAMES", "Params", "level", "select",
+__all__ = ["AUTO", "REASONING_CHOICES", "STEPWISE_CHOICES", "stepwise", "LEAD", "OTHER", "ROLE_NAMES", "Params", "level", "select",
 	"SIMPLE", "MODERATE", "COMPLEX", "OFF", "LOW", "MEDIUM", "HIGH"]
