@@ -47,7 +47,8 @@ Before you start: disable VisionMate in the Add-on Store, install the VisionClaw
       that were added; these are then in the lists, and the model that was selected is still selected.
 - [ ] With no internet connection: the text says the list could not be read and that nothing was changed.
 - [ ] Choose Qwen3.5 0.8B and Qwen2.5 Coder 0.5B: they download, pass the check, and the engine starts with
-      them. "What is on my screen" gives an answer. (These two have not been run in the engine yet.)
+      them. "What is on my screen" gives an answer. (Both were downloaded and run in the engine outside NVDA
+      on 2026-11-17; they are fast and often wrong. Not yet chosen inside NVDA.)
 - [ ] After closing and reopening NVDA, models added by the button are still in the lists.
 
 ## Settings stay the user's

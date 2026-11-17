@@ -177,9 +177,25 @@ licence is not Apache 2.0. New: `models.json` in the repository, written from th
 "Look for newer models" in the models window, which asks first and then reads that one file.
 
 - Revision, size and SHA-256 of the three new files were read from Hugging Face's API, and each download
-  address was asked for its headers: all three answer with the catalogued size and checksum. **Neither model
-  was downloaded or run in the engine.** Qwen3.5 0.8B is of the family the engine already runs; Qwen2.5 Coder
-  of any size has still not been run.
+  address was asked for its headers: all three answer with the catalogued size and checksum. When 0.4.0 was
+  released neither model had been downloaded or run; that was done afterwards, see the next point.
+- **The two smallest models run in the bundled engine** (2026-11-17, after 0.6.0, on the owner's GeForce RTX
+  5060 and Radeon 780M, done by the second Claude session with the owner's yes and reported by it; the files
+  were then seen in the models folder with the catalogued sizes). Qwen3.5 0.8B with its projector and Qwen2.5
+  Coder 0.5B were downloaded by `catalog.Catalog.download` in 68 and 7 seconds and passed the size and SHA-256
+  check. This is the first time any Qwen2.5 Coder model ran in this engine. The owner's chosen models are
+  unchanged. `tests/live_orchestrator.py` with this pair finished all 43 requests, most in 0.3 to 2 seconds.
+  **How well:** about 31 of 43 were handled the right way, nearly all of them requests where code fills in the
+  form from the user's words. Where the model filled in a form itself it was often wrong: "on" as a speech
+  rate (the rate did not change, and the answer said so); a command's description copied as its id; the
+  typing echo and punctuation not changed, and said so; a field's own description copied into the form
+  several times; twice the two models disagreed and the user was asked. One made-up answer was seen: "The
+  weather in Boston is currently sunny", which the stand-in page does not say; the 4B and 9B pair says it
+  could not find it. So these two are worth offering for computers that can run nothing larger, and are
+  rightly never suggested. Not done: a sentence in the models window saying that they are fast but often
+  wrong. The live test's stand-in tools raise ValueError where the real tools turn it into a failed step, so
+  with a model this small the run was done through a wrapper outside the checkout; the live test should catch
+  that itself.
 - `tests/test_parts.py`: every built-in model follows the rules a fetched one must; `models.json` is exactly
   the catalog; a newer model on a list is offered, kept, found again after a restart, and its files are listed
   and removed like any model's; 23 kinds of entry that must not be accepted are refused while the rest of the
