@@ -93,6 +93,11 @@ keyboard and speech alone.
   translation, the GPL header on every file. Files changed from VisionMate keep Athiban Vijay's copyright line
   and carry a "Modified for VisionClaw" line. Python must run on NVDA 2024.1 (Python 3.11) and later.
 - **Honest reporting.** Say what was tested and how. "Compiles" and "unit tests pass" are not "works in NVDA".
+- **One model is never called two.** The user may choose one model for both jobs. Then nothing the user hears
+  or reads may say "both models", "the two models", "the other model", "the vision model", "the coder model"
+  or "agree": it is "the model" (`policy.roleName`, `policy.isOneModel`), and the same question is not put to
+  it twice. A new sentence that names a model's role needs both forms, and `tests/test_one_model.py` fails on
+  one that does not.
 - **What plain code can correct, plain code corrects.** A small model keeps what it once wrote however often
   it is told. Before sending code back to the coder, `microaddons.tidy` takes out what was not asked for, adds
   forgotten imports and `nextHandler()`, fixes role comparisons, adds a program limit, and salvages a file that
@@ -229,6 +234,9 @@ tools/                       build helpers
    agreed. Different: each is told the other's choice and chooses again. Still different: the user picks.
    A freely written plan is reviewed in words by the other model, corrected once, then put to the user.
    Never go back to asking a small model to judge a recipe plan in prose: it objects at random.
+   When one model is chosen for both jobs (`runtime.oneModel`, carried in `params.oneModel`) there is no
+   agreement: the recipe is chosen once, a freely written plan is checked by the same model with the
+   reviewer's question, and the user is asked when it stays unsure.
 4. **Policy** (`policy.select`): token limits, retries, reviews and the reasoning level, from how demanding the
    recipes are. The user's reasoning setting (Automatic, Off, Low, Medium, High) overrides the automatic
    choice. The context size is chosen per model call from its length (`llm.py`).

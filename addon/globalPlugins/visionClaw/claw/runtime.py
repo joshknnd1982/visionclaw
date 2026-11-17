@@ -93,6 +93,11 @@ class ModelRuntime:
 				return VISION
 		return role
 
+	def oneModel(self):
+		"""Whether one model does both jobs: the same model file is chosen for vision and for code. Then there
+		are not two models that could agree, and the user must never be told that there are."""
+		return self._slot(CODER) == VISION
+
 	def resetFailures(self):
 		"""Try every backend again, for example after the user changed the graphics setting."""
 		self._failed.clear()
@@ -186,7 +191,7 @@ class ModelRuntime:
 			choice = self.backends[slot]
 			if self.engines[slot].running and choice is not None:
 				found.append(f"The {slot} model runs on {backend.describe(choice)}.")
-		if self._slot(CODER) == VISION and found:
+		if self.oneModel() and found:
 			found = [found[0].replace("The vision model runs", "One model does both jobs and runs")]
 		return " ".join(found)
 

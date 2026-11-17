@@ -777,7 +777,9 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		for role in (VISION, CODER):
 			if not self.runtime.hasModel(role):
 				# Translators: Reported when a request needs a model that has not been downloaded.
-				ui.message(_("VisionClaw needs both models for this. Choose and download them first."))
+				ui.message(_(
+					"VisionClaw needs a model for vision and a model for code for this; one model can be chosen for "
+					"both. Choose and download first."))
 				self.showDataDialog()
 				return
 		task = self.clawTask = clawTask.Task(request, self._onClawEvent, reasoning)

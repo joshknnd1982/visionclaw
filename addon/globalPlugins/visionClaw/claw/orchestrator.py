@@ -40,7 +40,7 @@ SKIP, RETRY, STOP = 0, 1, 2
 
 
 class Orchestrator:
-	"""runtime: the two models. registry: the tools.
+	"""runtime: the two models, or one model that does both jobs. registry: the tools.
 	askUser(question, choices) returns the index the user chose, or None.
 	situation() returns a short text about where the user is (app, window, focused control), or "".
 	memory: lessons from earlier tasks, or None."""
@@ -99,27 +99,32 @@ class Orchestrator:
 		task.setState(taskModule.UNDERSTANDING, "Understanding your request.")
 		# A first idea of how hard this is, from its words; corrected once the plan is known.
 		small = self._oneByOne()
-		params = task.params = policy.select(planner.quickTriage(request), task.reasoning)._replace(oneByOne=small)
+		# One model for both jobs: then nothing may be called an agreement between two models.
+		one = policy.isOneModel(self.runtime)
+		params = task.params = policy.select(planner.quickTriage(request), task.reasoning)._replace(
+			oneByOne=small, oneModel=one)
 		context = self._context(request)
 		steps, how, recipes = consensus.agree(
 			llm, task, request, context, self.registry, params, self.askUser, self.lead, self.other)
 		task.steps = steps
 		params = task.params = policy.select(
 			{"complexity": planner.complexity(recipes), "needs_code": "write_addon" in recipes}, task.reasoning,
-		)._replace(oneByOne=small)
+		)._replace(oneByOne=small, oneModel=one)
+		if one:
+			task.emit(taskModule.DETAIL, "One model does both jobs here. It chooses what to do, and it checks its own work.")
 		if small:
 			task.emit(taskModule.DETAIL, "The model is asked one small question at a time, and answers are quoted from what was looked up.")
 		task.emit(taskModule.DETAIL, (
 			f"Parts of the request: {', '.join(recipes)}. Reasoning level: {params.reasoning}."
 		))
 		agreed = {
-			consensus.AGREED: "Both models agree on the plan",
-			consensus.REVISED: "Both models agree on a corrected plan",
+			consensus.AGREED: "The plan is ready" if one else "Both models agree on the plan",
+			consensus.REVISED: "The model corrected its plan" if one else "Both models agree on a corrected plan",
 			consensus.USER_CHOSE: "Using the plan you chose",
 		}[how]
 		task.setState(taskModule.WORKING, f"{agreed}: {len(steps)} steps.")
 
-		# Both models have been used by now, so each has its place.
+		# Every model has been used by now, so each has its place.
 		where = getattr(self.runtime, "whereText", lambda: "")()
 		if where:
 			task.emit(taskModule.DETAIL, where)
@@ -207,6 +212,12 @@ class Orchestrator:
 			agrees, problem = consensus.review(llm, self.other, request, steps[:index + 1] + changed, self.registry, params)
 		except LLMError:
 			return
+		if not agrees and params.oneModel:
+			task.emit(taskModule.TALK, (
+				"The model wanted to change the rest of the plan, but on checking the change it found a problem: "
+				f"{problem} Keeping the plan."
+			))
+			return
 		if not agrees:
 			task.emit(taskModule.TALK, (
 				f"The {policy.ROLE_NAMES[self.lead]} wanted to change the rest of the plan, but the "
@@ -214,7 +225,9 @@ class Orchestrator:
 			))
 			return
 		task.steps = steps[:index + 1] + changed
-		task.emit(taskModule.TALK, "Both models agreed to change the rest of the plan:\n" + planner.planText(task.steps))
+		task.emit(taskModule.TALK, (
+			"The model changed the rest of the plan:\n" if params.oneModel
+			else "Both models agreed to change the rest of the plan:\n") + planner.planText(task.steps))
 		task.emit(taskModule.STATE, f"The plan changed after looking. Now {len(task.steps)} steps.")
 
 	@staticmethod
@@ -298,7 +311,8 @@ class Orchestrator:
 		return clip(lines[max(0, min(len(lines) - 1, chosen))], 500)
 
 	def _verify(self, llm, task, request, params, answer):
-		"""The other model checks the result. If a part is missing, a few more steps are planned and run, once."""
+		"""The other model checks the result; with one model for both jobs, that model does, with the checker's
+		question. If a part is missing, a few more steps are planned and run, once."""
 		task.setState(taskModule.CHECKING, "Checking the result.")
 		results = agent.resultsText(task.steps, len(task.steps))
 		user = f"Request: \"{clip(request, 600)}\"\nResults:\n{clip(results, 1500)}\nWas the request carried out?"
@@ -307,10 +321,11 @@ class Orchestrator:
 		except LLMError:
 			return answer
 		missing = " ".join(str(found.get("missing") or "").split())
+		checker = policy.roleName(self.other, params.oneModel)
 		if found.get("done") or not missing:
-			task.emit(taskModule.TALK, f"The {policy.ROLE_NAMES[self.other]} checked the result: complete.")
+			task.emit(taskModule.TALK, f"The {checker} checked the result: complete.")
 			return answer
-		task.emit(taskModule.TALK, f"The {policy.ROLE_NAMES[self.other]} checked the result: still missing: {missing}")
+		task.emit(taskModule.TALK, f"The {checker} checked the result: still missing: {missing}")
 		try:
 			extra, _recipes = planner.plan(llm, self.lead, missing, "", self.registry, params)
 			agrees, _problem = consensus.review(llm, self.other, missing, extra, self.registry, params)
@@ -318,7 +333,9 @@ class Orchestrator:
 			agrees, extra = False, []
 		if not agrees or len(extra) < 2:
 			return answer + f" One part may not be complete: {missing}"
-		task.emit(taskModule.TALK, "Both models agreed on steps for the missing part:\n" + planner.planText(extra))
+		task.emit(taskModule.TALK, (
+			"Steps for the missing part:\n" if params.oneModel
+			else "Both models agreed on steps for the missing part:\n") + planner.planText(extra))
 		done = self._work(task)
 		task.steps = done + extra
 		task.setState(taskModule.WORKING, f"Doing the missing part: {len(extra) - 1} more steps.")

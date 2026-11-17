@@ -34,9 +34,24 @@ Params = collections.namedtuple("Params", (
 	"codeReviews",   # times the other model reviews generated code
 	"verify",        # whether the other model checks the result at the end
 	"oneByOne",      # ask for one field at a time and answer with quotes: for the very smallest models
+	"oneModel",      # one model does both jobs: nothing is called an agreement between two models
 ))
-Params.__new__.__defaults__ = (False,)
+Params.__new__.__defaults__ = (False, False)
 STEPWISE_CHOICES = (AUTO, "always", "never")
+
+
+def roleName(role, oneModel=False):
+	"""What a model is called when the user is told about it. When one model does both jobs it is "the model":
+	"the vision model" and "the coder model" would sound like two."""
+	return "model" if oneModel else ROLE_NAMES[role]
+
+
+def isOneModel(runtime):
+	"""Whether this runtime has one model doing both jobs. A runtime that cannot say has two."""
+	try:
+		return bool(runtime.oneModel())
+	except Exception:
+		return False
 
 
 def stepwise(choice, entry):
@@ -78,5 +93,5 @@ def select(triage, userReasoning=AUTO):
 	)
 
 
-__all__ = ["AUTO", "REASONING_CHOICES", "STEPWISE_CHOICES", "stepwise", "LEAD", "OTHER", "ROLE_NAMES", "Params", "level", "select",
+__all__ = ["AUTO", "REASONING_CHOICES", "STEPWISE_CHOICES", "stepwise", "LEAD", "OTHER", "ROLE_NAMES", "roleName", "isOneModel", "Params", "level", "select",
 	"SIMPLE", "MODERATE", "COMPLEX", "OFF", "LOW", "MEDIUM", "HIGH"]

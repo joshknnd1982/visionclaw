@@ -190,23 +190,28 @@ def waysText(ways):
 	return "Of the controls whose kind NVDA can tell, with a mouse " + ", ".join(parts) + "." if parts else ""
 
 
-def settle(seen, thought):
+def settle(seen, thought, oneModel=False):
 	"""One answer from what the vision model saw in the picture and what the coder model made of the facts.
-	Either may be None (not asked, or it failed). Returns (way, whether the two agree, who said so)."""
+	Either may be None (not asked, or it failed). Returns (way, whether the two agree, who said so).
+	oneModel: one model does both jobs. Its two answers still come from two different things, the picture and
+	what is reported, but they are never called the answers of two models."""
 	seen = seen if seen in WAYS and seen != UNSURE else None
 	thought = thought if thought in WAYS and thought != UNSURE else None
+	both = "the model, from the picture and from what is reported" if oneModel else "both models"
 	if seen and thought:
 		if seen == thought:
-			return seen, True, "both models"
+			return seen, True, both
 		# Both mean a value that is changed by moving the mouse: which way is found out by trying.
 		if seen in TURNED and thought in TURNED:
-			return seen, True, "both models"
+			return seen, True, both
+		if oneModel:
+			return seen, False, f"the model, from the picture; from what is reported it says {thought}"
 		return seen, False, f"the vision model; the coder model says {thought}"
 	if seen:
-		return seen, False, "the vision model"
+		return seen, False, "the model, from the picture" if oneModel else "the vision model"
 	if thought:
-		return thought, False, "the coder model"
-	return UNSURE, False, "neither model"
+		return thought, False, "the model, from what is reported" if oneModel else "the coder model"
+	return UNSURE, False, "the model" if oneModel else "neither model"
 
 
 def remedy(way, focusable):

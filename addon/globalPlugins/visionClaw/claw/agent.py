@@ -210,10 +210,16 @@ def runStep(llm, task, registry, request, steps, index, params, lead=policy.LEAD
 		# Out of tries: ask the other model for a hint, once, and try one more time with it.
 		if attempt >= attempts and not asked and tool.fields:
 			asked = True
-			task.emit(taskModule.TALK, f"The {policy.ROLE_NAMES[lead]} is stuck and asks the {policy.ROLE_NAMES[other]}.")
+			# With one model for both jobs the hint is the same model's, asked in another way; it is not
+			# called another model's.
+			one = getattr(params, "oneModel", False)
+			task.emit(taskModule.TALK, (
+				"The model is stuck and looks at the step in another way." if one
+				else f"The {policy.ROLE_NAMES[lead]} is stuck and asks the {policy.ROLE_NAMES[other]}."))
 			hint = askHint(llm, other, request, steps, index, tool, tries)
 			if hint:
-				task.emit(taskModule.TALK, f"Hint from the {policy.ROLE_NAMES[other]}: {hint}")
+				task.emit(taskModule.TALK, (
+					f"What the model came up with: {hint}" if one else f"Hint from the {policy.ROLE_NAMES[other]}: {hint}"))
 				attempts += 1
 	step.status = taskModule.STEP_FAILED
 	step.result = tries[-1][1] if tries else "The step could not be done."

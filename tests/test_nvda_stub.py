@@ -1614,6 +1614,23 @@ assert worked and "The deep query found this. It is reported as: pane, with no n
 assert "Its window has the class JUCE_1a, which is JUCE, used by music programs and plug-ins." in result, result
 assert "A sighted person works it like this: turn in a circle. That comes from both models." in result, result
 assert "Ask VisionClaw to let the arrow keys work this control" in result, result
+# One model chosen for both jobs: it is asked about the picture and about what is reported, and the report
+# says so. It never speaks of both models, because there are not two.
+JudgeRuntime.oneModel = lambda self: True
+del JudgeRuntime.asked[:]
+oneTask = taskModule.Task("test")
+worked, result = registry.call(oneTask, "check_access", {"target": "control", "depth": "deep"})
+assert worked and ("A sighted person works it like this: turn in a circle. That comes from the model, from the "
+	"picture and from what is reported.") in result, result
+assert "both models" not in result, (JudgeRuntime.asked, result)
+assert any("from its picture the model says turn in a circle, from what is reported about it the model says "
+	"drag up and down." in text for _t, _k, text in oneTask.log), oneTask.log
+assert not any("vision model" in text or "coder model" in text for _t, _k, text in oneTask.log), oneTask.log
+worked, result = registry.call(taskModule.Task("test"), "check_access", {"target": "window", "depth": "deep"})
+assert worked and "turn in a circle, says the model, from the picture and from what is reported." in result, result
+assert "with the model, shown the picture and told what is reported, and a model can be wrong" in result, result
+assert "both models" not in result, result
+del JudgeRuntime.oneModel
 for binding in list(made.values()):
 	assert instance.helpers.remove(binding["key"])
 instance.runtime = realRuntime

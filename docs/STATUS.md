@@ -1,6 +1,6 @@
 # VisionClaw status
 
-Updated 2026-11-17, version 0.8.0.
+Updated 2026-11-17, version 0.8.1.
 
 ## What exists
 
@@ -414,6 +414,35 @@ the latest NVDA developer guides", then a question about binding a gesture to a 
 - **Not known:** which way a real dial turned out to be worked; whether what was said after a key press
   matched the program; what the models said about a real control; whether the answer to the question about
   gestures used words from the guides.
+
+## One model for both jobs is no longer called two (0.8.1)
+
+The owner reported that VisionClaw said two models were agreeing when only one model was installed. Seen on
+his computer on 2026-11-17: one model is stored, Qwen3.5 9B with its projector (6.15 GB), and the settings
+choose it for vision (`qwen3.5-9b`) and for code (`qwen3.5-9b-coder`). Both entries are the same file, and one
+engine serves both jobs (`runtime._slot`). The agreement step still asked "both" for a choice, which was the
+same model answering the same question twice at temperature 0, and reported "The two models are agreeing on
+what to do" and "Both models agree on the plan".
+
+What changed: `runtime.oneModel()` says whether one model file serves both jobs, and the orchestrator carries
+that in `params.oneModel`. Then the recipe for a part is chosen once; a plan the model wrote itself is still
+checked with the reviewer's question, by the same model, and said so ("The model checked its plan"); when it
+keeps finding a problem the user chooses between its plans. The hint for a stuck step, the check of the result,
+the second reading of generated code, the question about a doubt, and the inspection's judgement of controls
+all say "the model". With two different models every sentence and every call is as before.
+
+- **With plain Python:** `tests/test_one_model.py` (new; twelve test files pass). With the real catalog's
+  entries the runtime reports one model for 9B with 9B, and two for 9B with another coder or with a model
+  missing. Whole requests with a scripted model: the choice is asked once, and no sentence that is logged or
+  put to the user contains "models", "agree", or "vision", "coder", "other" or "reviewing model"; a plan with a
+  problem is corrected; a plan that stays doubtful is put to the user. With two models the old sentences are
+  still there. `tests/test_nvda_stub.py` runs the inspection with one model and finds "says the model, from
+  the picture and from what is reported".
+- **Against the owner's real models folder, read-only:** the real catalog lists one stored model serving both
+  roles, and the real runtime with his two settings reports one model for both jobs.
+- **Not done:** no run with the real model. No prompt, recipe or form was changed, only which calls are made
+  and what is said, and NVDA was running with the 9B model loaded, so a second copy was not started beside it.
+  **Not tried inside NVDA.**
 
 ## What was not tested
 

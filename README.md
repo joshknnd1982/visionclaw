@@ -16,7 +16,7 @@ VisionClaw is a fork of [VisionMate](https://github.com/athee06/VisionMate) by A
 everything VisionMate does: image descriptions, the overlay for windows NVDA cannot read, photo descriptions in
 chat apps, and names for unlabelled buttons.
 
-> **Status: pre-release (0.8.0).** The orchestration core has been tested with scripted models and with
+> **Status: pre-release (0.8.1).** The orchestration core has been tested with scripted models and with
 > real models through the bundled engine. Inside NVDA 2026.3.1 the owner has run the models window, a first
 > set of requests and five tests of version 0.4.0; **most of the test plan has not been run inside NVDA
 > yet**, and scrolling, the arrow keys for dials and the deep query not at all. Expect rough edges and please report them. See
@@ -52,6 +52,8 @@ You do not need to know NVDA. VisionClaw finds the right NVDA setting or command
 2. **The models must agree.** Each model decides, on its own, how to handle each part. If they choose the
    same, the work starts. If not, each is told the other's choice and decides again. If they still differ,
    **you are asked** and pick from the choices.
+   **With one model for both jobs** there are not two to agree, and VisionClaw does not say that there are:
+   the model chooses once, checks a plan it wrote itself, and you are asked when it is not sure of that plan.
 3. **One step at a time.** For each step a model fills in one small form, and plain program code does the rest.
    When a step fails, the model sees the error and corrects itself; if it stays stuck, the other model gives it
    a hint; if that does not help, you choose whether to skip, retry or stop.
@@ -64,7 +66,7 @@ You do not need to know NVDA. VisionClaw finds the right NVDA setting or command
 
 ## Install
 
-1. Download **[VisionClaw-0.8.0.nvda-addon](https://github.com/joshknnd1982/visionclaw/releases/download/v0.8.0/VisionClaw-0.8.0.nvda-addon)**
+1. Download **[VisionClaw-0.8.1.nvda-addon](https://github.com/joshknnd1982/visionclaw/releases/download/v0.8.1/VisionClaw-0.8.1.nvda-addon)**
    (or pick a version on the [releases page](https://github.com/joshknnd1982/visionclaw/releases)), open the
    file, confirm the installation, and restart NVDA.
 2. If VisionMate is installed, disable it in the Add-on Store: VisionClaw includes it and uses the same keys.
@@ -179,6 +181,9 @@ window says where each model ran.
   checks the result of freely planned work, and writes, debugs and corrects add-ons.
 - **The vision model reviews the coder's add-ons**, and describes the window when a fix is about something on
   screen.
+- **One model for both.** You can choose one model for vision and for code, such as Qwen3.5 9B and "Qwen3.5 9B,
+  used for coding": it is stored once and loaded once. It then does all of the above itself, and VisionClaw
+  calls it "the model". A second look by the same model may catch less than a second model would.
 
 ## Reasoning level
 

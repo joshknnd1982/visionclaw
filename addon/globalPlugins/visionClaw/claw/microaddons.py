@@ -475,6 +475,11 @@ def gestures(source):
 	return found
 
 
+def _writer(params):
+	"""What the model that writes the code is called: "the model" when one model does both jobs."""
+	return "model" if getattr(params, "oneModel", False) else "coder model"
+
+
 def _generate(llm, role, user, params):
 	answer = llm.text(role, _SYSTEM, user, maxTokens=params.codeTokens, reasoning=params.reasoning, temperature=0, code=True)
 	return extractCode(answer)
@@ -489,7 +494,7 @@ def write(llm, task, purpose, facts, notes, params, coder, reviewer):
 		user += f"What is known:\n{clip(facts, 900)}\n"
 	if notes:
 		user += f"Notes about NVDA that may help:\n{clip(notes, 1600)}\n"
-	task.emit("detail", "The coder model is writing the add-on.")
+	task.emit("detail", f"The {_writer(params)} is writing the add-on.")
 	return _settle(llm, task, purpose, _generate(llm, coder, user, params), params, coder, reviewer, notes, facts)
 
 
@@ -497,7 +502,7 @@ def fix(llm, task, purpose, source, problems, notes, params, coder, reviewer, fa
 	"""Have the coder model debug an add-on that fails or does the wrong thing. problems say what went wrong:
 	the error NVDA reported and where, and what the user says. Returns the corrected source, checked and
 	reviewed like a new add-on. Raises ToolError if no version passes the check."""
-	task.emit("detail", "The coder model is debugging the add-on: " + clip(problems[0], 240))
+	task.emit("detail", f"The {_writer(params)} is debugging the add-on: " + clip(problems[0], 240))
 	return _settle(llm, task, purpose, repair(llm, coder, purpose, source, problems, params, notes), params, coder,
 		reviewer, notes, facts)
 
@@ -526,12 +531,18 @@ def _settle(llm, task, purpose, source, params, coder, reviewer, notes="", facts
 			except LLMError:
 				verdict = {"ok": True}
 			fault = " ".join(str(verdict.get("problem") or "").split())
+			# With one model for both jobs, the review is that model reading its own code again.
+			one = getattr(params, "oneModel", False)
 			if not verdict.get("ok") and fault:
-				task.emit("talk", f"The reviewing model found a fault in the code: {fault}")
+				task.emit("talk", (
+					f"The model read its own code again and found a fault: {fault}" if one
+					else f"The reviewing model found a fault in the code: {fault}"))
 				problems = [fault]
 				doubt = fault
 			else:
-				task.emit("talk", "The reviewing model checked the code: no fault found.")
+				task.emit("talk", (
+					"The model read its own code again: no fault found." if one
+					else "The reviewing model checked the code: no fault found."))
 				doubt = ""
 		if not problems:
 			task.codeDoubt = doubt
@@ -547,7 +558,7 @@ def _settle(llm, task, purpose, source, params, coder, reviewer, notes="", facts
 		return source
 	if not left:
 		left = ["It is far too long for what was asked."]
-	raise ToolError("The coder model could not write code that passes the checks: " + " ".join(left[:3]))
+	raise ToolError(f"The {_writer(params)} could not write code that passes the checks: " + " ".join(left[:3]))
 
 
 def repair(llm, role, purpose, source, problems, params, notes=""):

@@ -870,12 +870,13 @@ def build(plugin):
 			ocr.promptPart(lines) + f"Look at this picture of the user's {target} and answer: {question} "
 			"Answer in a few short sentences. If you cannot see it, say so instead of guessing."
 		)
-		task.emit("talk", f"Asked the vision model: {question}")
+		seer = policy.roleName(VISION, policy.isOneModel(plugin.runtime))
+		task.emit("talk", f"Asked the {seer}: {question}")
 		answer = plugin.runtime.describe(prepareImage(image, config.conf["visionClaw"]["detailSize"]), prompt, 350,
 			cancel=task.cancel)
 		task.check()
-		task.emit("talk", f"The vision model answered: {clip(answer, 400)}")
-		return answer or "The vision model gave no answer."
+		task.emit("talk", f"The {seer} answered: {clip(answer, 400)}")
+		return answer or f"The {seer} gave no answer."
 
 	add("look", "look at the screen with the vision model and answer a question about what is shown", look, {
 		"target": text("what to look at", enum=_TARGETS, auto=targetOf),
@@ -1222,8 +1223,12 @@ def build(plugin):
 			"Checking the code shows: {facts} Turn it on?"
 		).format(name=name, purpose=purpose.rstrip("."), facts=checked)
 		if getattr(task, "codeDoubt", ""):
-			# Translators: Added to the question when the reviewing model is not sure about the code.
-			question = _("The reviewing model has a doubt about it: {doubt} ").format(doubt=task.codeDoubt) + question
+			if policy.isOneModel(plugin.runtime):
+				# Translators: Added to the question when the one model, reading its own code again, is not sure about it.
+				question = _("Reading its code again, the model has a doubt about it: {doubt} ").format(doubt=task.codeDoubt) + question
+			else:
+				# Translators: Added to the question when the reviewing model is not sure about the code.
+				question = _("The reviewing model has a doubt about it: {doubt} ").format(doubt=task.codeDoubt) + question
 		# Translators: Choices when a newly written add-on is ready.
 		choices = [_("Turn it on"), _("Do not use it"), _("Show me the code first")]
 		choice = plugin.clawAsk(question, choices)

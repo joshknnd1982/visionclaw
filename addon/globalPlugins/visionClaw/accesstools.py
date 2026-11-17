@@ -10,7 +10,8 @@
 #   addon_info     what an add-on installed in this NVDA is, what its commands are, and what its help says
 # The inspection also works out how a sighted person works each control: from NVDA's facts where they say
 # it, and for the controls whose kind NVDA cannot tell by asking both models, the vision model about the
-# control's picture and the coder model about a deep query of it. From that it chooses the fix.
+# control's picture and the coder model about a deep query of it. From that it chooses the fix. When one model
+# does both jobs it is asked both questions, and the report says "the model", never "both models".
 # Code inspects, decides what is a problem, and puts the add-on together from fixed, tested parts. The models
 # choose what the user means and name icons from their pictures; they never write this add-on's code.
 # The functions run on the task's worker thread; everything that touches NVDA is passed to NVDA's main thread.
@@ -29,7 +30,7 @@ import inputCore
 from logHandler import log
 
 from . import controlkeys, deepquery, fixruntime, mousetools, nvdainfo, ocr
-from .claw import audit, dragcontrol, fixes, match, microaddons, scrolling, web, working
+from .claw import audit, dragcontrol, fixes, match, microaddons, policy, scrolling, web, working
 from .claw.catalog import CODER, VISION
 from .claw.fixmatch import hostOf, labelOf, matches, nodeFromObject, plainText
 from .claw.llm import LLM, clip
@@ -275,9 +276,15 @@ def judge(plugin, task, place, node=None, obj=None):
 	except Exception:
 		task.check()
 		log.debugWarning("VisionClaw: the coder model could not judge a control", exc_info=True)
-	way, sure, by = working.settle(seen, thought)
-	task.emit("talk", f"How {facts.get('name') or 'a control without a name'} is worked: the vision model says "
-		f"{seen or 'nothing'}, the coder model says {thought or 'nothing'}.")
+	one = policy.isOneModel(plugin.runtime)
+	way, sure, by = working.settle(seen, thought, one)
+	calling = facts.get('name') or 'a control without a name'
+	if one:
+		task.emit("talk", f"How {calling} is worked: from its picture the model says {seen or 'nothing'}, "
+			f"from what is reported about it the model says {thought or 'nothing'}.")
+	else:
+		task.emit("talk", f"How {calling} is worked: the vision model says "
+			f"{seen or 'nothing'}, the coder model says {thought or 'nothing'}.")
 	return {"way": way, "sure": sure, "by": by, "facts": facts, "focusable": bool(facts.get("focusable"))}
 
 
@@ -327,7 +334,8 @@ def _pictured(plugin, task, window):
 			task.check()
 			continue
 		name = item.get("plain") or item.get("name") or item["text"]
-		task.emit("talk", f"How {name} is worked, from its picture: the vision model says {way or 'nothing'}.")
+		task.emit("talk", f"How {name} is worked, from its picture: the "
+			f"{policy.roleName(VISION, policy.isOneModel(plugin.runtime))} says {way or 'nothing'}.")
 		if way in working.TURNED:
 			x, y, radius = dragcontrol.handleOf(result.items, index)
 			control = controlkeys.newControl(
@@ -363,12 +371,15 @@ def _worked(plugin, task, place, deep, site=""):
 		sentences.append(
 			"NVDA cannot tell the kind of " + audit._plural(len(found["unsure"]), "thing") + " here that may be worked. "
 			"VisionClaw looked into " + ("them" if left <= 0 else f"{len(told)} of them")
-			+ ", with a deep query and, where that did not say, with both models, and a model can be wrong: "
+			+ ", with a deep query and, where that did not say, with "
+			+ ("the model, shown the picture and told what is reported" if policy.isOneModel(plugin.runtime) else "both models")
+			+ ", and a model can be wrong: "
 			+ "; ".join(told) + ".")
 	elif found["unsure"]:
 		sentences.append(
 			"NVDA cannot tell the kind of " + audit._plural(len(found["unsure"]), "thing") + " here that may be worked; a "
-			"deep inspection has both models look at them.")
+			"deep inspection has " + ("the model" if policy.isOneModel(plugin.runtime) else "both models")
+			+ " look at them.")
 	controls = [control for control in (_controlFor(plugin, place, node, way, site) for node, way in turned[:working.MAX_KEYS_OFFERED])
 		if control is not None]
 	if deep and not page and sum(found["ways"].values()) <= 1:
@@ -556,7 +567,8 @@ def nameByLooking(plugin, task, inspection, group):
 			log.debugWarning("VisionClaw: a control could not be named from its picture", exc_info=True)
 			continue
 		name = audit.cleanName(answer)
-		task.emit("talk", f"The vision model looked at a {group['kind']} without a name and calls it: {name or 'unknown'}")
+		task.emit("talk", f"The {policy.roleName(VISION, policy.isOneModel(plugin.runtime))} looked at a "
+			f"{group['kind']} without a name and calls it: {name or 'unknown'}")
 		names.append(name)
 	if not names or not names[0]:
 		return ""

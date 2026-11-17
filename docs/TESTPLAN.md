@@ -262,6 +262,10 @@ Settings, Display, Scale).
 ## Agreement
 - [ ] With two different models, note how often "The two models do not agree" appears for the requests above,
       and whether the choices offered make sense.
+- [ ] With one model chosen for both jobs (for example Qwen3.5 9B and "Qwen3.5 9B, used for coding"): ask
+      "Make NVDA speak a little faster", then press NVDA+Alt+C again and read the Last task box. It says "The
+      model is choosing what to do" and "The plan is ready", and nowhere "two models", "both models" or "agree".
+      It also says "One model does both jobs".
 
 ## Stopping NVDA
 - [ ] NVDA exits without an error, and no `vcengine.exe` is left running (Task Manager).
