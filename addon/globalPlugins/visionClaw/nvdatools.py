@@ -25,8 +25,8 @@ import ui
 import wx
 from logHandler import log
 
-from . import nvdainfo, ocr, webtools
-from .claw import changes, drivers, match, microaddons, policy, web
+from . import mousetools, nvdainfo, ocr, webtools
+from .claw import changes, drivers, match, microaddons, pointer, policy, web
 from .claw.catalog import CODER, VISION
 from .claw.llm import LLM, clip
 from .claw.memory import score, wordList, words as wordsOf
@@ -218,6 +218,35 @@ def pickItem(reference, items, prefer=()):
 				if items[i].get("kind") == kind:
 					return i
 	return index
+
+
+def mentioned(asked, items):
+	"""The names of the items that the user's own words mention, in the order they are said.
+	"Drag the New Game button onto the Quit button" mentions New Game, then Quit. Where two names overlap,
+	the longer is meant. A name shared by several items is given once."""
+	said = f" {match.plain(asked)} "
+	spans = []
+	for item in items:
+		name = match.plain(item.get("plain") or item.get("name") or item["text"])
+		if len(name) < 2:
+			continue
+		at = said.find(f" {name} ")
+		if at >= 0 and (at, at + len(name), name) not in spans:
+			spans.append((at, at + len(name), name))
+	spans.sort(key=lambda span: (span[0], -(span[1] - span[0])))
+	names, end = [], -1
+	for start, stop, name in spans:
+		if start >= end:
+			names.append(name)
+			end = stop
+	return names
+
+
+def meant(asked, items, reference):
+	"""What to look an item up by: the one item the user's own words name, if they name exactly one; otherwise
+	what the model wrote. A person's words are more reliable than a small model's copy of them."""
+	names = mentioned(asked, items) if asked else []
+	return names[0] if len(names) == 1 else reference
 
 
 def _safe(fn, default=None):
@@ -624,19 +653,24 @@ class Screen:
 		return [item.get("plain") or item.get("name") or item["text"] for item in result.items]
 
 	@staticmethod
-	def click(result, item):
-		"""Activate a web page item the way NVDA does, or click the middle of an item in a window and put the
-		mouse back. Main thread."""
+	def click(result, item, action=pointer.CLICK):
+		"""Click, double-click, right-click or point at an item. In a window this is done with the mouse in the
+		middle of the item, and the mouse is put back. A web page item is worked the way NVDA does it: activated,
+		or moved to, and for a right-click its context menu is opened with the Applications key. Main thread."""
 		if item.get("web") is not None:
-			webtools.activate(item)
+			if action in (pointer.RIGHT, pointer.HOVER):
+				webtools.moveTo(item)
+				if action == pointer.RIGHT:
+					from keyboardHandler import KeyboardInputGesture
+					KeyboardInputGesture.fromName("applications").send()
+			else:
+				webtools.activate(item)
 			return
-		import mouseHandler
-		import winUser
 		x, y = result.screenPoint(item)
-		old = winUser.getCursorPos()
-		winUser.setCursorPos(x, y)
-		mouseHandler.doPrimaryClick()
-		wx.CallLater(150, winUser.setCursorPos, *old)
+		old = mousetools.position()
+		mousetools.click(x, y, action)
+		if action != pointer.HOVER:  # pointing at something means leaving the pointer there
+			wx.CallLater(250, mousetools.moveTo, *old)
 
 
 # --- Knowledge ---
@@ -871,26 +905,41 @@ def build(plugin):
 		listItems, {"about": text("what is being looked for, in a few words", maxLength=120, auto=True)},
 		looks=True, title="Listing what is there")
 
-	def clickItem(task, item):
+	def clickItem(task, item, action, asked):
 		result = getattr(task, "items", None)
 		if result is None or not result.items:
 			raise ToolError("Use list_items first.")
-		index = pickItem(item, result.items, ("link", "button"))
+		index = pickItem(meant(asked, result.items, item), result.items, ("link", "button"))
 		if index is None:
 			raise ToolError(f"There is no item called \"{item}\". Use a number or a name from list_items.")
 		found = result.items[index]
-		if found.get("kind") != "link":  # following a link only goes to another page
-			# Translators: Asked before VisionClaw clicks something. {item} is what will be clicked.
-			confirm(_("Click {item}?").format(item=found["text"]))
-		onMain(Screen.click, result, found)
+		if action not in pointer.ACTIONS:
+			action = pointer.CLICK
+		# Following a link only goes to another page, and pointing changes nothing; everything else is asked about.
+		if action != pointer.HOVER and not (found.get("kind") == "link" and action == pointer.CLICK):
+			confirm({
+				# Translators: Asked before VisionClaw clicks something. {item} is what will be clicked.
+				pointer.CLICK: _("Click {item}?"),
+				# Translators: Asked before VisionClaw double-clicks something.
+				pointer.DOUBLE: _("Double-click {item}?"),
+				# Translators: Asked before VisionClaw right-clicks something.
+				pointer.RIGHT: _("Right-click {item}?"),
+			}[action].format(item=found["text"]))
+		onMain(Screen.click, result, found, action)
+		if action == pointer.HOVER:
+			return f"The mouse pointer is on {found['text']}."
 		time.sleep(CLICK_SETTLE_SECONDS)
 		task.items = None  # the window has probably changed
-		return f"Clicked {found['text']}."
+		done = {pointer.CLICK: "Clicked", pointer.DOUBLE: "Double-clicked", pointer.RIGHT: "Right-clicked"}[action]
+		return f"{done} {found['text']}."
 
-	add("click_item", "click one item from list_items: follow a link, press a button, click an item in a window",
-		clickItem,
-		{"item": text("the number or the name of the item, from list_items", maxLength=80)},
-		changes=True, before="list_items", title="Clicking the item")
+	add("click_item",
+		"click, double-click, right-click or point at one item from list_items: a link, a button, an item in a window",
+		clickItem, {
+			"item": text("the number or the name of the item, from list_items", maxLength=80),
+			"action": text("what to do with the mouse", enum=pointer.ACTIONS, auto=pointer.actionOf),
+			"asked": text("what the user asked for, in their own words", maxLength=300, auto=True),
+		}, changes=True, before="list_items", title="Clicking the item")
 
 	def pressKeys(task, keys):
 		from keyboardHandler import KeyboardInputGesture
@@ -1119,7 +1168,8 @@ def build(plugin):
 		"give the program in front its own hotkey that clicks an item or reads the text at an item, found by name each time",
 		createHelper, {
 			"key": text("the hotkey, like NVDA+alt+1", maxLength=30),
-			"action": text("click presses the item; read speaks the item and the text after it", enum=["click", "read"]),
+			"action": text("click, double click or right click the item; read speaks the item and the text after it",
+				enum=[pointer.CLICK, pointer.DOUBLE, pointer.RIGHT, "read"]),
 			"item": text("the name of the item, from list_items", maxLength=80),
 		}, changes=True, before="list_items", title="Making the hotkey")
 
@@ -1362,11 +1412,11 @@ def build(plugin):
 		"say how the web page is laid out: its headings in order, and how many links, buttons and fields it has",
 		pageOutline, looks=True, title="Looking at how the page is laid out", tell=VERBATIM)
 
-	def goToItem(task, item):
+	def goToItem(task, item, asked):
 		result = getattr(task, "items", None)
 		if result is None or not getattr(result, "web", False):
 			raise ToolError("Use list_items first, in a web page.")
-		index = pickItem(item, result.items, ("heading",))
+		index = pickItem(meant(asked, result.items, item), result.items, ("heading",))
 		if index is None:
 			raise ToolError(f"There is no item called \"{item}\" on the page. Use a number or a name from list_items.")
 		found = result.items[index]
@@ -1375,8 +1425,10 @@ def build(plugin):
 
 	add("go_to_item",
 		"move NVDA's reading position to one item from list_items on the web page: a heading, a link or a field",
-		goToItem, {"item": text("the number or the name of the item, from list_items", maxLength=80)},
-		before="list_items", title="Moving there", tell=VERBATIM)
+		goToItem, {
+			"item": text("the number or the name of the item, from list_items", maxLength=80),
+			"asked": text("what the user asked for, in their own words", maxLength=300, auto=True),
+		}, before="list_items", title="Moving there", tell=VERBATIM)
 
 	def pageNavigate(task, direction):
 		from keyboardHandler import KeyboardInputGesture
@@ -1399,13 +1451,14 @@ def build(plugin):
 		{"direction": text("which way", enum=list(_PAGE_KEYS), auto=directionOf)},
 		title="Moving between pages", tell=VERBATIM)
 
-	def fillField(task, field, typed, enter):
+	def fillField(task, field, typed, enter, asked):
 		from keyboardHandler import KeyboardInputGesture
 		result = getattr(task, "items", None) or screen.items()
 		if getattr(result, "web", False):
-			index = webtools.fieldIndex(field, result.items)
+			fields = [item for item in result.items if item.get("kind") in webtools.FIELD_KINDS]
+			index = webtools.fieldIndex(meant(asked, fields, field), result.items)
 		else:
-			index = match.itemIndex(field, Screen.names(result))
+			index = match.itemIndex(meant(asked, result.items, field), Screen.names(result))
 		if index is None:
 			raise ToolError(f"There is no field called \"{field}\". Use a number or a name from list_items.")
 		found = result.items[index]
@@ -1423,12 +1476,16 @@ def build(plugin):
 
 	registry.add(Tool(
 		"fill_field", "type text into one field from list_items, such as a search box or a field of a form",
-		guarded(lambda task, field, text, enter: fillField(task, field, text, enter)), {
+		guarded(lambda task, field, text, enter, asked: fillField(task, field, text, enter, asked)), {
 			"field": text("the number or the name of the field, from list_items", maxLength=80),
 			"text": text("the text to type into it", maxLength=400),
 			"enter": text("yes to press Enter afterwards, to search or send", enum=["yes", "no"],
 				auto=lambda part: "yes" if _SUBMITS.search(part) else "no"),
+			"asked": text("what the user asked for, in their own words", maxLength=300, auto=True),
 		}, changes=True, before="list_items", title="Typing into the field"))
+
+	# The mouse from the keyboard: dragging, and pointer mode.
+	mousetools.register(add, plugin, text, confirm, screen, pickItem, mentioned)
 
 	registry.add(Tool(ANSWER, "tell the user the result in plain words; always the last step", lambda task: ""))
 	return registry

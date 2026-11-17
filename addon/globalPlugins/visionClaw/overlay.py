@@ -587,6 +587,34 @@ class OverlayDocument(recogUi.RefreshableRecogResultNVDAObject):
 	def script_rightClick(self, gesture):
 		self._click("right")
 
+	def script_grab(self, gesture):
+		"""Drag and drop from the keyboard: G on an item picks it up, G on another item drops it there."""
+		import ui
+		result, item = self._currentItem()
+		if item is None:
+			return
+		held = getattr(self, "_held", None)
+		if held is None:
+			self._held = (result.screenPoint(item), item["text"])
+			# Translators: Spoken in the overlay when an item is picked up for dragging. {item} is the item.
+			ui.message(_("Picked up {item}. Move to where it should go and press G again.").format(item=item["text"]))
+			return
+		self._held = None
+		start, name = held
+		end = result.screenPoint(item)
+		if start == end:
+			# Translators: Spoken in the overlay when an item is put down where it was picked up.
+			ui.message(_("Put back."))
+			return
+		from . import mousetools
+		sounds.play("click")
+		log.debug(f"VisionClaw: overlay drag of {name!r} from {start} to {end}")
+		# The drag takes about half a second; it must not hold up NVDA.
+		threading.Thread(target=mousetools.drag, args=(start, end), name="visionClaw-drag", daemon=True).start()
+		# Translators: Spoken in the overlay after an item was dragged. {item} was dragged, {target} is where to.
+		ui.message(_("Dropped {item} on {target}.").format(item=name, target=item["text"]))
+		self._plugin.overlayClicked(item["text"])
+
 	def script_nextItem(self, gesture):
 		self.script_moveByLine_forward(gesture)
 
@@ -678,6 +706,7 @@ class OverlayDocument(recogUi.RefreshableRecogResultNVDAObject):
 		"kb:shift+enter": "doubleClick",
 		"kb:applications": "rightClick",
 		"kb:shift+f10": "rightClick",
+		"kb:g": "grab",
 		# Quick navigation, with the same letters as browse mode.
 		"kb:h": "nextHeading", "kb:shift+h": "previousHeading",
 		"kb:b": "nextButton", "kb:shift+b": "previousButton",

@@ -315,6 +315,13 @@ for request, recipe in (
 	("change the voice to Ben", "change_setting"),
 	("list the add-ons you have made", "list_made"),
 	("click the Sign in link", "click"),
+	("right-click the file icon", "click"),
+	("hover over the Help button", "click"),
+	("drag the volume slider to the right", "drag"),
+	("drag the file onto the trash", "drag"),
+	("turn on pointer mode", "keyboard_mouse"),
+	("make this control keyboard navigable", "keyboard_mouse"),
+	("let me move the mouse pointer with the arrow keys", "keyboard_mouse"),
 ):
 	assert planner.hint(request) == recipe, (request, planner.hint(request))
 assert planner.quickTriage("write an add-on that beeps when a link gets focus")["needs_code"]

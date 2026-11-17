@@ -15,7 +15,7 @@ import sys
 import time
 
 import harness
-from visionClaw.claw import catalog, match, orchestrator, runtime, tools, web
+from visionClaw.claw import catalog, match, orchestrator, pointer, runtime, tools, web
 from visionClaw.claw import task as taskModule
 from visionClaw.claw.catalog import CODER, VISION
 from visionClaw.claw.memory import Memory, score
@@ -89,11 +89,12 @@ def makeRegistry(rt, state):
 	def listItems(task, about):
 		return f"{len(items)} items in the window:\n" + "\n".join(f"{i}. {n}" for i, n in enumerate(items, 1))
 
-	def clickItem(task, item):
+	def clickItem(task, item, action):
 		for i, name in enumerate(items, 1):
 			if item.strip().rstrip(".") == str(i) or item.lower().replace(" button", "") in name.lower():
-				state["clicked"] = name
-				return f"Clicked {name}."
+				state["clicked"] = name if action == "click" else (name, action)
+				done = {"click": "Clicked", "double click": "Double-clicked", "right click": "Right-clicked"}.get(action)
+				return f"{done} {name}." if done else f"The mouse pointer is on {name}."
 		raise tools.ToolError(f"There is no item called \"{item}\". Use a number or a name from list_items.")
 
 	def findCommand(task, words):
@@ -121,8 +122,11 @@ def makeRegistry(rt, state):
 	reg.add(tools.Tool("list_items", "list the buttons, texts and icons in the window in front, even when NVDA cannot read it",
 		listItems, {"about": text("what is being looked for, in a few words", maxLength=120, auto=True)},
 		looks=True, title="Listing what is there"))
-	reg.add(tools.Tool("click_item", "click one item from list_items in the real window", clickItem,
-		{"item": text("the number or the name of the item, from list_items", maxLength=80)},
+	reg.add(tools.Tool("click_item",
+		"click, double-click, right-click or point at one item from list_items: a link, a button, an item in a window",
+		clickItem,
+		{"item": text("the number or the name of the item, from list_items", maxLength=80),
+			"action": text("what to do with the mouse", enum=pointer.ACTIONS, auto=pointer.actionOf)},
 		changes=True, before="list_items", title="Clicking the item"))
 	reg.add(tools.Tool("find_setting", "find NVDA settings by describing them; gives each setting's id, value now and allowed values",
 		findSetting, {"words": text("2 to 4 keywords for the setting, like: speech rate", maxLength=80, auto=True)},
@@ -210,6 +214,18 @@ def makeRegistry(rt, state):
 		{"what": text("which change to undo, in the user's words", maxLength=300, auto=True)}, changes=True)
 	simple("list_changes", "say which settings VisionClaw has changed, and from what to what",
 		"Speech rate: from 50 to 45, on 17 November at 12:57.", "Looking up what was changed", looks=True, tell=V)
+	simple("drag_item",
+		"drag one item from list_items with the mouse: onto another item, or in a direction, as for a slider",
+		"Dragged {item} to {to}. The user said: {asked}", "Dragging the item", {
+			"item": text("the number or the name of the item to drag, from list_items", maxLength=80),
+			"to": text("the item to drag it onto, or a direction and distance in the user's words, such as: right a little",
+				maxLength=80),
+			"asked": text("what the user asked for, in their own words", maxLength=300, auto=True),
+		}, changes=True, before="list_items")
+	simple("pointer_mode",
+		"turn on pointer mode, so the user can work any control with the keyboard: the arrow keys move the mouse "
+		"pointer, and keys click, right-click, double-click and drag",
+		"Pointer mode is on. The arrow keys move the mouse pointer in this window.", "Turning on pointer mode", tell=V)
 	simple("list_helpers", "list the app helpers and add-ons VisionClaw has made on this computer",
 		"Add-on hello_key (on): say hello on NVDA+shift+h. Keys: NVDA+shift+h.", "Listing what VisionClaw made",
 		looks=True, tell=V)
@@ -267,6 +283,9 @@ REQUESTS = (
 	"Restore the voice pitch to what it was before you changed it.",
 	"What did you change?",
 	"Undo that.",
+	"Right-click the Options button.",
+	"Drag the New Game button onto the Quit button.",
+	"Make this control keyboard navigable.",
 )
 
 

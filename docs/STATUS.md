@@ -74,6 +74,20 @@ every time, so the user was never asked to decide. The one failure: the model wr
 ("speech: rate") where its id was wanted, which the stand-in tool refused; the real tool accepted near misses
 already and now accepts the name too.
 
+## The mouse from the keyboard (not yet released)
+
+Right-click, double-click, pointing and dragging on items found in a window's picture; G to pick up and drop in
+the overlay; pointer mode (NVDA+Alt+K); right-click and double-click for app helpers. Tested with stand-ins
+that write down every mouse move and button instead of making them: right-click, double-click and pointing at
+an item; a drag from one item onto another in small steps with the button released at the end; a drag by
+direction and distance; pointer mode's keys through the plugin's own key handling, including hold, move, let
+go, and letting go when the mode is left. With the owner's two real models, "right-click the Options button",
+"drag the New Game button onto the Quit button" and "make this control keyboard navigable" were each handled
+the right way. That run also showed Qwen3.5 4B writing ", " where an item's name belongs in a form with two
+fields; since then the user's own words decide which items are meant (`nvdatools.mentioned`).
+**None of it has moved a real mouse**: whether programs accept the clicks and drags, and how pointer mode feels
+in use, must be found out in NVDA.
+
 ## What was not tested
 
 - **Model management (0.3.2)**, apart from the owner's report above, was tested against stand-ins only: listing what is stored, removing some or all

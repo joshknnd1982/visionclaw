@@ -48,7 +48,8 @@ RECIPES = {
 		("read_text",)),
 	"click": (
 		"click an item in the window",
-		"click or press a button, link or other item, in the window in front or on the web page",
+		"click, double-click, right-click or point at a button, link or other item, in the window in front or on "
+		"the web page",
 		("list_items", "click_item")),
 	"press_keys": (
 		"press keys in the program",
@@ -132,6 +133,15 @@ RECIPES = {
 		"save an add-on as a file",
 		"save an add-on VisionClaw wrote as a file that can be installed for good or shared",
 		("list_helpers", "export_addon")),
+	"drag": (
+		"drag something with the mouse",
+		"drag an item with the mouse onto another item or in a direction, or move a slider",
+		("list_items", "drag_item")),
+	"keyboard_mouse": (
+		"let you work the mouse pointer with the keyboard",
+		"turn on pointer mode, so the user can work a control, canvas or game that has nothing to list: the arrow "
+		"keys move the mouse pointer, and keys click, right-click and drag",
+		("pointer_mode",)),
 	"where_am_i": (
 		"say where you are",
 		"say which program, window and control the user is in",
@@ -160,7 +170,11 @@ _HINTS = (
 	("fill_field", r"\b(type|enter|write|fill|put)\b.*\b(in|into)\b.*\b(field|box|form|search)\b"),
 	("nvda_info", r"\b(which|what|list|show|tell me|do i have)\b.*\b(synthesi[sz]ers?|synths?|voices?|braille|drivers?|add-?ons?|version)\b"),
 	("explain_keys", r"how (do|can|would|to) |what (key|keys|command|shortcut)|which (key|keys|command)|shortcut for"),
+	("keyboard_mouse", r"\bpointer mode\b|\bmouse (mode|keys)\b|\b(keyboard|arrow keys?)\b.*\b(mouse|pointer)\b"
+		r"|\b(mouse|pointer)\b.*\b(keyboard|arrow keys?)\b|\bkeyboard[- ](navigable|accessible)\b"),
+	("drag", r"\bdrag\b|\bslider\b|\bdrop\b.*\b(on|onto|into)\b"),
 	("change_setting", r"speed|rate\b|faster|slower|louder|quieter|volume|pitch|voice|punctuation|echo|braille|setting|turn (on|off)|switch (on|off)|enable|disable|stop (saying|reading|announcing|speaking)"),
+	("click", r"\bright[- ]click\b|\bdouble[- ]click\b|\bhover\b|\bpoint (at|to)\b"),
 	("click", r"\b(click|press|push|activate|select|choose|start|open)\b.*\b(button|link|item|menu|tab|icon|game|option)|\bclick\b"),
 	("press_keys", r"\bpress\b.*\b(key|enter|escape|tab|control|alt|shift|f\d+)\b"),
 	("type_text", r"\btype\b|\bwrite\b.*\binto\b"),

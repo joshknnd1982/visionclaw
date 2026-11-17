@@ -114,8 +114,9 @@ class Helpers:
 			wx.CallAfter(ui.message, _("{item} is not in this window right now.").format(item=binding["item"]))
 			return
 		item = result.items[index]
-		if binding["action"] == CLICK:
-			wx.CallAfter(self._plugin.clawScreen.click, result, item)
+		if binding["action"] != READ:
+			# click, double click or right click, as the helper was made
+			wx.CallAfter(self._plugin.clawScreen.click, result, item, binding["action"])
 			wx.CallAfter(ui.message, item["text"])
 		else:
 			following = result.items[index + 1]["text"] if index + 1 < len(result.items) else ""

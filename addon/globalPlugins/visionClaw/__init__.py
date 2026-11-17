@@ -34,7 +34,7 @@ from logHandler import log
 from scriptHandler import script
 from speech import extensions as speechExtensions
 
-from . import autodescribe, clawui, curtain, dialogs, explorer, followup, hardware, helpers, imaging, labels, localmedia, nvdatools, ocr, sounds, viewers, winzapp
+from . import autodescribe, clawui, curtain, dialogs, explorer, followup, hardware, helpers, imaging, labels, localmedia, mousetools, nvdatools, ocr, sounds, viewers, winzapp
 from .claw import catalog, drivers
 from .claw.changes import ChangeLog
 from .claw import task as clawTask
@@ -412,6 +412,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		# Every setting VisionClaw changes is written down, so that it can be put back.
 		self.changes = ChangeLog(os.path.join(DATA_DIR, "changes.json"))
 		self.helpers = helpers.Helpers(self, DATA_DIR)
+		self.pointerMode = mousetools.PointerMode(self)
 		self.clawTask = None
 		self._askDialog = None
 		registry = nvdatools.build(self)
@@ -491,6 +492,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			self.clawTask.stop()
 		if getattr(self, "_debugTask", None) is not None:
 			self._debugTask.stop()
+		self.pointerMode.stop(say=False)
 		self.helpers.terminate()
 		self.runtime.stop()
 		try:
@@ -675,7 +677,8 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 
 	def getScript(self, gesture):
 		# An app helper's hotkey works only in its own program, and only if nothing else uses the key.
-		return super().getScript(gesture) or self.helpers.scriptFor(gesture)
+		# In pointer mode the arrow keys and a few others work the mouse pointer.
+		return super().getScript(gesture) or self.pointerMode.scriptFor(gesture) or self.helpers.scriptFor(gesture)
 
 	def clawAsk(self, question, choices):
 		"""Ask the user to choose. Called from a task's thread. Returns the index, or None."""
@@ -789,6 +792,17 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			return
 		self._askDialog = clawui.AskDialog(gui.mainFrame, self.startClawTask, self.clawTask, conf()["reasoning"])
 		dialogs.show(self._askDialog)
+
+	@script(
+		# Translators: Description of a command in the Input Gestures dialog.
+		description=_(
+			"Turns pointer mode on or off: the arrow keys move the mouse pointer in the current window, Enter clicks, "
+			"the Applications key right-clicks, and G holds and lets go for dragging."
+		),
+		gesture="kb:NVDA+alt+k",
+	)
+	def script_pointerMode(self, gesture):
+		self.pointerMode.toggle()
 
 	@script(
 		# Translators: Description of a command in the Input Gestures dialog.

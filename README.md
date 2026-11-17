@@ -202,6 +202,36 @@ The models still run only on your computer. The browser goes online, as it does 
 - NVDA commands that can silence or close NVDA (speech mode, sleep mode, quit, restart) are also always asked
   about first, with a word on how to undo them.
 
+## Working the mouse from the keyboard
+
+Sighted people click, right-click, double-click and drag on controls that give a screen reader nothing to hold
+on to. VisionClaw lets you do all of that without a mouse, in three ways.
+
+**Ask for it.** VisionClaw finds the item in the window's picture and does it:
+- "Right-click the file icon", "double-click the folder", "point at the Help button".
+- "Drag the file onto the Trash", "drag the volume slider to the right a little", "drag the handle down 50
+  pixels".
+You are asked first, except for pointing, which changes nothing.
+
+**In the overlay** (NVDA+Alt+O), on any item: Enter or Space clicks, Shift+Enter double-clicks, the Applications
+key right-clicks, and **G picks the item up; G on another item drops it there.**
+
+**Pointer mode** (NVDA+Alt+K, or ask "make this control keyboard navigable") is for a control, canvas or game
+where nothing can be listed at all. The arrow keys move the mouse pointer inside the window:
+- Arrow keys: 20 pixels. With Shift: 4 pixels. With Control: 100 pixels. A short tone tells you how high the
+  pointer is, and a low tone that it has reached the edge.
+- Enter or Space clicks, Shift+Enter double-clicks, the Applications key right-clicks.
+- **G holds the mouse button down; move; G again lets go.** That is a drag done by hand.
+- W has the vision model say what is at the pointer. R reads the text there. P says where the pointer is in the
+  window. Home goes to the middle. H repeats the keys. Escape turns pointer mode off.
+All other keys keep working as usual.
+
+**App helpers** can right-click or double-click their item as well as click it: "give this program a hotkey
+that right-clicks the canvas".
+
+When you name the things yourself, as in "drag the New Game button onto the Quit button", your own words decide
+which items are meant, not the model's copy of them.
+
 ## Add-ons written by VisionClaw
 
 **You never have to read, write or debug code.** You say what you need; the coder model writes a small add-on.
@@ -253,6 +283,7 @@ add-on. Small models make mistakes; read the code or ask someone you trust if an
 | NVDA+Alt+P | Say the progress of the current request |
 | NVDA+Alt+X | Stop the current request |
 | NVDA+Alt+M | See, remove or swap the models on this computer |
+| NVDA+Alt+K | Pointer mode: work the mouse pointer with the arrow keys |
 | NVDA+Alt+A | Describe the current element |
 | NVDA+Alt+W | Describe the current window |
 | NVDA+Alt+F | Describe the whole screen |

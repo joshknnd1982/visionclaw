@@ -73,6 +73,12 @@ keyboard and speech alone.
   takes the user's own words (`asked`, an `auto` field), refuses when they say nothing about its target
   (`nvdatools.related`), records the old value (`claw/changes.py`), and shows the request in its question.
   Never learn a lesson from a search tool: finding something is not finding the right thing.
+- **The user's own words decide which thing is meant.** When the request names exactly one item of the list
+  (two for a drag), that is used, whatever the model wrote in the form (`nvdatools.mentioned`, `meant`). Give a
+  tool that picks an item the `asked` auto field.
+- **Tests never move the real mouse or type into the real computer.** `tests/test_nvda_stub.py` replaces
+  `mousetools.moveTo`, `mousetools._button` and `nvdatools.typeUnicode` with functions that write down what
+  would have happened.
 - **Measure with the real model.** After any change to a prompt, a recipe or a form, run
   `python tests/live_orchestrator.py` and read every answer. A change that passes the scripted tests can still
   make a small model worse.
@@ -96,6 +102,7 @@ addon/
     clawui.py                Ask VisionClaw window, choice prompts, progress speech
     nvdatools.py             the tools the models can call, written against the NVDA API
     webtools.py              the web through NVDA's browse mode: a page's links, buttons, fields and text
+    mousetools.py            the mouse from the keyboard: click, right-click, double-click, drag, pointer mode
     nvdainfo.py              what NVDA has and uses: synthesizer, voices, braille display, drivers, add-ons
     helpers.py               app helpers and generated add-ons: loading them live, their hotkeys
     (the rest)               VisionMate features: overlay, OCR, chat photos, labels ...
@@ -108,6 +115,7 @@ addon/
       match.py               forgiving matching of what a model writes against what exists
       web.py                 web addresses, search addresses, the passages of a page that matter
       drivers.py             rules that keep speech and braille alive; what happened with each driver
+      pointer.py             which mouse action is meant, where a drag ends, how pointer mode moves
       changes.py             every setting VisionClaw changed, so that it can be listed and put back
       planner.py             splits a request into parts; recipes; free plans and their repair
       consensus.py           the two models agree, or the user decides
@@ -199,6 +207,8 @@ A session is done only when its "Done when" line is true.
   `dialogs.ManageModelsDialog`, `plugin.removeModels`). Stop the engines before deleting model files.
 - [x] **3.12 Settings stay the user's.** Changes only to what was asked about; a record of every change;
   `undo_change` and `list_changes`.
+- [x] **3.13 The mouse from the keyboard.** Right-click, double-click, pointing and dragging on listed items;
+  G to pick up and drop in the overlay; pointer mode (NVDA+Alt+K) for controls with nothing to list.
 - [ ] **3.5 Test inside NVDA.** Install the build in NVDA (ask the user first) and walk through
   `docs/TESTPLAN.md`. Fix what breaks. *Done when:* every item in the test plan is ticked by a real run.
 

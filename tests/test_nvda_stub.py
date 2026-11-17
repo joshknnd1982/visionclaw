@@ -208,7 +208,13 @@ sys.modules["contentRecog"].recogUi = sys.modules["contentRecog.recogUi"]
 # The real add-on package this time, with its own __init__.
 sys.path.insert(0, os.path.join(ROOT, "addon", "globalPlugins"))
 plugin = importlib.import_module("visionClaw")
-from visionClaw import nvdatools, webtools  # noqa: E402
+from visionClaw import mousetools, nvdatools, webtools  # noqa: E402
+# Nothing really moves the mouse during the tests: every move and button is only written down.
+moves, buttons = [], []
+mousetools.moveTo = lambda x, y: moves.append((x, y))
+mousetools._button = buttons.append
+mousetools.position = lambda: (7, 7)
+mousetools._SETTLE = mousetools._DRAG_STEP = mousetools._HOLD = 0
 nvdatools.typeUnicode = typed.append  # nothing is really typed into the computer during the tests
 from visionClaw.claw import orchestrator, planner  # noqa: E402
 from visionClaw.claw import task as taskModule  # noqa: E402
@@ -225,7 +231,7 @@ with open(os.path.join(CONFIG_DIR, "visionClaw", "lessons.json"), "w", encoding=
 	], f)
 instance = plugin.GlobalPlugin()
 registry = instance.orchestrator.registry
-assert len(registry.names()) == 34, registry.names()
+assert len(registry.names()) == 36, registry.names()
 # Lessons from searches that happened to find something misled; they are dropped when VisionClaw starts.
 assert instance.memory.all() == ["Tool set_setting: this form failed: {} (x). This form worked: {}."], instance.memory.all()
 assert set(planner.available(registry)) == set(planner.RECIPES), set(planner.RECIPES) - set(planner.available(registry))
@@ -642,14 +648,21 @@ assert "Buy now button" in result and "Search the shop edit field" in result
 conf["visionClaw"]["confirmChanges"] = True
 questions = []
 instance.clawAsk = lambda question, choices: questions.append(question) or 0
-worked, result = registry.call(task, "click_item", {"item": "Sign in"})
+worked, result = registry.call(task, "click_item", {"item": "Sign in", "action": "click", "asked": ""})
 assert worked and activated == ["Sign in"] and not questions and result == "Clicked Sign in link.", result
 registry.call(task, "list_items", {"about": "buy"})
-worked, result = registry.call(task, "click_item", {"item": "the Buy now button"})
+worked, result = registry.call(task, "click_item", {"item": "the Buy now button", "action": "click", "asked": ""})
 assert worked and activated[-1] == "Buy now" and questions == ["Click Buy now button?"], (result, questions)
+# A right-click on a web page item goes there and opens its context menu; nothing is followed or pressed.
+registry.call(task, "list_items", {"about": "home"})
+before = list(activated)
+worked, result = registry.call(task, "click_item", {"item": "Home", "action": "right click", "asked": ""})
+assert worked and result == "Right-clicked Home link." and activated == before and moved[-2:] == ["Home", "said Home"], result
+assert questions[-1] == "Right-click Home link?"
+del moved[:]
 # Typing into a field: "the search box" finds the page's one field; Enter is pressed when asked.
 registry.call(task, "list_items", {"about": "search box"})
-worked, result = registry.call(task, "fill_field", {"field": "the search box", "text": "cats", "enter": "yes"})
+worked, result = registry.call(task, "fill_field", {"field": "the search box", "text": "cats", "enter": "yes", "asked": ""})
 assert worked and activated[-1] == "Search the shop" and typed == ["cats"], result
 assert result == "Typed \"cats\" into Search the shop edit field and pressed Enter.", result
 assert questions[-1] == "Type \"cats\" into Search the shop edit field?"
@@ -661,7 +674,7 @@ assert worked and result.startswith(
 	"Heading level 1: Example Shop\nHeading level 2: Refund policy"), result
 # Moving NVDA's reading position to a heading, so the user can read on from there.
 registry.call(task, "list_items", {"about": "go to the refund policy section"})
-worked, result = registry.call(task, "go_to_item", {"item": "Refund policy heading"})
+worked, result = registry.call(task, "go_to_item", {"item": "Refund policy heading", "asked": ""})
 assert worked and moved == ["Refund policy", "said Refund policy"], (result, moved)
 assert result.startswith("NVDA is now at Refund policy heading."), result
 assert activated[-1] == "Search the shop"  # moving there follows no link and presses nothing
@@ -765,6 +778,122 @@ try:
 	instance.clawTask = None
 finally:
 	catalog.CATALOG[:] = real
+
+# --- The mouse from the keyboard: right-click, double-click, drag, and pointer mode ---
+
+window = types.SimpleNamespace(
+	web=False,
+	items=[{"text": "File icon", "plain": "File"}, {"text": "Trash icon", "plain": "Trash"}, {"text": "Volume slider", "plain": "Volume"}],
+	imageInfo=types.SimpleNamespace(screenLeft=100, screenTop=100, screenWidth=800, screenHeight=600),
+)
+places = {"File icon": (200, 200), "Trash icon": (500, 400), "Volume slider": (300, 600)}
+window.screenPoint = lambda item: places[item["text"]]
+conf["visionClaw"]["confirmChanges"] = True
+questions = []
+instance.clawAsk = lambda question, choices: questions.append(question) or 0
+task = taskModule.Task("test")
+LEFT_DOWN, LEFT_UP, RIGHT_DOWN, RIGHT_UP = 2, 4, 8, 16
+
+
+def fresh():
+	del moves[:], buttons[:]
+	task.items = window
+
+
+fresh()
+worked, result = registry.call(task, "click_item", {"item": "the file icon", "action": "right click", "asked": ""})
+assert worked and result == "Right-clicked File icon." and questions[-1] == "Right-click File icon?", result
+assert moves[0] == (200, 200) and buttons == [RIGHT_DOWN, RIGHT_UP], (moves, buttons)
+fresh()
+worked, result = registry.call(task, "click_item", {"item": "File", "action": "double click", "asked": ""})
+assert worked and result == "Double-clicked File icon." and buttons == [LEFT_DOWN, LEFT_UP, LEFT_DOWN, LEFT_UP]
+# Pointing at something asks nothing, presses nothing, and leaves the pointer there.
+fresh()
+asked = len(questions)
+worked, result = registry.call(task, "click_item", {"item": "Trash", "action": "hover", "asked": ""})
+assert worked and result == "The mouse pointer is on Trash icon." and buttons == [] and moves == [(500, 400)]
+assert len(questions) == asked
+# Dragging one item onto another: the button goes down on the first, travels in small steps, and comes up on
+# the second. The button never stays down.
+fresh()
+worked, result = registry.call(task, "drag_item", {"item": "File", "to": "the Trash icon", "asked": ""})
+assert worked and result == "Dragged File icon onto Trash icon." and questions[-1] == "Drag File icon onto Trash icon?", result
+assert buttons == [LEFT_DOWN, LEFT_UP] and moves[0] == (200, 200) and (500, 400) in moves and len(moves) > 10
+assert moves[-1] == (7, 7)  # the pointer is put back afterwards
+# Dragging in a direction, as for a slider, stays inside the window.
+fresh()
+worked, result = registry.call(task, "drag_item", {"item": "Volume slider", "to": "right 100 pixels", "asked": ""})
+assert worked and (400, 600) in moves and result == "Dragged Volume slider 100 pixels to the right.", (result, moves[:3])
+# The user's own words decide which things are meant, whatever a model wrote in the form.
+fresh()
+worked, result = registry.call(task, "drag_item", {"item": ", ", "to": "?", "asked": "Drag the file icon onto the trash icon."})
+assert worked and result == "Dragged File icon onto Trash icon.", result
+fresh()
+worked, result = registry.call(task, "drag_item", {"item": "?", "to": "?", "asked": "Drag the volume slider to the left a little"})
+assert worked and result == "Dragged Volume slider 64 pixels to the left.", result
+fresh()
+worked, result = registry.call(task, "click_item", {"item": ", ", "action": "click", "asked": "Click the trash icon"})
+assert worked and result == "Clicked Trash icon.", result
+assert nvdatools.mentioned("Drag the file icon onto the trash icon", window.items) == ["file", "trash"]
+assert nvdatools.mentioned("press the big red button", window.items) == []
+assert nvdatools.meant("click something", window.items, "Trash") == "Trash"
+fresh()
+worked, result = registry.call(task, "drag_item", {"item": "Volume", "to": "the Moon", "asked": ""})
+assert not worked and "neither another item" in result and buttons == []
+# Saying no drags nothing.
+fresh()
+instance.clawAsk = lambda question, choices: 1
+worked, result = registry.call(task, "drag_item", {"item": "File", "to": "Trash", "asked": ""})
+assert worked and result == "You said no, so nothing was changed." and buttons == [] and moves == []
+instance.clawAsk = lambda question, choices: 0
+
+# Pointer mode: the arrow keys move the pointer inside the window, and keys click, hold and let go.
+sys.modules["api"].getForegroundObject = lambda: types.SimpleNamespace(
+	location=types.SimpleNamespace(left=100, top=100, width=600, height=400), windowHandle=0, name="Game")
+
+
+def key(name):
+	return types.SimpleNamespace(normalizedIdentifiers=[f"kb(desktop):{name}", f"kb:{name}"])
+
+
+def press(name):
+	found = instance.getScript(key(name))
+	assert found is not None, name
+	found(key(name))
+
+
+assert instance.getScript(key("rightarrow")) is None  # off: the arrow keys are NVDA's own
+del moves[:], buttons[:]
+instance.pointerMode.start()
+box = instance.pointerMode._box()
+cx, cy = (box[0] + box[2]) // 2, (box[1] + box[3]) // 2
+assert instance.pointerMode.active and moves == [(cx, cy)], (moves, box)
+press("rightarrow")
+press("shift+downarrow")
+press("control+leftarrow")
+assert moves[-3:] == [(cx + 20, cy), (cx + 20, cy + 4), (cx - 80, cy + 4)], moves
+# Holding, moving and letting go is a drag done by hand.
+press("g")
+assert buttons == [LEFT_DOWN] and instance.pointerMode.holding
+press("uparrow")
+press("g")
+assert buttons == [LEFT_DOWN, LEFT_UP] and not instance.pointerMode.holding
+# Other keys are left to NVDA; Escape leaves the mode, and lets go of the button if it was held.
+assert instance.getScript(key("a")) is None and instance.getScript(key("tab")) is None
+press("g")
+press("escape")
+assert not instance.pointerMode.active and buttons[-1] == LEFT_UP and instance.getScript(key("uparrow")) is None
+# Asked for in words, pointer mode is turned on and its keys are told.
+worked, result = registry.call(task, "pointer_mode", {})
+assert worked and instance.pointerMode.active and "The arrow keys move the mouse pointer" in result, result
+instance.pointerMode.stop()
+
+# An app helper can right-click or double-click its item, not only click it.
+clicked = []
+instance.clawScreen.click = lambda result, item, action="click": clicked.append((item["text"], action))
+instance.clawScreen.items = lambda: window
+helpers._run({"key": "NVDA+alt+2", "action": "right click", "item": "Trash"})
+assert clicked == [("Trash icon", "right click")], clicked
 
 instance.terminate()
 print("OK")

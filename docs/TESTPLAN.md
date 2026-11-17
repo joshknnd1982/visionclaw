@@ -94,6 +94,21 @@ Do these with someone sighted nearby, or with a second way to get speech back, u
 - [ ] "Set the volume to 0", with no braille display: refused.
 - [ ] "Turn speech mode off" (an NVDA command): asks first and says how to undo it.
 
+## The mouse from the keyboard
+- [ ] On the desktop or in File Explorer: "right-click the ... icon" opens its context menu.
+- [ ] "Double-click the ... icon" opens it.
+- [ ] In a program with a slider NVDA cannot move: "drag the ... slider to the right a little" moves it.
+- [ ] In the overlay (NVDA+Alt+O): G on an item says "Picked up"; G on another says "Dropped ... on ..." and the
+      program shows the result (try moving a file onto a folder).
+- [ ] NVDA+Alt+K turns pointer mode on and says the keys. The arrow keys move the pointer with a tone; at the
+      edge the tone is low.
+- [ ] In pointer mode: Enter clicks what is under the pointer; the Applications key opens a context menu.
+- [ ] In pointer mode: G, arrow keys, G drags (try a slider or a window's title bar).
+- [ ] In pointer mode: W says what is at the pointer; R reads the text there; P says the position.
+- [ ] Escape turns pointer mode off, and the arrow keys work as usual again. Letters other than G, W, R, P, H
+      were typed into the program as usual while it was on.
+- [ ] "Make this control keyboard navigable" turns pointer mode on.
+
 ## Add-ons
 - [ ] "Write an add-on that says hello when I press NVDA+shift+H": asks to turn it on; "Let me read the code
       first" shows the code; after "Turn it on" the key works at once.
