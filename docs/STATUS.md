@@ -28,18 +28,32 @@ page outline, moving to a place on a page, and back, forward and reload.
 | `tests/live_side_by_side.py` | Two real engines on this computer, the first chip reported as full: one model on the GeForce RTX 5060, the other on the Radeon 780M through Vulkan, both loaded, six alternating answers in 0.4 seconds | worked |
 | Catalog addresses | Sizes and SHA-256 values were read from Hugging Face's own file listings on 2026-11-17 | recorded |
 
+## First run inside NVDA (2026-11-17, NVDA 2026.3.1, version 0.3.1)
+
+Seen from outside NVDA, after the owner installed the add-on and restarted. NVDA's logging level was Off, so
+errors inside NVDA could not be read; what the owner heard is not recorded here yet.
+
+- The add-on loaded: its data folder was created and the models window ran.
+- The owner chose Qwen3.5 4B for vision and Qwen3.5 9B for coding. Both were downloaded from Hugging Face by the
+  add-on's own code, about 9 GB, and passed the size and SHA-256 check (the files have their final names, which
+  they only get after the check).
+- The engine was started by the add-on with Qwen3.5 4B and its projector on the GeForce RTX 5060
+  (`--device Vulkan0`), and reported healthy.
+- Asked directly, that engine answered at once with thinking switched off, kept to a JSON form, and with
+  thinking switched on gave its thinking separately from its answer. So this engine build runs Qwen3.5, and the
+  thinking switch works.
+
 ## What was not tested
 
-- **Nothing has been run inside NVDA.** The stand-ins accept any call, so mistakes in how NVDA's own API is
-  used (commands, gestures, speech capture, dialogs, the settings panel, the overlay reuse) are not caught.
-  This is phase 3.5 and comes first.
-- **The suggested models have not been downloaded or run.** The live test used VisionMate's Qwen3-VL 2B for
-  both jobs. So: Qwen3.5 has not been loaded by this engine build, the thinking switch has not been seen
-  working, Qwen2.5-Coder has not written an add-on here, and two different models have not disagreed with each
+- **Inside NVDA, only loading, the models window, downloading and starting the engine have been seen to
+  work** (see above). Asking, the tools, the settings panel, app helpers, the web tools, driver switching and
+  add-ons have not been confirmed there. The stand-ins accept any call, so mistakes in how NVDA's own API is
+  used are not caught. This is phase 3.5.
+- **The live tests used VisionMate's Qwen3-VL 2B for both jobs.** Qwen3.5 4B has since been seen running in
+  the engine (see above), but no request has been run through two different models, Qwen3.5 9B has not been
+  loaded yet, Qwen2.5-Coder has not been tried at all, and two different models have not disagreed with each
   other in a real run. With one model in both roles, agreement is nearly certain; expect more "the models do
   not agree" questions with two different models.
-- **No real download from Hugging Face** was made by the add-on's own code; the download code was tested
-  against a local server only.
 - **Generated add-ons have not run inside NVDA.** A real model has written and corrected them, and they pass
   the checks, but whether they then do the right thing in NVDA is untested. Passing the checks is not the same
   as working: one of the four test add-ons says "no link focused" on every control that is not a link, which
