@@ -18,7 +18,7 @@ chat apps, and names for unlabelled buttons.
 
 > **Status: pre-release (0.8.2).** The orchestration core has been tested with scripted models and with
 > real models through the bundled engine. Inside NVDA 2026.3.1 the owner has run the models window, a first
-> set of requests and five tests of version 0.4.0; **most of the test plan has not been run inside NVDA
+> set of requests, five tests of version 0.4.0 and three of 0.8.2; **most of the test plan has not been run inside NVDA
 > yet**, and scrolling, the arrow keys for dials and the deep query not at all. Expect rough edges and please report them. See
 > [docs/STATUS.md](docs/STATUS.md) for exactly what was tested.
 

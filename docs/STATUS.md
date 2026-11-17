@@ -491,6 +491,25 @@ What changed:
   very small models. **Nothing inside NVDA**: the real `model_info` there, with its sentence about where the
   model runs, and how long the first request now takes.
 
+## Three tests inside NVDA with 0.8.2 (2026-11-17, NVDA 2026.3.1)
+
+The owner was given three things to try after installing 0.8.2: (1) "What model is installed?", which should
+name Qwen3.5 9B, say that it does both jobs, give 6.1 GB and mention NVDA+Alt+M, with no list of add-ons;
+(2) "Which add-ons do I have?", which should list NVDA's add-ons; (3) any request twice in a row, and roughly
+how long each took.
+
+- **His report:** "all three tests now pass. It is faster when answering too." He did not say what was spoken,
+  gave no seconds, and NVDA's logging is off, so this rests on his word. He uses one model, Qwen3.5 9B, for
+  both jobs, with "one small question at a time" set to Always.
+- **Confirmed by what is on the disk:** 0.8.2 is the version installed in NVDA; its manifest there was written
+  at 18:32.
+- **What this shows:** the real `model_info` and `nvda_info` tools run in NVDA and answer the two questions
+  that had gone wrong, and 0.8.2 loads. Since 0.8.2 includes 0.8.1, the one-model path ran in NVDA too.
+- **Not known:** whether "faster" comes from the model being loaded once, or from his earlier slow request
+  having shared the computer with the tests here. Whether the Last task box now says "The model is choosing
+  what to do" and nothing of two models was not asked and not reported. The question that is put when the
+  model and the words differ has not come up in NVDA.
+
 ## What was not tested
 
 - **Model management (0.3.2)**, apart from the owner's report above, was tested against stand-ins only: listing what is stored, removing some or all
