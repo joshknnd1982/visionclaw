@@ -217,6 +217,8 @@ Run `python tests/run_all.py` before every commit. Compile every add-on file wit
 2. `python tests/run_all.py`, then `python build.py`.
 3. Commit, tag `v<version>`, push, and create a GitHub release with `dist/VisionClaw-<version>.nvda-addon` and
    the fixed-name copy `VisionClaw.nvda-addon`.
+   VisionMate's own version tags were renamed locally to `visionmate-v...` so that they do not collide with
+   VisionClaw's `v...` tags. Never push the `visionmate-` tags.
 4. Until phase 3.5 is done, releases are marked **pre-release** and the notes say what has not been run in NVDA.
 
 ## Credits that must stay
