@@ -195,7 +195,7 @@ for name in (
 	"documentationUtils", "globalCommands", "mouseHandler", "winUser", "NVDAObjects", "core",
 	"screenCurtain", "vision", "locationHelper", "winVersion", "tones", "nvwave", "appModuleHandler", "eventHandler",
 	"NVDAObjects.UIA", "NVDAObjects.IAccessible", "UIAHandler", "winKernel", "browseMode", "cursorManager",
-	"buildVersion", "brailleTables",
+	"buildVersion", "brailleTables", "textInfos.offsets", "virtualBuffers",
 ):
 	if name not in sys.modules:
 		stub(name)
@@ -231,7 +231,7 @@ with open(os.path.join(CONFIG_DIR, "visionClaw", "lessons.json"), "w", encoding=
 	], f)
 instance = plugin.GlobalPlugin()
 registry = instance.orchestrator.registry
-assert len(registry.names()) == 36, registry.names()
+assert len(registry.names()) == 40, registry.names()
 # Lessons from searches that happened to find something misled; they are dropped when VisionClaw starts.
 assert instance.memory.all() == ["Tool set_setting: this form failed: {} (x). This form worked: {}."], instance.memory.all()
 assert set(planner.available(registry)) == set(planner.RECIPES), set(planner.RECIPES) - set(planner.available(registry))
@@ -894,6 +894,221 @@ instance.clawScreen.click = lambda result, item, action="click": clicked.append(
 instance.clawScreen.items = lambda: window
 helpers._run({"key": "NVDA+alt+2", "action": "right click", "item": "Trash"})
 assert clicked == [("Trash icon", "right click")], clicked
+
+# --- Deep inspection, lasting fixes, and the add-ons installed in NVDA ---
+
+from pagestandin import documentClass, feedPage  # noqa: E402
+from visionClaw import accesstools  # noqa: E402
+from visionClaw.claw import fixes  # noqa: E402
+
+textInfos = sys.modules["textInfos"]
+textInfos.POSITION_ALL, textInfos.POSITION_FIRST, textInfos.POSITION_CARET, textInfos.UNIT_LINE = "all", "first", "caret", "line"
+textInfos.offsets = sys.modules["textInfos.offsets"]
+textInfos.offsets.Offsets = lambda start, end: types.SimpleNamespace(start=start, end=end)
+feed = documentClass(sys.modules["virtualBuffers"].VirtualBuffer)(feedPage(), "https://www.example-feed.com/home", "My feed")
+focus = Anything()
+focus.treeInterceptor = feed
+sys.modules["api"].getFocusObject = lambda: focus
+sys.modules["api"].getForegroundObject = lambda: types.SimpleNamespace(
+	name="My feed - Firefox", appModule=types.SimpleNamespace(appName="firefox"))
+accesstools.CHANGE_WAIT_SECONDS = 0
+accesstools._drawn = lambda plugin, box: []  # the screen is not read during the tests
+task = taskModule.Task("test")
+
+# The inspection reads the page and reports, in the tool's own words, what is in the way and what can be fixed.
+assert accesstools.targetOf("inspect this website deeply") == "page" and accesstools.targetOf("check this game") == "window"
+assert accesstools.targetOf("what is wrong with this button") == "control" and accesstools.targetOf("fix all of it") == "auto"
+assert accesstools.depthOf("do a deep inspection") == "deep" and accesstools.depthOf("make a key that presses Play") == "quick"
+worked, result = registry.call(task, "check_access", {"target": "auto", "depth": "deep"})
+assert worked and result.startswith("Checked the web page My feed on example-feed.com, in firefox."), result
+assert "Found 4 problems." in result and "12 buttons have no name" in result and "feed of 5 posts" in result, result
+assert "VisionClaw can fix all of them with an add-on for the website example-feed.com" in result and "[cut]" not in result
+assert registry.get("check_access").tell == "verbatim" and registry.get("check_access").looks
+
+# Fixing all of it: the vision model is asked about the nameless buttons that code cannot name, the user is
+# told in plain sentences what will be made, and only after a yes is the add-on stored and turned on.
+looks = []
+
+
+class Looker:
+	def describe(self, image, prompt, maxTokens, cancel=None):
+		looks.append(prompt)
+		return "Unknown"
+
+
+realRuntime, instance.runtime = instance.runtime, Looker()
+instance._grab = lambda box: "picture"
+accesstools.prepareImage = lambda image, size: b"jpeg"
+questions = []
+instance.clawAsk = lambda question, choices: questions.append(question) or 1
+worked, result = registry.call(task, "fix_access", {"which": "fix all of it"})
+assert worked and result == "You said no, so nothing was changed." and instance.helpers.store.source("fixes_example_feed_com") is None, result
+assert questions[0].startswith(
+	"VisionClaw can make these fixes for the website example-feed.com, as an add-on that stays until you have it "
+	"removed. It works only on the website example-feed.com, in any browser NVDA reads in browse mode."), questions[0]
+assert "NVDA+alt+pageDown moves to the next post" in questions[0] and questions[0].endswith("Turn them on?")
+instance.clawAsk = lambda question, choices: 0
+instance.helpers.add("firefox", "NVDA+alt+1", "kb:nvda+alt+1", "click", "Reload")
+worked, result = registry.call(task, "fix_access", {"which": "fix all of it"})
+assert worked and result.startswith("Made 8 fixes for the website example-feed.com."), result
+assert result.endswith("They are in the add-on fixes_example_feed_com and stay until you ask VisionClaw to remove that add-on.")
+stored = instance.helpers.store.source("fixes_example_feed_com")
+scope, made = fixes.parse(stored)
+assert scope == {"site": "example-feed.com"} and len(made) == 8 and fixes.isFixes(stored)
+# NVDA+alt+1 belongs to an app helper already, so the fixes start at NVDA+alt+2.
+assert [fix["keys"] for fix in made if fix["kind"] == "press"] == [["NVDA+alt+2"], ["NVDA+alt+3"]], made
+loaded = instance.helpers._loaded["fixes_example_feed_com"]
+assert loaded in running
+assert "Add-on fixes_example_feed_com (on): Accessibility fixes for the website example-feed.com" in instance.helpers.listText()
+
+# The loaded add-on works: the next-post key moves NVDA's reading position to the first post.
+feed.caret = 0
+getattr(loaded, "script_fix%dnext" % [fix["label"] for fix in made].index("post"))(Anything())
+firstPost = next(el for el in feed.root.walk() if el.role.name == "ARTICLE")
+assert feed.caret == firstPost.start, (feed.caret, firstPost.start)
+
+# One more fix asked for in words joins the same add-on. The key the user names is used when it is free.
+worked, result = registry.call(task, "check_access", {"target": "auto", "depth": "quick"})
+assert worked
+worked, result = registry.call(task, "add_fix", {"kind": "press", "item": "the Like button", "key": "NVDA+alt+L", "name": "", "asked": ""})
+assert worked and "NVDA+alt+L presses Like, wherever you are." in result, result
+scope, made = fixes.parse(instance.helpers.store.source("fixes_example_feed_com"))
+assert len(made) == 9 and made[-1] == {"kind": "press", "rule": {"role": "BUTTON", "names": ["like"]}, "label": "Like", "keys": ["NVDA+alt+L"]}
+# Keys to move between the clickable things; a name for a control by its name on the page; being told of a change.
+worked, result = registry.call(task, "add_fix", {"kind": "move", "item": "clickable things", "key": "", "name": "", "asked": ""})
+assert worked and "moves to the next clickable item" in result, result
+worked, result = registry.call(task, "add_fix", {"kind": "announce", "item": "the inbox count", "key": "", "name": "", "asked": ""})
+assert worked and "You are told when inbox count changes." in result, result
+worked, result = registry.call(task, "add_fix", {"kind": "read", "item": "the time", "key": "", "name": "", "asked": ""})
+assert worked and "reads player time." in result, result
+# What cannot be done is refused in words that say why.
+worked, result = registry.call(task, "add_fix", {"kind": "press", "item": "the Teleport button", "key": "", "name": "", "asked": ""})
+assert not worked and "Nothing called \"the Teleport button\" was found here." in result and "Like" in result, result
+worked, result = registry.call(task, "add_fix", {"kind": "read", "item": "Open the menu", "key": "", "name": "", "asked": ""})
+assert not worked and "Nothing fixed in the code of the page tells this control apart" in result, result
+worked, result = registry.call(task, "add_fix", {"kind": "name", "item": "Mute", "key": "", "name": "", "asked": ""})
+assert not worked and "The new name is missing" in result, result
+# "Name the focused button Share": the user's words say the focused control is meant, even when the model
+# wrote the new name where the control belongs.
+closeButton = next(el for el in feed.root.walk() if el.attrs["class"] == "btn btn-close")
+closeButton.treeInterceptor = feed
+sys.modules["api"].getFocusObject = lambda: closeButton
+worked, result = registry.call(task, "add_fix", {
+	"kind": "name", "item": "Share", "key": "", "name": "Share", "asked": "Name the focused button Share on this website."})
+assert worked and "Buttons without a name are called Share." in result, result
+assert {"kind": "name", "rule": {"role": "BUTTON", "cls": ["btn-close"], "tag": ""}, "label": "Share", "keys": []} in [
+	dict(fix, rule=dict(fix["rule"], tag=fix["rule"].get("tag", ""))) for fix in fixes.parse(instance.helpers.store.source("fixes_example_feed_com"))[1]]
+sys.modules["api"].getFocusObject = lambda: focus
+worked, result = registry.call(taskModule.Task("test"), "fix_access", {"which": "all"})
+assert not worked and result == "Use check_access first.", result
+assert accesstools.kindOf("tell me when the inbox count changes") == "announce" and accesstools.kindOf("call this button Share") == "name"
+assert accesstools.kindOf("give this site keys to move between posts") == "move" and accesstools.kindOf("make a key that reads the time") == "read"
+assert accesstools.kindOf("make NVDA+alt+P press the Play button") == "press"
+
+# The coder model is never asked to rewrite accessibility fixes: they are data and tested parts, not its code.
+worked, result = registry.call(task, "repair_addon", {"name": "fixes_example_feed_com", "problem": "the key does nothing"})
+assert not worked and "has no code for the models to correct" in result, result
+assert fixes.parse(instance.helpers.store.source("fixes_example_feed_com"))[1][-1]["label"] == "Share"
+
+# "Fix number 3" means the problem that had number 3 in the report the user heard, even when a later look at
+# the page counts differently. One inspection serves a whole request.
+heardTask = taskModule.Task("test")
+registry.call(heardTask, "check_access", {"target": "auto", "depth": "deep"})
+first = heardTask.access
+registry.call(heardTask, "check_access", {"target": "auto", "depth": "quick"})
+assert heardTask.access is first
+assert instance.accessHeard[1] == {1: "unnamed", 2: "clickable", 3: "feed", 4: "media"}, instance.accessHeard
+laterTask = taskModule.Task("test")
+laterTask.steps = [taskModule.Step("Inspecting", "check_access", recipe="fix_access")]
+laterTask.current = 0
+registry.call(laterTask, "check_access", {"target": "auto", "depth": "deep"})
+del laterTask.access.report.findings[0]  # as if the first problem had gone since
+for number, finding in enumerate(laterTask.access.report.findings, 1):
+	finding.number = number
+questions = []
+instance.clawAsk = lambda question, choices: questions.append(question) or 1
+registry.call(laterTask, "fix_access", {"which": "fix number 3"})
+assert "moves to the next post" in questions[0] and "Play or pause" not in questions[0], questions
+instance.clawAsk = lambda question, choices: 0
+
+# A nameless button the code cannot name is named from its picture, and the user is told it is a guess.
+instance.runtime = types.SimpleNamespace(describe=lambda image, prompt, maxTokens, cancel=None: "Settings")
+lonely = documentClass(sys.modules["virtualBuffers"].VirtualBuffer)(
+	__import__("pagestandin").El("DOCUMENT", __import__("pagestandin").El("BUTTON", ident="btn-primary")), "https://lonely.example/", "Lonely")
+focus.treeInterceptor = lonely
+questions = []
+instance.clawAsk = lambda question, choices: questions.append(question) or 0
+registry.call(task, "check_access", {"target": "page", "depth": "deep"})
+worked, result = registry.call(task, "fix_access", {"which": "fix the button without a name"})
+assert worked and "Buttons without a name are called Settings. This name is a guess from its picture and can be wrong." in questions[0], (result, questions)
+assert fixes.parse(instance.helpers.store.source("fixes_lonely_example"))[1] == [
+	{"kind": "name", "rule": {"role": "BUTTON", "ident": "btn-primary"}, "label": "Settings", "keys": [], "guess": True}]
+# When no picture can be taken, for example while the screen curtain is on, the task does not break: the
+# control stays without a name, and that is said.
+def noPicture(box):
+	raise RuntimeError("the screen curtain is on")
+
+
+instance._grab = noPicture
+registry.call(task, "remove_helper", {"name": "fixes_lonely_example"})
+worked, result = registry.call(task, "fix_access", {"which": "fix the button without a name"})
+assert not worked and result.startswith("Nothing could be fixed for this: 1 controls without a name were left as they are"), result
+instance._grab = lambda box: "picture"
+instance.runtime = realRuntime
+
+# Two websites whose names would become the same folder name each keep their own add-on.
+aFix = [{"kind": "press", "rule": {"role": "BUTTON", "names": ["go"]}, "label": "Go", "keys": []}]
+for site in ("my-site.com", "my.site.com"):
+	place = accesstools.Inspection("page", fixes.scopeOf(site=site), [], None, None, "", None)
+	accesstools.install(instance, task, place, [dict(fix) for fix in aFix])
+kept = {meta["name"]: fixes.parse(instance.helpers.store.source(meta["name"]))[0] for meta in instance.helpers.store.list()
+	if meta["name"].startswith("fixes_my")}
+assert sorted(scope["site"] for scope in kept.values()) == ["my-site.com", "my.site.com"] and "fixes_my_site_com" in kept, kept
+assert kept["fixes_my_site_com"] == {"site": "my-site.com"}
+for name in kept:
+	registry.call(task, "remove_helper", {"name": name})
+
+# Removing the add-on removes the fixes; nothing of them is left running.
+conf["visionClaw"]["confirmChanges"] = False
+worked, result = registry.call(task, "remove_helper", {"name": "fixes_example_feed_com"})
+assert worked and loaded not in running and instance.helpers.store.source("fixes_example_feed_com") is None, result
+assert instance.helpers.remove("NVDA+alt+1")
+
+# The add-ons installed in NVDA: which there are, and what one of them is, has and says about itself.
+addonDir = tempfile.mkdtemp()
+os.makedirs(os.path.join(addonDir, "doc", "en"))
+os.makedirs(os.path.join(addonDir, "globalPlugins"))
+with open(os.path.join(addonDir, "doc", "en", "readme.html"), "w", encoding="utf-8") as f:
+	f.write("<html><h1>Clock</h1><p>Press NVDA+F12 twice to hear the date.</p><h2>Alarms</h2><p>Alarms ring at the time you set.</p></html>")
+clock = types.SimpleNamespace(
+	name="clock", path=addonDir, isDisabled=False, isRunning=True,
+	manifest={"summary": "Clock and calendar", "version": "2.1", "author": "Someone", "description": "Speaks the time in many ways."},
+	getDocFilePath=lambda: os.path.join(addonDir, "doc", "en", "readme.html"))
+sys.modules["addonHandler"].getAvailableAddons = lambda: [clock]
+sys.modules["addonHandler"].getRunningAddons = lambda: [clock]
+worked, result = registry.call(task, "addon_info", {"addon": "clock", "about": "how do I hear the date"})
+assert worked and result.startswith("The add-on Clock and calendar, version 2.1, by Someone, is on."), result
+assert "Press NVDA+F12 twice to hear the date." in result and "Speaks the time in many ways." not in result, result
+# The user's own words decide which add-on is meant, whatever a model wrote as its name.
+worked, result = registry.call(task, "addon_info", {"addon": "all", "about": "What does the Clock add-on do?"})
+assert worked and "It says about itself: Speaks the time in many ways." in result, result
+assert "It has commands that work everywhere." in result and registry.get("addon_info").tell == "verbatim", result
+worked, result = registry.call(task, "addon_info", {"addon": "all", "about": "which add-ons do I have"})
+assert worked and result == "Add-ons installed (1): Clock and calendar 2.1 (enabled).", result
+worked, result = registry.call(task, "addon_info", {"addon": "teleporter", "about": "what does it do"})
+assert not worked and "No installed add-on is called \"teleporter\"" in result, result
+# The help texts of the add-ons that are on can be read up on like NVDA's own user guide.
+assert any("Alarms ring at the time you set." in body for _title, body, source in accesstools.addonSections() if source == "addons")
+
+# What looking for newer models found is said in plain sentences.
+from visionClaw import dialogs  # noqa: E402
+
+assert dialogs.lookResult({"new": ["Qwen9 1B", "Qwen9 Coder 1B"], "tooNew": 1, "refused": 2, "updated": "2027-03-01"}) == (
+	"2 models were added to the lists: Qwen9 1B, Qwen9 Coder 1B. The list was last brought up to date on 2027-03-01. "
+	"1 newer models need a newer version of VisionClaw and are not offered here. "
+	"2 entries of the list were left out, because they did not pass VisionClaw's checks.")
+assert dialogs.lookResult({"new": [], "tooNew": 0, "refused": 0, "updated": ""}) == (
+	"There are no newer models. The lists here already offer every model on VisionClaw's list.")
 
 instance.terminate()
 print("OK")

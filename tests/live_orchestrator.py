@@ -15,7 +15,7 @@ import sys
 import time
 
 import harness
-from visionClaw.claw import catalog, match, orchestrator, pointer, runtime, tools, web
+from visionClaw.claw import audit, catalog, fixes, match, orchestrator, pointer, runtime, tools, web
 from visionClaw.claw import task as taskModule
 from visionClaw.claw.catalog import CODER, VISION
 from visionClaw.claw.memory import Memory, score
@@ -235,6 +235,48 @@ def makeRegistry(rt, state):
 			"name": text("the add-on's name, from list_helpers", maxLength=60),
 			"problem": text("what the add-on does wrong, or should do instead", maxLength=400, auto=True),
 		}, before="list_helpers", tell=V)
+	simple("check_access",
+		"inspect the web page, the program's window or the focused control in depth for what stands in the way "
+		"of a screen reader user, and say what an add-on can fix",
+		"Checked the web page My feed on example-feed.com, in firefox. It has 5 headings, 2 links, 19 buttons and 0 form "
+		"fields. Found 3 problems. 1. 12 buttons have no name, so NVDA only says what kind of control it is. 7 of them "
+		"can be given a name; 5 cannot be told apart by anything fixed in the page's code. 2. The page is a feed of 5 "
+		"posts so far. More are loaded as you move down, so it has no end, and NVDA has no key that goes from post to "
+		"post. 3. The page has a video player. Its buttons are found only by moving to them. VisionClaw can fix all of "
+		"them with an add-on for the website example-feed.com, which stays until you have it removed. Ask for all of it "
+		"to be fixed, or for one number.", "Inspecting for accessibility problems", {
+			"target": text("what to inspect; auto is the web page if the user is in one, else the window",
+				enum=audit.TARGETS, auto=audit.targetOf),
+			"depth": text("deep also watches for changes and reads the picture; quick only reads the controls",
+				enum=audit.DEPTHS, auto=audit.depthOf),
+		}, looks=True, tell=V)
+	simple("fix_access",
+		"fix the accessibility problems that check_access found, with an add-on for this website or program that "
+		"stays until the user has it removed",
+		"Made 6 fixes for the website example-feed.com. The user said: {which}", "Making the accessibility fixes",
+		{"which": text("which problems to fix, in the user's words: all of them, or the number of one", maxLength=200,
+			auto=True)}, changes=True, before="check_access")
+	simple("add_fix",
+		"make one lasting fix for this website or program: a key that presses a control, a key that reads one, "
+		"keys that move between posts or other items, a name for a control, or being told when something changes",
+		"Made 1 fix for the website example-feed.com: kind {kind}, item {item}, key {key}, name {name}.", "Making the fix", {
+			"kind": text("the kind of fix", enum=audit.FIX_KINDS, auto=audit.kindOf),
+			"item": text("what the fix is about: the control's name as the user said it, the focused control, or for "
+				"move the kind of item, in a few words", maxLength=80),
+			"key": text("the hotkey the user named, or empty to have a free one chosen", maxLength=30, auto=fixes.keyIn),
+			"name": text("for the kind name: the new name. Otherwise empty", maxLength=60),
+			"asked": text("what the user asked for, in their own words", maxLength=300, auto=True),
+		}, changes=True, before="check_access")
+	simple("addon_info",
+		"say what an add-on installed in this NVDA does, whether it is on, what its commands and keys are, and what "
+		"its help says",
+		"The add-on Clock and calendar, version 2.1, by Someone, is on.\n"
+		"It says about itself: Speaks the time and date in many ways, and has alarms.\n"
+		"Its commands where you are now: Say the time (NVDA+F12); Open the alarm settings (no key assigned).\n"
+		"From its help: Press NVDA+F12 twice to hear the date.", "Looking at the add-on", {
+			"addon": text("the name of the add-on, or all for the list of add-ons", maxLength=60),
+			"about": text("what the user wants to know about it", maxLength=200, auto=True),
+		}, looks=True, tell=V)
 	reg.add(tools.Tool("web_open", "open a web address in the user's browser", webOpen,
 		{"address": text("the web address, like example.com", maxLength=300, auto=web.addressIn)},
 		title="Opening the web page", tell=V))
@@ -286,6 +328,17 @@ REQUESTS = (
 	"Right-click the Options button.",
 	"Drag the New Game button onto the Quit button.",
 	"Make this control keyboard navigable.",
+	"Do a deep inspection of this website.",
+	"Fix the accessibility problems on this page.",
+	"Make this website accessible.",
+	"Inspect this window for accessibility problems, then fix number 2.",
+	"Give this site keys to move between posts.",
+	"Make NVDA+alt+P press the Play button on this page.",
+	"Tell me when the inbox count changes.",
+	"Name the focused button Share on this website.",
+	"Fix number 2.",
+	"What does the Clock add-on do?",
+	"Which keys does the Clock add-on have?",
 )
 
 

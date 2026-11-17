@@ -322,8 +322,47 @@ for request, recipe in (
 	("turn on pointer mode", "keyboard_mouse"),
 	("make this control keyboard navigable", "keyboard_mouse"),
 	("let me move the mouse pointer with the arrow keys", "keyboard_mouse"),
+	("do a deep inspection of this website", "check_access"),
+	("inspect this window for accessibility problems", "check_access"),
+	("is this page accessible", "check_access"),
+	("check this app for accessibility issues", "check_access"),
+	("fix the accessibility problems on this page", "fix_access"),
+	("make this website accessible", "fix_access"),
+	("fix number 2", "fix_access"),
+	("fix all of it", "fix_access"),
+	("fix the unlabelled buttons on this site with an add-on", "fix_access"),
+	("fix the add-on fixes facebook com", "fix_addon"),
+	("give this site keys to move between posts", "add_fix"),
+	("make NVDA+alt+P press the Play button on this page", "add_fix"),
+	("tell me when the inbox count changes", "add_fix"),
+	("make a key that goes to the next post", "add_fix"),
+	("name the focused button Share on this website", "add_fix"),
+	("fix the buttons that have no name", "fix_access"),
+	("fix them", "fix_access"),
+	("what is wrong with this page for a screen reader", "check_access"),
+	("deeply query this control", "check_access"),
+	("the add-on fixes facebook com does not work", "fix_addon"),
+	("press the play button", "click"),
+	("name this button Play", "name_button"),
+	("what does the Clock add-on do", "addon_question"),
+	("which keys does the NVDA Remote add-on have", "addon_question"),
+	("how do I use the speech history add-on", "addon_question"),
+	("which add-ons do I have", "nvda_info"),
 ):
 	assert planner.hint(request) == recipe, (request, planner.hint(request))
+# Ordinary requests must not be taken for an inspection or a fix just because they mention a page, a key, a
+# problem or the next something. A hint is the choice when the model fails, so a wrong one changes things
+# the user never asked about.
+for request, recipe in (
+	("how do I move between headings", None), ("what is the name of this page", None),
+	("what key reloads the page", "explain_keys"), ("press the page down key", "press_keys"),
+	("read the next message", None), ("click the next result", "click"), ("is this the correct page", None),
+	("fix the problem with my speech", None), ("solve this problem", None),
+	("can you fix the volume in this app", "change_setting"), ("examine this picture", None),
+	("go to the next post", None), ("what are the keys for this site", None),
+):
+	assert planner.hint(request) not in ("check_access", "fix_access", "add_fix", "addon_question"), (request, planner.hint(request))
+	assert recipe is None or planner.hint(request) == recipe, (request, planner.hint(request))
 assert planner.quickTriage("write an add-on that beeps when a link gets focus")["needs_code"]
 assert planner.complexity(["change_setting"]) == "moderate" and planner.complexity(["describe"]) == "simple"
 assert planner.complexity(["describe", "click", "describe"]) == "complex"

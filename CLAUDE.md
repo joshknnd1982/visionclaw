@@ -40,6 +40,20 @@ keyboard and speech alone.
 - **Local only.** The add-on's own code connects to the internet only to download models, and only after the
   user says yes. Never add telemetry, cloud APIs, or update checks. The web tools hand an address to the user's
   own browser when the user asks; the models never go online.
+  One exception, which the owner approved on 2026-11-17 as "button only": the models window has a button,
+  "Look for newer models", that asks first and then reads one file, `models.json`, from VisionClaw's own
+  GitHub repository (`catalog.LIST_URL`). It must never run by itself, on a timer, or at start-up, and it must
+  never send anything but the request.
+- **The latest small Qwen models are always offered.** The owner wants every small size of the newest Qwen
+  vision and coder models in the lists. When asked to bring them up to date, do not answer from memory: read
+  Hugging Face's own listing (`https://huggingface.co/api/models?author=Qwen&sort=createdAt&direction=-1`, and
+  the same with `author=unsloth&search=Qwen` for the GGUF files), take revision, size and SHA-256 of each file
+  from `https://huggingface.co/api/models/<repo>?blobs=true`, add the entries to `CATALOG`, set
+  `catalog.LIST_UPDATED`, run `python tools/write_models_list.py`, and push `models.json`: every installed copy
+  then gets the new models from the button, without a new release. Only Qwen models under Apache 2.0 from the
+  publishers in `catalog.PUBLISHERS`; anything else needs the owner's yes. A model of a new family may need a
+  newer engine: give it `minVersion` in the list, and say so. A fetched list can never widen what may be
+  downloaded (`catalog.checkEntry`); keep it that way.
 - **Never cut off speech and braille.** Anything that could leave a screen reader user with neither goes
   through `claw/drivers.py`: refuse what is certain to, always ask first, switch back unless the user confirms
   that it works, and remember what failed. New tools that touch speech, braille, audio or NVDA's own running
@@ -79,6 +93,13 @@ keyboard and speech alone.
 - **Tests never move the real mouse or type into the real computer.** `tests/test_nvda_stub.py` replaces
   `mousetools.moveTo`, `mousetools._button` and `nvdatools.typeUnicode` with functions that write down what
   would have happened.
+- **Accessibility fixes are data, not model code.** A fixes add-on is `fixes.build(scope, fixes)`: the text of
+  `claw/fixmatch.py` and `fixruntime.py` below their marker lines, plus the fixes as a literal. Never let a
+  model write or repair it (`nvdatools.fixAddon` refuses), and never hang a fix on something that is not fixed
+  in the page's code: class names made by a tool are shared by unrelated controls (`audit.telling`). A new kind
+  of fix goes into `fixruntime.py` and `fixes.py` together, with a case in `tests/test_access.py` that runs the
+  generated add-on against the stand-in page. Whatever `fixruntime.py` uses must pass `microaddons.check`
+  (no ctypes, setattr or files) and must never let an error reach NVDA.
 - **Measure with the real model.** After any change to a prompt, a recipe or a form, run
   `python tests/live_orchestrator.py` and read every answer. A change that passes the scripted tests can still
   make a small model worse.
@@ -103,11 +124,14 @@ addon/
     nvdatools.py             the tools the models can call, written against the NVDA API
     webtools.py              the web through NVDA's browse mode: a page's links, buttons, fields and text
     mousetools.py            the mouse from the keyboard: click, right-click, double-click, drag, pointer mode
+    accesstools.py           deep inspection, lasting fixes for a website or program, installed add-ons
+    fixruntime.py            the working part of every fixes add-on; copied into the add-on as text
     nvdainfo.py              what NVDA has and uses: synthesizer, voices, braille display, drivers, add-ons
     helpers.py               app helpers and generated add-ons: loading them live, their hotkeys
     (the rest)               VisionMate features: overlay, OCR, chat photos, labels ...
     claw/                    SmallClaw-style core. NO NVDA imports.
-      catalog.py             model catalog, what is installed, downloads
+      catalog.py             model catalog, the fetched list of newer models and its checks, what is
+                             installed, downloads
       backend.py             dedicated GPU -> Vulkan -> CPU choice and fallback
       runtime.py             both engines; loads, swaps, resizes context
       policy.py              picks context size, token limits, temperature, reasoning per task
@@ -117,6 +141,9 @@ addon/
       drivers.py             rules that keep speech and braille alive; what happened with each driver
       pointer.py             which mouse action is meant, where a drag ends, how pointer mode moves
       changes.py             every setting VisionClaw changed, so that it can be listed and put back
+      fixmatch.py            controls as plain data and the rules that find them; copied into fixes add-ons
+      audit.py               the inspection's findings for a page or window, and the fixes each can have
+      fixes.py               fixes as data; the add-on put together from them; what it does, in sentences
       planner.py             splits a request into parts; recipes; free plans and their repair
       consensus.py           the two models agree, or the user decides
       agent.py               the tool loop for one step
@@ -209,6 +236,15 @@ A session is done only when its "Done when" line is true.
   `undo_change` and `list_changes`.
 - [x] **3.13 The mouse from the keyboard.** Right-click, double-click, pointing and dragging on listed items;
   G to pick up and drop in the overlay; pointer mode (NVDA+Alt+K) for controls with nothing to list.
+- [x] **3.14 Websites and programs made accessible for good.** `check_access` inspects a web page (Chromium
+  browsers and Firefox alike, through NVDA's virtual buffer), a window or the focused control; `fix_access`
+  and `add_fix` make lasting fixes of five kinds (jump, press, read, name, watch), kept as data in one add-on
+  per website or program that is put together from fixed parts, never written by a model.
+- [x] **3.15 Installed add-ons.** `addon_info` answers questions about any installed add-on; the help texts
+  of running add-ons are a knowledge source.
+- [x] **3.16 The latest small models.** Qwen3.5 0.8B and Qwen2.5 Coder 0.5B built in; `models.json`, written
+  from the catalog by `tools/write_models_list.py`; "Look for newer models" in the models window, which asks
+  first; every fetched entry checked by `catalog.checkEntry`.
 - [ ] **3.5 Test inside NVDA.** Install the build in NVDA (ask the user first) and walk through
   `docs/TESTPLAN.md`. Fix what breaks. *Done when:* every item in the test plan is ticked by a real run.
 
@@ -244,6 +280,7 @@ python tests/run_all.py                  every plain-Python test (no model neede
 python tests/live_orchestrator.py        needs the engine and a model on this computer
 python tests/live_side_by_side.py        two real engines on two backends; needs VisionMate's vision data
 python tests/live_addon.py               a real model writes four add-ons and debugs one; read every result
+python tools/write_models_list.py        writes models.json from the catalog; run after every change to CATALOG
 python build.py                          writes dist/VisionClaw-<version>.nvda-addon
 ```
 

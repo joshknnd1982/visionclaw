@@ -69,6 +69,23 @@ read on from there, or to go back, forward or reload. Following a link needs no 
 asks first. Choose the search engine in settings.
 The models still run only on your computer; the browser goes online as it does when you use it yourself.</p>
 
+<h2>Making a website or a program accessible, for good</h2>
+<p>Ask "do a deep inspection of this website", "inspect this window for accessibility problems" or "what is
+wrong with this button". VisionClaw reads every control NVDA knows there, watches for a moment to see what
+changes by itself, compares the picture with the text, and tells you in plain numbered sentences what is in
+the way and which of it an add-on can fix. Inspecting changes nothing.</p>
+<p>Then ask "fix all of it" or "fix number 2", or say what you want: "give this site keys to move between
+posts", "make NVDA+Alt+P press the Play button on this page", "make a key that reads the time", "name the
+focused button Share on this website", "tell me when the inbox count changes". You are told exactly what will be made and
+asked before it is turned on. The fixes for one website, in any browser, or for one program are kept in one
+add-on named fixes and then the site or program. It stays until you say "remove the add-on" and its name, and
+"save the add-on ... as a file" gives you a file to install for good or to share. Outside that website or
+program its keys do what they always do. It is built to work the same in Chrome, Edge, Brave and Firefox.
+This part is new and has not yet been tried on real websites inside NVDA.</p>
+<p>No model writes this add-on's code: it is put together from fixed, tested parts and the list of your
+fixes. A control that nothing in the page's code tells apart from others cannot be named reliably, and the
+report says how many those are. A name taken from a button's picture is a guess, and you are told so.</p>
+
 <h2>Speech, braille and drivers</h2>
 <p>Ask which speech synthesizer, voice, braille display, braille tables, drivers and add-ons NVDA has and uses.
 Every setting of the synthesizer in use can be changed by describing it.</p>
@@ -77,6 +94,12 @@ would leave you with neither speech nor braille. It always asks first. After the
 new one works; if you do not answer within 20 seconds, it switches back by itself. It remembers drivers that
 gave trouble on this computer and warns you before trying them again. Commands that can silence or close NVDA
 are also always asked about first.</p>
+
+<h2>The add-ons you have installed</h2>
+<p>Ask "which add-ons do I have", "what does the Clock add-on do" or "which keys does the Clock add-on have".
+VisionClaw answers from what the add-on says about itself, its commands and keys where you are now, and its own
+help. It can also find and run an add-on's commands for you, and change its settings where the add-on keeps
+them in NVDA's configuration.</p>
 
 <h2>Working the mouse from the keyboard</h2>
 <p>Ask VisionClaw to right-click, double-click or point at an item, or to drag one: "right-click the file icon",
@@ -146,7 +169,9 @@ when NVDA starts, answering in NVDA's language, and the tick while waiting.</li>
 
 <h2>Privacy</h2>
 <p>VisionClaw does not collect any information. It connects to the internet only to download the models you
-choose. Screens, photos, requests and generated code never leave your computer.</p>
+choose and, when you press Look for newer models in the models window and say yes, to read the list of models
+from its own page on GitHub. Neither happens by itself. Screens, photos, requests and generated code never
+leave your computer.</p>
 
 <h2>Credits</h2>
 <p>VisionMate by Athiban Vijay (GPL v2 or later). The agent design follows SmallClaw by XposeMarket (MIT).

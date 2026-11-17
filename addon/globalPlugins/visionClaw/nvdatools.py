@@ -26,7 +26,7 @@ import wx
 from logHandler import log
 
 from . import mousetools, nvdainfo, ocr, webtools
-from .claw import changes, drivers, match, microaddons, pointer, policy, web
+from .claw import changes, drivers, fixes, match, microaddons, pointer, policy, web
 from .claw.catalog import CODER, VISION
 from .claw.llm import LLM, clip
 from .claw.memory import score, wordList, words as wordsOf
@@ -772,6 +772,12 @@ def fixAddon(plugin, task, name, said=""):
 		raise ToolError(f"There is no add-on called \"{name}\". Use a name from list_helpers.")
 	ident = names[index]
 	meta, source = store.meta(ident), store.source(ident)
+	if fixes.isFixes(source):
+		# Accessibility fixes are put together from fixed parts and plain data. A model must never rewrite them.
+		raise ToolError(
+			f"The add-on {ident} holds accessibility fixes that VisionClaw put together from tested parts, so it "
+			"has no code for the models to correct. Say which of its fixes is wrong and what it should do "
+			"instead, or have the add-on removed.")
 	purpose = meta.get("purpose") or ident
 	problems, mistakes = [], []
 	if said:
@@ -1486,6 +1492,9 @@ def build(plugin):
 
 	# The mouse from the keyboard: dragging, and pointer mode.
 	mousetools.register(add, plugin, text, confirm, screen, pickItem, mentioned)
+	# Deep inspection, lasting fixes for a website or program, and questions about installed add-ons.
+	from . import accesstools
+	accesstools.register(plugin, add, text)
 
 	registry.add(Tool(ANSWER, "tell the user the result in plain words; always the last step", lambda task: ""))
 	return registry

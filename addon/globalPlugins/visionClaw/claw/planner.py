@@ -133,6 +133,26 @@ RECIPES = {
 		"save an add-on as a file",
 		"save an add-on VisionClaw wrote as a file that can be installed for good or shared",
 		("list_helpers", "export_addon")),
+	"check_access": (
+		"inspect this page or window for accessibility problems",
+		"inspect the web page, the program's window or the focused control in depth, and report what makes it "
+		"hard to use with a screen reader and what can be fixed",
+		("check_access",)),
+	"fix_access": (
+		"fix the accessibility problems here with an add-on",
+		"fix the accessibility problems of the website or program the user is in, all of them or the one they "
+		"name, with an add-on that stays; make a website or a program accessible",
+		("check_access", "fix_access")),
+	"add_fix": (
+		"add one lasting fix for this website or program",
+		"for the website or program the user is in, make one lasting fix they describe: a key that presses or "
+		"reads a control by its name, keys that move between posts, results or other items, a name for a control "
+		"that has none, or being told when a part of it changes",
+		("check_access", "add_fix")),
+	"addon_question": (
+		"answer a question about an installed add-on",
+		"say what one add-on installed in NVDA does, whether it is on, which keys it has, or how to use it",
+		("addon_info",)),
 	"drag": (
 		"drag something with the mouse",
 		"drag an item with the mouse onto another item or in a direction, or move a slider",
@@ -154,6 +174,28 @@ _HINTS = (
 	("list_changes", r"\bwhat\b.*\b(did|have|has)\b.*\b(you|visionclaw)\b.*\bchanged?\b|\bwhich settings\b.*\bchanged\b"),
 	("undo_change", r"\b(undo|revert|restore)\b|\b(put|change|set|turn)\b.*\bback\b|\bback to (what|how|the way)\b"
 		r"|\bas it was\b|\bwhat it was before\b"),
+	# Fixing a website or a program, not an add-on: "fix the add-on ..." stays with fix_addon below.
+	# These three are kept narrow on purpose: each needs words that can hardly mean anything else, because a
+	# hint is what the model is told the words suggest, and the choice when the model fails.
+	("fix_access", r"^(?!.*\b(fix|repair|correct|debug) (the |my |that |this )?add-?on\b)(?=.*("
+		r"\b(fix|repair)\b.*\baccessib\w*"
+		r"|\b(fix|repair) (this|the|that) (web ?page|page|web ?site|site|window|program|app|game)\b"
+		r"|\b(fix|repair) (everything|all of (it|them)|(it|them) all|number \d+|problem \d+)\b"
+		r"|\b(fix|repair)\b.*\b(unlabell?ed|unnamed|nameless)\b"
+		r"|\b(fix|repair)\b.*\b(buttons?|links?|controls?|fields?|images?)\b.*\b(no|without|missing)\b.*\b(names?|labels?)\b"
+		r"|\b(fix|repair)\b.*\b(on|of) (this|the) (web ?page|page|web ?site|site)\b"
+		r"|\bmake\b.*\b(page|web ?site|site|window|program|app|game)\b.*\b(accessible|usable|easier to use)\b"
+		r"|\bmake (it|this|that) (more |fully )?accessible\b"
+		r"|^(please )?fix (it|them|these|those)( all)?( please)?[.!]?$))"),
+	("check_access", r"\b(inspect|audit)\b|\bdeep(ly)? (inspection|look|check|scan|query)\b"
+		r"|\b(check|scan|test|analy[sz]e|review|query|examine)\b.*\b(accessib\w*|usab\w*)\b"
+		r"|\baccessib\w* (problems?|issues?|check|report)\b|\bis (this|the) .*\baccessible\b|\bhow accessible\b"
+		r"|\bwrong with (this|the) (web ?page|page|web ?site|site|window|program|app|button|control)\b"),
+	("add_fix", r"\b(make|give|add|create|set up)\b.*\b(keys?|hot ?keys?|shortcuts?)\b.*\b(page|web ?site|site|posts?|feed|videos?|player|results?)\b"
+		r"|\b(make|give|add|create|set up)\b.*\b(page|web ?site|site)\b.*\b(keys?|hot ?keys?|shortcuts?)\b"
+		r"|\b(make|let|have)\b.*\b(nvda|control|ctrl|alt|shift)\s*\+\s*\w+.*\b(press|click|read|say|activate)\b"
+		r"|\b(tell me|announce|let me know)\b.*\bwhen\b.*\b(changes?|updates?|arrives?)\b"
+		r"|^(please )?(name|label|rename)\b.*\b(on|for|in) (this|the) (web ?page|page|web ?site|site)\b"),
 	("fix_addon", r"\b(fix|repair|correct|debug)\b.*\badd-?on|\badd-?on\b.*\b(does(n't| not) work|is broken|stopped working|fails|wrong)\b"),
 	("remove_made", r"\b(remove|delete|get rid of)\b.*\b(helper|hot ?key|add-?on)"),
 	("list_made", r"\b(list|show|which|what)\b.*\b(helpers?|add-?ons?)\b.*\b(you|visionclaw)\b.*\b(made|wrote|written|created)"),
@@ -168,6 +210,9 @@ _HINTS = (
 	("search_web", r"\b(search|look up|google)\b.*\b(web|internet|online|for)\b"),
 	("open_website", r"\b(open|go to|visit|load|browse to)\b.*(\w\.[a-z]{2,}\b|web ?site|web ?page|\burl\b)"),
 	("fill_field", r"\b(type|enter|write|fill|put)\b.*\b(in|into)\b.*\b(field|box|form|search)\b"),
+	# One add-on, named: "the Clock add-on". Questions about add-ons in general stay with nvda_info below.
+	("addon_question", r"\b(what|how|which|tell me|explain|help|does|is)\b.*\b(the|my) [\w .-]{0,40}add-?on\b(?!s)"
+		r"|\b(about|use|using) (the|my) [\w .-]{0,40}add-?on\b(?!s)"),
 	("nvda_info", r"\b(which|what|list|show|tell me|do i have)\b.*\b(synthesi[sz]ers?|synths?|voices?|braille|drivers?|add-?ons?|version)\b"),
 	("explain_keys", r"how (do|can|would|to) |what (key|keys|command|shortcut)|which (key|keys|command)|shortcut for"),
 	("keyboard_mouse", r"\bpointer mode\b|\bmouse (mode|keys)\b|\b(keyboard|arrow keys?)\b.*\b(mouse|pointer)\b"
@@ -325,7 +370,7 @@ def quickTriage(request):
 	return {
 		"kind": recipes[0],
 		"complexity": complexity(recipes),
-		"needs_vision": any(r in ("describe", "click", "make_hotkey", "read_text") for r in recipes),
+		"needs_vision": any(r in ("describe", "click", "make_hotkey", "read_text", "fix_access") for r in recipes),
 		"needs_code": "write_addon" in recipes,
 	}
 

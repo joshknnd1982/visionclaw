@@ -5,7 +5,9 @@
 """Checks the building blocks: the model catalog and resumable verified downloads, forgiving matching,
 the check that generated add-ons must pass, writing and repairing an add-on, storing and packaging one,
 and the knowledge base."""
+import copy
 import hashlib
+import json
 import os
 import tempfile
 import threading
@@ -36,6 +38,11 @@ for entry in catalog.CATALOG:
 assert catalog.recommend(VISION, 8, 0) == "qwen3.5-2b" and catalog.recommend(CODER, 8, 0) == "qwen2.5-coder-1.5b"
 assert catalog.recommend(VISION, 64, 0) == "qwen3.5-4b" and catalog.recommend(CODER, 16, 12000) == "qwen3.5-4b-coder"
 assert {"qwen2.5-coder-7b", "qwen3.5-9b"} <= set(ids)
+# Several small sizes of each kind are offered, the smallest first; the very smallest are never the suggestion.
+assert [e["id"] for e in catalog.CATALOG if e["role"] == VISION] == ["qwen3.5-0.8b", "qwen3.5-2b", "qwen3.5-4b", "qwen3.5-9b"]
+assert [e["id"] for e in catalog.CATALOG if e["role"] == CODER][:2] == ["qwen2.5-coder-0.5b", "qwen2.5-coder-1.5b"]
+for memory, card in ((2, 0), (8, 0), (16, 4000)):
+	assert catalog.recommend(VISION, memory, card) == "qwen3.5-2b" and catalog.recommend(CODER, memory, card) == "qwen2.5-coder-1.5b"
 
 # Downloading: a model of two files from a local server, the first download cut off half way.
 served = tempfile.mkdtemp()
@@ -147,6 +154,135 @@ try:
 	assert os.path.exists(os.path.join(mate, "NOTICE.txt"))
 finally:
 	catalog.CATALOG[:] = real
+
+# --- Newer models: the list the user can have fetched ---
+
+# Every built-in model follows the rules a fetched one must follow, and the published list is the catalog.
+for entry in catalog.CATALOG:
+	assert catalog.checkEntry(copy.deepcopy(entry)) == entry, entry["id"]
+with open(os.path.join(harness.ROOT, "models.json"), encoding="utf-8") as f:
+	published = json.load(f)
+assert published == catalog.publishedList(), "models.json differs from the catalog: run python tools/write_models_list.py"
+assert published["updated"] == catalog.LIST_UPDATED and catalog.LIST_URL.startswith(
+	"https://raw.githubusercontent.com/joshknnd1982/visionclaw/main/")
+# A VisionClaw that has every model of the list built in is offered nothing new by it.
+assert catalog.readList(published, "0.4.0") == ([], 0, 0, catalog.LIST_UPDATED)
+
+
+def newer(**changes):
+	"""A model that is not built in, as a later list might carry it."""
+	repo, rev = "Qwen/Qwen9-1B-GGUF", "a" * 40
+	entry = {
+		"id": "qwen9-1b", "dir": "qwen9-1b", "role": VISION, "name": "Qwen9 1B", "small": True, "thinking": True,
+		"memoryGb": 1.5, "maxContext": 16384, "licence": "Apache 2.0", "source": repo,
+		"files": [
+			{"kind": "model", "name": "Qwen9-1B-Q4_K_M.gguf", "size": 600 * 2 ** 20, "sha256": "1" * 64,
+				"url": f"https://huggingface.co/{repo}/resolve/{rev}/Qwen9-1B-Q4_K_M.gguf"},
+			{"kind": "mmproj", "name": "mmproj-F16.gguf", "size": 200 * 2 ** 20, "sha256": "2" * 64,
+				"url": f"https://huggingface.co/{repo}/resolve/{rev}/mmproj-F16.gguf"},
+		],
+	}
+	entry.update(changes)
+	return entry
+
+
+def withFile(index, **changes):
+	entry = newer()
+	entry["files"][index].update(changes)
+	return entry
+
+
+good = newer()
+assert catalog.checkEntry(dict(good, extra="dropped", suggest=False)) == dict(good, suggest=False)
+later = dict(published, updated="2027-03-01", models=published["models"] + [good, newer(id="qwen9-9b", dir="qwen9-9b", minVersion="9.0")])
+assert catalog.readList(later, "0.4.0") == ([good], 1, 0, "2027-03-01")
+assert catalog.readList(later, "9.1")[1] == 0 and len(catalog.readList(later, "9.1")[0]) == 2
+assert catalog.versionTuple("0.4.0") < catalog.versionTuple("0.10") and catalog.versionTuple("nonsense") == ()
+# What the list may not do. Each of these is refused, and the rest of the list is still used.
+base = "https://huggingface.co/Qwen/Qwen9-1B-GGUF/resolve/" + "a" * 40
+for why, bad in (
+	("another server", withFile(0, url="https://example.com/Qwen/Qwen9-1B-GGUF/resolve/" + "a" * 40 + "/Qwen9-1B-Q4_K_M.gguf")),
+	("no secure connection", withFile(0, url=base.replace("https", "http") + "/Qwen9-1B-Q4_K_M.gguf")),
+	("not pinned to a revision", withFile(0, url=base.replace("a" * 40, "main") + "/Qwen9-1B-Q4_K_M.gguf")),
+	("another file than it says", withFile(0, url=base + "/other.gguf")),
+	("another repository than it says", withFile(0, url=base.replace("Qwen9-1B-GGUF", "Else-GGUF") + "/Qwen9-1B-Q4_K_M.gguf")),
+	("an address with more in it", withFile(0, url=base + "/Qwen9-1B-Q4_K_M.gguf?download=true")),
+	("no checksum", withFile(0, sha256="")),
+	("a short checksum", withFile(1, sha256="abc")),
+	("no size", withFile(0, size=0)),
+	("a size that is not a number", withFile(0, size="600")),
+	("a file that is not a model file", withFile(0, name="setup.exe", url=base + "/setup.exe")),
+	("a path in a file name", withFile(0, name="..\\evil.gguf")),
+	("a path as the folder", newer(dir="../../startup")),
+	("an unknown publisher", newer(source="someone/Qwen9-1B-GGUF")),
+	("not a Qwen model", newer(id="llama-9", dir="llama-9", name="Llama 9")),
+	("another licence", newer(licence="Research only")),
+	("a vision model without its projector", dict(newer(), files=newer()["files"][:1])),
+	("two model files", dict(newer(), files=[newer()["files"][0], dict(newer()["files"][0], name="b.gguf", url=base + "/b.gguf")])),
+	("an unknown role", newer(role="admin")),
+	("a silly memory figure", newer(memoryGb=9999)),
+	("a version that is not one", newer(minVersion="latest")),
+	("not an entry at all", "qwen9-1b"),
+	# A file of the same name in a built-in model's folder must be that same file.
+	("a different file in a built-in folder", newer(id="qwen3.5-2b-x", dir="qwen3.5-2b", source="unsloth/Qwen3.5-2B-GGUF", files=[
+		dict(catalog.CATALOG[1]["files"][0], sha256="3" * 64), catalog.CATALOG[1]["files"][1]])),
+):
+	entries, tooNew, refused, _updated = catalog.readList({"format": 1, "models": [bad, good]}, "0.4.0")
+	assert entries == [good] and refused == 1 and tooNew == 0, why
+for wrong in ({"format": 2, "models": []}, {"format": 1}, [], "list", {"format": 1, "models": "x"}):
+	try:
+		catalog.readList(wrong, "0.4.0")
+		raise AssertionError(wrong)
+	except ValueError as e:
+		assert "cannot read" in str(e) or "can read" in str(e), e
+
+# Looking: only the one fixed address is read; what was found is kept, offered beside the built-in models,
+# and checked again when it is read from the disk.
+folder = tempfile.mkdtemp()
+asked = []
+shelf = catalog.Catalog(folder)
+assert shelf.offered() == [] and len(shelf.entries(VISION)) == 4
+found = shelf.look("0.4.0", lambda url: asked.append(url) or copy.deepcopy(later))
+assert asked == [catalog.LIST_URL]
+assert found == {"new": ["Qwen9 1B"], "tooNew": 1, "refused": 0, "updated": "2027-03-01"}, found
+assert [e["id"] for e in shelf.entries(VISION)] == ["qwen3.5-0.8b", "qwen3.5-2b", "qwen3.5-4b", "qwen3.5-9b", "qwen9-1b"]
+assert shelf.get("qwen9-1b") == good and catalog.recommend(VISION, 8, 0) == "qwen3.5-2b"
+assert shelf.look("0.4.0", lambda url: copy.deepcopy(later))["new"] == []  # nothing is new the second time
+again = catalog.Catalog(folder)
+assert again.get("qwen9-1b") == good
+# Its files are found on the disk and removed like any model's.
+os.makedirs(os.path.join(folder, "qwen9-1b"))
+with open(os.path.join(folder, "qwen9-1b", "Qwen9-1B-Q4_K_M.gguf.part"), "wb") as f:
+	f.write(b"x" * 9)
+assert [(m["key"], m["bytes"], m["partial"]) for m in again.stored()] == [("qwen9-1b", 9, True)]
+assert again.removeStored("qwen9-1b") == 9 and not os.path.exists(os.path.join(folder, "qwen9-1b"))
+# A saved list that was changed on the disk to point somewhere else is not trusted.
+with open(os.path.join(folder, "offered.json"), encoding="utf-8") as f:
+	saved = json.load(f)
+saved["models"][0]["files"][0]["url"] = "https://example.com/evil.gguf"
+with open(os.path.join(folder, "offered.json"), "w", encoding="utf-8") as f:
+	json.dump(saved, f)
+assert catalog.Catalog(folder).offered() == [] and catalog.Catalog(folder).get("qwen9-1b") is None
+# A page that cannot be reached, or a list that cannot be read, changes nothing.
+for failure in (OSError("no connection"), ValueError("not a list")):
+	def broken(url, failure=failure):
+		raise failure
+	try:
+		shelf.look("0.4.0", broken)
+		raise AssertionError("must not pass")
+	except (OSError, ValueError):
+		assert shelf.get("qwen9-1b") == good
+# The list is a small file: a longer answer is refused before it is read as a list.
+listFile = os.path.join(folder, "list.json")
+with open(listFile, "w", encoding="utf-8") as f:
+	json.dump(later, f)
+address = "file:///" + listFile.replace(os.sep, "/")
+assert net.fetchJson(address, limit=catalog.LIST_BYTES) == later
+try:
+	net.fetchJson(address, limit=100)
+	raise AssertionError("a long answer must be refused")
+except ValueError as e:
+	assert "longer than it may be" in str(e)
 
 # --- Forgiving matching ---
 

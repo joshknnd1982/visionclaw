@@ -55,6 +55,32 @@ def _mb(n):
 	return round(n / 1048576)
 
 
+def lookResult(found):
+	"""What looking for newer models found, in sentences. found is what catalog.Catalog.look returns."""
+	lines = []
+	if found["new"]:
+		# Translators: Shown after looking for newer models. {count} is how many, {names} their names.
+		lines.append(_("{count} models were added to the lists: {names}.").format(
+			count=len(found["new"]), names=", ".join(found["new"])))
+	else:
+		# Translators: Shown after looking for newer models when there are none.
+		lines.append(_("There are no newer models. The lists here already offer every model on VisionClaw's list."))
+	if found.get("updated"):
+		# Translators: Says how old the list of models is. {date} is a date like 2026-11-17.
+		lines.append(_("The list was last brought up to date on {date}.").format(date=found["updated"]))
+	if found.get("tooNew"):
+		# Translators: Shown when some newer models cannot be used by this version of the add-on.
+		lines.append(_(
+			"{count} newer models need a newer version of VisionClaw and are not offered here."
+		).format(count=found["tooNew"]))
+	if found.get("refused"):
+		# Translators: Shown when entries of the list were not accepted.
+		lines.append(_(
+			"{count} entries of the list were left out, because they did not pass VisionClaw's checks."
+		).format(count=found["refused"]))
+	return " ".join(lines)
+
+
 class ModelsDialog(wx.Dialog):
 	"""Lets the user choose a vision model and a coder model, and downloads what is missing.
 	Enter starts, Space reads the progress while working. Every model is always offered: the computer only
@@ -64,6 +90,8 @@ class ModelsDialog(wx.Dialog):
 		"""models: the catalog. conf: the add-on's settings. suggested: {role: model id}.
 		notes: sentences about this computer, shown under the welcome text.
 		onChosen(keys) is called with the stored models the new choice uses, once they are ready."""
+		self._suggested = suggested
+		self._looking = False
 		# Translators: Title of the window for choosing and downloading the models.
 		super().__init__(parent, title=_("VisionClaw models"))
 		self._models = models
@@ -109,9 +137,12 @@ class ModelsDialog(wx.Dialog):
 		main.Add(self.gauge, flag=wx.LEFT | wx.RIGHT | wx.EXPAND, border=10)
 		buttons = wx.BoxSizer(wx.HORIZONTAL)
 		self.startBtn = wx.Button(self, label="")
+		# Translators: Button that asks, and then looks on VisionClaw's page for models that are not offered yet.
+		self.lookBtn = wx.Button(self, label=_("Look for &newer models..."))
 		# Translators: Button that closes the window without downloading.
 		self.closeBtn = wx.Button(self, wx.ID_CANCEL, label=_("&Later"))
 		buttons.Add(self.startBtn)
+		buttons.Add(self.lookBtn, flag=wx.LEFT, border=10)
 		buttons.Add(self.closeBtn, flag=wx.LEFT, border=10)
 		main.Add(buttons, flag=wx.ALL | wx.ALIGN_RIGHT, border=10)
 		self._updateButton()
@@ -119,6 +150,7 @@ class ModelsDialog(wx.Dialog):
 		self.CentreOnScreen()
 		self.startBtn.SetDefault()
 		self.startBtn.Bind(wx.EVT_BUTTON, lambda e: self._start())
+		self.lookBtn.Bind(wx.EVT_BUTTON, lambda e: self._look())
 		self.closeBtn.Bind(wx.EVT_BUTTON, self._onClose)
 		self.Bind(wx.EVT_CLOSE, self._onClose)
 		self.Bind(wx.EVT_CHAR_HOOK, self._onKey)
@@ -188,10 +220,66 @@ class ModelsDialog(wx.Dialog):
 			ui.message(self._progress)
 			return
 		if not self._working and key in (wx.WXK_RETURN, wx.WXK_NUMPAD_ENTER) and self.startBtn.IsShown() \
-				and self.FindFocus() is not self.closeBtn and not isinstance(self.FindFocus(), wx.Choice):
+				and self.FindFocus() not in (self.closeBtn, self.lookBtn) and not isinstance(self.FindFocus(), wx.Choice):
 			self._start()
 			return
 		evt.Skip()
+
+	def _look(self):
+		"""Look for newer models, but only after the user has said yes: this is the one time VisionClaw goes
+		online other than to download a model."""
+		if self._working or self._looking:
+			return
+		# Translators: Asked before VisionClaw goes online to read the list of models.
+		question = _(
+			"VisionClaw will go online once, to its own page on GitHub, and read the list of Qwen models it can "
+			"offer. Nothing about you, your computer or what you do is sent; GitHub sees your internet address, as "
+			"any website does. Nothing is downloaded or changed except the lists in this window.\n\nLook now?"
+		)
+		# Translators: Title of the question asked before VisionClaw goes online to read the list of models.
+		if gui.messageBox(question, _("Look for newer models"), wx.YES_NO | wx.NO_DEFAULT | wx.ICON_QUESTION, self) != wx.YES:
+			return
+		self._looking = True
+		self.lookBtn.Disable()
+		# Translators: Shown while the list of models is being read from the internet.
+		self._setText(_("Looking for newer models."))
+		version = ""
+		try:
+			version = str(addonHandler.getCodeAddon().manifest["version"])
+		except Exception:
+			log.debugWarning("VisionClaw: the add-on's own version could not be read", exc_info=True)
+		threading.Thread(target=self._lookWork, args=(version,), name="visionClaw-look", daemon=True).start()
+
+	def _lookWork(self, version):
+		try:
+			found = self._models.look(version)
+		except Exception as e:
+			log.warning("VisionClaw: the list of models could not be read", exc_info=True)
+			self._after(self._looked, None, str(e))
+			return
+		self._after(self._looked, found, "")
+
+	def _looked(self, found, error):
+		self._looking = False
+		self.lookBtn.Enable()
+		if found is None:
+			# Translators: Shown when the list of models could not be read. {error} is the reason.
+			self._setText(_(
+				"The list of models could not be read: {error}\n\nNothing was changed. Check your internet "
+				"connection and try again later."
+			).format(error=error))
+			return
+		if found["new"]:
+			# The new models join the lists; what was selected stays selected.
+			for role, choice in self._choices.items():
+				chosen = self._selected()[role]
+				entries = self._models.entries(role) + ([None] if role == catalog.CODER else [])
+				self._entries[role] = entries
+				choice.Set([self._label(e, self._suggested.get(role)) for e in entries])
+				choice.SetSelection(next((i for i, e in enumerate(entries) if e is chosen or (
+					e is not None and chosen is not None and e["id"] == chosen["id"])), 0))
+			self._updateButton()
+		self._setText(lookResult(found))
 
 	def _setText(self, text, focus=True):
 		self.text.SetValue(text)
@@ -209,6 +297,7 @@ class ModelsDialog(wx.Dialog):
 		self._working = True
 		self._cancel.clear()
 		self.startBtn.Hide()
+		self.lookBtn.Hide()
 		for choice in self._choices.values():
 			choice.Disable()
 		# Translators: Button that cancels the download.
@@ -256,6 +345,7 @@ class ModelsDialog(wx.Dialog):
 		self._conf["coderModel"] = chosen[catalog.CODER]["id"] if chosen[catalog.CODER] else "none"
 		self.gauge.Hide()
 		self.startBtn.Hide()
+		self.lookBtn.Hide()
 		for choice in self._choices.values():
 			choice.Disable()
 		self.closeBtn.SetLabel(_("&Close"))
@@ -275,6 +365,7 @@ class ModelsDialog(wx.Dialog):
 		# Translators: Button to retry a failed download.
 		self.startBtn.SetLabel(_("&Try again"))
 		self.startBtn.Show()
+		self.lookBtn.Show()
 		self.closeBtn.SetLabel(_("&Close"))
 		if "CERTIFICATE_VERIFY_FAILED" in error:
 			# Translators: Shown when the download fails because the secure connection can't be checked.

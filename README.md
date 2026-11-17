@@ -16,7 +16,7 @@ VisionClaw is a fork of [VisionMate](https://github.com/athee06/VisionMate) by A
 everything VisionMate does: image descriptions, the overlay for windows NVDA cannot read, photo descriptions in
 chat apps, and names for unlabelled buttons.
 
-> **Status: pre-release (0.3.3).** The orchestration core has been tested with scripted models and with a
+> **Status: pre-release (0.4.0).** The orchestration core has been tested with scripted models and with a
 > real model through the bundled engine, and the whole add-on has been loaded against stand-ins for NVDA.
 > It has **not yet been run inside NVDA**. Expect rough edges and please report them. See
 > [docs/STATUS.md](docs/STATUS.md) for exactly what was tested.
@@ -37,6 +37,9 @@ Press **NVDA+Alt+C**, type a request, and press Enter. For example:
 - *Which speech synthesizer am I using? What braille display do I have, and how many cells does it have?*
 - *Switch my speech synthesizer to eSpeak.*
 - *Save the add-on hello key as a file.*
+- *Do a deep inspection of this website.* Then: *Fix all of it*, or *Fix number 2.*
+- *Give this site keys to move between posts.* *Make NVDA+Alt+P press the Play button on this page.*
+- *What does the Clock add-on do? Which keys does it have?*
 
 You do not need to know NVDA. VisionClaw finds the right NVDA setting or command from your description.
 
@@ -60,7 +63,7 @@ You do not need to know NVDA. VisionClaw finds the right NVDA setting or command
 
 ## Install
 
-1. Download **[VisionClaw-0.3.3.nvda-addon](https://github.com/joshknnd1982/visionclaw/releases/download/v0.3.3/VisionClaw-0.3.3.nvda-addon)**
+1. Download **[VisionClaw-0.4.0.nvda-addon](https://github.com/joshknnd1982/visionclaw/releases/download/v0.4.0/VisionClaw-0.4.0.nvda-addon)**
    (or pick a version on the [releases page](https://github.com/joshknnd1982/visionclaw/releases)), open the
    file, confirm the installation, and restart NVDA.
 2. If VisionMate is installed, disable it in the Add-on Store: VisionClaw includes it and uses the same keys.
@@ -89,10 +92,12 @@ Larger models are more accurate and slower. You can change your choice at any ti
 
 | Use | Model | Download |
 |---|---|---|
+| Vision | Qwen3.5 0.8B, the smallest and least accurate | 0.7 GB |
 | Vision | Qwen3.5 2B (suggested) | 1.8 GB |
 | Vision | Qwen3.5 4B | 3.2 GB |
 | Vision | Qwen3.5 9B | 6.2 GB |
 | Vision | Qwen3-VL 2B from VisionMate, if it is already on your computer | none |
+| Coder | Qwen2.5 Coder 0.5B, the smallest and least accurate | 0.5 GB |
 | Coder | Qwen2.5 Coder 1.5B (suggested) | 1.0 GB |
 | Coder | Qwen3.5 4B, used for coding | 2.6 GB, or none if you chose it for vision |
 | Coder | Qwen2.5 Coder 7B | 4.4 GB |
@@ -101,6 +106,20 @@ Larger models are more accurate and slower. You can change your choice at any ti
 The models come from Hugging Face. Each file is pinned to one version and checked against its SHA-256 after
 the download. You can also use VisionClaw with a vision model only; then it describes images and runs the
 overlay like VisionMate, and Ask VisionClaw waits until you add a coder model.
+
+### Newer models
+
+These are the newest Qwen models that come in small sizes, as of 17 November 2026. The Qwen team's newer
+families (Qwen3.6, Qwen3.8, Qwen3 Coder) only exist in sizes of 27 billion parameters and more, which is too
+large for most computers.
+
+When newer small Qwen models appear, they are added to a list on VisionClaw's page on GitHub. To get them
+without waiting for a new version of the add-on, press **Look for newer models** in the models window
+(NVDA+Alt+M, then Choose or download other models). VisionClaw asks first, then reads that one list, and adds
+what is new to the two lists of models. It never does this by itself. Nothing about you or your computer is
+sent; GitHub sees your internet address, as any website does. Every model on the list is checked before it
+is offered: only Qwen models, only from Hugging Face, each file pinned to one version with its size and
+SHA-256, which the download verifies. A model that needs a newer VisionClaw is not offered, and you are told.
 
 ### Seeing, removing and swapping models
 
@@ -182,6 +201,50 @@ buttons and form fields, so nothing has to be guessed from a picture.
 
 The models still run only on your computer. The browser goes online, as it does when you use it yourself.
 
+## Making a website or a program accessible, for good
+
+Some websites and programs fight the screen reader: buttons with no name, feeds that load more as you scroll
+and never end, video players whose buttons hide, things you can click that are not buttons. VisionClaw can
+inspect the place you are in, tell you what is in the way, and make fixes that stay.
+
+**Inspect.** Ask *do a deep inspection of this website*, *inspect this window for accessibility problems*, or
+*what is wrong with this button*. VisionClaw reads every control NVDA knows there, watches for a moment to
+see what changes by itself, and compares the picture of the page with its text. It then tells you, in plain
+numbered sentences, what it found and which of it an add-on can fix. Nothing is changed by inspecting.
+
+**Fix.** Ask *fix all of it* or *fix number 2*, or say what you want in your own words:
+
+- *Give this site keys to move between posts.* Two keys go to the next and the previous post, result, video
+  or other repeated item. On a page that loads more as you go, the same key finds the new ones.
+- *Make NVDA+Alt+P press the Play button on this page.* One key presses a control by its name, wherever you
+  are on the page, under whichever name it has at the moment (Play or Pause).
+- *Make a key that reads the time.* One key reads a part of the page or window.
+- *Name the focused button Share on this website.* Controls without a name get one. Where the page's own code says what a
+  button is, that is used; where it does not, the vision model looks at the button's picture, and you are
+  told that the name is a guess.
+- *Tell me when the inbox count changes.* You hear a part's new text whenever it changes.
+
+Before anything is turned on you are told exactly what will be made, and asked. The fixes for one website
+(in any browser) or one program are kept together in one add-on, named fixes and then the site or program.
+It starts with NVDA from then on and stays until you say *remove the add-on* and its name. *Save the add-on
+... as a file* gives you a normal add-on file to install for good or to share with someone who uses the
+same site. Outside that website or program its keys do what they always do.
+
+It is built to work the same in Chrome, Edge, Brave and other Chromium browsers and in Firefox, because NVDA
+builds the pages of all of them the same way, and VisionClaw reads what NVDA has built. This part is new: it
+has been tested against stand-ins for a web page and against NVDA's own source, but not yet on real websites
+inside NVDA. `docs/STATUS.md` says exactly what was and was not tested.
+
+No model writes this add-on's code. It is put together by plain code from fixed, tested parts and the list
+of your fixes, so what it does can be told to you exactly and a small model cannot break it. The models
+choose what you mean and name icons from their pictures. For behaviour these five kinds of fix cannot give,
+the coder model can still write an add-on, as described further down.
+
+What it cannot do: a control that nothing in the page's or program's code tells apart from others cannot be
+named reliably, and the report says how many those are. A window NVDA cannot read at all cannot be fixed
+this way; use the picture instead (*list what is in the window*, an app helper hotkey, or pointer mode).
+Sites change, and a fix that no longer finds its control says so instead of doing something else.
+
 ## Asking NVDA about itself: speech, braille, drivers
 
 - Ask which speech synthesizer, voice, braille display, braille tables, drivers and add-ons NVDA has and uses,
@@ -201,6 +264,16 @@ The models still run only on your computer. The browser goes online, as it does 
     before trying one of those again.
 - NVDA commands that can silence or close NVDA (speech mode, sleep mode, quit, restart) are also always asked
   about first, with a word on how to undo them.
+
+### The add-ons you have installed
+
+VisionClaw knows the add-ons in your NVDA. *Which add-ons do I have?* lists them with their versions and
+whether they are on. *What does the Clock add-on do?*, *Which keys does it have?* or *How do I set an alarm
+with the Clock add-on?* are answered from what the add-on says about itself, its commands and keys where you
+are now, and its own help. An add-on's commands are NVDA commands, so VisionClaw can also find and run them
+for you (*say the date with the Clock add-on*), and it can change an add-on's settings when the add-on keeps
+them in NVDA's configuration. The help texts of the add-ons that are on are read up on like NVDA's own user
+guide.
 
 ## Working the mouse from the keyboard
 
@@ -321,7 +394,9 @@ Double-check anything important.
 ## Privacy
 
 VisionClaw does not collect any information. Its own code connects to the internet only to download the
-models you choose, from Hugging Face. Screens, photos, requests and generated code never leave your computer.
+models you choose, from Hugging Face, and, when you press Look for newer models and say yes, to read the list
+of models from its own page on GitHub. Neither happens by itself. Screens, photos, requests and generated
+code never leave your computer.
 When you ask it to open or search the web, it hands the address to your own browser, which goes online as
 usual; a web search sends your search words to the search engine you chose.
 

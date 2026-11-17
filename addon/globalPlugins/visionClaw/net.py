@@ -125,10 +125,14 @@ def _open(req, timeout):
 		return urllib.request.urlopen(req, timeout=timeout)
 
 
-def fetchJson(url, timeout=20):
+def fetchJson(url, timeout=20, limit=None):
+	"""Read a small JSON file from an address. limit: the most bytes it may have; a longer answer is refused."""
 	req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Cache-Control": "no-cache"})
 	with _open(req, timeout) as r:
-		return json.loads(r.read().decode("utf-8"))
+		body = r.read() if limit is None else r.read(limit + 1)
+	if limit is not None and len(body) > limit:
+		raise ValueError("The answer is longer than it may be.")
+	return json.loads(body.decode("utf-8"))
 
 
 def download(url, dest, size=None, sha256=None, onProgress=None, cancel=None):

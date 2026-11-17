@@ -38,6 +38,18 @@ Before you start: disable VisionMate in the Add-on Store, install the VisionClaw
       use ..." appears; Yes removes the old ones.
 - [ ] "Remove all models", then NVDA+Alt+W: the models window opens.
 
+## Newer models
+- [ ] The models window lists Qwen3.5 0.8B first among the vision models and Qwen2.5 Coder 0.5B first among
+      the coder models; neither is marked as suggested.
+- [ ] "Look for newer models" asks first and says what goes online. No: nothing happens, and nothing went
+      online.
+- [ ] Yes: after a moment the text says there are no newer models, with the list's date, or names the models
+      that were added; these are then in the lists, and the model that was selected is still selected.
+- [ ] With no internet connection: the text says the list could not be read and that nothing was changed.
+- [ ] Choose Qwen3.5 0.8B and Qwen2.5 Coder 0.5B: they download, pass the check, and the engine starts with
+      them. "What is on my screen" gives an answer. (These two have not been run in the engine yet.)
+- [ ] After closing and reopening NVDA, models added by the button are still in the lists.
+
 ## Settings stay the user's
 - [ ] Installing or updating VisionClaw changes no NVDA setting (compare the speech rate before and after).
 - [ ] "Speak a bit faster": the question reads "You asked: speak a bit faster. Change speech rate from X to Y?".
@@ -81,6 +93,41 @@ Before you start: disable VisionMate in the Add-on Store, install the VisionClaw
 - [ ] "Take me to the heading ...": NVDA says the heading, and say all reads on from there.
 - [ ] "Go back" and "reload this page".
 - [ ] The same in Firefox, Chrome and Edge.
+
+## Making a website or a program accessible
+Do each of these once in Firefox and once in a Chromium browser (Chrome, Edge or Brave).
+- [ ] On a page with posts (a social feed, a forum): "do a deep inspection of this website". The answer names
+  the page and the site, counts headings, links, buttons and fields, and lists numbered problems. NVDA keeps
+  responding while it works, and NVDA+Alt+X stops it.
+- [ ] The counts in the report agree with NVDA's own elements list (NVDA+F7) for links, headings and buttons.
+- [ ] "Fix all of it": the question says in plain sentences what will be made, with the keys. Say no: nothing
+  is made. Ask again and say yes: the answer names the add-on.
+- [ ] The next-post and previous-post keys move NVDA's reading position post by post and say each post's first
+  line. At the last loaded post the key says no more are loaded; a moment later it finds the new ones.
+- [ ] On a video site: the key for play or pause works from anywhere on the page, both while playing and while
+  paused. The key that reads the time reads it.
+- [ ] A button that had no name is now read with its name in browse mode (arrow keys, B, the elements list)
+  and when tabbing to it in focus mode. Buttons that had names sound as before. Braille shows the name.
+- [ ] On another website, and in another program, each of the add-on's keys does what it did before.
+- [ ] "Make NVDA+alt+P press the ... button on this page": the key is made and works. Asking for a key NVDA
+  already uses gives another key, and says so.
+- [ ] "Tell me when the ... changes" on a part that changes (a clock, a counter): the new text is spoken once
+  per change, only while that site is in front, and NVDA stays responsive.
+- [ ] With an unnamed button focused: "name the focused button Share on this website" names it, or says why it cannot.
+- [ ] After restarting NVDA the fixes still work. "List what you have made" shows the add-on. "Save the add-on
+  ... as a file" writes a file that installs in NVDA; "remove the add-on ..." ends the fixes and takes the
+  names off the page.
+- [ ] "Fix the add-on fixes ..." is refused with the reason, and nothing is rewritten.
+- [ ] In a program whose controls NVDA can see (for example a settings window): "inspect this window for
+  accessibility problems" counts its controls; a key made with "make a key that presses the ... button" works.
+- [ ] In a game or program NVDA cannot read: the inspection says it is a picture to NVDA and what to use instead.
+- [ ] A very long page (a feed scrolled far down): the inspection finishes, and NVDA does not freeze.
+
+## Installed add-ons
+- [ ] "Which add-ons do I have": the list matches NVDA's add-on store, with versions and enabled or disabled.
+- [ ] "What does the ... add-on do": answered from its description and help. "Which keys does the ... add-on
+  have": the keys match NVDA's Input gestures dialog.
+- [ ] A command of an installed add-on can be found and run by describing it.
 
 ## Speech, braille and drivers
 Do these with someone sighted nearby, or with a second way to get speech back, until they have passed once.

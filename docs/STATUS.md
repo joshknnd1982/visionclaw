@@ -1,12 +1,12 @@
 # VisionClaw status
 
-Updated 2026-11-17, version 0.3.3.
+Updated 2026-11-17, version 0.4.0.
 
 ## What exists
 
 Everything in phases 1 to 3.4 and 4.1 of `CLAUDE.md`: the fork, the model catalog and models window, the
 graphics choice with fallback, the two-model runtime, the planner with recipes, agreement between the models,
-the step runner, 32 NVDA tools and 26 recipes, the Ask VisionClaw window, app helpers, generated add-ons, the
+the step runner, 40 NVDA tools and 34 recipes, the Ask VisionClaw window, app helpers, generated add-ons, the
 knowledge base and the lessons memory. New in 0.2.0: the web through NVDA's browse mode, reporting on speech,
 braille, drivers and add-ons, safe switching of the synthesizer and braille display, and saving a generated
 add-on as a file. New in 0.3.0: a guard around generated add-ons with automatic debugging and correction,
@@ -74,7 +74,7 @@ every time, so the user was never asked to decide. The one failure: the model wr
 ("speech: rate") where its id was wanted, which the stand-in tool refused; the real tool accepted near misses
 already and now accepts the name too.
 
-## The mouse from the keyboard (not yet released)
+## The mouse from the keyboard (0.4.0)
 
 Right-click, double-click, pointing and dragging on items found in a window's picture; G to pick up and drop in
 the overlay; pointer mode (NVDA+Alt+K); right-click and double-click for app helpers. Tested with stand-ins
@@ -87,6 +87,93 @@ the right way. That run also showed Qwen3.5 4B writing ", " where an item's name
 fields; since then the user's own words decide which items are meant (`nvdatools.mentioned`).
 **None of it has moved a real mouse**: whether programs accept the clicks and drags, and how pointer mode feels
 in use, must be found out in NVDA.
+
+## Websites and programs made accessible for good; installed add-ons (not yet released)
+
+Four tools and four recipes, which makes 40 tools and 34 recipes. `check_access` inspects the web page, the
+window or the focused control; `fix_access` makes the fixes for what was found; `add_fix` makes one fix asked
+for in words; `addon_info` answers questions about an add-on installed in NVDA. A fix is one of five kinds: two
+keys that move between items, a key that presses a control, a key that reads one, a name for controls without
+one, and being told when a part changes. The fixes of one website or program are data in one add-on, put
+together by code from `fixruntime.py` and `claw/fixmatch.py`; no model writes or repairs it.
+
+Tested, and how:
+
+- **NVDA's own source, read for this.** The source of NVDA 2026.3.1 (the version on this computer) was read
+  for everything the new code relies on: Chromium browsers and Firefox share one page builder and one set of
+  facts per control (tag, class, id, kind, states); a control's name is only spoken from those facts when
+  `alwaysReportName` is set; how NVDA moves its reading position, presses a control and finds a control's
+  place; the names of every kind and state used; and the add-on handler's functions. This found one mistake
+  that no stand-in would have shown: NVDA asks an add-on to name a control only if the add-on's own class has
+  the method, not a class it inherits from, so the method is now written into each add-on that gives names.
+  Reading source shows what NVDA should do; it is not a run inside NVDA.
+- **`tests/test_access.py`, plain code.** Rules; a page read whole and read in stretches of 37 characters gives
+  the same controls with the same texts; class names a person wrote are told from names a tool made up; a
+  stand-in feed page gives exactly the findings it holds (12 nameless buttons of which 7 can be named and 5
+  cannot be told apart, 2 clickable things that are no controls, a feed of 5 posts whose inner comments are not
+  counted, a player whose button is found under either of its names); what changed between two looks; text
+  that is only in the picture; a window NVDA cannot read; choosing by number or words; words from a page that
+  try to become code stay data; the add-on passes the same check as model-written add-ons and its data reads
+  back from it.
+- **`tests/test_access.py`, the generated add-on at work** against a stand-in page that behaves as NVDA's source
+  says: the next-post key goes post by post, also in small stretches, and finds posts that arrive later;
+  previous goes back; a key presses the player's button under whichever name it has; a key reads the time;
+  names reach what NVDA reads from the page and the control itself; on another site every key is passed on and
+  nothing is named; turning the add-on off takes the names out; a fix that fails says so and raises nothing;
+  a change is announced once, and not while the user is elsewhere; in a stand-in window, keys press, read and
+  move, and a button is named by its control id.
+- **`tests/test_nvda_stub.py`**, the tools through the real registry against stand-ins: the report in the
+  tool's own words; nothing made when the user says no; the add-on stored, loaded, listed and working; one
+  more fix joining it; a key in use replaced by a free one; refusals that say why; `repair_addon` refusing to
+  hand fixes to a model; a name from a picture marked as a guess; "fix number 3" meaning the problem that had
+  that number in the report the user heard; removal; an installed add-on's facts, keys and help.
+- **`tests/live_orchestrator.py` with the owner's two models** (Qwen3.5 4B and Qwen3.5 9B, on the GeForce RTX
+  5060 and the Radeon 780M), stand-in tools, 35 requests of which 11 are new: a deep inspection, "fix the
+  accessibility problems on this page", "make this website accessible", "inspect this window for
+  accessibility problems, then fix number 2", "give this site keys to move between posts", "make NVDA+alt+P
+  press the Play button on this page", "tell me when the inbox count changes", "name the focused button Share
+  on this website", "fix number 2", and two questions about an add-on. Both models chose the same, fitting
+  recipe for all 35, in 2 to 17 seconds each, and the forms were filled in usably. What the first run showed
+  and what was changed for it: (1) "call the focused button Share" was taken as a click by both models, so
+  the documented wording is now "name the focused button"; (2) a model wrote "F1" where the add-on's key was
+  F12 when it retold the add-on's facts, so those facts are now said in the tool's own words; (3) the model
+  wrote "all" as the add-on's name though the request named the Clock add-on, and wrote the new name where
+  the control belongs, so in both tools the user's own words now decide what is meant; (4) "the inbox count"
+  is not the text of the part it means, so a part is also found by what the page's code calls it; (5) a
+  number in "fix number 2" now means the problem that had that number in the report the user heard.
+
+- **An independent review** of this work, arranged by the other session, found six faults by reading the
+  code. All are fixed, each with a test: two fixes add-ons for a site and one of its sub-sites wrapped each
+  other again on every focus move; the hint words for the new recipes also took ordinary requests such as
+  "what key reloads the page" or "fix the problem with my speech"; two websites whose names become the same
+  folder name ("my-site.com", "my.site.com") shared one add-on; "fix all" on a page with a running video would
+  have announced the time every few seconds; a picture that cannot be taken (screen curtain) ended the whole
+  task; and a website's name was written into the add-on without limiting its characters. Looking again for a
+  watched control that has gone is now done every 30 seconds with smaller limits.
+
+## The latest small models (not yet released)
+
+Read from Hugging Face's own listing on 2026-11-17: the newest Qwen family that comes in small sizes is still
+Qwen3.5 (0.8B, 2B, 4B, 9B); Qwen3.6 and Qwen3.8 start at 27B. The newest small coder models are still
+Qwen2.5 Coder (0.5B, 1.5B, 3B, 7B); Qwen3 Coder starts at 30B. Added to the catalog: Qwen3.5 0.8B for vision and
+Qwen2.5 Coder 0.5B, offered first in their lists and never suggested. Qwen2.5 Coder 3B was left out because its
+licence is not Apache 2.0. New: `models.json` in the repository, written from the catalog, and the button
+"Look for newer models" in the models window, which asks first and then reads that one file.
+
+- Revision, size and SHA-256 of the three new files were read from Hugging Face's API, and each download
+  address was asked for its headers: all three answer with the catalogued size and checksum. **Neither model
+  was downloaded or run in the engine.** Qwen3.5 0.8B is of the family the engine already runs; Qwen2.5 Coder
+  of any size has still not been run.
+- `tests/test_parts.py`: every built-in model follows the rules a fetched one must; `models.json` is exactly
+  the catalog; a newer model on a list is offered, kept, found again after a restart, and its files are listed
+  and removed like any model's; 23 kinds of entry that must not be accepted are refused while the rest of the
+  list is still used (another server, no secure connection, not pinned to a revision, no checksum, a path in a
+  name, an unknown publisher, not a Qwen model, another licence, and more); a saved list changed on the disk to
+  point elsewhere is not trusted; a page that cannot be reached changes nothing; an answer longer than the
+  limit is refused.
+- **The button and its window have not run inside NVDA**, and the list has not been fetched from GitHub by the
+  add-on: `models.json` is not on GitHub until this is pushed. The address in the code is
+  `raw.githubusercontent.com/joshknnd1982/visionclaw/main/models.json`.
 
 ## What was not tested
 
@@ -125,7 +212,25 @@ in use, must be found out in NVDA.
   or on the processor has not been measured, and the memory each model needs (`memoryGb` in the catalog) is an
   estimate that decides whether a model is thought to fit.
 
+- **The deep inspection and the fixes add-on have not run inside NVDA, in any browser, on any real website.**
+  They rest on NVDA's browse mode internals (`getTextWithFields`, `_normalizeControlField`, `_set_selection`,
+  `_activatePosition`, `_getOffsetsFromFieldIdentifier`), checked in NVDA 2026.3.1's source only. Open
+  questions for the run in NVDA: how long a very long page takes and whether NVDA stays responsive; whether
+  braille shows the names; whether Firefox and Chromium really give the same class and id facts on real sites;
+  how names sound when a site later gives a control its own name. A browser NVDA reads through UI Automation
+  instead of its own page copy is inspected as a window, not as a page.
+- **Names from pictures** were only tried with a stand-in for the vision model. How well a small vision model
+  names a real 24-pixel icon is unknown, which is why such names are called guesses to the user.
+- **Sites with made-up class names** (Facebook is one) will show many controls that cannot be named, because
+  nothing fixed tells them apart. The keys that move between posts do not depend on class names.
+- **`addon_info`** was tested with a stand-in add-on; the list of an add-on's commands depends on NVDA's
+  gesture map and has not been compared with NVDA's Input gestures dialog.
+
 ## Known limits
+
+- Accessibility fixes are of five kinds. One fix cannot be removed by itself yet: a newer fix about the same
+  thing replaces it, or the whole add-on is removed. What a fixes add-on says ("No more posts below") is English.
+- A control gets a name only where something fixed in the page's or program's code tells it apart.
 
 - The models window, settings and tool results are in English; translations are phase 6.4.
 - Settings that are a free text in NVDA, such as the braille tables, are reported but cannot be changed yet.
