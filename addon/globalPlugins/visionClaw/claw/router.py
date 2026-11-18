@@ -50,6 +50,8 @@ _POINTER = r"\b(pointer|mouse|keyboard|navigable|arrow keys?|cursor)\b"
 # name: (the fact that opens it, or None; the words that open it, or None).
 GATES = {
 	"web_page": (WEB, _WEB_WORDS), "page_outline": (WEB, _WEB_WORDS), "go_to": (WEB, _WEB_WORDS),
+	"explore_page": (WEB, _WEB_WORDS + r"|\b(landmarks?|laid out|layout|explore)\b"),
+	"form_trouble": (WEB, _WEB_WORDS + r"|\b(submit\w*|required|errors?|invalid|sign up|register|check ?out)\b"),
 	"page_navigate": (WEB, _WEB_WORDS), "fill_field": (WEB, _WEB_WORDS + r"|\b(type|enter|fill|put|write)\b"),
 	"note_page": (None, _NOTES),
 	"controller_info": (CONTROLLER, _PAD_WORDS), "controller_mode": (CONTROLLER, _PAD_WORDS),

@@ -38,6 +38,11 @@ Ask: what is in my downloads folder, find the file named budget, how many PDFs a
 looks in your Desktop, Documents, Downloads, Pictures, Music and Videos folders, lists the newest first with
 size and date, and changes nothing. To open one of them, say open and its name.
 
+## Making a folder, and renaming, moving, copying or deleting a file or folder of yours
+Say: create a folder called Taxes in my documents, rename the file budget to Budget 2026, move the file
+report.pdf to my documents, delete the file old notes. VisionClaw asks first and overwrites nothing. Deleting
+moves the file to the Recycle Bin, from where it can be brought back. A rename or a move is undone with: undo that.
+
 ## Free disk space, memory, processor, how long the computer has been on, and whether it is online
 Ask: how much disk space do I have left, how much memory does my computer have, how long has my computer been
 on, am I connected to the internet, which programs are running. The answers come from Windows itself. Nothing

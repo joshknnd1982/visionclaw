@@ -309,7 +309,25 @@ for request, recipe in (
 	("go back to the previous page", "page_navigate"),
 	("reload this page", "page_navigate"),
 	("what are the headings on this page", "page_outline"),
-	("how is this page laid out", "page_outline"),
+	("list the headings of this page", "page_outline"),
+	# The page as a whole, and what stops a form: by words that can hardly mean anything else.
+	("how is this page laid out", "explore_page"),
+	("explore this page", "explore_page"),
+	("what is on this page", "explore_page"),
+	("what is the best way to get around this site", "explore_page"),
+	("which landmarks does this page have", "explore_page"),
+	("why won't this form submit", "form_trouble"),
+	("the form will not send", "form_trouble"),
+	("which fields are required", "form_trouble"),
+	("which fields did I miss", "form_trouble"),
+	("find the errors in this form", "form_trouble"),
+	("why can't I sign up on this page", "form_trouble"),
+	# What only sounds like them stays where it was.
+	("summarize this page", "web_page"),
+	("type Josh into the name field of the form", "fill_field"),
+	("is this form accessible", "check_access"),
+	("what is wrong with this page", "check_access"),
+	("go to the main content", "go_to"),
 	("take me to the heading Refund policy", "go_to"),
 	("jump to the comments section", "go_to"),
 	("go to bbc.co.uk", "open_website"),
@@ -391,6 +409,10 @@ for request, recipe in (
 	("what did you change", "list_changes"),
 ):
 	assert planner.hint(request) == recipe, (request, planner.hint(request))
+# The layout of the keyboard is a setting of NVDA, and a window is described from its picture: neither is a page.
+for request in ("change the keyboard layout to laptop", "explain the layout of this window",
+		"what is the structure of this document", "send an email to my friend", "why does NVDA not read this"):
+	assert planner.hint(request) not in ("explore_page", "form_trouble", "page_outline"), (request, planner.hint(request))
 # Ordinary requests must not be taken for an inspection or a fix just because they mention a page, a key, a
 # problem or the next something. A hint is the choice when the model fails, so a wrong one changes things
 # the user never asked about.

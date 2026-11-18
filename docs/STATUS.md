@@ -1,6 +1,6 @@
 # VisionClaw status
 
-Updated 2026-11-18, version 1.5.0.
+Updated 2026-11-18, version 1.6.0.
 
 ## What exists
 
@@ -1429,7 +1429,129 @@ not tried; the stand-in page has no mail. `check_seen` was not tried on a real d
 recognition reads the names under desktop icons, and whether NVDA gives the icons' names when another window
 is in front (then only the text and the model are left).
 
+## The user's own files (1.6.0, 2026-11-18)
+
+Asked for by the owner right after 1.5.0: creating, renaming, moving and deleting files. One tool, `change_file`,
+and one recipe, `file_task`; the logic is `computer.fileTask`, `cleanName`, `renamed` and `bestFiles`. Which file
+is meant is found by the search that `find_files` uses, by the words of its name; a model writes nothing, and
+where several files fit, the tool itself asks the user which. The recipe is decided by the words alone.
+
+| Test | What it shows | Result |
+|---|---|---|
+| `tests/test_computer.py`, new part | Twelve requests and what each asks for; fifteen that delete, move, copy or rename something else and are left alone ("delete the notes on this program", "copy the window title to the clipboard", "move to the next heading"); names Windows does not take; the ending kept on a rename; the file that is named exactly shutting out those that only have the word | passes |
+| `tests/test_nvda_stub.py`, new part | The real tool and the real search on real files in a folder of the test's own that stands for the user's folders: a folder and a text file made; a second one of the same name refused; a rename with the ending kept; a rename onto an existing name refused; a move to a folder of the user's and to a folder inside it by its name; a copy; a folder not copied; deleting asked about whatever the settings say, a no leaving the file, a folder's question saying how much is in it; no such file, no name, and several that fit with "None of these"; the list of changes; three renames and moves and one made file put back by "undo that" | passes; the Recycle Bin was stood in for |
+| `tests/live_orchestrator.py`, Qwen3.5 9B for both jobs, one small question at a time, stand-in tools | Seven file requests, one of them two things in a row, and six older requests with words that could be taken for a file's ("Delete the developer guides", "Delete the training material", "Forget that", "Copy the window title to the clipboard", "What did you change", "Undo that") | 13 of 13 handled the right way; the seven file requests took no model call |
+
+**Not tested.** `computertools.recycle` calls Windows' `SHFileOperationW` with a structure read from the SDK's
+header; it has never been called for real, so whether a file really lands in the Recycle Bin is untried. A file
+that is open in a program, a file on another drive, a very large folder, and a name in another script than
+Latin were not tried. Nothing of this has run inside NVDA.
+
+## Compared with JAWS 2027's AI tools; a web page explored, and what stops a form (1.6.0, 2026-11-18)
+
+The owner's goal, said on 2026-11-18: VisionClaw is to be more powerful and more useful than Vispero Companion
+(formerly FSCompanion) and the other AI tools of JAWS 2027. What JAWS does was read, not remembered: from the help
+of the JAWS 2027 installed on this computer (`JFW.chm`, its What's New page last updated on October 19, 2026; the
+pages are named in `CLAUDE.md`), from Vispero's own post "Download JAWS, ZoomText, and Fusion 2027", and from
+Double Tap's article of October 27, 2026. Nothing of JAWS's help was copied into VisionClaw.
+
+**What JAWS 2027 has, by its own help, and where VisionClaw stands.** "Not run in NVDA" is said where that is so;
+see "What was not tested".
+
+| JAWS 2027 | VisionClaw |
+|---|---|
+| Vispero Companion answers questions about JAWS, Windows, web browsing, Microsoft Office and Google Workspace, with keystrokes. Through Vispero's cloud. | `look_up` answers from NVDA's own user guide and commands, the program in front, its window, Windows' keys, notes on common programs, free training material, the user's library and memories. On this computer. Thinner than JAWS on Office and Google Workspace: `app-office.md` and `app-browsers.md` are short notes, where Vispero has years of training material. |
+| The new Companion (Early Adopter Program, United States only, needs a Vispero account and the internet): one conversation; no list of earlier conversations. | No account, no country, no internet. Memories are kept between sessions as files the user can read and delete. A request that follows another in one sentence is understood; a follow-up as a new request does not yet know the one before it. |
+| Page Explorer: a summary of a web page, its important links, and tips for moving on it. | New: `explore_page` (below), with only those NVDA keys that fit the page; `read_page` answers and summarizes; `page_outline`, `go_to`. No model is needed for the layout. |
+| Picture Smart: describes a picture file, a control, the window, the screen, a slide or a video frame; two services to compare; follow-up questions; a scanner or camera. | Describing the focus, window, screen, pictures in File Explorer and chat photos, with follow-up questions, from VisionMate. One local model, so no second opinion from another service. No scanner or camera. |
+| Companion Actions: finds an unlabelled button, makes sense of an error message, explains a cluttered screen, works through a task. Stays in one application. | Clicking by name from the window's picture, naming controls for good, the deep inspection, lasting fixes, add-ons written on request, the mouse, touch, pen and controller from the keyboard, and since 1.5.0 the computer itself across programs. New: `form_trouble` (below). |
+| Changes JAWS settings by asking, everywhere or only for the application in use. Not yet: advanced braille settings, Speech and Sound Schemes, Voice Profiles. | Changes any NVDA setting by asking, the settings of the synthesizer and braille display in use, switches drivers safely, and undoes every change. **Missing: "only in this program"**, which NVDA does with configuration profiles. |
+| Asks before important steps; Escape stops; checks in on long tasks. | Asks before every change unless the user turned that off, always before what could silence NVDA; the stop command; progress spoken at every step. |
+| A voice of its own for the Companion. | Missing. Answers come in NVDA's own voice. |
+| Dictation in the Companion; the voice assistant "Hey Sharky" (Microsoft's cloud). | Missing (phase 6.2). |
+| Face in View: whether the face is in the camera's picture and well lit. | Missing. |
+| Auto Graphics Labeler: names graphics from their tooltips. | Names from the page's or program's own code, or from the picture, kept for good as data. |
+
+**What VisionClaw has that JAWS's help does not describe at all:** everything on the user's own computer with
+nothing sent anywhere; add-ons written, checked and repaired on request; fixes for a website or program that
+stay; arrow keys for dragged controls; fingers, pressure, games that read the mouse directly and a game
+controller; learning about a program and keeping notes; skills the user makes in words; a portable copy.
+
+**Still to build to be ahead on every point**, in the order of how much each matters against JAWS:
+1. A setting changed only in the program in front, through NVDA's configuration profiles. Read from
+   `config/__init__.py` of NVDA's release-2026.3 branch on 2026-11-18, and to be read again before building:
+   a change (`config.conf[...][...] = value`) is written to the profile activated last (`self.profiles[-1]`,
+   `AggregatedSection._getUpdateSection`); `createProfile(name)` makes an empty profile and raises ValueError
+   when the name is taken; a program's trigger is kept in `config.conf.triggersToProfiles` and saved with
+   `saveProfileTriggers()`; `manualActivateProfile(name)` puts a profile on top, and with None takes the
+   manual one off again; the sections in `BASE_ONLY_SECTIONS` (general, update, development, addonStore, remote,
+   math, screenCurtain) cannot be in a profile at all. Not read yet: `appModuleHandler` (how a program's
+   trigger is written, thought to be "app:" and the program's name, and when it is entered), and
+   `gui/configProfiles.py` (what NVDA itself does after a trigger was added while the program is in front).
+   Open questions that need a run in NVDA: whether a new profile takes effect at once or only when the user
+   comes back to the program; how undoing such a change finds the profile again when the user is elsewhere
+   (`claw/changes.py` would have to keep the profile's name). Not built today, because a mistake here changes
+   how NVDA speaks in a program without the user knowing why.
+2. A follow-up request that knows the request before it ("and the second one?", "do that again in Word").
+3. Dates in calendars that cannot be worked with the keyboard, which Vispero names as an example of an action.
+4. Speech in: asking by voice with a local model (phase 6.2).
+5. Deeper notes on Word, Excel, Outlook, PowerPoint and Google's programs, from sources that may be used.
+6. A voice or pitch of its own for VisionClaw's answers; a camera's picture described before a call.
+
+**Built on 2026-11-18** (`claw/pageview.py`, `pagetools.py`, `tests/test_pageview.py`):
+
+- `explore_page`: a web page as a whole, from what NVDA keeps of it in browse mode. What it has, its landmarks
+  in order with their names and links, where the main part begins, how its headings are spread over the levels,
+  the first headings, the links of its navigation, its form fields, and then which of NVDA's keys move best on
+  this page, the best first, and only keys for what the page has. Plain code; no model; nothing sent.
+- `form_trouble`: why a form will not send. Fields the page marks as not valid, fields that must be filled in
+  and are empty, a group of radio buttons of which one must be chosen and none is, and the page's own error
+  messages, each with the field it stands next to; then NVDA's reading position is on the first of them.
+  Where the page tells NVDA nothing, the text in the page's picture is read for lines that say what is wrong.
+- "Summarize this page" with a model that is asked one small question at a time (the owner's own setting): the
+  answer was "What was looked up does not mention summarize". Now plain code gives the beginning of each part of
+  the page in the page's own words (`pageview.gist`, `orchestrator._quoted`).
+- `page_outline` now means the headings alone; "how is this page laid out" goes to `explore_page`. "Layout" and
+  "structure" no longer point at a page where the words name the keyboard, a window, a document or a table:
+  before, "change the keyboard layout to laptop" pointed at the page's headings.
+
+Tested, and how:
+
+- `tests/test_pageview.py` (plain Python, the stand-in web page of the inspection, widened with NVDA's own names
+  for kinds of control and states): a well-built page, a bare one, links only, a main landmark with and without a
+  heading at level 1, a form alone, a very long page shortened to fit; a form with twelve kinds of field in and
+  out of trouble; messages put with the right field or with the whole form; a message inside a message; nothing
+  found; lines from the picture; the two tools through stand-ins for NVDA, read a stretch at a time, with the
+  reading position moved and a page in focus mode put back into browse mode; a picture that cannot be read and
+  a position that cannot be moved. Every key named was found in the user guide of the NVDA 2026.3.1 installed
+  on this computer, which the test asks again every time it runs here.
+- `tests/test_nvda_stub.py`: both tools through VisionClaw's real registry on the stand-in feed page.
+- `tests/test_core.py`: sixteen sentences sent to the right job by their words, five that must not be.
+- With the real model, Qwen3.5 9B for both jobs, asked one small question at a time (the owner's settings), in
+  the bundled engine on the GeForce RTX 5060, with stand-in tools (`VC_ONLY`, 12 requests of
+  `tests/live_orchestrator.py`): "Explore this page for me", "What is the best way to get around this page?",
+  "How is this page laid out?" went to `explore_page`; "Why won't this form submit?" and "Which fields did I
+  miss in this form?" to `form_trouble`; the headings, a question about the page, typing into the search box,
+  moving to a heading and the two lasting fixes went where they went before. No question to the user, 0.5 to
+  6.6 seconds each.
+- The whole of `tests/live_orchestrator.py`, 158 requests, the same model and settings, with the file tasks and
+  the pages and forms both in place, run once on 2026-11-18 before the release: all 158 were carried out and
+  every answer was read. The six requests for pages and forms and the seven for files went to their own jobs.
+  The user was asked four times, the same four as in the run for 1.5.0 ("How do I bake a cake?", "Name the
+  focused button Share on this website", "Give me a hotkey for the gain knob", and the second half of "Do a
+  deep query of this control and tell me how a sighted person works it"), and the two weak answers named there
+  are unchanged (the JAWS cursor, the inbox count). No run without today's changes was made to set beside it,
+  so "no older request got worse" rests on reading the answers and on the notes of the earlier run.
+
 ## What was not tested
+
+- **Exploring a page and form trouble (2026-11-18) have not run in a browser inside NVDA.** They read the same
+  facts as the deep inspection (`getTextWithFields`), which has not run there either. Open questions for the
+  run in NVDA: whether Chrome, Edge and Firefox mark a required and an invalid field the way the stand-in does;
+  what an empty edit field holds in NVDA's copy of the page where the site shows a placeholder; whether moving
+  the reading position (`_set_selection`) lands on the field after the Ask window has closed; how a page built
+  without landmarks or headings sounds. Sites that mark a wrong field only by a red border are found only
+  through the text in the picture, or not at all.
 
 - **Fingers, pressure, games that read the mouse directly and a game controller (1.2.0)** were tested with
   stand-ins for Windows, the mouse and the controller, with a game drawn by the test, and with the real models
@@ -1498,7 +1620,10 @@ is in front (then only the text and the model are left).
 
 ## Known limits
 
-- Working the computer itself: files are only looked at and opened, not created, renamed, moved or deleted. A
+- Files: only in your Desktop, Documents, Downloads, Pictures, Music and Videos folders. Whole folders are
+  moved but not copied. A file selected in File Explorer is not known to VisionClaw: say its name. A deleted
+  file is brought back from the Recycle Bin by hand, not by "undo that".
+- Working the computer itself: a
   list to choose from inside a program (a combo box) is not set by the option's name; the focus is put on it
   and the keys are said. The pages of a dialog are found only where they are tabs, not where they are a list or
   a tree. The computer's volume is that of the device Windows plays through, not of one program. Wi-Fi and

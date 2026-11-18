@@ -74,7 +74,9 @@ class ChangeLog:
 		lines = []
 		for change in self.pending()[:limit]:
 			when = time.strftime("%d %B at %H:%M", time.localtime(change["time"]))
-			lines.append(f"{change['label'].capitalize()}: from {change['oldShown']} to {change['newShown']}, on {when}.")
+			# A capital at the start only: the name of a file keeps its own capitals.
+			label = change["label"][:1].upper() + change["label"][1:]
+			lines.append(f"{label}: from {change['oldShown']} to {change['newShown']}, on {when}.")
 		return "\n".join(lines)
 
 

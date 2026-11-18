@@ -328,6 +328,24 @@ def makeRegistry(rt, state):
 		"The web page Example Shop has 2 headings, 3 links, 1 buttons and 1 form fields.\n"
 		"Heading level 1: Example Shop\nHeading level 2: Refund policy", "Looking at how the page is laid out",
 		looks=True, tell=V)
+	# The page as a whole, and what stops a form (pagetools.py): what the real tools say of a stand-in page.
+	simple("explore_page",
+		"say how the web page the user is in is laid out and how to move on it: landmarks, where the main part "
+		"begins, headings, the navigation's links, form fields, and the NVDA keys that fit this page",
+		"The web page Example Shop on example-shop.com has 2 headings, 3 landmarks, 3 links, 1 button and 1 form field.\n"
+		"Landmarks in order: banner; navigation, with 3 links; main.\n"
+		"The main landmark begins with the heading at level 1, Example Shop.\n"
+		"How to move on this page:\n"
+		"The quickest way to the main part: press 1, which moves to the heading at level 1.\n"
+		"H moves to the next heading, Shift+H to the one before.", "Exploring the page", looks=True, tell=V)
+	simple("form_trouble",
+		"find out why a form on the web page will not send or submit: fields marked as not valid, required fields "
+		"that are empty, and the page's error messages; then move NVDA's reading position to the first of them",
+		"2 fields may be stopping this form.\n"
+		"1. Email, edit field, required: is marked as not valid. The page says: Enter an email address with an @ sign.\n"
+		"2. Password, password field, required: must be filled in and is empty.\n"
+		"NVDA's reading position is now on the first of them, Email. Press Enter to go into it, and Escape to come "
+		"back to reading.", "Looking for what stops the form", looks=True, tell=V)
 	simple("go_to_item",
 		"move NVDA's reading position to one item from list_items on the web page: a heading, a link or a field",
 		"NVDA is now at {item}.", "Moving there",
@@ -714,6 +732,16 @@ def makeRegistry(rt, state):
 	simple("computer_info", "say a fact about the computer itself: free room on its drives, its memory, its processor",
 		"Drive C: (System) has 200 GB free of 500 GB, 40 percent. Asked about: {topic}.", "Asking the computer",
 		{"topic": text("which fact", enum=computer.TOPICS, auto=computer.topicOf)}, looks=True, tell=V)
+	def changeFile(task, asked):
+		job = computer.fileTask(asked)
+		if job is None:
+			raise tools.ToolError("The request does not say what to do with which file or folder.")
+		state.setdefault("file", []).append((job["what"], job["new"] or " ".join((job["src"] or {}).get("words", []))))
+		return f"Would {job['what']} now: {job['new'] or ' '.join(job['src']['words'])}; the test changes no file."
+
+	reg.add(tools.Tool("change_file",
+		"make a new folder or text file, rename, move or copy a file or folder of the user's, or move one to the Recycle Bin",
+		changeFile, dict(askedField), changes=True, title="Working on your file", tell=V))
 	reg.add(tools.Tool("power", "lock the computer, put it to sleep, restart it, shut it down, sign out of Windows",
 		powerTool, dict(askedField), changes=True, title="Locking or shutting down", tell=V))
 	reg.add(tools.Tool("check_seen", "check whether something the user names is on the screen; answers yes or no", checkSeen, {
@@ -767,6 +795,14 @@ REQUESTS = (
 	"If my recycle bin is not empty, empty it.",
 	"Turn on dark mode in this program.",
 	"Can you empty my recycle bin?",
+	# The user's own files: made, renamed, moved, copied, and moved to the Recycle Bin (2026-11-18).
+	"Create a folder called Taxes in my documents.",
+	"Rename the file budget to Budget 2026.",
+	"Move the file report.pdf from my downloads to my documents.",
+	"Copy the file budget to my desktop.",
+	"Delete the file old notes.",
+	"Delete notes.txt.",
+	"Create a folder called Receipts on my desktop, then move the file report.pdf to my desktop.",
 	"Remember that my braille display is a Focus 40.",
 	"What do you remember about me?",
 	"Which braille display do I have?",
@@ -816,6 +852,13 @@ REQUESTS = (
 	"What braille display do I have, and how many cells does it have?",
 	"Switch my speech synthesizer to the Windows OneCore voices.",
 	"What are the headings on this page?",
+	# The page as a whole and what stops a form (2026-11-18): plain code answers, a model only chooses the job.
+	"Explore this page for me.",
+	"What is the best way to get around this page?",
+	"How is this page laid out?",
+	"Why won't this form submit?",
+	"Which fields did I miss in this form?",
+	"Summarize this page.",
 	"Take me to the heading Refund policy.",
 	"Go back to the previous page.",
 	"The add-on hello key does not work, it says nothing. Fix it.",

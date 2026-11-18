@@ -17,10 +17,12 @@
 # IAudioEndpointVolume, and their ids). When they are changed, read those again; do not write one from memory.
 #
 # What tests must never do for real is in functions of their own, which tests/test_nvda_stub.py replaces:
-# shellOpen, emptyBin, setVolume, setMute, focusWindow, closeWindow, showWindow, power, minimizeAll.
+# shellOpen, emptyBin, setVolume, setMute, focusWindow, closeWindow, showWindow, power, minimizeAll, recycle.
+# SHFILEOPSTRUCTW and the FO_ and FOF_ numbers for moving a file to the Recycle Bin are from the same shellapi.h.
 
 import ctypes
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -586,6 +588,93 @@ def searchFiles(wish, cancel=None):
 	return shown, hits, [key.capitalize() for key in wish["folders"]], cut
 
 
+# --- Changing the user's files ---
+
+class _SHFILEOPSTRUCTW(ctypes.Structure):
+	# shellapi.h packs its structures to one byte in a 32-bit program only.
+	if ctypes.sizeof(ctypes.c_void_p) == 4:
+		_pack_ = 1
+	_fields_ = [
+		("hwnd", ctypes.c_void_p), ("wFunc", ctypes.c_uint), ("pFrom", ctypes.c_wchar_p), ("pTo", ctypes.c_wchar_p),
+		("fFlags", ctypes.c_ushort), ("fAnyOperationsAborted", ctypes.c_int), ("hNameMappings", ctypes.c_void_p),
+		("lpszProgressTitle", ctypes.c_wchar_p)]
+
+
+_FO_DELETE = 0x0003
+_FOF_SILENT, _FOF_NOCONFIRMATION, _FOF_ALLOWUNDO, _FOF_NOERRORUI, _FOF_WANTNUKEWARNING = 0x0004, 0x0010, 0x0040, 0x0400, 0x4000
+
+
+def recycle(path):
+	"""Move a file or folder to the Recycle Bin, from where it can be brought back. Never deletes for good by
+	itself: where Windows cannot put it into the Recycle Bin, Windows asks in a window of its own before it
+	deletes anything. Raises OSError when Windows refuses or the user says no there."""
+	operation = _SHFILEOPSTRUCTW()
+	operation.wFunc = _FO_DELETE
+	# The names are a list that ends with an empty one: the path, an end, and another end.
+	names = ctypes.create_unicode_buffer(os.path.abspath(path) + "\0\0")
+	operation.pFrom = ctypes.cast(names, ctypes.c_wchar_p)
+	operation.fFlags = _FOF_ALLOWUNDO | _FOF_NOCONFIRMATION | _FOF_SILENT | _FOF_NOERRORUI | _FOF_WANTNUKEWARNING
+	call = ctypes.windll.shell32.SHFileOperationW
+	call.argtypes = (ctypes.POINTER(_SHFILEOPSTRUCTW),)
+	call.restype = ctypes.c_int
+	result = call(ctypes.byref(operation))
+	if result != 0 or operation.fAnyOperationsAborted:
+		raise OSError(f"Windows did not move it to the Recycle Bin (its answer was {result}).")
+
+
+def placeText(path, folders):
+	"""Where a file is, said by the user's own folder it is in: "Documents", or "Documents, in Taxes"."""
+	folder = os.path.dirname(os.path.abspath(path))
+	for key, root in folders.items():
+		root = os.path.abspath(root)
+		if folder == root:
+			return key.capitalize()
+		if folder.lower().startswith(root.lower() + os.sep):
+			return f"{key.capitalize()}, in {folder[len(root) + 1:]}"
+	return folder
+
+
+def insideOwn(path, folders):
+	"""Whether a path is inside one of the user's own folders. Nothing outside them is ever changed."""
+	path = os.path.abspath(path).lower()
+	return any(path.startswith(os.path.abspath(root).lower() + os.sep) for root in folders.values())
+
+
+def undoFile(plugin, change, confirm):
+	"""Put back what VisionClaw did to a file: a rename or a move is turned round, and something it made is
+	removed again if it is still empty. Returns the sentence for the user."""
+	kind = str(change["setting"]).split(":", 1)[1]
+	old, new = change["old"], change["new"]
+	what = change["label"]
+	# With a capital at the start, and the file's own name as it is written.
+	What = what[:1].upper() + what[1:]
+	if not os.path.exists(new):
+		plugin.changes.markUndone(change)
+		return f"{What} is no longer where VisionClaw put it, so there is nothing to put back."
+	if kind == "make":
+		full = bool(os.listdir(new)) if os.path.isdir(new) else os.path.getsize(new) > 0
+		if full:
+			return f"{What} has something in it now, so it was left. To remove it, ask to delete it."
+		# Translators: Asked before VisionClaw removes an empty folder or file it made. {what} is which.
+		confirm(_("Remove {what} again? It is empty.").format(what=what))
+		os.rmdir(new) if os.path.isdir(new) else os.remove(new)
+		plugin.changes.markUndone(change)
+		return f"Removed {what} again."
+	if os.path.exists(old):
+		return f"Something else is called {os.path.basename(old)} at the old place now, so {what} was left where it is."
+	if kind == "rename":
+		# Translators: Asked before VisionClaw gives a file its old name back. {what} is the file, {name} the old name.
+		confirm(_("Rename {what} back to {name}?").format(what=what, name=os.path.basename(old)))
+		os.rename(new, old)
+		plugin.changes.markUndone(change)
+		return f"{What} is called {os.path.basename(old)} again."
+	# Translators: Asked before VisionClaw puts a file back. {what} is the file, {where} where it was.
+	confirm(_("Put {what} back in {where}?").format(what=what, where=change.get("oldShown") or os.path.dirname(old)))
+	shutil.move(new, old)
+	plugin.changes.markUndone(change)
+	return f"{What} is back in {change.get('oldShown') or os.path.dirname(old)}."
+
+
 # --- The tools ---
 
 def register(add, plugin, text, onMain, confirm, mustAgree, Refused, screen):
@@ -846,6 +935,152 @@ def register(add, plugin, text, onMain, confirm, mustAgree, Refused, screen):
 		"find their files by a word of the name or by kind, such as PDF; only looks, changes nothing",
 		findFiles, {"asked": text("what the user asked for, in their own words", maxLength=300, auto=True)},
 		looks=True, title="Looking through your folders", tell=VERBATIM)
+
+	# Changing the user's own files: a new folder or text file, a new name, another folder, a copy, the Recycle Bin.
+	def chosenFile(job, task):
+		"""The one file or folder the user means: (name, where, size, changed, isFolder, path)."""
+		source = job["src"]
+		if not source["words"] and not source["kinds"]:
+			raise ToolError(
+				"The request does not say the name of the file or folder. Say a word of its name. For the file that is "
+				"selected in File Explorer, F2 renames it and Delete moves it to the Recycle Bin.")
+		_shown, hits, names, cut = searchFiles(source, task.cancel)
+		task.check()
+		hits = computer.bestFiles(source["said"], hits)
+		where = " and ".join(names) if source["named"] else "your Desktop, Documents, Downloads, Pictures, Music and Videos"
+		if not hits:
+			raise ToolError(
+				f"No file or folder with \"{' '.join(source['words'] or source['kinds'])}\" in its name was found in {where}. "
+				"Ask what is in the folder to hear the names.")
+		if len(hits) == 1:
+			return hits[0]
+		if len(hits) > computer.MAX_TO_CHOOSE:
+			raise ToolError(f"{len(hits)} files and folders in {where} fit that name. Say more of the name, or the folder it is in.")
+		folders = userFolders()
+		choices = [f"{name}, in {placeText(path, folders)}" for name, _where, _size, _changed, _isFolder, path in hits]
+		# Translators: Asked when several files fit the name the user said. The choices are the files.
+		picked = plugin.clawAsk(_("Several files fit that name. Which one do you mean?"), choices + [_("None of these")])
+		task.check()
+		if picked is None or picked >= len(hits):
+			return None
+		return hits[picked]
+
+	def changeFile(task, asked):
+		words = asked or task.request
+		job = computer.fileTask(words)
+		if job is None:
+			raise ToolError(
+				"The request does not say what to do with which file or folder. VisionClaw can make a folder or a text "
+				"file, rename, move or copy a file or folder of yours, or move one to the Recycle Bin.")
+		folders = userFolders()
+		what = job["what"]
+		if what in (computer.MAKE_FOLDER, computer.MAKE_FILE):
+			name = computer.cleanName(job["new"])
+			isFolder = what == computer.MAKE_FOLDER
+			if not isFolder and not computer.endingOf(name):
+				name += ".txt"
+			kind = "folder" if isFolder else "text file"
+			place = job["place"].capitalize()
+			path = os.path.join(folders[job["place"]], name)
+			if os.path.exists(path):
+				return f"There is already something called {name} in {place}. Nothing was changed."
+			# Translators: Asked before VisionClaw makes a folder or a file. {kind} is folder or text file.
+			confirm(_("Make the {kind} {name} in {place}?").format(kind=kind, name=name, place=place)
+				+ ("" if job["placeSaid"] else " " + _("You named no place, so it goes into Documents.")))
+			try:
+				os.mkdir(path) if isFolder else open(path, "x", encoding="utf-8").close()
+			except OSError as e:
+				raise ToolError(f"The {kind} {name} could not be made in {place}. {e}")
+			plugin.changes.add("file:make", f"the {kind} {name}", "", path, "not there", f"{place}", words)
+			return f"Made the {kind} {name} in {place}."
+		found = chosenFile(job, task)
+		if found is None:
+			return "You chose none of them, so nothing was changed."
+		name, _where, _size, _changed, isFolder, path = found
+		if not insideOwn(path, folders):
+			raise ToolError("That is not inside your own folders, so VisionClaw leaves it alone.")
+		kind = "folder" if isFolder else "file"
+		where = placeText(path, folders)
+		if what == computer.DELETE:
+			inside = ""
+			if isFolder:
+				count = sum(len(files) + len(dirs) for _root, dirs, files in os.walk(path))
+				inside = " " + _("It is a folder with {count} things in it, and they all go with it.").format(count=count)
+			# Always asked, whatever the settings say.
+			# Translators: Asked before VisionClaw moves a file or folder to the Recycle Bin.
+			mustAgree(_("Move the {kind} {name}, in {where}, to the Recycle Bin?").format(kind=kind, name=name, where=where)
+				+ inside + " " + _("It can be brought back from there."))
+			try:
+				recycle(path)
+			except OSError as e:
+				raise ToolError(f"{name} was not deleted. {e}")
+			if os.path.exists(path):
+				raise ToolError(f"{name} is still in {where}: Windows did not move it to the Recycle Bin.")
+			return (
+				f"Moved the {kind} {name}, from {where}, to the Recycle Bin. To bring it back, open the Recycle Bin and "
+				"restore it there.")
+		if what == computer.RENAME:
+			new = computer.renamed(name, computer.cleanName(job["new"]))
+			target = os.path.join(os.path.dirname(path), new)
+			if new == name:
+				return f"The {kind} is already called {name}. Nothing was changed."
+			if os.path.exists(target) and target.lower() != path.lower():
+				return f"There is already something called {new} in {where}, so {name} was not renamed."
+			# Translators: Asked before VisionClaw renames a file or folder.
+			confirm(_("Rename the {kind} {name}, in {where}, to {new}?").format(kind=kind, name=name, where=where, new=new))
+			try:
+				os.rename(path, target)
+			except OSError as e:
+				raise ToolError(f"{name} could not be renamed. It may be open in a program. {e}")
+			plugin.changes.add("file:rename", f"the {kind} {new}", path, target, name, new, words)
+			return f"Renamed the {kind} {name}, in {where}, to {new}."
+		# Moving and copying: where to.
+		dest = job["dest"]
+		root = folders.get(dest["key"]) if dest["key"] else None
+		target = root
+		if dest["words"]:
+			wish = dict(computer.fileWish(""), folders=[dest["key"]] if dest["key"] else list(computer.FOLDERS), named=bool(dest["key"]),
+				words=dest["words"], kinds=[], order=computer.BY_NAME)
+			_shown, hits, _names, _cut = searchFiles(wish, task.cancel)
+			places = [hit for hit in computer.bestFiles(" ".join(dest["words"]), [hit for hit in hits if hit[4]]) if hit[5] != path]
+			if len(places) != 1:
+				raise ToolError(
+					(f"No folder called \"{' '.join(dest['words'])}\" was found" if not places else
+						f"{len(places)} folders are called \"{' '.join(dest['words'])}\"")
+					+ ". Say one of your folders, as Desktop, Documents or Downloads, or make the folder first.")
+			target = places[0][5]
+		if target is None:
+			raise ToolError(
+				f"\"{dest['said']}\" is not a folder VisionClaw knows. Say one of your folders: Desktop, Documents, Downloads, "
+				"Pictures, Music or Videos, or a folder inside them by its name.")
+		there = placeText(os.path.join(target, name), folders)
+		goal = os.path.join(target, name)
+		if os.path.abspath(target).lower() == os.path.dirname(os.path.abspath(path)).lower():
+			return f"The {kind} {name} is already in {there}. Nothing was changed."
+		if os.path.abspath(target).lower().startswith(os.path.abspath(path).lower() + os.sep) or os.path.abspath(target).lower() == os.path.abspath(path).lower():
+			raise ToolError("A folder cannot be put into itself.")
+		if os.path.exists(goal):
+			return f"There is already something called {name} in {there}, so nothing was changed. Nothing is ever overwritten."
+		copying = what == computer.COPY
+		if copying and isFolder:
+			raise ToolError("VisionClaw copies single files, not whole folders. Ask to move the folder, or copy it in File Explorer with Control+C and Control+V.")
+		# Translators: Asked before VisionClaw moves or copies a file.
+		confirm((_("Copy the {kind} {name} from {where} to {there}?") if copying else _("Move the {kind} {name} from {where} to {there}?")).format(
+			kind=kind, name=name, where=where, there=there))
+		try:
+			shutil.copy2(path, goal) if copying else shutil.move(path, goal)
+		except OSError as e:
+			raise ToolError(f"{name} could not be {'copied' if copying else 'moved'}. It may be open in a program. {e}")
+		if copying:
+			return f"Copied the file {name} from {where} to {there}. To undo that, ask to delete the copy."
+		plugin.changes.add("file:move", f"the {kind} {name}", path, goal, where, there, words)
+		return f"Moved the {kind} {name} from {where} to {there}."
+
+	add("change_file",
+		"make a new folder or text file, rename, move or copy a file or folder of the user's, or move one to the Recycle "
+		"Bin, in their Desktop, Documents, Downloads, Pictures, Music or Videos folders; asks first, overwrites nothing",
+		changeFile, {"asked": text("what the user asked for, in their own words", maxLength=300, auto=True)},
+		changes=True, title="Working on your file", tell=VERBATIM)
 
 	# Facts about the computer.
 	def computerInfo(task, topic):

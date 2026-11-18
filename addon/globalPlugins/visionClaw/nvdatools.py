@@ -1569,6 +1569,13 @@ def build(plugin):
 				"VisionClaw has not changed that, so it cannot put it back. What it has changed, and can put back:\n"
 				+ plugin.changes.text())
 
+		if str(change["setting"]).startswith("file:"):
+			# What VisionClaw did to a file of the user's: turned round by the tool that did it.
+			try:
+				return computertools.undoFile(plugin, change, confirm)
+			except OSError as e:
+				raise ToolError(f"It could not be put back. {e}")
+
 		def work():
 			found = _resolveSetting(change["setting"])
 			if found is None:
@@ -2330,6 +2337,9 @@ def build(plugin):
 	# A named control of the program in front: on or off, up or down, also on another page of its dialog.
 	from . import controltools
 	controltools.register(add, plugin, text, onMain, confirm, screen)
+	# A web page as a whole, and what stops a form on it (pagetools.py). Imported here for the same reason.
+	from . import pagetools
+	pagetools.register(add, plugin, text, onMain)
 
 	registry.add(Tool(ANSWER, "tell the user the result in plain words; always the last step", lambda task: ""))
 	return registry

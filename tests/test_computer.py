@@ -181,6 +181,50 @@ assert computer.filesText(computer.fileWish("find the file named budget"), [], [
 assert computer.filesText(computer.fileWish("how many pdfs are in my documents"), [("a.pdf", "Documents", 1, "x", False)] * 3,
 	["Documents"], 3) == "3 pdf files in Documents."
 
+# --- Changing the user's files ---
+
+for said, what, words, new in (
+	("create a folder called Taxes in my documents", computer.MAKE_FOLDER, None, "Taxes"),
+	("make a new folder named Holiday Photos on my desktop", computer.MAKE_FOLDER, None, "Holiday Photos"),
+	("create a text file called shopping list in my documents", computer.MAKE_FILE, None, "shopping list"),
+	("rename the file budget to Budget 2026", computer.RENAME, ["budget"], "Budget 2026"),
+	("rename budget.xlsx in my documents to Budget Final", computer.RENAME, ["budget", "xlsx"], "Budget Final"),
+	("move the file report.pdf from my downloads to my documents", computer.MOVE, ["report", "pdf"], ""),
+	("copy the file budget to my desktop", computer.COPY, ["budget"], ""),
+	("put the document letter on my desktop", computer.MOVE, ["letter"], ""),
+	("delete the file old notes", computer.DELETE, ["old", "notes"], ""),
+	("delete notes.txt", computer.DELETE, ["notes", "txt"], ""),
+	("move the file old notes to the recycle bin", computer.DELETE, ["old", "notes"], ""),
+	("delete this file", computer.DELETE, [], ""),
+):
+	found = computer.fileTask(said)
+	assert found and found["what"] == what and found["new"] == new and (found["src"]["words"] if found["src"] else None) == words, (said, found)
+assert computer.fileTask("create a folder called Taxes")["place"] == "documents" and not computer.fileTask("create a folder called Taxes")["placeSaid"]
+assert computer.fileTask("make a new folder named Holiday Photos on my desktop")["place"] == "desktop"
+dest = computer.fileTask("move report.pdf to the Taxes folder in my documents")["dest"]
+assert (dest["key"], dest["words"]) == ("documents", ["taxes"]), dest
+assert computer.fileTask("move the file report.pdf from my downloads to my documents")["src"]["folders"] == ["downloads"]
+# The words must speak of a file, a folder or a document, or write a name with its ending. Everything else that
+# is deleted, moved, copied or renamed stays what it was.
+for said in ("delete the notes on this program", "copy the window title to the clipboard", "move the mouse to the left",
+		"how do I rename a file", "remove the developer guides", "delete everything in the recycle bin", "rename this control Play",
+		"Move to the next heading", "empty the recycle bin", "open the file budget", "delete the helper NVDA+alt+1", "make a file",
+		"forget everything you remember", "delete the game skill", "copy the file path to the clipboard"):
+	assert computer.fileTask(said) is None, (said, computer.fileTask(said))
+assert computer.cleanName("  'Tax Return'. ") == "Tax Return" and computer.cleanName("Budget 2026") == "Budget 2026"
+for bad in ("a/b", "con", "x" * 130, "", 'say "hi"', "what?*"):
+	try:
+		computer.cleanName(bad)
+	except ValueError:
+		continue
+	raise AssertionError(bad)
+assert computer.renamed("budget.xlsx", "Budget Final") == "Budget Final.xlsx" and computer.renamed("budget.xlsx", "plan.pdf") == "plan.pdf"
+assert computer.renamed("Old", "Archive") == "Archive" and computer.endingOf("Setup.EXE") == ".exe" and computer.endingOf("notes") == ""
+# A name that is exactly what was said shuts out those that merely have the word.
+HITS = [("budget.xlsx", "Documents"), ("Budget notes.txt", "Documents"), ("Budget draft.txt", "Downloads")]
+assert computer.bestFiles("the file budget", HITS) == [HITS[0]] and computer.bestFiles("budget.xlsx", HITS) == [HITS[0]]
+assert computer.bestFiles("bud", HITS) == HITS
+
 # --- Facts about the computer ---
 
 for said, topic in (
@@ -334,6 +378,11 @@ for request, recipe in (
 	("how much disk space do I have left", "computer_info"), ("how much memory does my computer have", "computer_info"),
 	("which programs are running", "computer_info"), ("am I connected to the internet", "computer_info"),
 	("restart my computer", "power"), ("shut down the computer", "power"), ("lock my computer", "power"),
+	("create a folder called Taxes in my documents", "file_task"), ("rename the file budget to Budget 2026", "file_task"),
+	("move the file report.pdf from my downloads to my documents", "file_task"), ("delete the file old notes", "file_task"),
+	("delete notes.txt", "file_task"), ("copy the file budget to my desktop", "file_task"),
+	("delete the notes on this program", "forget_notes"), ("Copy the window title to the clipboard.", planner.OTHER),
+	("Delete the developer guides.", "remove_guides"), ("save the add-on hello key as a file", "save_addon"),
 	("cancel the shutdown", "power"),
 	# What these words meant before, they still mean.
 	("turn down the volume", "change_setting"), ("make the voice louder", "change_setting"),
@@ -380,6 +429,8 @@ assert planner.fitted("remember", "Remember that my display is a Focus 40", "rem
 assert planner.fitted("power", "turn off the typing echo", "change_setting") == "change_setting"
 assert planner.fitted("empty_bin", "is my recycle bin full", "recycle_bin") == "recycle_bin"
 assert planner.fitted("click", "open firefox", "open_thing") == "click"  # not sure: the model's choice stands
+assert planner.fitted("forget_notes", "delete notes.txt", "file_task") == "file_task"
+assert planner.fitted("file_task", "delete the notes on this program", "forget_notes") == "forget_notes"
 
 # --- The router: what a model is offered ---
 
@@ -719,6 +770,7 @@ lib = skills.Skills(__import__("tempfile").mkdtemp(prefix="vcskills-"), recipes=
 for request, slug in (
 	("check and see if my recycle bin needs to be emptied or not", "work-the-computer"),
 	("turn down my system volume", "work-the-computer"), ("how much disk space do I have left", "work-the-computer"),
+	("rename the file budget to Budget 2026", "work-the-computer"), ("create a folder called Taxes in my documents", "work-the-computer"),
 	("turn on my nvidia gpu for this program", "control-in-a-program"),
 	("find the settings button in this inaccessible app", "control-in-a-program"),
 ):
@@ -727,7 +779,7 @@ for request in ("Make NVDA speak a little faster", "What is on my screen?", "ope
 	assert not {"work-the-computer", "control-in-a-program"} & {skill.slug for skill in lib.choose(request)}, request
 # The notes answer questions about what VisionClaw does on the computer, and only those.
 sections = [(title, body) for title, body, source in Knowledge().everything() if source == "visionclaw-computer"]
-assert len(sections) == 10, len(sections)
+assert len(sections) == 11, len(sections)
 for title, body in sections:
 	assert len(body) <= 360 and (":" in title or "," in title), (title, len(body))
 gate = lookup.NOTES["visionclaw-computer"][2]

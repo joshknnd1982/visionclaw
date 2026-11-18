@@ -679,6 +679,148 @@ def filesText(wish, found, folders, total=None, cut=False):
 	return f"{head} {order}:\n" + "\n".join(lines) + more + ("\n" + early.strip() if cut else "")
 
 
+# --- Changing the user's files ---
+
+MAKE_FOLDER, MAKE_FILE, RENAME, MOVE, COPY, DELETE = "make folder", "make file", "rename", "move", "copy", "delete"
+_FILE_NOUN = re.compile(
+	r"\b(files?|folders?|directory|documents?|pdfs?|pictures?|photos?|images?|songs?|videos?|spreadsheets?|shortcuts?)\b", re.IGNORECASE)
+ENDINGS = tuple(sorted({ending for endings in KINDS.values() for ending in endings} | {
+	".html", ".htm", ".json", ".xml", ".ini", ".py", ".lnk", ".url", ".bat", ".ps1", ".pptx", ".jpg"}))
+_FILE_NAME = re.compile(r"\S+(?:" + "|".join(re.escape(ending) for ending in ENDINGS) + r")(?=$|[\s,;!?])", re.IGNORECASE)
+_TASK_START = rf"^\s*{_POLITE}(?:(?:first|then|next|now|and|also|just)[, ]+)*"
+_MAKE = re.compile(
+	_TASK_START + r"(?:create|make|add)\s+(?:me\s+)?(?:an?\s+)?(?:new\s+)?(?:empty\s+|blank\s+)?"
+	r"(?P<kind>folder|directory|text file|text document|file)\b(?P<rest>.*)$", re.IGNORECASE)
+_RENAME = re.compile(_TASK_START + r"rename\s+(?P<src>.+?)\s+(?:to|as)\s+(?P<new>.+)$", re.IGNORECASE)
+_MOVE = re.compile(
+	_TASK_START + r"(?P<verb>move|copy|put|duplicate)\s+(?P<src>.+?)\s+(?:to|into|onto)\s+(?P<dest>.+)$", re.IGNORECASE)
+_PUT = re.compile(_TASK_START + r"(?P<verb>put|move|copy)\s+(?P<src>.+?)\s+(?:in|on|inside)\s+(?P<dest>(?:my|the)\s+.+)$", re.IGNORECASE)
+_DELETE = re.compile(
+	_TASK_START + r"(?:delete|remove|erase|trash|recycle|get rid of|throw away|throw out)\s+(?P<src>.+)$", re.IGNORECASE)
+_CALLED = re.compile(r"\b(?:called|named|titled|with the name)\s+(?P<name>.+)$", re.IGNORECASE)
+_IN_PLACE = re.compile(
+	r"\s+(?:in|on|inside|under|to)\s+(?:my\s+|the\s+)?(?:desktop|documents?|downloads?|pictures|photos|music|videos?)(?:\s+folder)?\s*$",
+	re.IGNORECASE)
+# What Windows does not take in a name, and names it keeps for itself.
+_BAD_CHARS = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
+_RESERVED = frozenset(["con", "prn", "aux", "nul"] + [f"com{n}" for n in range(1, 10)] + [f"lpt{n}" for n in range(1, 10)])
+NAME_CHARS = 120
+# More files than this that fit a name are not put to the user to choose from; they are asked to say more of it.
+MAX_TO_CHOOSE = 6
+
+
+def _quoted(text):
+	return " ".join(str(text or "").split()).strip(" \"'“”‘’").rstrip(".!?,;").strip(" \"'“”‘’")
+
+
+def cleanName(name):
+	"""A name for a file or folder that Windows takes, as the user said it. Raises ValueError with a sentence
+	for the user when it cannot be one."""
+	name = _quoted(name)
+	if not name:
+		raise ValueError("The request does not say the new name.")
+	if _BAD_CHARS.search(name):
+		raise ValueError(f"\"{name}\" cannot be a name: Windows does not take these characters in one: < > : \" / \\ | ? *")
+	if len(name) > NAME_CHARS:
+		raise ValueError(f"That name is longer than {NAME_CHARS} characters, which is too long.")
+	if name.split(".")[0].strip().lower() in _RESERVED or name.endswith((".", " ")):
+		raise ValueError(f"\"{name}\" cannot be a name: Windows keeps it for itself.")
+	return name
+
+
+def endingOf(name):
+	"""The ending of a file's name, such as ".pdf", or "" where it has none that is known."""
+	low = str(name or "").lower()
+	return next((ending for ending in sorted(ENDINGS, key=len, reverse=True) if low.endswith(ending)), "")
+
+
+def _source(said):
+	"""Which file or folder the user's words name, as a wish for the search: its folder, its kind, and the
+	words of its name. A name written with its ending is taken as it is."""
+	said = _quoted(said)
+	# "The file", "the folder" and "the document" say that a file is meant, and are no part of its name.
+	said = re.sub(
+		r"^\s*(?:the|my|a|an|this|that)?\s*(?:file|folder|directory|document)\b\s*(?:called\s+|named\s+)?", "", said,
+		flags=re.IGNORECASE).strip()
+	wish = fileWish(said)
+	written = _FILE_NAME.search(said)
+	if written:
+		wish = dict(wish, words=_plain(written.group(0)).split(), kinds=[])
+	return dict(wish, order=BY_NAME, count=False, said=said)
+
+
+def _destination(said):
+	"""Where a file is to go: one of the user's own folders, and the words of a folder inside it where one is
+	named ("the Taxes folder in my documents")."""
+	text = _quoted(said).lower()
+	keys = [name for name in FOLDERS if re.search(_FOLDER_WORDS[name], text)]
+	rest = text
+	for name in keys:
+		rest = re.sub(_FOLDER_WORDS[name], " ", rest)
+	words = [word for word in _plain(rest).split() if word not in (
+		"my", "the", "a", "folder", "folders", "in", "on", "inside", "of", "called", "named", "into", "to", "directory")]
+	return {"key": keys[-1] if keys else None, "words": words, "said": _quoted(said)}
+
+
+def fileTask(part):
+	"""What the user's own words ask to be done to a file or folder of theirs, or None when they ask no such
+	thing: {"what": MAKE_FOLDER, MAKE_FILE, RENAME, MOVE, COPY or DELETE; "src": which file, as a wish for the
+	search; "new": the new name as the user wrote it; "dest": where it goes; "place" and "placeSaid": the folder
+	a new one is made in, and whether the user said it}.
+	The words must speak of a file, a folder or a document, or write a name with its ending: "delete the notes
+	on this program" and "copy the window title" are other things."""
+	text = own(part).strip().rstrip(".!")
+	if _ASKS_HOW.search(text):
+		return None
+	hit = _MAKE.match(text)
+	if hit:
+		rest = hit.group("rest")
+		place = next((name for name in FOLDERS if re.search(_FOLDER_WORDS[name], _IN_PLACE.search(rest).group(0).lower())), None) \
+			if _IN_PLACE.search(rest) else None
+		rest = _IN_PLACE.sub("", rest)
+		called = _CALLED.search(rest)
+		name = _quoted(called.group("name") if called else re.sub(r"^\s*(?:for|of)\b", "", rest))
+		folder = hit.group("kind").lower() in ("folder", "directory")
+		if not folder and not called:
+			return None  # "make a file" of what? Only a file that is given a name is made.
+		return {"what": MAKE_FOLDER if folder else MAKE_FILE, "new": name, "place": place or "documents",
+			"placeSaid": place is not None, "src": None, "dest": None}
+	if not (_FILE_NOUN.search(text) or _FILE_NAME.search(text)):
+		return None
+	hit = _RENAME.match(text)
+	if hit:
+		return {"what": RENAME, "src": _source(hit.group("src")), "new": _quoted(hit.group("new")), "dest": None}
+	hit = _MOVE.match(text) or _PUT.match(text)
+	if hit:
+		dest = hit.group("dest")
+		if re.search(r"\b(clipboard|screen|window|top|bottom|front|back|left|right|next|previous)\b", dest, re.IGNORECASE):
+			return None
+		if _BIN.search(dest):
+			return {"what": DELETE, "src": _source(hit.group("src")), "new": "", "dest": None}
+		what = COPY if hit.group("verb").lower() in ("copy", "duplicate") else MOVE
+		return {"what": what, "src": _source(hit.group("src")), "new": "", "dest": _destination(dest)}
+	hit = _DELETE.match(text)
+	if hit and not _BIN.search(hit.group("src")) or (hit and re.search(r"\bfrom (my |the )?" + BIN, hit.group("src"), re.IGNORECASE)):
+		return {"what": DELETE, "src": _source(re.sub(r"\s+from (my |the )?.*$", "", hit.group("src")) if _BIN.search(hit.group("src")) else hit.group("src")),
+			"new": "", "dest": None}
+	return None
+
+
+def bestFiles(said, hits):
+	"""Of the files a search found, those the user most likely means: one whose name is exactly what was said,
+	with or without its ending, shuts out those that merely have the words. hits: (name, ...) tuples."""
+	wanted = _plain(said)
+	wanted = " ".join(word for word in wanted.split() if word not in ("the", "my", "a", "file", "folder", "document"))
+	exact = [hit for hit in hits if _plain(hit[0]) == wanted or _plain(hit[0][:len(hit[0]) - len(endingOf(hit[0]))]) == wanted]
+	return exact or list(hits)
+
+
+def renamed(old, new):
+	"""The new name for a file: as the user said it, with the old ending kept where they gave none."""
+	ending = endingOf(old)
+	return new if not ending or endingOf(new) else new + old[len(old) - len(ending):]
+
+
 # --- Facts about the computer ---
 
 DISK, MEMORY, PROCESSOR, UPTIME, NETWORK, PROGRAMS, SYSTEM, OVERVIEW = (

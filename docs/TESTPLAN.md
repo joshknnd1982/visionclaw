@@ -173,6 +173,16 @@ Before you start: disable VisionMate in the Add-on Store, install the VisionClaw
 - [x] "What are the headings on this page?" lists them with their levels. (Owner, 0.4.0, 2026-11-17.)
 - [ ] "Take me to the heading ...": NVDA says the heading, and say all reads on from there.
 - [ ] "Go back" and "reload this page".
+- [ ] "Explore this page" on a news site: the landmarks are named in order, the main part's heading is right,
+  and every key that is named does what the answer says (1, H, D, F, T, L, NVDA+F7).
+- [ ] "Explore this page" on a page without headings or landmarks: P is named, H and D are not.
+- [ ] On a sign-up form, leave a required field empty and write a wrong email address, press the form's button,
+  then ask "Why won't this form submit?": both fields are named with the page's own message, and NVDA's reading
+  position is on the first; Enter goes into it.
+- [ ] The same on a form that only shows a red border: the answer says nothing is marked, and reads the lines
+  of the picture that say what is wrong, or points to describing the window.
+- [ ] "Summarize this page" with "one small question at a time" set to Always: the beginning of each part of
+  the page, in the page's own words.
 - [ ] The same in Firefox, Chrome and Edge.
 
 ## Making a website or a program accessible
@@ -549,6 +559,20 @@ Settings, Display, Scale).
 - [ ] In a program NVDA cannot read: "find the settings button in this app, then turn the volume up a bit".
 - [ ] In NVDA's log viewer or VisionClaw's log: "Offered for this: N of M kinds of request" appears, with N
       far smaller than M, and a request about a web page is still understood with no browser in front.
+
+## Your own files (after 1.5.0)
+Use test files you can afford to lose.
+- [ ] "Create a folder called VisionClaw test in my documents": asked, made, and File Explorer shows it.
+- [ ] Put two text files there by hand. "Rename the file" with a word of one name "to" a new name: the question
+      names the file and the new name with its ending; afterwards File Explorer shows the new name.
+- [ ] "Undo that": the old name is back.
+- [ ] "Move the file" to "my desktop", then "undo that": it is back where it was.
+- [ ] "Copy the file" to "my desktop": it is in both places.
+- [ ] Rename one file to the name of the other: refused, and nothing is changed.
+- [ ] "Delete the file" with the name of the copy on the desktop: the question says Recycle Bin; after Yes the
+      file is in the Recycle Bin, and Restore there brings it back.
+- [ ] A word that several files have: a question lists them; "None of these" changes nothing.
+- [ ] "Delete this file" says to give the name, and names F2 and Delete for the file selected in File Explorer.
 
 ## Stopping NVDA
 - [ ] NVDA exits without an error, and no `vcengine.exe` is left running (Task Manager).

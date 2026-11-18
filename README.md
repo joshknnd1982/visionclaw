@@ -36,6 +36,7 @@ Press **NVDA+Alt+C**, type a request, and press Enter. For example:
 - *Check and see if my recycle bin needs to be emptied.* *Empty the recycle bin.* *Open the Recycle Bin.*
 - *Open Notepad.* *Open my Downloads folder.* *Open Bluetooth settings.* *Switch to Firefox.* *Close this window.*
 - *Turn down my system volume.* *How much disk space do I have left?* *What is in my downloads folder?*
+- *Create a folder called Taxes in my documents.* *Rename the file budget to Budget 2026.* *Delete the file old notes.*
 - *Go into my Windows settings, turn down my system volume, close Windows settings, then go to gmail.com in my
   Google Chrome and tell me how many emails I have.* (Several things in one request, done in order.)
 - *If you see the Recycle Bin, open it.* *If Notepad is open, close it.*
@@ -238,6 +239,7 @@ settings; what cannot be undone is always asked about.
 | *Turn down my system volume. Set the computer's volume to 40 percent. What is the volume of my computer?* | The volume of the whole computer, not of NVDA's voice. Turning it down stops at 10 percent so that NVDA can still be heard. Muting, or a number below 10, is refused when no braille display is in use, and asked about when one is. |
 | *Switch to Firefox. Close Notepad. Minimize all windows. Maximize this window.* | The window your words name is worked, and named in the answer. A window that stays open after it was asked to close is said to be still open. Where no window has that name, as for a settings panel inside a program, Escape is offered. |
 | *What is in my downloads folder? Find the file named budget. How many PDFs are in my documents?* | Your Desktop, Documents, Downloads, Pictures, Music and Videos folders are looked through, the newest first, with size and date. Nothing is changed. |
+| *Create a folder called Taxes in my documents. Rename the file budget to Budget 2026. Move the file report.pdf to my documents. Copy the file budget to my desktop. Delete the file old notes.* | The file or folder is found by its name in your own folders; when several fit, you are asked which. You are told what will be done and asked first. Nothing is ever overwritten. Deleting moves it to the Recycle Bin and is always asked about. *Undo that* puts a rename or a move back. |
 | *How much disk space do I have left? How much memory does my computer have? How long has my computer been on? Am I connected to the internet? Which programs are running?* | Answered from Windows itself. Nothing is sent anywhere to find out. |
 | *Lock my computer. Restart my computer. Shut down the computer. Cancel the shutdown.* | Always asks first. A restart or shutdown waits 30 seconds and can be called off in that time. |
 
@@ -306,8 +308,14 @@ buttons and form fields, so nothing has to be guessed from a picture.
 - **Follow a link or press a button** by name. Following a link needs no question; pressing a button asks
   first, because a button can send or buy something.
 - **Type into a field**, and press Enter if you asked to search or send.
-- **Hear how the page is laid out**: its headings in order with their levels, and how many links, buttons and
-  fields it has.
+- **Explore a page**: "explore this page" or "what is the best way to get around this page" names its
+  landmarks in order, where the main part begins, what the page has, the links of its navigation and its form
+  fields, and then the NVDA keys that fit this page, the best first. Keys for things the page does not have
+  are not named.
+- **Find out why a form will not send**: "why won't this form submit" or "which fields did I miss" names the
+  fields the page marks as not valid, the required fields that are empty, and the page's own error messages,
+  each with its field, and puts NVDA's reading position on the first of them. Nothing on the page is changed.
+- **Hear the headings of the page** in order with their levels, and how many links, buttons and fields it has.
 - **Move to a place on the page**: "take me to the heading Refund policy" puts NVDA's reading position there,
   so you can read on with NVDA's own commands.
 - **Go back, forward, or reload.**

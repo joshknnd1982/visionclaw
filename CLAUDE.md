@@ -576,6 +576,30 @@ keyboard and speech alone.
   is asked first. Whatever VisionClaw learns to download later gets a line in `offers.overview`, and a
   sentence of its own only if the user could not find out otherwise; `tests/test_training.py` checks that
   every sentence the user is told to say is sent to the recipe it names.
+- **VisionClaw must do more than JAWS's AI tools, and what JAWS does is read, not remembered.** The owner
+  said on 2026-11-18: "My goal is for visionclaw to be even more powerful and far more useful than Freedom
+  Scientific Jaws fsCompanion could ever be", then "more powerful than fscompanion and other jaws AI tools in
+  jaws2027. It must outdo jaws in capabilities", and "jaws2027 is on my local pc, feel free to examine its
+  help and docs". JAWS 2027 is installed on the owner's computer; its help is
+  `C:\ProgramData\Freedom Scientific\JAWS\2027\Locale\enu\Help\JFW.chm` (unpack a copy with
+  `hh.exe -decompile`; the pages are `whats_new/Whats_New.htm`, `using_jaws/Getting_Help/Vispero_Companion.htm`,
+  `customizing_jaws_for_windows/Picture_Smart/Picture_Smart.htm`, `using_jaws/Voice_Assistant.htm`,
+  `using_jaws/Face_in_View.htm`). What it can do, what VisionClaw does against each point, and what is still
+  missing is in `docs/STATUS.md` under "Compared with JAWS 2027"; when a newer JAWS is installed, read its
+  help again and bring that list up to date, do not write it from memory. JAWS's help is Freedom Scientific's:
+  it is read to learn what JAWS does, and nothing of it is copied into VisionClaw, its notes or its answers.
+  Never say VisionClaw does more than JAWS in something that has not been run in NVDA: say what was tested.
+- **A web page as a whole, and what stops a form, are said by plain code from what NVDA keeps of the page.**
+  `explore_page` and `form_trouble` (`claw/pageview.py`, `pagetools.py`) ask no model and send nothing
+  anywhere. Exploring names the landmarks in order, where the main part begins, what the page has, and only
+  those of NVDA's keys that fit this page; the keys were read from NVDA's user guide, and
+  `tests/test_pageview.py` asks the user guide of the installed NVDA for each of them. Form trouble says only
+  what the page itself tells NVDA: fields marked as not valid, fields that must be filled in and are empty,
+  and messages the page's own code marks as an alert or an error, each with the field it stands next to; then
+  NVDA's reading position is put on the first of them, and that is said. Where the page tells NVDA nothing,
+  the text in its picture is read for lines that say what is wrong, and after that the user is pointed to
+  the model that sees pictures; plain code never guesses a reason. Both answers shorten themselves to fit
+  `tools.RESULT_CHARS`, the lists first, so that the keys are never the part that is cut.
 - **Measure with the real model.** After any change to a prompt, a recipe or a form, run
   `python tests/live_orchestrator.py` and read every answer. A change that passes the scripted tests can still
   make a small model worse.
@@ -636,7 +660,7 @@ keyboard and speech alone.
     structure, a function's place in an interface, or a settings address from memory.
   - **Tests never open, empty, close, change the volume of, lock or shut down the real computer.**
     `tests/test_nvda_stub.py` replaces `computertools.shellOpen`, `emptyBin`, `setVolume`, `setMute`,
-    `focusWindow`, `closeWindow`, `showWindow`, `minimizeAll`, `pressEscape` and `power`, and makes up what
+    `focusWindow`, `closeWindow`, `showWindow`, `minimizeAll`, `pressEscape`, `power` and `recycle`, and makes up what
     would be read. Reading alone (the Recycle Bin's count, the volume, drives, windows, programs) may be run on
     the real computer. Never run the changing ones for the owner without asking.
   - **A long request is split by plain rules where they can tell for certain** (`planner.plainSplit`): an end
@@ -662,7 +686,17 @@ keyboard and speech alone.
   - **The notes and skills** that go with this: `claw/knowledge/visionclaw-computer.md`, asked only when a
     question names one of these things (`lookup._COMPUTER`), and the skills `work-the-computer` and
     `control-in-a-program`. When a tool's behaviour changes, change the notes, the README and the help with it.
-  - **Still to do, and said so to the user**: creating, renaming, moving and deleting files; choosing from a
+  - **The user's own files** (`computer.fileTask`, the tool `change_file`): a folder or a text file made, a file
+    or folder renamed, moved or copied, or moved to the Recycle Bin. Only inside the user's own folders
+    (`computertools.insideOwn`), found there by its name by the search, never by a path a model wrote; where
+    several fit, the user chooses in a question of the tool's own. **Nothing is ever overwritten**, and
+    **nothing is ever deleted for good**: deleting is `computertools.recycle`, always asked about (`mustAgree`),
+    and where Windows cannot use the Recycle Bin it is Windows that asks, never VisionClaw that decides. A
+    rename, a move and a thing that was made are written to the list of changes (`file:` entries) and put
+    back by `undo_change` (`computertools.undoFile`). The words must speak of a file, a folder or a document,
+    or write a name with its ending: "delete the notes on this program" is not about a file. Tests change
+    files only in folders of their own, and `recycle` is always stood in for.
+  - **Still to do, and said so to the user**: choosing from a
     combo box by the option's name; a dialog whose pages are a list or a tree and not tabs; a volume for one
     program; Wi-Fi and Bluetooth turned on and off without the Settings page.
 - **The router: a model is offered only what fits** (`claw/router.py`). The owner asked on 2026-11-18 for "a
@@ -705,6 +739,8 @@ addon/
     clawui.py                Ask VisionClaw window, choice prompts, progress speech
     nvdatools.py             the tools the models can call, written against the NVDA API
     webtools.py              the web through NVDA's browse mode: a page's links, buttons, fields and text
+    pagetools.py             a web page as a whole with the NVDA keys that fit it, and what stops a form: the
+                             page read a stretch at a time, the reading position put on the first field in trouble
     mousetools.py            the mouse from the keyboard: click, right-click, double-click, drag, the wheel,
                              the screen's scaling, pointer mode; holding the button, resting the pointer and
                              what appeared, gestures, a click when something changes or in a rhythm, keys held
@@ -769,6 +805,8 @@ addon/
       inside.py              everything inside the running NVDA, listed from its loaded modules; the audit
       debuglog.py            VisionClaw's own log file: levels, rotation, errors with their place in the code
       web.py                 web addresses, search addresses, the passages of a page that matter
+      pageview.py            a web page in words: landmarks, where the main part begins, what it has, NVDA's own
+                             keys for it; the fields and messages that may be stopping a form
       drivers.py             rules that keep speech and braille alive; what happened with each driver
       computer.py            working the computer itself, as plain logic: what is to be opened and which found
                              thing is meant, what the Recycle Bin holds and whether it is worth emptying, the
@@ -1015,8 +1053,15 @@ A session is done only when its "Done when" line is true.
   Measured with the real Qwen3.5 9B on the owner's own five requests.
 - [x] **3.46 A named control of the program in front.** On or off, up or down, also on another page of a dialog
   with tabs and in the window's picture. Tested with stand-in controls; not run in a real program.
+- [x] **3.48 The user's own files.** A folder or text file made; a file or folder renamed, moved, copied, or
+  moved to the Recycle Bin; undone with "undo that". Run for real on files in a folder of the test's own, with
+  the Recycle Bin stood in for; not run inside NVDA.
 - [x] **3.47 The router.** A model is offered what fits where the user is and what they said, and is not asked
   at all where the words are sure. Measured with the real model on the whole of `tests/live_orchestrator.py`.
+- [x] **3.49 A web page explored, and what stops a form.** `explore_page` and `form_trouble`, the first two
+  things built against what JAWS 2027's Vispero Companion does (its Page Explorer, and its help with a form
+  that will not send). Tested with a stand-in web page and with the real model choosing the job; not run in a
+  browser inside NVDA. What is still missing against JAWS is listed in `docs/STATUS.md`.
 - [ ] **3.5 Test inside NVDA.** Install the build in NVDA (ask the user first) and walk through
   `docs/TESTPLAN.md`. Fix what breaks. *Done when:* every item in the test plan is ticked by a real run.
 
@@ -1080,6 +1125,8 @@ python tests/live_addon_memories.py      a real model writes add-ons with a memo
 python tests/test_portable.py            the data folder moved in, carried over when NVDA deletes the add-on's folder,
                                          a portable copy as one file and into a portable NVDA, the settings it carries
 python tests/test_portable_window.py     the portable copy's window with the real wxPython: what it says, each refusal
+python tests/test_pageview.py            a web page explored and a form's trouble found, on a stand-in page; the keys
+                                         compared with the user guide of the NVDA installed on this computer
 python tests/test_training.py            the training material against a stand-in internet: the fixed sources, a
                                          lesson without the site around it, gates, the Markdown help files
 python tests/live_addon_guides.py MODELS GUIDES   a real model writes the same add-ons with and without lines of

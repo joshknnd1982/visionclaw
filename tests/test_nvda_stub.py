@@ -315,7 +315,19 @@ computertools.gather = lambda: computer.places() + [
 	computer.thing("desktop", "Firefox", computer.ON_DESKTOP, r"C:\Users\sam\Desktop\Firefox.lnk"),
 	computer.thing("program", "Space Trader", computer.PROGRAM, r"C:\Start\Space Trader.lnk"),
 	computer.thing("program", "Space Trader Editor", computer.PROGRAM, r"C:\Start\Space Trader Editor.lnk")]
+realSearchFiles, realUserFolders = computertools.searchFiles, computertools.userFolders
 computertools.searchFiles = fakeSearch
+# Nothing is really moved to the Recycle Bin: what would be is written down, and taken away as Windows would.
+recycled = []
+
+
+def fakeRecycle(path):
+	recycled.append(path)
+	import shutil as shutilForTest
+	shutilForTest.rmtree(path) if os.path.isdir(path) else os.remove(path)
+
+
+computertools.recycle = fakeRecycle
 computertools.browserPath = lambda exe: r"C:\Chrome\chrome.exe" if exe == "chrome.exe" else None
 from visionClaw.claw import orchestrator, planner  # noqa: E402
 from visionClaw.claw import task as taskModule  # noqa: E402
@@ -352,7 +364,7 @@ assert instance.dataDir == DATA and instance.portableSettings()["searchEngine"] 
 instance.controller._stopped.set()
 instance.controller._thread.join(5)
 registry = instance.orchestrator.registry
-assert len(registry.names()) == 88, registry.names()
+assert len(registry.names()) == 91, registry.names()
 # Lessons from searches that happened to find something misled; they are dropped when VisionClaw starts.
 assert instance.memory.all() == ["Tool set_setting: this form failed: {} (x). This form worked: {}."], instance.memory.all()
 assert set(planner.available(registry)) == set(planner.RECIPES), set(planner.RECIPES) - set(planner.available(registry))
@@ -1198,6 +1210,16 @@ worked, result = registry.call(task, "check_access", {"target": "auto", "depth":
 assert worked and result.startswith("Checked the web page My feed on example-feed.com, in firefox."), result
 assert "Found 4 problems." in result and "12 buttons have no name" in result and "feed of 5 posts" in result, result
 assert "VisionClaw can fix all of them with an add-on for the website example-feed.com" in result and "[cut]" not in result
+# The page as a whole, through the real tool: what it has and which of NVDA's keys fit it. This page has
+# headings and no landmarks, so the heading key is named and the landmark key is not.
+worked, result = registry.call(task, "explore_page", {})
+assert worked and result.startswith("The web page My feed on example-feed.com has 5 headings, 2 links and 19 buttons."), result
+assert "The page marks no main landmark and has no heading at level 1." in result and "How to move on this page:" in result
+assert "H moves to the next heading" in result and "D moves" not in result and "[cut]" not in result, result
+# What stops a form, on a page without a form: said plainly, nothing moved, no picture read.
+worked, result = registry.call(task, "form_trouble", {})
+assert worked and result.startswith("This page has no form fields that NVDA can read"), result
+assert feed.caret == 0
 assert registry.get("check_access").tell == "verbatim" and registry.get("check_access").looks
 
 # Fixing all of it: the vision model is asked about the nameless buttons that code cannot name, the user is
@@ -3968,6 +3990,119 @@ worked, result = registry.call(taskModule.Task("x"), "set_control", {"asked": "w
 assert not worked and "does not say which control of this program to set" in result, result
 apiStub.getForegroundObject, deep.rangeOf, deep.turn = realForeground, realRange, realTurn
 conf["visionClaw"]["confirmChanges"] = False
+
+# --- The user's own files: made, renamed, moved, copied, and moved to the Recycle Bin ---
+# The real tool and the real search, in folders of the test's own that stand for the user's folders. Files there
+# are really renamed and moved; the Recycle Bin is stood in for.
+own = tempfile.mkdtemp(prefix="vcfiles-")
+ownFolders = {name: os.path.join(own, name.capitalize()) for name in computer.FOLDERS}
+for folder in ownFolders.values():
+	os.makedirs(folder)
+for where, name in (("documents", "budget.xlsx"), ("documents", "Budget notes.txt"), ("downloads", "report.pdf"),
+		("downloads", "old notes.txt"), ("documents", "letter.docx")):
+	with open(os.path.join(ownFolders[where], name), "w", encoding="utf-8") as f:
+		f.write("x")
+os.makedirs(os.path.join(ownFolders["documents"], "Old stuff"))
+with open(os.path.join(ownFolders["documents"], "Old stuff", "inside.txt"), "w", encoding="utf-8") as f:
+	f.write("x")
+computertools.userFolders = lambda: ownFolders
+computertools.searchFiles = realSearchFiles
+assert "file_task" in planner.RECIPES and registry.get("change_file").changes
+conf["visionClaw"]["confirmChanges"] = True
+del questions[:]
+instance.clawAsk = lambda question, choices: questions.append(question) or 0
+
+
+def fileJob(said):
+	return registry.call(taskModule.Task(said), "change_file", {"asked": said})
+
+
+def there(where, *parts):
+	return os.path.exists(os.path.join(ownFolders[where], *parts))
+
+
+# A new folder, where the user says; with no place said it goes into Documents, and the question says so.
+worked, result = fileJob("create a folder called Taxes in my documents")
+assert worked and result == "Made the folder Taxes in Documents." and os.path.isdir(os.path.join(ownFolders["documents"], "Taxes")), result
+assert questions[-1] == "Make the folder Taxes in Documents?", questions
+worked, result = fileJob("make a new folder named Holiday Photos")
+assert worked and there("documents", "Holiday Photos") and questions[-1].endswith("You named no place, so it goes into Documents."), questions
+worked, result = fileJob("create a folder called Taxes in my documents")
+assert worked and result == "There is already something called Taxes in Documents. Nothing was changed.", result
+worked, result = fileJob("create a text file called shopping list on my desktop")
+assert worked and result == "Made the text file shopping list.txt in Desktop." and there("desktop", "shopping list.txt"), result
+# A name Windows does not take, and no name at all, are refused in words.
+worked, result = fileJob("create a folder called a/b in my documents")
+assert not worked and "Windows does not take these characters" in result, result
+worked, result = fileJob("create a new folder")
+assert not worked and result == "The request does not say the new name.", result
+# Renaming keeps the ending where the user gave none; one file is named exactly, though another has the word.
+worked, result = fileJob("rename the file budget to Budget 2026")
+assert worked and result == "Renamed the file budget.xlsx, in Documents, to Budget 2026.xlsx.", result
+assert there("documents", "Budget 2026.xlsx") and not there("documents", "budget.xlsx") and there("documents", "Budget notes.txt")
+assert questions[-1] == "Rename the file budget.xlsx, in Documents, to Budget 2026.xlsx?", questions
+# Nothing is ever overwritten.
+worked, result = fileJob("rename letter.docx to Budget 2026.xlsx")
+assert worked and result == "There is already something called Budget 2026.xlsx in Documents, so letter.docx was not renamed.", result
+assert there("documents", "letter.docx")
+# Moving: to one of the user's folders, or to a folder inside them by its name.
+worked, result = fileJob("move the file report.pdf from my downloads to my documents")
+assert worked and result == "Moved the file report.pdf from Downloads to Documents." and there("documents", "report.pdf"), result
+worked, result = fileJob("move report.pdf to the Taxes folder in my documents")
+assert worked and result == "Moved the file report.pdf from Documents to Documents, in Taxes." and there("documents", "Taxes", "report.pdf"), result
+worked, result = fileJob("move report.pdf to the Taxes folder")
+assert worked and result == "The file report.pdf is already in Documents, in Taxes. Nothing was changed.", result
+worked, result = fileJob("move the file letter to the Receipts folder")
+assert not worked and 'No folder called "receipts" was found' in result and there("documents", "letter.docx"), result
+# Copying leaves the file where it is; a whole folder is not copied.
+worked, result = fileJob("copy the file letter to my desktop")
+assert worked and result.startswith("Copied the file letter.docx from Documents to Desktop.") and there("desktop", "letter.docx") and there("documents", "letter.docx"), result
+worked, result = fileJob("copy the folder Old stuff to my desktop")
+assert not worked and "copies single files, not whole folders" in result, result
+# Deleting is moving to the Recycle Bin, and is always asked about, whatever the settings say.
+conf["visionClaw"]["confirmChanges"] = False
+del questions[:], recycled[:]
+instance.clawAsk = lambda question, choices: questions.append(question) or 1
+worked, result = fileJob("delete the file old notes")
+assert worked and result == "You said no, so nothing was changed." and not recycled and there("downloads", "old notes.txt"), result
+assert questions == ["Move the file old notes.txt, in Downloads, to the Recycle Bin? It can be brought back from there."], questions
+instance.clawAsk = lambda question, choices: questions.append(question) or 0
+worked, result = fileJob("delete the file old notes")
+assert worked and recycled == [os.path.join(ownFolders["downloads"], "old notes.txt")] and result.startswith(
+	"Moved the file old notes.txt, from Downloads, to the Recycle Bin."), (result, recycled)
+worked, result = fileJob("delete the folder Old stuff")
+assert worked and "It is a folder with 1 things in it, and they all go with it." in questions[-1] and not there("documents", "Old stuff"), questions
+# No such file; no name; and several that fit: the user chooses, or none of them.
+worked, result = fileJob("delete the file holiday plans")
+assert not worked and result.startswith('No file or folder with "holiday plans" in its name was found'), result
+worked, result = fileJob("delete this file")
+assert not worked and "F2 renames it and Delete moves it to the Recycle Bin" in result, result
+with open(os.path.join(ownFolders["downloads"], "Budget draft.txt"), "w", encoding="utf-8") as f:
+	f.write("x")
+asked = []
+instance.clawAsk = lambda question, choices: asked.append((question, choices)) or len(choices) - 1
+worked, result = fileJob("rename the file budget to Plan")
+assert worked and result == "You chose none of them, so nothing was changed.", result
+assert asked[0][0] == "Several files fit that name. Which one do you mean?" and len(asked[0][1]) == 4, asked
+assert "Budget draft.txt, in Downloads" in asked[0][1] and asked[0][1][-1] == "None of these"
+# What VisionClaw did to a file is in the list of changes and can be put back: the newest first.
+instance.clawAsk = lambda question, choices: 0
+worked, result = registry.call(taskModule.Task("what did you change"), "list_changes", {})
+assert worked and "The file report.pdf: from Documents to Documents, in Taxes" in result, result
+assert "The file Budget 2026.xlsx: from budget.xlsx to Budget 2026.xlsx" in result, result
+worked, result = registry.call(taskModule.Task("undo that"), "undo_change", {"what": "undo that"})
+assert worked and result == "The file report.pdf is back in Documents." and there("documents", "report.pdf"), result
+worked, result = registry.call(taskModule.Task("undo that"), "undo_change", {"what": "undo that"})
+assert worked and result == "The file report.pdf is back in Downloads." and there("downloads", "report.pdf"), result
+worked, result = registry.call(taskModule.Task("undo that"), "undo_change", {"what": "undo that"})
+assert worked and result == "The file Budget 2026.xlsx is called budget.xlsx again.", result
+assert there("documents", "budget.xlsx") and not there("documents", "Budget 2026.xlsx")
+# Something that was made is removed again only while it is empty.
+worked, result = registry.call(taskModule.Task("undo that"), "undo_change", {"what": "undo that"})
+assert worked and result == "Removed the text file shopping list.txt again." and not there("desktop", "shopping list.txt"), result
+computertools.userFolders, computertools.searchFiles = realUserFolders, fakeSearch
+computertools.userFolders = lambda: ownFolders
+instance.clawAsk = lambda question, choices: questions.append(question) or 0
 
 # Whether something is on the screen: NVDA's own names first, then the text that is shown, then the picture.
 

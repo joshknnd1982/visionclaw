@@ -98,9 +98,16 @@ RECIPES = {
 		"read the web page and answer",
 		"answer a question about the web page that is open in the browser, or summarize it",
 		("read_page",)),
+	# The page as a whole, before its headings alone: how it is laid out and how to move on it, from what NVDA
+	# itself keeps of the page (claw/pageview.py). Plain code, no model, nothing sent anywhere.
+	"explore_page": (
+		"explain how the web page is laid out and how to move on it",
+		"give an overview of the web page: how it is laid out, its landmarks, where its main part begins, what is "
+		"on it, and which NVDA keys move best on it",
+		("explore_page",)),
 	"page_outline": (
-		"say how the web page is laid out",
-		"list the headings of the web page, or say how the page is laid out and what is on it",
+		"list the headings of the web page",
+		"list the headings of the web page in order, with their levels",
 		("page_outline",)),
 	"go_to": (
 		"move to a place on the web page",
@@ -114,6 +121,11 @@ RECIPES = {
 		"type into a field",
 		"type text into a named field or box, such as a search box or a field of a form",
 		("list_items", "fill_field")),
+	"form_trouble": (
+		"find out what is stopping a form",
+		"find out why a form on the web page will not send or submit: which fields are marked as wrong, which "
+		"required fields are empty, what the page's error messages say; and move to the first of them",
+		("form_trouble",)),
 	"nvda_info": (
 		"tell you what NVDA has and uses",
 		"say which speech synthesizer, voice, braille display, braille table, driver or version NVDA has or "
@@ -133,8 +145,9 @@ RECIPES = {
 		"fix, debug or change an add-on VisionClaw wrote that fails or does not do what it should",
 		("list_helpers", "repair_addon")),
 	"undo_change": (
-		"put a setting back",
-		"undo a change VisionClaw made: put a setting back to what it was before, restore it, revert it",
+		"put back what VisionClaw changed",
+		"undo a change VisionClaw made: put a setting back to what it was before, restore it, revert it, or put back "
+		"a file it renamed, moved or made",
 		("undo_change",)),
 	"list_changes": (
 		"say what VisionClaw has changed",
@@ -390,6 +403,11 @@ RECIPES = {
 		"in the program or dialog in front, turn a named option, check box or switch on or off, or turn a named slider "
 		"or value up or down or to a number; looks through the pages of the dialog for it; not a setting of NVDA",
 		("set_control",)),
+	"file_task": (
+		"make, rename, move, copy or delete a file or folder",
+		"make a new folder or text file, rename, move or copy a file or folder of the user's, or delete one by moving "
+		"it to the Recycle Bin, in their Desktop, Documents, Downloads, Pictures, Music or Videos folders",
+		("change_file",)),
 	"power": (
 		"lock, restart or shut down the computer",
 		"lock the computer, put it to sleep, restart it, shut it down or sign out of Windows, or call off a restart "
@@ -402,6 +420,10 @@ IF = "if"
 # Words that point to a recipe. Checked in this order; the first that matches is the hint given to the model,
 # and the choice when the model fails.
 _HINTS = (
+	# A file or folder of the user's that is made, renamed, moved, copied or deleted. First of all: the words must
+	# speak of a file, a folder or a document, or write a name with its ending, and then "delete the file
+	# notes.txt" is not about VisionClaw's notes on a program.
+	("file_task", lambda part: computer.fileTask(part) is not None),
 	# Skills. First: the word "skill" can hardly mean anything else.
 	("manage_skill", r"\b(delete|remove|forget|erase|get rid of|turn off|turn on|switch off|switch on|disable|enable|stop using|start using)\b.*\bskills?\b"),
 	("show_skill", r"\b(read|show|explain|describe|tell me about|what does|what is)\b.*\b(the|my) [\w' -]{1,60} skill\b|\bskill (called|named)\b"),
@@ -565,7 +587,29 @@ _HINTS = (
 	("switch_driver", r"\b(switch|change|use|set)\b.*\b(synthesi[sz]ers?|synths?|braille (display|driver))\b"
 		r"|\b(switch|change) to (espeak|one ?core|sapi|eloquence|no speech|no braille)"),
 	("page_navigate", r"\b(go|navigate|move|take me)\s+(back|forward)\b|\b(previous|last|next) page\b|\b(reload|refresh)\b"),
-	("page_outline", r"\b(headings|outline|laid out|layout|structure)\b"),
+	# What stops a form. Before everything that the words page, field, form, find and wrong would otherwise set
+	# off. Narrow: a form or its fields, and that something is wrong, required or will not be sent.
+	("form_trouble", r"\bforms?\b.{0,60}\b(won'?t|will not|doesn'?t|does not|can'?t|cannot|refus\w+|fail\w*|not)\b.{0,30}"
+		r"\b(submit\w*|send\w*|sent|go through|going through|work\w*|accept\w*|sav\w+|continu\w+)\b"
+		r"|\b(why|what)\b.{0,60}\b(can'?t|cannot|won'?t|will not|doesn'?t|does not)\b.{0,40}"
+		r"\b(submit|send|sign up|register|check ?out)\b.{0,30}\b(forms?|page|order|it|this)\b"
+		r"|\b(what|which|where|find|show|any)\b.{0,40}\b(errors?|mistakes?|wrong|missing|invalid|not valid)\b.{0,40}\b(forms?|fields?)\b"
+		r"|\b(won'?t|will not|doesn'?t|does not|can'?t|cannot)\b.{0,30}\bforms?\b.{0,20}\b(submit|send|go through|work|save|continue)\b"
+		r"|\b(which|what) (fields?|boxes) (are|is|do i|did i|must i|have i)\b.{0,30}\b(required|missing|empty|wrong|not valid|invalid|fill\w*|forg[eo]t\w*|miss(ed)?)\b"
+		r"|\b(required|invalid|empty|missing) fields?\b|\bform (errors?|trouble|problems?)\b"
+		r"|\b(errors?|mistakes?) (in|on|with) (this|the|my) form\b"),
+	# The page as a whole: how it is laid out and how to move on it. Its headings alone stay with the outline.
+	# "Layout" and "structure" alone mean the page only where nothing else is named: the keyboard layout is a
+	# setting of NVDA, and a window is described from its picture.
+	("explore_page", r"^(?!.*\b(keyboard|window|dialog|program|app|application|document|desktop|braille|screen|table|file|folder)\b)"
+		r".*\b(laid out|layout|structure)\b"
+		r"|\b(landmarks?|page explorer)\b"
+		r"|\b(explore|overview of|tour of|walk me through|orient me|get around|move around|find my way|navigate)\b.{0,40}"
+		r"\b(page|web ?page|site|web ?site)\b"
+		r"|\b(best|quickest|fastest|easiest) way\b.{0,50}\b(page|web ?page|site|web ?site)\b"
+		r"|\bwhat('s| is) on (this|the) (web ?page|page|web ?site|site)\b"
+		r"|\bwhere (is|does) the main (content|part)\b"),
+	("page_outline", r"\b(headings|outline)\b"),
 	("go_to", r"\b(go|jump|move|take me|skip)\b.*\b(to|down to)\b.*\b(heading|section|part|link|field|box|form|main content|comments?)\b"),
 	("search_web", r"\b(search|look up|google)\b.*\b(web|internet|online|for)\b"),
 	("open_website", r"\b(open|go to|visit|load|browse to)\b.*(\w\.[a-z]{2,}\b|web ?site|web ?page|\burl\b)"),
@@ -736,7 +780,7 @@ _SUBORDINATE = re.compile(
 _QUESTION = re.compile(r"^\s*(what|which|who|where|when|how|is|are|do|does|can|could|will|should)\b", re.IGNORECASE)
 _REPORTS = re.compile(r"^\s*(?:please\s+)?(tell|say|read|describe|report|list|summari[sz]e|count)\b", re.IGNORECASE)
 # What only looks: a report joined to it by "and" is about what was looked at, and stays with it.
-_LOOKS = ("describe", "read_text", "where_am_i", "check_access", "page_outline", "web_page", "nvda_question", "explain_keys")
+_LOOKS = ("describe", "read_text", "where_am_i", "check_access", "page_outline", "explore_page", "form_trouble", "web_page", "nvda_question", "explain_keys")
 # Recipes whose words are the user's own text, which may hold commas and "and" of its own.
 _FREE_TEXT = (
 	"write_addon", "add_skill", "remember", "fix_addon", "add_fix", "make_hotkey", "type_text", "fill_field", "search_web",
@@ -1017,6 +1061,7 @@ _NEEDS = {
 	"timed_click": pointer.timingOf, "gesture": pointer.gestureOf, "touch": touch.touchOf, "pressure": touch.penOf,
 	"turn_view": direct.turnOf, "power": computer.powerOf, "system_volume": computer.volumeOf,
 	"set_control": controls.wish,
+	"file_task": computer.fileTask,
 	"empty_bin": lambda part: computer.emptiesBin(part) or None,
 	"recycle_bin": lambda part: computer.asksAboutBin(part) or None,
 	# Remembering is only meant where the words ask for it or say something lasting about the user. A real
@@ -1025,7 +1070,7 @@ _NEEDS = {
 # Recipes the words point to that can hardly mean anything else: locking and shutting down, the Recycle Bin, the
 # computer's own volume. Where the words point to one of them, it is taken, whatever a model chose. Each of
 # their tools asks the user before it changes anything.
-_SURE = ("power", "empty_bin", "recycle_bin", "system_volume")
+_SURE = ("power", "empty_bin", "recycle_bin", "system_volume", "file_task")
 
 
 def fitted(choice, part, guess):

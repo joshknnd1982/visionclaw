@@ -7,7 +7,7 @@
 # time, check the result, tell the user what really happened, and remember what was learned.
 # No NVDA dependencies.
 
-from . import agent, consensus, debuglog, lookup, planner, policy, prompts, shapes
+from . import agent, consensus, debuglog, lookup, pageview, planner, policy, prompts, shapes
 from . import memories as memoriesModule
 from . import skills as skillsModule
 from . import task as taskModule
@@ -450,6 +450,12 @@ class Orchestrator:
 				# thing marked as what it is, instead of being given as the answer.
 				return f"{lookup.NO_ANSWER} {clip(lookup.quoted(result), 420)}"
 			return clip(lookup.quoted(result, picked), 800)
+		if toolName == "read_page" and pageview.asksGist(part):
+			# "Summarize this page" asks for no line of the page but for all of it in short. A model that must not
+			# put things into its own words gets the beginning of each part, word for word, from plain code.
+			gist = pageview.gist(result)
+			if gist:
+				return gist
 		lines, _asked = shapes.quote(part, result)
 		if not lines:
 			return shapes.notMentioned(part)
