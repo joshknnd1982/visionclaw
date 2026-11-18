@@ -933,7 +933,126 @@ and a way to add and remove the chosen skills; and that skills also reach the ad
 Not tested: none of this has run inside NVDA. The skills window has not been used with NVDA speaking it, and
 NVDA+Alt+I has not been pressed in a real NVDA.
 
+## Q4_K_M or Q6_K for every model: the user's choice (2026-11-18)
+
+The owner's words: "user should be able to choose between q4_k_m and q6_k for everything. **user choice**
+visionclaw suggests, user can take the suggestion or make his own model and quant choices."
+
+What was done:
+- Every model in the catalog can now be had as Q4_K_M and as Q6_K: the four Qwen3.5 vision models, the three
+  Qwen2.5 Coder models, and Qwen3.5 4B and 9B used for coding. That is 18 entries, 9 of them new. The Q6_K
+  files were read from Hugging Face's API (`/api/models/<repo>/revision/<rev>?blobs=true`) at the revisions
+  the catalog already pins, from the same publishers (unsloth and Qwen). Every model has a single Q6_K file
+  there, so no quant is missing.
+- Each quant is an entry of its own (`qwen3.5-2b-q6k` beside `qwen3.5-2b`), in the same folder. The vision
+  projector is the same file for both quants, so it is downloaded once. The Q4_K_M entries keep their old
+  ids, so a setting from before there were quants still means Q4_K_M, and nothing changes for a user who has
+  a model. `models.json` was regenerated (`LIST_UPDATED` 2026-11-18). An older VisionClaw that presses "Look
+  for newer models" reads the Q6_K entries as extra models and can use them; `checkEntry` there drops the new
+  "quant" field.
+- The models window has a second list under each model, "Vision model quant" (Alt+Q) and "Coder model
+  quant" (Alt+A). The list of models says, for each model, which quant is on this computer and how much each
+  other quant would download. The list of quants says, for each: "Q4_K_M, smaller and faster" or "Q6_K, larger
+  and more exact, best for writing add-ons", the model file's size, and whether it is on this computer or how
+  much is left to download. The suggested model and the suggested quant are marked "suggested" and chosen
+  first, never forced. Every model and quant is offered on every computer. Choosing another model keeps the
+  quant chosen before. The Download button counts a shared file once.
+- A stored model is now one folder and quant (`catalog.storeKey`: `qwen3.5-2b`, `qwen3.5-2b@Q6_K`). After a
+  switch to the other quant, the one no longer used is offered for removal, as before. The projector stays
+  until the last quant of the model is removed. The size in the question is what removing really frees
+  (`Catalog.freedBy`). "Which model do you use" now names the quant (`catalog.displayName`).
+- `catalog.SUGGESTED_QUANTS` holds the models for which measuring showed Q6_K clearly better. It is empty:
+  see below.
+
+| Test | What it covers | Result |
+| --- | --- | --- |
+| `tests/test_parts.py` | Every model in both quants, same publisher, revision, folder and projector; the names with and without the quant; Q6_K_XL not taken for Q6_K; the suggestion Q4_K_M on every computer, and Q6_K when `SUGGESTED_QUANTS` says so; a list whose quant is not its file's is refused; the setting kept as the entry's id, an old setting meaning Q4_K_M, a Q6_K setting used; the same model in two quants is two models, not one doing both jobs; on the disk, both quants as two stored models, the projector downloaded once, counted once, and removed with the last quant; `models.json` equals the catalog | passes |
+| `tests/test_models_window.py` (new) | The models window with the real wxPython (not shown on the screen): every model listed once with what each quant would download; an old setting chooses Qwen3.5 2B in Q4_K_M; the quant list's words and sizes and the suggested mark; a projector on the disk not counted again in the Download button; another model keeps the quant chosen; every coder in both quants; no coder model; the choice written to the settings and the keys of the files in use handed on for the removal offer; the window opened again shows the choice; each list has its own label and key | passes |
+| `tests/test_nvda_stub.py`, `tests/test_one_model.py` | The labels of the model list; the names said by "which model" with the quant | passes |
+| `python tests/run_all.py` | All 21 plain-Python tests | passes |
+| `tests/live_quants.py` (new), Qwen2.5 Coder 1.5B in Q4_K_M and in Q6_K, each its own reviewer, three rounds of the four add-ons of `live_addon.py` and the debugging of `api.getFocus` | Q4_K_M: 12 of 12 passed the checks, 3 with no repair round, 18 repair rounds in all, 2.7 s each; the debugging gave `getFocusObject` 3 of 3. Q6_K: 9 of 12 passed, none with no repair round, 30 repair rounds, 3.2 s each; the debugging gave `getFocusObject` 3 of 3, after 2 repair rounds each time | Q6_K not better |
+
+What the measurement shows, and what it does not. The three rounds gave the same results each time, so this is
+really one run of five jobs per quant. Q6_K failed "Beep when a link gets the focus" every time: it kept a
+key command the request did not ask for, through four repair rounds. It also needed repair rounds where
+Q4_K_M needed none ("Say hello" picked up an unused `import keyboardHandler`). Both quants debugged the
+failing add-on to `api.getFocusObject`. The add-ons that passed were read and are alike, all usable. On this
+small set, Q6_K is not better for the 1.5B coder, so Q4_K_M stays the suggestion for every model. The Q6_K
+files were downloaded with the owner's yes (2.4 GB for the pair).
+
+Not measured: the vision models in Q6_K, the 0.5B and 7B coders and the Qwen3.5 models used for coding in
+Q6_K, and `tests/live_addon_memories.py` and `tests/live_orchestrator.py` with any Q6_K model. A larger set of
+requests (phase 5.1) may still find a model that Q6_K helps. Not run inside NVDA: the models window with its
+new lists has not been used with NVDA speaking it, and no Q6_K model has been downloaded from the window
+itself (the download in the test went through the same `Catalog.download`, with its SHA-256 check).
+
+## Controls that need more than a click, and every kind of control (1.1.0, 2026-11-18)
+
+The owner's words, after another session had said that controls worked by hovering, holding the button down,
+gestures or reacting to timing were not on VisionClaw's list: "I want those to be on the list of visionclaw
+controls which visionclaw must be able to make accessible too." Then: "if necessary, make skills and system
+prompts appropriate for such controls", "if you can think of any other controls to add to the list ... add
+those", and "both controls and control types for accessibility".
+
+What was done:
+- **Five new ways of working a control** in `working.WAYS`: hover, press and hold, swipe or draw, click at the
+  right moment, drag in any direction. Both questions to the models name them. A control's own name or
+  description decides by plain code where it says so (`working.bySaid`: "Hold to record", "Swipe to unlock",
+  "Sign here", "Hover for details", "Click when the bar is green"), kept narrow: a button called Hold is
+  clicked. Such a control is found whether or not it takes the focus, on a web page too, because Enter clicks
+  a button and does not keep it down.
+- **A means for each**, in `claw/pointer.py` (plain reasoning) and `mousetools.py` (the mouse):
+  hovering with the window compared before and after and the new text read out (`click_item`, also on a web
+  page, through the item's own place on the screen); holding for a time from the words (`pointer.holdSeconds`,
+  at most a minute); gestures as strokes from the words (`pointer.gestureOf`, `draw_gesture`): a swipe or a
+  line in up to six directions, a circle either way, a tick, a zigzag, a square, a triangle, a cross in two
+  strokes, six letters, with the left or the right button, a size and a speed; a click when a watched place
+  changes, or a number of clicks in a steady rhythm (`pointer.timingOf`, `timed_click`).
+- **More clicks**: the middle button, three clicks, Control, Shift or Alt held down
+  (`pointer.modifiersOf`, `mousetools.keysDown`), and a click at a place on a thing (`pointer.spotOf`).
+  `scroll_view` zooms in and out with Control and the wheel.
+- **Pointer mode**: T rests the pointer and says what appears, C clicks when what is under the pointer
+  changes, Shift+C only sounds a tone; any key ends a watch.
+- **Hotkeys**: an app helper can hover over its item and say what appears, or hold the button down on it until
+  the hotkey or Escape is pressed again (`helpers._pointed`, `PointerMode.keepDown`, `letGo`). A held button
+  lets go by itself after two minutes, and when VisionClaw stops.
+- **The inspection** reports such controls (`accesstools._specialFindings`): for hover and hold it offers
+  hotkeys, kept as data like the hotkeys for dials; for the others it says what to ask for.
+- **Every kind of control**: the 156 kinds in `controlTypes.Role` of the NVDA installed on this computer were
+  read from its `library.zip` (the names only, nothing run), and each is now sorted: worked in a known way,
+  only holding or showing something, or left for the models to look at (`working.knownRole`). `byFacts` also
+  uses UI Automation's drag, move and resize, scroll and select, the page's `draggable` and `haspopup`, more
+  web roles, and NVDA's states. The web roles were written from what is commonly used, not checked against
+  the standard's own list.
+- **A model's choice of recipe is checked** where plain code can tell it cannot be meant (`planner.fitted`).
+- A 39th built-in skill, "Work a control that needs more than a click".
+
+| Test | What it covers | Result |
+| --- | --- | --- |
+| `tests/test_pointer.py` | Which action the words mean (hold, middle, triple, hover; a button called Hold is clicked); how long to hold; a time in words ("as" is not "a s"); keys held down, and "with the control panel" naming none; a place on a thing; when and how often to click, with the limits; the threshold of a watched place; gestures by direction, shape, button, size and speed, their points in small steps inside the window; where a picture changed, and a speck not counting | passes |
+| `tests/test_working.py` | What a control's own name says, 19 names; its words before a click Windows offers; the survey finding such controls with and without the focus, also on a page; the remedy and the advice for each way, with what the timed click cannot do; every way named in both questions to the models; all 156 kinds of NVDA sorted, each in one place only; thumbs, grips, videos and embedded objects; what Windows, the page and NVDA's states say | passes |
+| `tests/test_nvda_stub.py` (the mouse, the keys and the wheel only written down) | Hovering says what appeared, that nothing did, or that the window could not be looked at; holding for half a second with a question first, and a stopped request letting go at once; the middle button; Control down before the click and up after; three clicks; a click 25 percent across; a swipe from the named item with the pointer put back; a circle with the right button; words that name no gesture; three clicks in a rhythm; a click when the place changes; nothing clicked when it never changes or changes all the time; zoom in and out with Control up again; T, C and Shift+C in pointer mode and a key ending a watch; a hotkey that hovers; an inspection that finds "Hold to record" and "Swipe to unlock" by their names, makes a hotkey for the first, which holds at the first press and lets go at the second, at Escape and when VisionClaw stops; the deep query of that button | passes |
+| `tests/test_core.py` | The words that point to the two new recipes and to a click that holds; "tell me when the score changes" still a fix; a model's impossible choice corrected | passes |
+| `python tests/run_all.py` | All 22 plain-Python tests | passes |
+| `tests/live_working.py`, Qwen3.5 9B looking, Qwen2.5 Coder 1.5B reading the facts | 12 drawn controls, 6 of them new (a button that says to hold it, an information icon, a bar to swipe, a box to sign in, a bar with a moving marker, a square pad), and 11 fact sets | First run 19 of 23: the vision model called an upright fader a click, which it had called a drag before the new lines were added. With the ways of dragging listed first it named all 12 drawn controls rightly, so that order is kept. The coder model called a plain text "mouse wheel", and got neither of two free wordings ("keep the mouse button down on this while you speak": "click at the right moment"; "sketch with the mouse": "mouse wheel"). It had not been given the description at all; that was a fault and is fixed. Qwen3.5 9B as the coder got one of the two. Both wordings and the plain text are now decided by plain code. After that 23 of 23, of which 12 by the vision model and 11 by plain code |
+| `tests/live_orchestrator.py`, Qwen3.5 9B and Qwen2.5 Coder 1.5B, stand-in tools, 96 requests of which 8 are new ("Press and hold the New Game button for 2 seconds", "Hover over the Options button", "Middle-click the Options button", "Swipe left on the Options button", "Draw a circle in this window", "Click the Quit button as soon as it changes", "Click the New Game button 5 times", "Zoom in") | Which job both models choose, and the forms | 94 of 96 got the fitting job from both models; all 8 new ones did, and all the older mouse requests (click, right-click, drag, scroll, pointer mode, the dials). One fault was found and fixed first: both models sent "Press and hold ... for 2 seconds" to the click at the right moment, also after a rewording and although the words pointed to a click; plain code now corrects a choice the words cannot mean (`planner.fitted`). The two that did not get a fitting job at once: "Name the focused button Share on this website" (the vision model chose to work out the steps itself, the coder model the lasting fix; in VisionClaw the user is then asked, the stand-in took the vision model's choice, and its free plan ran for eight minutes and named nothing), and the second half of "Do a deep query of this control and tell me how a sighted person works it" (the user is asked). Both went the same way with the two new recipes taken out, so they come from this pair of models, not from this change; with Qwen3.5 4B and 9B on 2026-11-17 both had chosen rightly. The first full run stopped after nine requests with the engines idle, for a reason not found; the second ran through |
+
+What the measurement shows, and what it does not. The drawings are simple and say in words what to do with
+them; a real program's control that is held down or hovered over often says nothing, and then a model can
+only guess from its look. The small coder model cannot be relied on for a free wording, which is why plain
+code decides wherever words allow. Nothing here was run inside NVDA or against a real program: no real tip
+was read, no real button was held, no real gesture was drawn, and no real key was held down during a click.
+`keyboardHandler.ignoreInjection` is used so that NVDA takes no notice of the held key; that it exists in
+every NVDA from 2024.1 on was not checked, and without it the key is pressed all the same.
+
 ## What was not tested
+
+- **Controls that need more than a click (1.1.0)** were tested with a stand-in for the mouse, the keyboard
+  and the screen, and with the real models on drawn pictures. In a real program: hovering and reading a tip,
+  holding a button, a hotkey that holds, gestures, a click when something changes, the middle button, a key
+  held down during a click, a click at a place on a thing, and zoom have not been tried. A web page item's
+  place on the screen comes from NVDA's own object for it (`obj.location` after `scrollIntoView`), which the
+  stand-ins do not check.
 
 - **Model management (0.3.2)**, apart from the owner's report above, was tested against stand-ins only: listing what is stored, removing some or all
   models, falling back to another stored model, and the offer to remove models no longer used. The window
@@ -1007,8 +1126,21 @@ NVDA+Alt+I has not been pressed in a real NVDA.
 - A model's notes are checked for keys and words, not for meaning: a point can still say something the page
   does not mean. Every note names its page, and the file says it may be wrong.
 - The check on generated code is not a sandbox.
+- A click at the right moment follows a change VisionClaw sees, about 25 looks a second; it cannot hit a moving
+  mark at a place, and something that changes all the time has no moment it can tell. Gestures with two
+  fingers, pressure, a drag between two windows and a game that reads the mouse directly are not covered.
+- What appeared after hovering is the text that is new where the window's picture changed; a tip drawn outside
+  the window, or one that shows no text, is not read.
+- A control's own name is understood in English only ("Hold to record"); in another language the models are
+  asked instead.
 
 ## Next session
 
 Phase 3.5: install the build in NVDA (ask the owner first), walk through `docs/TESTPLAN.md`, fix what breaks.
 Then download the two suggested models and repeat `tests/live_orchestrator.py` with them.
+
+Found on 2026-11-18 and left open: with Qwen3.5 9B and Qwen2.5 Coder 1.5B, "Name the focused button Share on
+this website" is not sent to the lasting fix, although its words point there. When one model does both jobs
+its choice is checked against the words (`consensus._onRecipe`); when two models are used and they disagree,
+it is not. Check both against the words in the same way, and measure with the whole of
+`tests/live_orchestrator.py`.

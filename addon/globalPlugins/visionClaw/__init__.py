@@ -719,7 +719,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		for role in (VISION, CODER):
 			entry = self.runtime.entry(role)
 			if entry is not None:
-				inUse[role] = entry["dir"] or entry["id"]
+				inUse[role] = catalog.storeKey(entry)
 		return self.models.stored(), inUse
 
 	def modelsSummary(self):
@@ -819,7 +819,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		question = _(
 			"You no longer use: {names}. Remove them to free {size} GB of disk space? "
 			"A removed model can be downloaded again at any time."
-		).format(names=", ".join(m["name"] for m in unused), size=dialogs._gb(sum(m["bytes"] for m in unused)))
+		).format(names=", ".join(m["name"] for m in unused), size=dialogs._gb(self.models.freedBy([m["key"] for m in unused])))
 		gui.mainFrame.prePopup()
 		try:
 			# Translators: Title of the question about removing models that are no longer used.

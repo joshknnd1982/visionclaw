@@ -436,7 +436,9 @@ def bindingOf(control, key):
 	"""What is kept of a control: data only."""
 	name = control.get("name") or ""
 	return {
-		"key": key, "action": dragcontrol.ACTION, "item": name or control.get("kind") or "control", "name": name,
+		# What the key does: the arrow keys work the control, unless the control says otherwise (the pointer
+		# rests on it, or the mouse button is held down on it).
+		"key": key, "action": control.get("action") or dragcontrol.ACTION, "item": name or control.get("kind") or "control", "name": name,
 		"kind": control.get("kind") or "control", "method": control.get("method"), "share": list(control["share"]),
 		"radius": control.get("radius"), "follows": control.get("follows"), "find": control.get("find"),
 		"site": control.get("site") or "",

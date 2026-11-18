@@ -22,7 +22,7 @@ from .vclog import log
 
 import addonHandler
 
-from .claw import dragcontrol, match, microaddons
+from .claw import dragcontrol, match, microaddons, pointer
 
 addonHandler.initTranslation()
 
@@ -121,13 +121,70 @@ class Helpers:
 						self._plugin.controlKeys.takeSaved(app, identifier, binding)
 					return script_controlHelper
 
-				def script_appHelper(gesture, binding=binding):
-					threading.Thread(target=self._run, args=(binding,), name="visionClaw-helper", daemon=True).start()
+				if binding.get("action") in (pointer.HOVER, pointer.HOLD) and binding.get("site"):
+					from . import controlkeys
+					if controlkeys.siteNow() != binding["site"]:
+						return None
+
+				def script_appHelper(gesture, binding=binding, identifier=identifier, app=app):
+					if binding.get("action") == pointer.HOLD and self._plugin.pointerMode.letGo():
+						return  # the second press of a hotkey that holds the mouse button down lets it go
+					threading.Thread(
+						target=self._run, args=(binding, app, identifier), name="visionClaw-helper", daemon=True).start()
 				return script_appHelper
 		return None
 
-	def _run(self, binding):
+	def _place(self, binding, app, keyId):
+		"""Where a hotkey's thing is on the screen now, as (point, name), for a hotkey that rests the pointer on
+		it or holds it down. Raises LookupError with what to tell the user. Worker thread."""
+		if binding.get("share") or binding.get("find"):
+			# Found in an inspection: kept as a rule, a name in the picture, or a share of the window.
+			from . import controlkeys, mousetools
+			control = controlkeys.resolve(self._plugin, app, keyId, binding)
+			box = mousetools._onMain(self._plugin.controlKeys._box)
+			return dragcontrol.pointOf(control["share"], box), control.get("name") or binding.get("item") or ""
+		result = self._plugin.clawScreen.items()
+		index = match.best(binding["item"], self._plugin.clawScreen.names(result))
+		if index is None:
+			# Translators: Reported when an app helper's item is not in the window. {item} is its name.
+			raise LookupError(_("{item} is not in this window right now.").format(item=binding["item"]))
+		from . import mousetools
+		point = mousetools._onMain(lambda: self._plugin.clawScreen.pointOf(result, result.items[index]))
+		if point is None:
+			raise LookupError(_("{item} is not in this window right now.").format(item=binding["item"]))
+		return point, result.items[index]["text"]
+
+	def _pointed(self, binding, app, keyId):
+		"""A hotkey that rests the pointer on its thing and says what appears, or holds the mouse button down on
+		it until the hotkey or Escape is pressed again."""
+		from . import mousetools
+		try:
+			point, name = self._place(binding, app, keyId)
+		except LookupError as e:
+			wx.CallAfter(ui.message, str(e))
+			return
+		except Exception:
+			log.error("VisionClaw: app helper failed", exc_info=True)
+			wx.CallAfter(ui.message, _("VisionClaw could not read this window."))
+			return
+		mode = self._plugin.pointerMode
+		if binding["action"] == pointer.HOLD:
+			wx.CallAfter(mode.keepDown, point, name)
+			return
+		box = mousetools._onMain(mode._box)
+		before, after = mousetools.rest(self._plugin._grab, box, point)
+		found, text = mousetools.appearedText(before, after)
+		# Translators: Spoken when a hotkey rested the mouse pointer on something and nothing new showed.
+		wx.CallAfter(ui.message, text or (
+			_("{name}: the window could not be looked at.").format(name=name) if found is None
+			else _("{name}: something appeared, but no new text could be read.").format(name=name) if found
+			else _("{name}: nothing appeared.").format(name=name)))
+
+	def _run(self, binding, app="", keyId=""):
 		"""Find the helper's item in the window as it looks now, and click or read it."""
+		if binding.get("action") in (pointer.HOVER, pointer.HOLD):
+			self._pointed(binding, app, keyId)
+			return
 		try:
 			result = self._plugin.clawScreen.items()
 		except Exception:

@@ -56,6 +56,79 @@ def _mb(n):
 	return round(n / 1048576)
 
 
+def quantWords(quant):
+	"""What a quant means for the user, in a few plain words, or "" for one VisionClaw has no words for."""
+	return {
+		# Translators: Said of the Q4_K_M quant of a model in the models window.
+		catalog.Q4: _("smaller and faster"),
+		# Translators: Said of the Q6_K quant of a model in the models window.
+		catalog.Q6: _("larger and more exact, best for writing add-ons"),
+	}.get(quant, "")
+
+
+def modelLabel(models, entry, suggestedId):
+	"""One model in the list of models, in words: its name, each of its quants on this computer or with what is
+	left to download, whether it is suggested, and whether it is one of the very smallest.
+	models: the catalog. entry: any entry of the model, or None for no coder model."""
+	if entry is None:
+		# Translators: A choice in the list of coder models.
+		return _("No coder model now: image descriptions and the overlay only")
+	kinds = catalog.variants(models.entries(entry["role"]), entry)
+	name = catalog.modelName(entry)
+	if len(kinds) == 1 and not catalog.quantOf(entry):
+		if models.isInstalled(entry):
+			# Translators: A model in the list that needs no download. {name} is the model.
+			label = _("{name}, on this computer").format(name=name)
+		else:
+			# Translators: A model in the list. {name} is the model, {size} its download size in megabytes.
+			label = _("{name}, {size} MB to download").format(name=name, size=_mb(models.missingBytes(entry)))
+	else:
+		parts = []
+		for kind in kinds:
+			if models.isInstalled(kind):
+				# Translators: Part of a model in the list. {quant} is a quant such as Q4_K_M.
+				parts.append(_("{quant} on this computer").format(quant=catalog.quantOf(kind)))
+			else:
+				# Translators: Part of a model in the list. {quant} is a quant such as Q6_K, {size} megabytes.
+				parts.append(_("{quant} {size} MB to download").format(
+					quant=catalog.quantOf(kind), size=_mb(models.missingBytes(kind))))
+		label = ", ".join([name] + parts)
+	if any(kind["id"] == suggestedId for kind in kinds):
+		# Translators: Added to the model that is suggested for this computer.
+		label += _(", suggested")
+	if entry.get("suggest") is False:
+		# Translators: Added to the very smallest models in the list, which are offered but never suggested.
+		label += _(", very small: fast, less accurate")
+	return label
+
+
+def quantLabel(models, entry, suggestedQuant):
+	"""One quant of the chosen model in the list of quants: what it means, how large its model file is, whether
+	it is on this computer or what is left to download, and whether it is the suggested one."""
+	if entry is None:
+		# Translators: The only item of the quant list when no coder model is chosen.
+		return _("No coder model, so there is no quant to choose")
+	quant = catalog.quantOf(entry)
+	if not quant:
+		# Translators: The only item of the quant list for a model that is offered in one file only.
+		return _("This model is offered in one file only")
+	size = _mb(next((f["size"] for f in entry["files"] if f["kind"] == "model"), 0))
+	words = quantWords(quant)
+	named = f"{quant}, {words}" if words else quant
+	if models.isInstalled(entry):
+		# Translators: A quant in the list. {quant} is like "Q6_K, larger and more exact", {size} the file in megabytes.
+		label = _("{quant}, {size} MB, on this computer").format(quant=named, size=size)
+	else:
+		# Translators: A quant in the list. {quant} is like "Q6_K, larger and more exact", {size} the file in
+		# megabytes, {missing} what is left to download in megabytes.
+		label = _("{quant}, {size} MB, {missing} MB to download").format(
+			quant=named, size=size, missing=_mb(models.missingBytes(entry)))
+	if quant == suggestedQuant:
+		# Translators: Added to the quant that is suggested for the chosen model.
+		label += _(", suggested")
+	return label
+
+
 def lookResult(found):
 	"""What looking for newer models found, in sentences. found is what catalog.Catalog.look returns."""
 	lines = []
@@ -102,10 +175,10 @@ class ModelsDialog(wx.Dialog):
 		self._cancel = threading.Event()
 		self._working = False
 		self._progress = ""
-		self._entries = {
-			catalog.VISION: models.entries(catalog.VISION),
-			catalog.CODER: models.entries(catalog.CODER) + [None],
-		}
+		self._entries = {}
+		self._shown = {}
+		self._kinds = {}
+		self._lastQuant = {}
 		# Translators: Welcome text of the models window.
 		intro = _(
 			"VisionClaw works with two AI models that run on your own computer: a vision model that looks at the "
@@ -113,6 +186,8 @@ class ModelsDialog(wx.Dialog):
 			"in plain language. Nothing you do is sent to the internet.\n\n"
 			"Choose the models below. Larger models are more accurate and slower, and need more memory. "
 			"All of them are offered whatever your computer is; the suggested ones are the safe choice. "
+			"Every model comes in two quants, chosen in the list under it: Q4_K_M is smaller and faster, Q6_K is "
+			"larger, slower and more exact, which helps most when add-ons are written for you. The choice is yours. "
 			"The very small ones are for a computer that can run nothing larger: they make more mistakes, so "
 			"VisionClaw asks them one small question at a time. "
 			"A model is downloaded only once, and you can change your choice here at any time."
@@ -123,18 +198,35 @@ class ModelsDialog(wx.Dialog):
 		self.text = wx.TextCtrl(self, value=intro, size=(560, 170), style=wx.TE_MULTILINE | wx.TE_READONLY)
 		main.Add(self.text, flag=wx.ALL | wx.EXPAND, border=10)
 		self._choices = {}
-		for role, label in (
-			# Translators: Label of the list of vision models.
-			(catalog.VISION, _("&Vision model:")),
-			# Translators: Label of the list of coder models.
-			(catalog.CODER, _("C&oder model:")),
+		self._quantChoices = {}
+		for role, label, quantLabelText in (
+			(
+				catalog.VISION,
+				# Translators: Label of the list of vision models.
+				_("&Vision model:"),
+				# Translators: Label of the list of quants of the chosen vision model.
+				_("Vision model &quant:"),
+			),
+			(
+				catalog.CODER,
+				# Translators: Label of the list of coder models.
+				_("C&oder model:"),
+				# Translators: Label of the list of quants of the chosen coder model.
+				_("Coder model qu&ant:"),
+			),
 		):
 			main.Add(wx.StaticText(self, label=label), flag=wx.LEFT | wx.RIGHT, border=10)
-			choice = wx.Choice(self, choices=[self._label(e, suggested.get(role)) for e in self._entries[role]])
-			choice.SetSelection(self._firstSelection(role, suggested.get(role)))
-			choice.Bind(wx.EVT_CHOICE, lambda e: self._updateButton())
+			choice = wx.Choice(self, choices=[])
+			choice.Bind(wx.EVT_CHOICE, lambda e, role=role: self._modelChanged(role))
 			main.Add(choice, flag=wx.ALL | wx.EXPAND, border=10)
 			self._choices[role] = choice
+			main.Add(wx.StaticText(self, label=quantLabelText), flag=wx.LEFT | wx.RIGHT, border=10)
+			quants = wx.Choice(self, choices=[])
+			quants.Bind(wx.EVT_CHOICE, lambda e: self._updateButton())
+			main.Add(quants, flag=wx.ALL | wx.EXPAND, border=10)
+			self._quantChoices[role] = quants
+			chosen = self._conf["visionModel" if role == catalog.VISION else "coderModel"]
+			self._fill(role, self._wanted(role, chosen) or self._wanted(role, suggested.get(role)))
 		self.gauge = wx.Gauge(self, range=100)
 		self.gauge.Hide()
 		main.Add(self.gauge, flag=wx.LEFT | wx.RIGHT | wx.EXPAND, border=10)
@@ -159,37 +251,60 @@ class ModelsDialog(wx.Dialog):
 		self.Bind(wx.EVT_CHAR_HOOK, self._onKey)
 		self.text.SetFocus()
 
-	def _label(self, entry, suggestedId):
-		if entry is None:
-			# Translators: A choice in the list of coder models.
-			return _("No coder model now: image descriptions and the overlay only")
-		if self._models.isInstalled(entry):
-			# Translators: A model in the list that needs no download. {name} is the model.
-			label = _("{name}, on this computer").format(name=entry["name"])
-		else:
-			# Translators: A model in the list. {name} is the model, {size} its download size in megabytes.
-			label = _("{name}, {size} MB to download").format(
-				name=entry["name"], size=_mb(self._models.missingBytes(entry)))
-		if entry["id"] == suggestedId:
-			# Translators: Added to the model that is suggested for this computer.
-			label += _(", suggested")
-		if entry.get("suggest") is False:
-			# Translators: Added to the very smallest models in the list, which are offered but never suggested.
-			label += _(", very small: fast, less accurate")
-		return label
+	def _wanted(self, role, modelId):
+		"""The entry of a role's list with this id, or None. An older setting names a Q4_K_M entry by its id."""
+		for entry in self._models.entries(role):
+			if entry["id"] == modelId:
+				return entry
+		return None
 
-	def _firstSelection(self, role, suggestedId):
-		"""The user's earlier choice if there is one, else the suggested model."""
-		entries = self._entries[role]
-		chosen = self._conf["visionModel" if role == catalog.VISION else "coderModel"]
-		for wanted in (chosen, suggestedId):
-			for i, entry in enumerate(entries):
-				if entry is not None and entry["id"] == wanted:
-					return i
-		return 0
+	def _fill(self, role, chosen):
+		"""Fill a role's two lists from the catalog, with this entry chosen (any quant of a model), or the first."""
+		self._entries[role] = self._models.entries(role) + ([None] if role == catalog.CODER else [])
+		self._shown[role] = catalog.models(self._entries[role])
+		suggestedId = self._suggested.get(role)
+		self._choices[role].Set([modelLabel(self._models, e, suggestedId) for e in self._shown[role]])
+		at = 0
+		for i, entry in enumerate(self._shown[role]):
+			kinds = catalog.variants(self._entries[role], entry) if entry is not None else []
+			if chosen is not None and any(kind["id"] == chosen["id"] for kind in kinds):
+				at = i
+		self._choices[role].SetSelection(at)
+		self._fillQuants(role, catalog.quantOf(chosen) if chosen is not None else None)
+
+	def _fillQuants(self, role, quant=None):
+		"""Fill the list of quants for the model chosen now, with this quant chosen if the model has it, else the
+		one suggested for the model."""
+		model = self._shown[role][max(0, self._choices[role].GetSelection())]
+		kinds = catalog.variants(self._entries[role], model) if model is not None else [None]
+		self._kinds[role] = kinds
+		suggestedQuant = catalog.suggestedQuant(model)
+		choice = self._quantChoices[role]
+		choice.Set([quantLabel(self._models, kind, suggestedQuant) for kind in kinds])
+		names = [catalog.quantOf(kind) for kind in kinds]
+		for wanted in (quant, suggestedQuant):
+			if wanted in names:
+				choice.SetSelection(names.index(wanted))
+				break
+		else:
+			choice.SetSelection(0)
+		self._updateButton()
+
+	def _modelChanged(self, role):
+		"""Another model was chosen: its quants are listed, the quant chosen before kept where the model has it."""
+		before = self._kinds.get(role) or [None]
+		at = max(0, self._quantChoices[role].GetSelection())
+		quant = catalog.quantOf(before[min(at, len(before) - 1)])
+		if quant:
+			self._lastQuant[role] = quant
+		# Passing over "no coder model", or a model with one file only, does not forget the quant chosen before.
+		self._fillQuants(role, quant or self._lastQuant.get(role))
 
 	def _selected(self):
-		return {role: self._entries[role][max(0, choice.GetSelection())] for role, choice in self._choices.items()}
+		return {
+			role: self._kinds[role][min(max(0, choice.GetSelection()), len(self._kinds[role]) - 1)]
+			for role, choice in self._quantChoices.items()
+		}
 
 	def _toDownload(self):
 		"""The chosen models that are not here yet."""
@@ -208,7 +323,9 @@ class ModelsDialog(wx.Dialog):
 		return size
 
 	def _updateButton(self):
-		size = self._missingBytes(self._toDownload())
+		if getattr(self, "startBtn", None) is None:
+			return  # the lists are filled before the buttons are made; __init__ calls this again after them
+		size =self._missingBytes(self._toDownload())
 		if size:
 			# Translators: Button that starts the download. {size} is in megabytes.
 			self.startBtn.SetLabel(_("&Download ({size} MB)").format(size=_mb(size)))
@@ -277,13 +394,9 @@ class ModelsDialog(wx.Dialog):
 			return
 		if found["new"]:
 			# The new models join the lists; what was selected stays selected.
-			for role, choice in self._choices.items():
-				chosen = self._selected()[role]
-				entries = self._models.entries(role) + ([None] if role == catalog.CODER else [])
-				self._entries[role] = entries
-				choice.Set([self._label(e, self._suggested.get(role)) for e in entries])
-				choice.SetSelection(next((i for i, e in enumerate(entries) if e is chosen or (
-					e is not None and chosen is not None and e["id"] == chosen["id"])), 0))
+			chosen = self._selected()
+			for role in self._choices:
+				self._fill(role, chosen[role])
 			self._updateButton()
 		self._setText(lookResult(found))
 
@@ -304,7 +417,7 @@ class ModelsDialog(wx.Dialog):
 		self._cancel.clear()
 		self.startBtn.Hide()
 		self.lookBtn.Hide()
-		for choice in self._choices.values():
+		for choice in list(self._choices.values()) + list(self._quantChoices.values()):
 			choice.Disable()
 		# Translators: Button that cancels the download.
 		self.closeBtn.SetLabel(_("&Cancel"))
@@ -331,7 +444,7 @@ class ModelsDialog(wx.Dialog):
 					pct = min(100, got * 100 // total)
 					# Translators: Download progress. {name} is the model, {pct} percent, {done} of {total} megabytes.
 					self._progress = _("Downloading {name}, {pct} percent, {done} of {total} MB.").format(
-						name=entry["name"], pct=pct, done=_mb(got), total=_mb(total))
+						name=catalog.displayName(entry), pct=pct, done=_mb(got), total=_mb(total))
 					self._after(lambda v: self.gauge.SetValue(v), pct)
 
 				self._models.download(entry, downloaded, self._cancel)
@@ -352,7 +465,7 @@ class ModelsDialog(wx.Dialog):
 		self.gauge.Hide()
 		self.startBtn.Hide()
 		self.lookBtn.Hide()
-		for choice in self._choices.values():
+		for choice in list(self._choices.values()) + list(self._quantChoices.values()):
 			choice.Disable()
 		self.closeBtn.SetLabel(_("&Close"))
 		# Translators: Shown when the models are ready, followed by the usage guide.
@@ -360,13 +473,13 @@ class ModelsDialog(wx.Dialog):
 		self.Layout()
 		self._onInstalled()
 		if self._onChosen is not None:
-			keep = [entry["dir"] or entry["id"] for entry in chosen.values() if entry is not None]
+			keep = [catalog.storeKey(entry) for entry in chosen.values() if entry is not None]
 			wx.CallAfter(self._onChosen, keep)
 
 	def _failed(self, error):
 		self._working = False
 		self.gauge.Hide()
-		for choice in self._choices.values():
+		for choice in list(self._choices.values()) + list(self._quantChoices.values()):
 			choice.Enable()
 		# Translators: Button to retry a failed download.
 		self.startBtn.SetLabel(_("&Try again"))
@@ -507,7 +620,7 @@ class ManageModelsDialog(wx.Dialog):
 		else:
 			chosen = list(self._models)
 		names = ", ".join(m["name"] for m in chosen)
-		size = _gb(sum(m["bytes"] for m in chosen))
+		size = _gb(self._plugin.models.freedBy([m["key"] for m in chosen]))
 		# Translators: Asked before models are removed from the computer.
 		question = _(
 			"Remove {names}? This frees {size} GB. A removed model can be downloaded again at any time."

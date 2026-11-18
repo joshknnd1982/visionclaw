@@ -115,8 +115,11 @@ def makeRegistry(rt, state):
 		for i, name in enumerate(items, 1):
 			if item.strip().rstrip(".") == str(i) or item.lower().replace(" button", "") in name.lower():
 				state["clicked"] = name if action == "click" else (name, action)
-				done = {"click": "Clicked", "double click": "Double-clicked", "right click": "Right-clicked"}.get(action)
-				return f"{done} {name}." if done else f"The mouse pointer is on {name}."
+				done = {"click": "Clicked", "double click": "Double-clicked", "right click": "Right-clicked",
+					"middle click": "Clicked with the middle mouse button:", "triple click": "Triple-clicked"}.get(action)
+				if action == pointer.HOLD:
+					return f"Held the mouse button down on {name} for {pointer.secondsText(pointer.holdSeconds(task.request))}."
+				return f"{done} {name}." if done else f"The mouse pointer rests on {name}. This appeared: Opens the settings."
 		raise tools.ToolError(f"There is no item called \"{item}\". Use a number or a name from list_items.")
 
 	# Every command of NVDA 2026.3.1's globalCommands.py, found the way VisionClaw itself finds them.
@@ -238,7 +241,9 @@ def makeRegistry(rt, state):
 		listItems, {"about": text("what is being looked for, in a few words", maxLength=120, auto=True)},
 		looks=True, title="Listing what is there"))
 	reg.add(tools.Tool("click_item",
-		"click, double-click, right-click or point at one item from list_items: a link, a button, an item in a window",
+		"click, double-click, triple-click, right-click, click with the middle button, hover over, or press and hold "
+		"one item from list_items: a link, a button, an item in a window; also with Control, Shift or Alt held down, "
+		"or at a place on the item; hovering says what appeared",
 		clickItem,
 		{"item": text("the number or the name of the item, from list_items", maxLength=80),
 			"action": text("what to do with the mouse", enum=pointer.ACTIONS, auto=pointer.actionOf)},
@@ -360,6 +365,20 @@ def makeRegistry(rt, state):
 		"Scrolling", {
 			"direction": text("which way to scroll", enum=scrolling.DIRECTIONS, auto=scrolling.directionOf),
 			"asked": text("what the user asked for, in their own words, with how far to scroll", maxLength=300, auto=True),
+		}, changes=True)
+	simple("draw_gesture",
+		"swipe, flick or draw a line or a shape with the mouse button held down, on an item the user names, at the "
+		"mouse pointer or in the middle of the window, for a program that is worked by gestures; says whether "
+		"anything changed",
+		"Drew the gesture with the mouse button held down. What the window shows changed. The user said: {asked}",
+		"Drawing the gesture", {
+			"asked": text("what the user asked for, in their own words, with the direction or the shape", maxLength=300, auto=True),
+		}, changes=True)
+	simple("timed_click",
+		"click something at the right moment: as soon as it changes or appears, or many times in a steady rhythm; "
+		"for games and controls that react to timing",
+		"Clicked at the right moment. The user said: {asked}", "Clicking at the right moment", {
+			"asked": text("what the user asked for, in their own words, with when or how often to click", maxLength=300, auto=True),
 		}, changes=True)
 	simple("check_update",
 		"look on VisionClaw's own page on GitHub for a newer version of VisionClaw itself, and get it if the "
@@ -582,6 +601,15 @@ REQUESTS = (
 	"Scroll down a page.",
 	"Scroll this window to the bottom.",
 	"Scroll up a little, then tell me what the window shows.",
+	# What is worked by neither a click nor a drag: held down, hovered over, swiped, clicked at the right moment.
+	"Press and hold the New Game button for 2 seconds.",
+	"Hover over the Options button.",
+	"Middle-click the Options button.",
+	"Swipe left on the Options button.",
+	"Draw a circle in this window.",
+	"Click the Quit button as soon as it changes.",
+	"Click the New Game button 5 times.",
+	"Zoom in.",
 	"Do a deep inspection of this website.",
 	"Fix the accessibility problems on this page.",
 	"Make this website accessible.",

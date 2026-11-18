@@ -8,6 +8,7 @@
 # keys move the pointer inside the window, so that any control at all can be worked without a mouse.
 # The mouse is moved through Windows itself, so nothing here depends on a part of NVDA that may change.
 
+import contextlib
 import ctypes
 import threading
 import time
@@ -21,13 +22,16 @@ import wx
 from .vclog import log
 
 from . import ocr
-from .claw import pointer, scrolling
+from .claw import dragcontrol, pointer, scrolling
 from .claw.tools import VERBATIM, ToolError
 from .engine import EngineError, prepareImage
 
 addonHandler.initTranslation()
 
 _LEFTDOWN, _LEFTUP, _RIGHTDOWN, _RIGHTUP = 0x0002, 0x0004, 0x0008, 0x0010
+_MIDDLEDOWN, _MIDDLEUP = 0x0020, 0x0040
+# Windows' numbers for the keys that can be held down during a click or a turn of the wheel.
+_KEY_CODES = {"control": 0x11, "shift": 0x10, "alt": 0x12}
 _WHEEL, _HWHEEL = 0x0800, 0x1000
 # Pauses that give a program time to notice each part of a mouse action.
 _SETTLE, _DRAG_STEP, _HOLD = 0.04, 0.012, 0.08
@@ -65,6 +69,41 @@ def _wheel(flag, amount):
 	ctypes.windll.user32.mouse_event(flag, 0, 0, amount, 0)
 
 
+def _key(code, up):
+	"""Press or let go of one key of the keyboard, through Windows itself."""
+	ctypes.windll.user32.keybd_event(code, 0, 2 if up else 0, 0)
+
+
+@contextlib.contextmanager
+def keysDown(names):
+	"""Keep Control, Shift or Alt down while something is done with the mouse, as for a click that adds to a
+	selection or a wheel that zooms. The keys always come up again. NVDA is told to take no notice of them."""
+	codes = [_KEY_CODES[name] for name in names or () if name in _KEY_CODES]
+	if not codes:
+		yield
+		return
+	try:
+		from keyboardHandler import ignoreInjection
+		quiet = ignoreInjection()
+		if not hasattr(quiet, "__enter__"):
+			raise TypeError("not a context manager")
+	except Exception:
+		# An NVDA without it: the keys are pressed all the same, and NVDA at most stops speaking for them.
+		quiet = contextlib.nullcontext()
+	with quiet:
+		done = []
+		try:
+			for code in codes:
+				_key(code, False)
+				done.append(code)
+			time.sleep(_SETTLE)
+			yield
+		finally:
+			for code in reversed(done):
+				_key(code, True)  # a key must never stay down
+			time.sleep(_SETTLE)
+
+
 def _dpi(x, y):
 	"""The dots per inch of the monitor a point is on; 96 is a scaling of 100 percent. NVDA works in real
 	pixels on every monitor, so this is only needed for sizes that should look the same to the eye."""
@@ -88,19 +127,21 @@ def scaleAt(x, y):
 	return scrolling.scaleOf(_dpi(x, y))
 
 
-def wheel(x, y, direction, notches):
+def wheel(x, y, direction, notches, keys=()):
 	"""Turn the mouse wheel with the pointer at a point of the screen, one notch at a time as a hand does:
-	some programs take no notice of one large turn. Leaves the pointer there."""
+	some programs take no notice of one large turn. Leaves the pointer there.
+	keys: keys held down meanwhile; with Control the wheel makes most views larger or smaller."""
 	moveTo(x, y)
 	time.sleep(_SETTLE)
 	flag = _WHEEL if direction in (scrolling.UP, scrolling.DOWN) else _HWHEEL
 	amount = scrolling.wheelAmount(direction, 1)
-	for _ in range(max(1, min(scrolling.MAX_NOTCHES, notches))):
-		_wheel(flag, amount)
-		time.sleep(_WHEEL_STEP)
+	with keysDown(keys):
+		for _ in range(max(1, min(scrolling.MAX_NOTCHES, notches))):
+			_wheel(flag, amount)
+			time.sleep(_WHEEL_STEP)
 
 
-def scrollView(grab, box, point, direction, notches, toEnd=False, cancel=None):
+def scrollView(grab, box, point, direction, notches, toEnd=False, cancel=None, keys=()):
 	"""Scroll with the pointer at a point and look whether anything moved, by comparing the picture of the box
 	before and after. toEnd: go on, a page at a time, until nothing moves any more.
 	grab(box) gives a picture. Returns (whether anything moved, how many notches were scrolled, the last picture)."""
@@ -111,7 +152,7 @@ def scrollView(grab, box, point, direction, notches, toEnd=False, cancel=None):
 	for _round in range(scrolling.MAX_PAGES if toEnd else 1):
 		if cancel is not None and cancel.is_set():
 			break
-		wheel(point[0], point[1], direction, notches)
+		wheel(point[0], point[1], direction, notches, keys)
 		time.sleep(_SCROLL_SETTLE)
 		picture = grab(box)
 		if scrolling.moved(before, picture) < scrolling.MOVED_SHARE:
@@ -141,7 +182,11 @@ def click(x, y, action=pointer.CLICK):
 		_button(_RIGHTDOWN)
 		_button(_RIGHTUP)
 		return
-	for _ in range(2 if action == pointer.DOUBLE else 1):
+	if action == pointer.MIDDLE:
+		_button(_MIDDLEDOWN)
+		_button(_MIDDLEUP)
+		return
+	for _ in range({pointer.DOUBLE: 2, pointer.TRIPLE: 3}.get(action, 1)):
 		press()
 		release()
 		time.sleep(_SETTLE)
@@ -162,9 +207,163 @@ def drag(start, end):
 		release()  # the button must never stay down
 
 
+def _pause(seconds, cancel=None):
+	"""Wait, in short pieces, so that stopping is noticed at once. Returns False when it was stopped."""
+	until = time.monotonic() + seconds
+	while True:
+		if cancel is not None and cancel.is_set():
+			return False
+		left = until - time.monotonic()
+		if left <= 0:
+			return True
+		time.sleep(min(0.03, left))
+
+
+def hold(x, y, seconds, cancel=None):
+	"""Press the mouse button at a point, keep it down for a time, and let go. Leaves the pointer there.
+	Returns how long it was down."""
+	moveTo(x, y)
+	time.sleep(_SETTLE)
+	press()
+	started = time.monotonic()
+	try:
+		_pause(seconds, cancel)
+	finally:
+		release()  # the button must never stay down
+	return time.monotonic() - started
+
+
+def draw(paths, right=False, pace=_DRAG_STEP, cancel=None):
+	"""Draw a gesture: for each list of points, press the button at the first, pass through the others in
+	small steps, and let go. right: with the right mouse button, as mouse gestures in some programs want."""
+	down, up = (_RIGHTDOWN, _RIGHTUP) if right else (_LEFTDOWN, _LEFTUP)
+	for points in paths:
+		if cancel is not None and cancel.is_set():
+			return
+		moveTo(*points[0])
+		time.sleep(_SETTLE)
+		_button(down)
+		try:
+			time.sleep(_HOLD)
+			for point in points[1:]:
+				if cancel is not None and cancel.is_set():
+					break
+				moveTo(*point)
+				time.sleep(pace)
+			time.sleep(_HOLD)
+		finally:
+			_button(up)  # the button must never stay down
+		time.sleep(_SETTLE)
+
+
+def clicks(point, times, every, cancel=None):
+	"""Click at a point a number of times, in a steady rhythm. Returns how many clicks were made."""
+	moveTo(*point)
+	time.sleep(_SETTLE)
+	started, done = time.monotonic(), 0
+	for index in range(times):
+		# Each click at its own moment, counted from the first, so that the rhythm does not drift.
+		if not _pause(started + index * every - time.monotonic(), cancel):
+			break
+		press()
+		release()
+		done += 1
+	return done
+
+
+# How long the pointer rests on something before what appeared is looked at. A value of this module, so that
+# the tests need not wait.
+_REST = pointer.REST_SECONDS
+MOVING, STOPPED, NOTHING = "moving", "stopped", "nothing"
+
+
+def rest(grab, box, point, cancel=None):
+	"""Rest the pointer on a point, as a hand does to see a tip or a menu that opens by itself, and look at the
+	window before and after. Leaves the pointer there. Returns (the picture before, the picture after); both
+	are None when the window could not be looked at."""
+	x, y = point
+	try:
+		at = position()
+		if abs(at[0] - x) < 4 and abs(at[1] - y) < 4:
+			# The pointer is there already, and what it shows may be showing: away first, to the window's corner.
+			moveTo(box[0] + 1, box[1] + 1)
+			time.sleep(_SCROLL_SETTLE)
+		before = grab(box)
+	except Exception:
+		log.debugWarning("VisionClaw: the window could not be looked at before resting the pointer", exc_info=True)
+		before = None
+	# Many programs only notice a pointer that moves, so it arrives from just beside the point.
+	moveTo(x - 2, y)
+	time.sleep(_SETTLE)
+	moveTo(x, y)
+	_pause(_REST, cancel)
+	try:
+		after = grab(box) if before is not None else None
+	except Exception:
+		log.debugWarning("VisionClaw: the window could not be looked at after resting the pointer", exc_info=True)
+		before = after = None
+	return before, after
+
+
+def appearedText(before, after, read=True):
+	"""What appeared between two pictures of a window: (whether anything did, the text that is new).
+	Whether anything did is None when the window could not be looked at.
+	read: whether text recognition may be used."""
+	if before is None or after is None:
+		return None, ""
+	area = pointer.appeared(before, after)
+	if area is None:
+		return False, ""
+	if not read:
+		return True, ""
+	try:
+		old = ocr.rowsText(ocr.recognize(before.crop(area))).splitlines()
+		new = ocr.rowsText(ocr.recognize(after.crop(area))).splitlines()
+		return True, dragcontrol.newText(old, new)
+	except Exception:
+		log.debugWarning("VisionClaw: what appeared could not be read", exc_info=True)
+		return True, ""
+
+
+def restText(found, text, name):
+	"""The sentence that says what resting the pointer on something showed."""
+	if text:
+		return f"The mouse pointer rests on {name}. This appeared: {text}"
+	if found is None:
+		return f"The mouse pointer rests on {name}. The window could not be looked at, so what appeared is not known."
+	if found:
+		return (
+			f"The mouse pointer rests on {name}. Something appeared or changed in the window, but no new text could "
+			"be read there. Ask what the window shows now.")
+	return f"The mouse pointer rests on {name}. Nothing VisionClaw can see appeared."
+
+
+def watch(grab, spot, wait, cancel=None):
+	"""Look at a place again and again until it changes. Returns (how many seconds that took, ""), or
+	(None, why not): MOVING when it changes all the time by itself, STOPPED, or NOTHING when the time ran out."""
+	first = grab(spot)
+	noise = 0.0
+	for _look in range(3):
+		time.sleep(pointer.LOOK_EVERY)
+		noise = max(noise, dragcontrol.changed(first, grab(spot)))
+	needed = pointer.trigger(noise)
+	if needed is None:
+		return None, MOVING
+	started = time.monotonic()
+	while time.monotonic() - started < wait:
+		if cancel is not None and cancel.is_set():
+			return None, STOPPED
+		time.sleep(pointer.LOOK_EVERY)
+		if dragcontrol.changed(first, grab(spot)) >= needed:
+			return time.monotonic() - started, ""
+	return None, NOTHING
+
+
 class PointerMode:
 	"""While it is on, the arrow keys move the mouse pointer inside the window in front, and other keys click,
-	right-click, double-click, hold and let go for dragging, and say what is under the pointer."""
+	right-click, double-click, hold and let go for dragging, and say what is under the pointer.
+	It also keeps the one mouse button that a hotkey holds down, in or out of pointer mode, so that there is
+	one place that knows whether the button is down, and one that lets it go."""
 
 	def __init__(self, plugin):
 		self._plugin = plugin
@@ -173,6 +372,49 @@ class PointerMode:
 		self.x = self.y = 0
 		self.scale = 1.0
 		self._bar = -1
+		# What a hotkey holds the mouse button down on, or None; and what stops a watch for a change.
+		self.kept = None
+		self._keptOld = self._keptTimer = None
+		self._watching = None
+
+	# --- A button a hotkey keeps down ---
+
+	def keepDown(self, point, name):
+		"""Press the mouse button on a place and keep it down until letGo. Main thread."""
+		self.letGo(say=False)
+		if self.holding:
+			release()
+			self.holding = False
+		self._keptOld = position()
+		moveTo(*point)
+		time.sleep(_SETTLE)
+		press()
+		self.kept = name or ""
+		# It lets go by itself in the end: a button that stays down makes every later click a drag.
+		self._keptTimer = wx.CallLater(int(pointer.HOLD_LIMIT * 1000), self.letGo, True, True)
+		# Translators: Spoken when a hotkey presses the mouse button on something and keeps it down. {name} is the thing.
+		ui.message(_("Holding the mouse button down on {name}. Press the hotkey again, or Escape, to let go.").format(
+			name=self.kept or _("it")))
+
+	def letGo(self, say=True, late=False):
+		"""Let go of the button a hotkey keeps down. Returns whether one was down. Main thread."""
+		if self.kept is None:
+			return False
+		release()
+		name, self.kept = self.kept, None
+		timer, self._keptTimer = self._keptTimer, None
+		if timer is not None and not late:
+			timer.Stop()
+		old, self._keptOld = self._keptOld, None
+		if old is not None:
+			moveTo(*old)
+		if say and late:
+			# Translators: Spoken when a held mouse button was let go because it had been down for very long.
+			ui.message(_("Let go of {name}: it had been held for two minutes.").format(name=name or _("it")))
+		elif say:
+			# Translators: Spoken when a hotkey lets go of the mouse button it kept down. {name} is the thing.
+			ui.message(_("Let go of {name}.").format(name=name or _("it")))
+		return True
 
 	def _box(self):
 		loc = self._plugin.windowBox(api.getForegroundObject())
@@ -200,7 +442,9 @@ class PointerMode:
 			"G holds the mouse button down, and G again lets go, for dragging. Page Down and Page Up turn the mouse "
 			"wheel about a page; with Shift one notch, with Control sideways. S finds the scrollbars and puts the "
 			"pointer on one. D tries what is under the pointer as a dial or slider: it turns the wheel on it and drags "
-			"it a little, and then the arrow keys work it. W says what is at the pointer, R reads the text there, "
+			"it a little, and then the arrow keys work it. T rests the pointer here and says what appears, as for a "
+			"tip or a menu that opens by itself. C clicks here the moment what is here changes, and Shift+C only "
+			"sounds a tone then. W says what is at the pointer, R reads the text there, "
 			"P says where the pointer is, H repeats this help. Escape turns pointer mode off."
 		)
 		ui.message(text)
@@ -209,6 +453,8 @@ class PointerMode:
 	def stop(self, say=True):
 		if self.holding:
 			release()
+		self.letGo(say=False)
+		self._stopWatching()
 		wasOn, self.active, self.holding = self.active, False, False
 		if say and wasOn:
 			# Translators: Spoken when pointer mode is turned off.
@@ -219,6 +465,11 @@ class PointerMode:
 
 	def scriptFor(self, gesture):
 		"""The pointer mode command for a pressed key, as a script, or None."""
+		if self.kept is not None and "kb:escape" in gesture.normalizedIdentifiers:
+			# Escape lets go of a button that a hotkey keeps down, in pointer mode or out of it.
+			def script_letGo(gesture):
+				self.letGo()
+			return script_letGo
 		if not self.active:
 			return None
 		for identifier in gesture.normalizedIdentifiers:
@@ -229,7 +480,17 @@ class PointerMode:
 				return script_pointerMode
 		return None
 
+	def _stopWatching(self):
+		"""Stop a watch for a change, if one is running. Returns whether one was."""
+		watching, self._watching = self._watching, None
+		if watching is None or watching.is_set():
+			return False
+		watching.set()
+		return True
+
 	def _run(self, command):
+		if self._stopWatching():
+			return  # a key pressed during a watch only ends the watch; the watch says that it stopped
 		try:
 			box = self._box()
 		except Exception:
@@ -276,6 +537,13 @@ class PointerMode:
 		elif name == "scroll":
 			threading.Thread(
 				target=self._scroll, args=(box, command[1], pointer.notchesFor(command[2])), daemon=True).start()
+		elif name == "rest":
+			threading.Thread(target=self._restHere, args=(box,), daemon=True).start()
+		elif name == "when":
+			self._watching = threading.Event()
+			# Translators: Spoken in pointer mode when VisionClaw starts to watch what is under the pointer for a change.
+			ui.message(_("Watching what is here. Any key of pointer mode stops it."))
+			threading.Thread(target=self._when, args=(box, command[1], self._watching), daemon=True).start()
 		elif name == "take":
 			self._plugin.controlKeys.takeAtPointer()
 		elif name == "bars":
@@ -284,6 +552,53 @@ class PointerMode:
 			self.start()
 		elif name == "exit":
 			self.stop()
+
+	def _restHere(self, box):
+		"""Rest the pointer where it is and say what appeared: a tip, a menu that opens by itself, a preview."""
+		before, after = rest(self._plugin._grab, box, (self.x, self.y))
+		found, text = appearedText(before, after)
+		if text:
+			wx.CallAfter(ui.message, text)
+		elif found is None:
+			# Translators: Spoken in pointer mode when the window could not be looked at after resting the pointer.
+			wx.CallAfter(ui.message, _("The window could not be looked at."))
+		elif found:
+			# Translators: Spoken in pointer mode when resting the pointer changed the window but no new text was read.
+			wx.CallAfter(ui.message, _("Something appeared or changed, but no new text could be read. W says what is here."))
+		else:
+			# Translators: Spoken in pointer mode when resting the pointer on something showed nothing new.
+			wx.CallAfter(ui.message, _("Nothing appeared."))
+
+	def _when(self, box, press_, stopped):
+		"""Watch what is under the pointer and, the moment it changes, click it or only sound a tone."""
+		side = scrolling.pixels(dragcontrol.SPOT, self.scale)
+		spot = dragcontrol.around((self.x, self.y), side, box)
+		try:
+			moveTo(self.x, self.y)
+			time.sleep(_SCROLL_SETTLE)  # anything that lights up under the pointer has done so before the first look
+			took, why = watch(self._plugin._grab, spot, pointer.WAIT_DEFAULT, stopped)
+			if took is not None and press_:
+				press()
+				release()
+		except Exception:
+			log.debugWarning("VisionClaw: could not watch at the pointer", exc_info=True)
+			took, why = None, NOTHING
+		if self._watching is stopped:
+			self._watching = None
+		if took is not None:
+			tones.beep(1200, 40)
+			# Translators: Spoken in pointer mode when what was watched changed. The first also clicked it.
+			wx.CallAfter(ui.message, _("It changed, and was clicked.") if press_ else _("It changed."))
+		elif why == MOVING:
+			# Translators: Spoken in pointer mode when what is under the pointer changes all the time.
+			wx.CallAfter(ui.message, _(
+				"What is here moves all the time, so VisionClaw cannot tell one moment from another."))
+		elif why == STOPPED:
+			# Translators: Spoken in pointer mode when watching for a change was stopped by a key.
+			wx.CallAfter(ui.message, _("Stopped watching."))
+		else:
+			# Translators: Spoken in pointer mode when what was watched did not change in time.
+			wx.CallAfter(ui.message, _("Nothing changed here in half a minute."))
 
 	def _scroll(self, box, direction, notches):
 		"""Turn the wheel at the pointer, and say where the view now stands, or that it did not move."""
@@ -472,6 +787,26 @@ def register(add, plugin, text, confirm, screen, pickItem, mentioned):
 				"The mouse pointer would be over a control whose value the wheel changes, so nothing was scrolled. "
 				"Pointer mode lets the user choose the place.")
 		where = f"the window {title}" if title else "the window in front"
+		zoom = scrolling.zoomOf(words)
+		if zoom:
+			# Larger or smaller: the wheel with Control held down, as a sighted person does it. A little at a time.
+			direction = scrolling.UP if zoom == "in" else scrolling.DOWN
+			counted = scrolling._NUMBER.search(words.lower())
+			notches = min(notches, scrolling.PAGE_NOTCHES) if counted and counted.group(2) else 2
+			size = "larger" if zoom == "in" else "smaller"
+			# Translators: Asked before VisionClaw zooms with the mouse wheel. {size} is larger or smaller.
+			confirm(_("Make what {where} shows {size}, with the Control key and the mouse wheel?").format(where=where, size=size))
+			old = position()
+			try:
+				moved, _done, _picture = scrollView(plugin._grab, box, point, direction, notches, False, task.cancel, ("control",))
+			finally:
+				moveTo(*old)
+			task.items = None
+			if not moved:
+				return (
+					f"Nothing VisionClaw can see changed in {where}. It may not be made {size} with the Control key and "
+					f"the mouse wheel, or it is as {'large' if zoom == 'in' else 'small'} as it goes.")
+			return f"Made what {where} shows {size}, with the Control key and {notches} notches of the mouse wheel."
 		far = "to the end" if toEnd else ("about a page" if notches == scrolling.PAGE_NOTCHES else f"{notches} notches of the wheel")
 		# Translators: Asked before VisionClaw scrolls with the mouse wheel. {direction} is up, down, left or right.
 		confirm(_("Scroll {direction} {far} in {where}?").format(direction=direction, far=far, where=where))
@@ -493,11 +828,155 @@ def register(add, plugin, text, confirm, screen, pickItem, mentioned):
 
 	add("scroll_view",
 		"scroll what the window in front shows with the mouse wheel, up, down, left or right, a little, a page or "
-		"to the end; says whether anything moved and how far along the view now stands",
+		"to the end, or zoom in or out with the Control key and the wheel; says whether anything moved and how far "
+		"along the view now stands",
 		scrollTool, {
 			"direction": text("which way to scroll", enum=scrolling.DIRECTIONS, auto=scrolling.directionOf),
 			"asked": text("what the user asked for, in their own words, with how far to scroll", maxLength=300, auto=True),
 		}, changes=True, title="Scrolling")
+
+	def placeFor(task, words):
+		"""Where a gesture or a timed click is meant, as (point on the screen, what to call it, the window's box):
+		the pointer in pointer mode or when the words say so; else the one item the words name; else the control
+		NVDA is on, if it is a part of the window; else the middle of the window."""
+		mode = plugin.pointerMode
+		if mode.active or dragcontrol.atPointer(words):
+			box = _onMain(mode._box)
+			point = (mode.x, mode.y) if mode.active else position()
+			if not (box[0] <= point[0] < box[2] and box[1] <= point[1] < box[3]):
+				raise ToolError("The mouse pointer is not inside the window in front. Put it there with pointer mode first.")
+			return point, "what is under the mouse pointer", box
+		result = getattr(task, "items", None) or screen.items()
+		if not getattr(result, "web", False):
+			names = mentioned(words, result.items)
+			index = pickItem(names[0], result.items) if names else None
+			if index is not None:
+				return result.screenPoint(result.items[index]), result.items[index]["text"], _windowBox(result)
+		box = _onMain(mode._box)
+
+		def current():
+			"""The navigator object or the focused control, where it is a part of the window. Main thread."""
+			whole = max(1, (box[2] - box[0]) * (box[3] - box[1]))
+			for get in (api.getNavigatorObject, api.getFocusObject):
+				try:
+					obj = get()
+					loc = obj.location
+					name = " ".join(str(obj.name or "").split())[:60]
+				except Exception:
+					continue
+				if (loc and loc.width > 0 and loc.height > 0 and loc.width * loc.height < 0.6 * whole
+						and box[0] <= loc.left + loc.width // 2 < box[2] and box[1] <= loc.top + loc.height // 2 < box[3]):
+					return (loc.left + loc.width // 2, loc.top + loc.height // 2), name or "the control you are on"
+			return None
+		found = _onMain(current)
+		if found is not None:
+			return found[0], found[1], box
+		return pointer.centre(box), "the middle of the window", box
+
+	def changedText(before, after):
+		"""Whether what the window shows changed, in a sentence."""
+		if before is None or after is None:
+			return ""
+		if pointer.appeared(before, after) is not None:
+			return " What the window shows changed."
+		return " Nothing VisionClaw can see changed in the window."
+
+	def look(box):
+		try:
+			return plugin._grab(box)
+		except Exception:
+			log.debugWarning("VisionClaw: the window could not be looked at", exc_info=True)
+			return None
+
+	def gestureTool(task, asked):
+		words = asked or task.request
+		gesture = pointer.gestureOf(words)
+		if gesture is None:
+			raise ToolError(
+				"The request does not say which gesture to draw. A swipe or a line needs its direction: left, right, "
+				"up or down, also several one after another. A shape needs its name: a circle, a tick, a zigzag, a "
+				"square, a triangle, a cross, or one of the letters L, V, Z, N, M and W.")
+		point, name, box = placeFor(task, words)
+		paths = pointer.gesturePaths(gesture, point, box)
+		right = gesture["button"] == pointer.RIGHT_BUTTON
+		how = "the right mouse button" if right else "the mouse button"
+		# Translators: Asked before VisionClaw draws a gesture with the mouse. {gesture} is what, such as: a swipe to the left.
+		confirm(_("Draw {gesture} on {name}, with {button} held down?").format(gesture=gesture["text"], name=name, button=how))
+		old = position()
+		before = look(box)
+		try:
+			draw(paths, right, gesture["pace"], task.cancel)
+		finally:
+			time.sleep(_SCROLL_SETTLE)
+			moveTo(*old)
+		task.check()
+		after = look(box) if before is not None else None
+		task.items = None  # the window has probably changed
+		return f"Drew {gesture['text']} on {name}, with {how} held down.{changedText(before, after)}"
+
+	add("draw_gesture",
+		"swipe, flick or draw a line or a shape with the mouse button held down, on an item the user names, at the "
+		"mouse pointer or in the middle of the window, for a program that is worked by gestures; says whether "
+		"anything changed",
+		gestureTool, {
+			"asked": text("what the user asked for, in their own words, with the direction or the shape", maxLength=300, auto=True),
+		}, changes=True, title="Drawing the gesture")
+
+	def timedTool(task, asked):
+		words = asked or task.request
+		timing = pointer.timingOf(words)
+		if timing is None:
+			raise ToolError(
+				"The request does not say when to click: as soon as the thing changes or appears, or a number of "
+				"times in a row.")
+		point, name, box = placeFor(task, words)
+		old = position()
+		if timing["mode"] == pointer.RHYTHM:
+			times, every = timing["times"], pointer.secondsText(timing["every"])
+			# Translators: Asked before VisionClaw clicks something many times. {every} is a time, such as: half a second.
+			confirm(_("Click {name} {times} times, one every {every}?").format(name=name, times=times, every=every))
+			before = look(box)
+			try:
+				done = clicks(point, times, timing["every"], task.cancel)
+			finally:
+				moveTo(*old)
+			task.check()
+			time.sleep(_SCROLL_SETTLE)
+			task.items = None
+			return f"Clicked {name} {done} times, one every {every}.{changedText(before, look(box) if before is not None else None)}"
+		wait = pointer.secondsText(timing["wait"])
+		# Translators: Asked before VisionClaw watches something and clicks it when it changes. {wait} is a time.
+		confirm(_("Click {name} as soon as it changes? VisionClaw watches it for up to {wait}.").format(name=name, wait=wait))
+		scale = _onMain(lambda: scaleAt(*point))
+		spot = dragcontrol.around(point, scrolling.pixels(dragcontrol.SPOT, scale), box)
+		try:
+			moveTo(*point)
+			time.sleep(_SCROLL_SETTLE)  # anything that lights up under the pointer has done so before the first look
+			took, why = watch(plugin._grab, spot, timing["wait"], task.cancel)
+			if took is not None:
+				press()
+				release()
+				time.sleep(_SETTLE)
+		finally:
+			moveTo(*old)
+		task.check()
+		if took is not None:
+			task.items = None
+			return (
+				f"{name[:1].upper() + name[1:]} changed after {pointer.secondsText(round(took, 1) or 0.1)} and was clicked "
+				"at once. VisionClaw looks about 25 times a second, so the click came a moment after the change.")
+		if why == MOVING:
+			raise ToolError(
+				f"{name[:1].upper() + name[1:]} moves or changes all the time, so VisionClaw cannot tell one moment from "
+				"another there, and nothing was clicked. In pointer mode, Shift+C sounds a tone at a change and Enter clicks.")
+		raise ToolError(f"Nothing changed at {name} in {wait}, so nothing was clicked.")
+
+	add("timed_click",
+		"click something at the right moment: as soon as it changes or appears, or many times in a steady rhythm; "
+		"for games and controls that react to timing",
+		timedTool, {
+			"asked": text("what the user asked for, in their own words, with when or how often to click", maxLength=300, auto=True),
+		}, changes=True, title="Clicking at the right moment")
 
 	def pointerMode(task):
 		done = threading.Event()

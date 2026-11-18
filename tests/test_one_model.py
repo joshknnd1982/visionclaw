@@ -208,12 +208,13 @@ def about(vision, coder, stored, loaded=False):
 	return rt.aboutText()
 
 
-nineStored = {"key": "qwen3.5-9b", "name": "Qwen3.5 9B", "bytes": 6598688544, "roles": ["vision", "coder"],
+nineStored = {"key": "qwen3.5-9b", "name": "Qwen3.5 9B Q4_K_M", "bytes": 6598688544, "roles": ["vision", "coder"],
 	"ids": ["qwen3.5-9b", "qwen3.5-9b-coder"], "partial": False}
 text = about(nine, nineForCode, [nineStored])
 assert text == (
-	"VisionClaw uses one model, Qwen3.5 9B, for both jobs: looking at the screen and planning, and checking and "
-	"writing code. One model is stored on this computer: Qwen3.5 9B, 6.1 GB. No model is loaded at the moment. "
+	"VisionClaw uses one model, Qwen3.5 9B Q4_K_M, for both jobs: looking at the screen and planning, and checking "
+	"and writing code. One model is stored on this computer: Qwen3.5 9B Q4_K_M, 6.1 GB. No model is loaded at the "
+	"moment. "
 	"A model is loaded when it is needed."), text
 assert not TWO.search(text.replace("No model is", "")), text
 assert "One model does both jobs and runs on the processor." in about(nine, nineForCode, [nineStored], loaded=True)
@@ -222,8 +223,8 @@ otherStored = {"key": anotherCoder["dir"], "name": anotherCoder["name"], "bytes"
 half = dict(otherStored, name="Half a model", partial=True)
 text = about(nine, anotherCoder, [nineStored, otherStored, half])
 assert text.startswith(
-	"For looking at the screen and planning, VisionClaw uses the model Qwen3.5 9B. For checking and writing code, "
-	f"it uses the model {anotherCoder['name']}. 2 models are stored on this computer: Qwen3.5 9B, 6.1 GB; "
+	"For looking at the screen and planning, VisionClaw uses the model Qwen3.5 9B Q4_K_M. For checking and writing "
+	f"code, it uses the model {catalog.displayName(anotherCoder)}. 2 models are stored on this computer: Qwen3.5 9B Q4_K_M, 6.1 GB; "
 	f"{anotherCoder['name']}, 1.0 GB. A download was not finished: Half a model."), text
 text = about(None, None, [])
 assert text == (

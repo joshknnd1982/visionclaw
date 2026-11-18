@@ -11,7 +11,7 @@
 
 import re
 
-from . import policy
+from . import pointer, policy
 from .llm import LLMError, clip
 from .task import Step
 from .tools import ANSWER
@@ -53,8 +53,9 @@ RECIPES = {
 		("read_text",)),
 	"click": (
 		"click an item in the window",
-		"click, double-click, right-click or point at a button, link or other item, in the window in front or on "
-		"the web page",
+		"click, double-click, right-click, middle-click or hover over a button, link or other item, or press it "
+		"and hold it down for some seconds, in the window in front or on the web page; also with a key held down "
+		"or at a place on the item",
 		("list_items", "click_item")),
 	"press_keys": (
 		"press keys in the program",
@@ -184,12 +185,23 @@ RECIPES = {
 	"scroll": (
 		"scroll with the mouse wheel",
 		"scroll what the window shows up, down, left or right with the mouse wheel, a little, a page or to the "
-		"end, where the keyboard does not scroll it",
+		"end, where the keyboard does not scroll it; or zoom in or out with the wheel",
 		("scroll_view",)),
+	# What is worked neither by a click nor by a drag from one thing to another (claw/pointer.py).
+	"gesture": (
+		"swipe or draw a gesture with the mouse",
+		"swipe, flick or draw a line, a circle or another shape with the mouse button held down, on an item or in "
+		"the window, where a program is worked by gestures",
+		("draw_gesture",)),
+	"timed_click": (
+		"click when something changes, or many times in a row",
+		"watch an item and click it as soon as it changes or appears, or click it many times in a row in a steady "
+		"rhythm; for games and controls where the moment of the click matters",
+		("timed_click",)),
 	"keyboard_mouse": (
 		"let you work the mouse pointer with the keyboard",
 		"turn on pointer mode, so the user can work a control, canvas or game that has nothing to list: the arrow "
-		"keys move the mouse pointer, and keys click, right-click and drag",
+		"keys move the mouse pointer, and keys click, right-click, drag, hover and click when something changes",
 		("pointer_mode",)),
 	"where_am_i": (
 		"say where you are",
@@ -348,6 +360,13 @@ _HINTS = (
 		r"|\b(make|let|have)\b.*\b(nvda|control|ctrl|alt|shift)\s*\+\s*\w+.*\b(press|click|read|say|activate)\b"
 		r"|\b(tell me|announce|let me know)\b.*\bwhen\b.*\b(changes?|updates?|arrives?)\b"
 		r"|^(please )?(name|label|rename)\b.*\b(on|for|in) (this|the) (web ?page|page|web ?site|site)\b"),
+	# A click at the right moment, or many in a rhythm. Before the add-on hints, which "when it changes" would
+	# otherwise set off; it needs a click and a moment or a count, so "tell me when it changes" is not meant.
+	("timed_click", r"\b(click|tap|hit)\b.*\b(when|as soon as|the moment|once)\b.*\b(changes?|appears?|shows?|lights?|turns?"
+		r"|moves?|flashes|blinks?|comes?|pops?|starts?|stops?|reaches|fills?|is (ready|there|green|red|lit|full|on|off))\b"
+		r"|\b(click|tap)\b.*\b(\d+|two|three|four|five|six|seven|eight|nine|ten|twenty|thirty|fifty|hundred) times\b"
+		r"|\b(click|tap)\b.*\b(repeatedly|rapidly|over and over|again and again|in (a|time|rhythm)|on the beat|as fast as)\b"
+		r"|\bkeep (on )?clicking\b|\b(click|press|tap|hit)\b.*\bat the right (moment|time)\b"),
 	("fix_addon", r"\b(fix|repair|correct|debug)\b.*\badd-?on|\badd-?on\b.*\b(does(n't| not) work|is broken|stopped working|fails|wrong)\b"),
 	("remove_made", r"\b(remove|delete|get rid of)\b.*\b(helper|hot ?key|add-?on)"),
 	("list_made", r"\b(list|show|which|what)\b.*\b(helpers?|add-?ons?)\b.*\b(you|visionclaw)\b.*\b(made?|wrote|writes?|written|created?|built|build)\b"
@@ -376,8 +395,15 @@ _HINTS = (
 	("explain_keys", r"how (do|can|would|to) |what (key|keys|command|shortcut)|which (key|keys|command)|shortcut for"),
 	("keyboard_mouse", r"\bpointer mode\b|\bmouse (mode|keys)\b|\b(keyboard|arrow keys?)\b.*\b(mouse|pointer)\b"
 		r"|\b(mouse|pointer)\b.*\b(keyboard|arrow keys?)\b|\bkeyboard[- ](navigable|accessible)\b"),
+	# A line or shape drawn with the button down. Before the drag and scroll hints.
+	("gesture", r"\bswip(e|es|ed|ing)\b|\bflick(s|ed|ing)?\b|\b(mouse )?gestures?\b"
+		r"|\bdraw(s|ing)?\b.*\b(circle|line|tick|check ?mark|zig-?zag|square|triangle|cross|letter|shape)\b"),
+	# Holding the button down, the middle button, and a key held during a click are clicks; said before the
+	# hints that "volume" or "control" would otherwise set off.
+	("click", r"\b(press|click|tap|push)(es)? and hold\b|\bhold(ing)? (down|the (left )?(mouse )?button)\b|\blong[- ](press|click)\b"
+		r"|\bmiddle[- ](click|button)\b|\btriple[- ]click\b|\b(ctrl|control|shift|alt)\s*[-+ ]\s*click\b"),
 	("drag", r"\bdrag\b|\bslider\b|\bdrop\b.*\b(on|onto|into)\b"),
-	("scroll", r"\bscroll(s|ed|ing)?\b|\bmouse wheel\b"),
+	("scroll", r"\bscroll(s|ed|ing)?\b|\bmouse wheel\b|\bzoom(s|ed|ing)? (in|out)\b"),
 	("change_setting", r"speed|rate\b|faster|slower|louder|quieter|volume|pitch|voice|punctuation|echo|braille|setting|turn (on|off)|switch (on|off)|enable|disable|stop (saying|reading|announcing|speaking)"),
 	("click", r"\bright[- ]click\b|\bdouble[- ]click\b|\bhover\b|\bpoint (at|to)\b"),
 	("click", r"\b(click|press|push|activate|select|choose|start|open)\b.*\b(button|link|item|menu|tab|icon|game|option)|\bclick\b"),
@@ -519,9 +545,24 @@ def classify(llm, role, part, context, registry, note=""):
 		user += f"{note}\n"
 	user += "Which one fits?"
 	try:
-		return llm.json(role, system, user, schema, maxTokens=40)["choice"]
+		return fitted(llm.json(role, system, user, schema, maxTokens=40)["choice"], part, guess)
 	except (LLMError, KeyError):
 		return guess
+
+
+# Recipes whose tool reads everything it needs from the user's own words. Plain code can tell that such a
+# recipe cannot be meant: the words name no moment and no count, or no direction and no shape.
+_NEEDS = {"timed_click": pointer.timingOf, "gesture": pointer.gestureOf}
+
+
+def fitted(choice, part, guess):
+	"""A model's choice of recipe, corrected where plain code can tell that it cannot be meant: then what the
+	words point to is taken. Measured with Qwen3.5 9B and Qwen2.5 Coder 1.5B on 2026-11-18: "press and hold the
+	New Game button for 2 seconds" was sent to the click at the right moment by both, twice."""
+	needs = _NEEDS.get(choice)
+	if needs is not None and needs(part) is None and guess != choice:
+		return guess
+	return choice
 
 
 def complexity(recipes):

@@ -30,7 +30,7 @@ import inputCore
 from .vclog import log
 
 from . import controlkeys, deepquery, fixruntime, mousetools, nvdainfo, ocr
-from .claw import audit, dragcontrol, fixes, match, microaddons, policy, scrolling, web, working
+from .claw import audit, dragcontrol, fixes, match, microaddons, pointer, policy, scrolling, web, working
 from .claw.catalog import CODER, VISION
 from .claw.fixmatch import hostOf, labelOf, matches, nodeFromObject, plainText
 from .claw.llm import LLM, clip
@@ -303,7 +303,32 @@ def _controlFor(plugin, place, node, way, site):
 		labelOf(node), kind, ((box[0] + box[2]) // 2, (box[1] + box[3]) // 2), window,
 		max(4, min(box[2] - box[0], box[3] - box[1]) * 7 // 20), find={"rule": rule} if rule else None, site=site)
 	control["way"] = way
+	if way in _KEY_ACTIONS:
+		control["action"] = _KEY_ACTIONS[way]
 	return control
+
+
+# The ways a hotkey of VisionClaw's own does instead of the arrow keys: it rests the pointer on the control and
+# says what appears, or it holds the mouse button down on it until it is pressed again.
+_KEY_ACTIONS = {working.HOVER: pointer.HOVER, working.HOLD: pointer.HOLD}
+_SPECIAL_WORDS = {
+	working.HOVER: "by resting the mouse pointer on it, without a click",
+	working.HOLD: "by holding the mouse button down on it",
+	working.GESTURE: "by swiping across it or drawing on it",
+	working.TIMED: "by clicking it at the right moment",
+	working.PAD: "by dragging it in any direction",
+}
+
+
+def _keyText(control, key):
+	"""What a hotkey made for a control does, in a few words."""
+	what = control["name"] or f"a {control['kind']} without a name"
+	action = control.get("action")
+	if action == pointer.HOVER:
+		return f"{key} rests the mouse pointer on {what} and says what appears"
+	if action == pointer.HOLD:
+		return f"{key} holds the mouse button down on {what} until you press it again"
+	return f"{key} for {what}"
 
 
 def _pictured(plugin, task, window):
@@ -336,14 +361,46 @@ def _pictured(plugin, task, window):
 		name = item.get("plain") or item.get("name") or item["text"]
 		task.emit("talk", f"How {name} is worked, from its picture: the "
 			f"{policy.roleName(VISION, policy.isOneModel(plugin.runtime))} says {way or 'nothing'}.")
-		if way in working.TURNED:
+		if way in working.TURNED or way in working.SPECIAL:
 			x, y, radius = dragcontrol.handleOf(result.items, index)
 			control = controlkeys.newControl(
-				name, "dial" if way == working.AROUND else "slider", (info.convertXToScreen(x), info.convertYToScreen(y)),
-				window, radius or None, find={"item": name})
+				name, "dial" if way == working.AROUND else "slider" if way in working.TURNED else "control",
+				(info.convertXToScreen(x), info.convertYToScreen(y)), window, radius or None, find={"item": name})
 			control["way"] = way
+			if way in _KEY_ACTIONS:
+				control["action"] = _KEY_ACTIONS[way]
 			found.append(control)
 	return found, max(0, len(icons) - working.MAX_JUDGED)
+
+
+def _specialFindings(controls, told):
+	"""The findings for controls that are worked by hovering, holding, gestures, timing or dragging in any
+	direction. controls: those a hotkey can be made for. told: (name, way) for those that are worked by asking
+	VisionClaw in words, or in pointer mode."""
+	findings = []
+	if controls:
+		names = "; ".join(
+			f"{control['name'] or 'a control without a name'} is worked {_SPECIAL_WORDS[control['way']]}" for control in controls)
+		finding = audit.Finding("pointed",
+			f"{audit._plural(len(controls), 'control')} here {'is' if len(controls) == 1 else 'are'} worked with the mouse "
+			f"in a way the keyboard does not do: {names}.",
+			"hover hovered hovering tip tooltip hold held holding press long pointer mouse rest",
+			advice="VisionClaw can give each a hotkey: one that rests the mouse pointer on it and says what appears, or "
+			"one that holds the mouse button down on it until you press the hotkey again.")
+		finding.controls = controls
+		findings.append(finding)
+	if told:
+		names = "; ".join(f"{name} is worked {_SPECIAL_WORDS[way]}" for name, way in told)
+		ways = []
+		for _name, way in told:
+			if way not in ways:
+				ways.append(way)
+		findings.append(audit.Finding("gestured",
+			f"{audit._plural(len(told), 'control')} here {'is' if len(told) == 1 else 'are'} worked with the mouse in a "
+			f"way the keyboard does not do: {names}.",
+			"swipe swiped gesture gestures draw drawn drawing timing timed moment rhythm pad joystick mouse",
+			advice=" ".join(working.adviceFor(way) for way in ways)))
+	return findings
 
 
 def _worked(plugin, task, place, deep, site=""):
@@ -355,6 +412,8 @@ def _worked(plugin, task, place, deep, site=""):
 	turned = [(node, working.byRole(node)) for node in found["mouseOnly"] if working.byRole(node) in working.TURNED]
 	pressed = [] if page else [node for node in found["mouseOnly"]
 		if working.byRole(node) in working.PRESSED and plainText(labelOf(node))]
+	# Controls whose own name says they are hovered over, held down, swiped or clicked at the right moment.
+	special = list(found["special"])
 	if deep and found["unsure"]:
 		task.emit("detail", "Finding out how the controls are worked whose kind NVDA cannot tell.")
 		told = []
@@ -363,7 +422,9 @@ def _worked(plugin, task, place, deep, site=""):
 			verdict = judge(plugin, task, place, node)
 			told.append(f"{_calling(node)}: {verdict['way']}, says {verdict['by']}")
 			fix = working.remedy(verdict["way"], verdict["focusable"])
-			if fix == working.ARROW_KEYS:
+			if verdict["way"] in working.SPECIAL:
+				special.append((node, verdict["way"]))
+			elif fix == working.ARROW_KEYS:
 				turned.append((node, verdict["way"]))
 			elif fix == working.PRESS_KEY and not page and plainText(labelOf(node)):
 				pressed.append(node)
@@ -382,11 +443,25 @@ def _worked(plugin, task, place, deep, site=""):
 			+ " look at them.")
 	controls = [control for control in (_controlFor(plugin, place, node, way, site) for node, way in turned[:working.MAX_KEYS_OFFERED])
 		if control is not None]
+	keyed, told = [], []
+	for node, way in special[:working.MAX_KEYS_OFFERED]:
+		control = _controlFor(plugin, place, node, way, site) if way in _KEY_ACTIONS else None
+		if control is not None:
+			keyed.append(control)
+		else:
+			told.append((_calling(node), way))
 	if deep and not page and sum(found["ways"].values()) <= 1:
 		window = onMain(plugin.controlKeys._box)
 		pictured, left = _pictured(plugin, task, window)
-		controls += pictured[:working.MAX_KEYS_OFFERED - len(controls)]
-	findings = []
+		for control in pictured:
+			if control["way"] in working.TURNED:
+				if len(controls) < working.MAX_KEYS_OFFERED:
+					controls.append(control)
+			elif control.get("action") and len(keyed) < working.MAX_KEYS_OFFERED:
+				keyed.append(control)
+			elif not control.get("action"):
+				told.append((control["name"] or "a control without a name", control["way"]))
+	findings = _specialFindings(keyed, told)
 	if controls:
 		names = ", ".join(control["name"] or f"a {control['kind']} without a name" for control in controls)
 		finding = audit.Finding("turned",
@@ -426,21 +501,29 @@ def keepControls(plugin, task, entries):
 		made.append((control, free[0]))
 	if not made:
 		raise ToolError("No hotkey is free for the dragged controls, so none was made.")
-	listed = "; ".join(f"{key} for {control['name'] or 'a ' + control['kind'] + ' without a name'}" for control, key in made)
-	# Translators: Asked before hotkeys for dials and sliders are made. {listed} names each key and control.
-	question = _(
-		"Make these hotkeys in {app}? {listed}. After pressing one, the arrow keys work that control, and Escape "
-		"gives them back. The first time, VisionClaw finds out how the control is worked by turning the mouse wheel "
-		"on it and dragging it a little."
-	).format(app=app, listed=listed)
+	listed = "; ".join(_keyText(control, key) for control, key in made)
+	dragged = any(not control.get("action") for control, _key in made)
+	if dragged:
+		# Translators: Asked before hotkeys for dials and sliders are made. {listed} names each key and control.
+		question = _(
+			"Make these hotkeys in {app}? {listed}. After pressing one, the arrow keys work that control, and Escape "
+			"gives them back. The first time, VisionClaw finds out how the control is worked by turning the mouse wheel "
+			"on it and dragging it a little."
+		).format(app=app, listed=listed)
+	else:
+		# Translators: Asked before hotkeys are made that rest the pointer on a control or hold the mouse button down on it.
+		question = _("Make these hotkeys in {app}? {listed}.").format(app=app, listed=listed)
 	# Translators: The choices when hotkeys for dials and sliders are ready.
 	if plugin.clawAsk(question, [_("Make the hotkeys"), _("Do not make them")]) != 0:
 		raise UserSaidNo()
 	for control, key in made:
 		plugin.helpers.addBinding(app, onMain(plugin.helpers.keyId, key), controlkeys.bindingOf(control, key))
 	return (
-		f"Made {len(made)} {'hotkey' if len(made) == 1 else 'hotkeys'} in {app}: {listed}. After pressing one, the arrow "
-		"keys work that control and Escape gives them back. Ask VisionClaw to remove a hotkey to undo one.")
+		f"Made {len(made)} {'hotkey' if len(made) == 1 else 'hotkeys'} in {app}: {listed}."
+		+ (" After pressing one that is for a dial or slider, the arrow keys work that control and Escape gives them back."
+			if dragged and any(control.get("action") for control, _key in made)
+			else " After pressing one, the arrow keys work that control and Escape gives them back." if dragged else "")
+		+ " Ask VisionClaw to remove a hotkey to undo one.")
 
 
 def controlDeep(plugin, task, found):
@@ -449,8 +532,12 @@ def controlDeep(plugin, task, found):
 	text = onMain(controlText, found)
 	focus = onMain(api.getFocusObject)
 	facts = onMain(deepquery.facts, focus)
-	way = working.byRole({"role": facts["role"]}, facts.get("box"))
-	by = "the kind NVDA reports"
+	# What its own name says comes first: a button called "Hold to record" is a button, and is held down.
+	way = working.bySaid(facts)
+	by = "its own name"
+	if way is None:
+		way = working.byRole({"role": facts["role"]}, facts.get("box"))
+		by = "the kind NVDA reports"
 	if way is None:
 		verdict = judge(plugin, task, found, obj=focus)
 		way, by = verdict["way"], verdict["by"]
@@ -466,7 +553,7 @@ def controlDeep(plugin, task, found):
 			+ (", which it can do through Windows itself, without the mouse." if deepquery.canTurn(focus) else "."))
 	elif fix == working.PRESS_KEY:
 		lines.append("It does not take the keyboard focus. Ask VisionClaw for a key that presses it.")
-	elif fix == working.ADVICE:
+	elif fix in (working.ADVICE, working.REST_KEY, working.HOLD_KEY):
 		lines.append(working.adviceFor(way))
 	return " ".join(lines)
 

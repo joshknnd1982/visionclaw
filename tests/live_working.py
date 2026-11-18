@@ -76,6 +76,60 @@ def label():
 	return image
 
 
+def holdButton():
+	image, draw = canvas()
+	draw.ellipse((80, 30, 140, 90), fill=(200, 40, 40), outline=(90, 10, 10), width=3)
+	draw.text((58, 104), "Hold to record", fill=(20, 20, 20))
+	return image
+
+
+def infoIcon():
+	image, draw = canvas()
+	draw.text((20, 70), "Shipping cost", fill=(20, 20, 20))
+	draw.ellipse((112, 64, 132, 84), outline=(40, 90, 200), width=2)
+	draw.text((120, 68), "i", fill=(40, 90, 200))
+	draw.text((20, 110), "Hover for details", fill=(110, 110, 110))
+	return image
+
+
+def swipeBar():
+	image, draw = canvas()
+	draw.rounded_rectangle((20, 60, 200, 100), radius=20, fill=(210, 210, 215), outline=(120, 120, 120), width=2)
+	draw.ellipse((24, 64, 56, 96), fill=(250, 250, 250), outline=(60, 60, 60), width=2)
+	draw.text((72, 74), "Swipe to unlock  >>", fill=(60, 60, 60))
+	return image
+
+
+def signature():
+	image, draw = canvas()
+	draw.rectangle((20, 30, 200, 120), fill=(255, 255, 255), outline=(90, 90, 90), width=2)
+	draw.line((30, 100, 190, 100), fill=(150, 150, 150), width=1)
+	draw.text((30, 104), "x  Sign here", fill=(120, 120, 120))
+	draw.line((40, 90, 60, 60, 75, 92, 95, 55, 110, 90, 150, 70), fill=(20, 20, 120), width=2)
+	return image
+
+
+def timingBar():
+	image, draw = canvas()
+	draw.text((20, 30), "Click when the marker is in the green!", fill=(20, 20, 20))
+	draw.rectangle((20, 70, 200, 94), fill=(200, 60, 60), outline=(40, 40, 40), width=2)
+	draw.rectangle((120, 70, 150, 94), fill=(40, 180, 70))
+	draw.polygon(((76, 60), (88, 60), (82, 70)), fill=(0, 0, 0))
+	draw.line((82, 70, 82, 98), fill=(0, 0, 0), width=3)
+	return image
+
+
+def pad():
+	image, draw = canvas()
+	draw.rectangle((50, 20, 170, 140), fill=(30, 30, 40), outline=(200, 200, 200), width=2)
+	draw.line((110, 20, 110, 140), fill=(70, 70, 90), width=1)
+	draw.line((50, 80, 170, 80), fill=(70, 70, 90), width=1)
+	draw.ellipse((126, 46, 142, 62), fill=(255, 200, 40), outline=(255, 255, 255), width=2)
+	draw.text((52, 144), "X", fill=(20, 20, 20))
+	draw.text((36, 24), "Y", fill=(20, 20, 20))
+	return image
+
+
 PICTURES = (
 	("a round dial", dial, (working.AROUND, working.UPDOWN)),
 	("a slider lying flat", flatSlider, (working.SIDEWAYS,)),
@@ -83,6 +137,13 @@ PICTURES = (
 	("a button", button, (working.CLICK,)),
 	("a text field", field, (working.TYPE,)),
 	("a line of text", label, (working.SHOWS,)),
+	# What is worked by neither a click nor a drag along a line.
+	("a button that says it is held down", holdButton, (working.HOLD,)),
+	("an information icon that says to hover", infoIcon, (working.HOVER,)),
+	("a bar that says to swipe", swipeBar, (working.GESTURE, working.SIDEWAYS)),
+	("a box to sign in", signature, (working.GESTURE,)),
+	("a bar with a moving marker and a green part", timingBar, (working.TIMED,)),
+	("a square pad with a point in it", pad, (working.PAD,)),
 )
 FACTS = (
 	("a slider that offers its value", {
@@ -105,6 +166,29 @@ FACTS = (
 	("a static text", {
 		"role": "PANE", "roleText": "pane", "name": "Ready", "states": ["READONLY"], "focusable": False,
 		"api": "Microsoft Active Accessibility", "windowClass": "Static"}, (working.SHOWS,)),
+	# Decided by plain code from the control's own words, from Windows, or from NVDA's states.
+	("a button whose name says to hold it", {
+		"role": "BUTTON", "roleText": "button", "name": "Hold to talk", "states": ["FOCUSABLE"], "focusable": True,
+		"patterns": ["invoke"], "api": "Windows UI Automation", "windowClass": "Chrome_WidgetWin_1"}, (working.HOLD,)),
+	("a thing Windows says can be dragged", {
+		"role": "PANE", "roleText": "pane", "name": "Card 4", "states": [], "focusable": False, "patterns": ["drag"],
+		"api": "Windows UI Automation", "windowClass": "HwndWrapper[Board]"}, (working.DRAG_TO,)),
+	("a part of a page that opens a menu", {
+		"role": "SECTION", "roleText": "section", "name": "Account", "states": ["CLICKABLE"], "focusable": False,
+		"api": "IAccessible2, as browsers use", "web": {"tag": "div", "haspopup": "menu"},
+		"windowClass": "Chrome_RenderWidgetHostHWND"}, (working.CHOOSE,)),
+	# These two were left to the coder model at first. Qwen2.5 Coder 1.5B got neither and Qwen3.5 9B one of them
+	# (2026-11-18), so plain code now knows their words too (working._SAID).
+	("a pane described as kept down while speaking", {
+		"role": "PANE", "roleText": "pane", "name": "Microphone", "states": ["CLICKABLE"], "focusable": False,
+		"description": "Keep the mouse button down on this while you speak, and let go when you are done",
+		"api": "IAccessible2, as browsers use", "web": {"tag": "div", "class": "ptt"},
+		"windowClass": "Chrome_RenderWidgetHostHWND"}, (working.HOLD,)),
+	("a canvas described as for sketching", {
+		"role": "CANVAS", "roleText": "canvas", "name": "Sketch", "states": ["CLICKABLE"], "focusable": False,
+		"description": "Sketch with the mouse; your strokes are sent when you finish",
+		"api": "IAccessible2, as browsers use", "web": {"tag": "canvas", "id": "sketch"},
+		"windowClass": "Chrome_RenderWidgetHostHWND"}, (working.GESTURE,)),
 )
 
 

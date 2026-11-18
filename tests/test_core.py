@@ -335,6 +335,20 @@ for request, recipe in (
 	("scroll this window to the bottom", "scroll"),
 	("turn the mouse wheel up a little", "scroll"),
 	("drag the scrollbar down", "drag"),
+	# What is worked by neither a click nor a drag: held down, swiped, drawn on, clicked at the right moment.
+	("swipe left on the card", "gesture"),
+	("draw a circle on the canvas", "gesture"),
+	("flick up on the photo", "gesture"),
+	("press and hold the Record button for 3 seconds", "click"),
+	("hold down the volume button", "click"),
+	("middle-click the link", "click"),
+	("control-click the second file", "click"),
+	("click the Go button when it turns green", "timed_click"),
+	("click the cookie 20 times", "timed_click"),
+	("click Fire rapidly", "timed_click"),
+	("tell me when the score changes", "add_fix"),
+	("zoom in", "scroll"),
+	("zoom out a little", "scroll"),
 	("do a deep inspection of this website", "check_access"),
 	("inspect this window for accessibility problems", "check_access"),
 	("is this page accessible", "check_access"),
@@ -454,4 +468,11 @@ assert LLM(thinker, taskModule.Task("write")).text(CODER, "s", "u", maxTokens=50
 assert len(thinker.calls) == 2 and thinker.calls[0][0] > 500 and thinker.calls[1] == (500, {"temperature": 0.2}), \
 	thinker.calls
 
+# A model's choice of a recipe that reads everything from the user's words is corrected by plain code when
+# the words cannot mean it: no moment and no count for a timed click, no direction and no shape for a gesture.
+assert planner.fitted("timed_click", "Press and hold the New Game button for 2 seconds.", "click") == "click"
+assert planner.fitted("timed_click", "Click the Quit button as soon as it changes.", "click") == "timed_click"
+assert planner.fitted("gesture", "Click the New Game button.", "click") == "click"
+assert planner.fitted("gesture", "Swipe left on the card.", "click") == "gesture"
+assert planner.fitted("change_setting", "Press and hold the New Game button.", "click") == "change_setting"
 print("OK")

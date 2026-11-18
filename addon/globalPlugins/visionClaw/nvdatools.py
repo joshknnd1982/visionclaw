@@ -247,6 +247,15 @@ def mentioned(asked, items):
 	return names
 
 
+def helperAction(part):
+	"""What a program's hotkey is to do with its item, from the user's own words: hover over it, hold it down,
+	read it, or click it in one of the three ways."""
+	action = pointer.actionOf(part)
+	if action == pointer.CLICK and re.search(r"\b(reads?|says?|speaks?|tells?|announces?)\b", (part or "").lower()):
+		return "read"
+	return action
+
+
 def meant(asked, items, reference):
 	"""What to look an item up by: the one item the user's own words name, if they name exactly one; otherwise
 	what the model wrote. A person's words are more reliable than a small model's copy of them."""
@@ -812,10 +821,23 @@ class Screen:
 		return [item.get("plain") or item.get("name") or item["text"] for item in result.items]
 
 	@staticmethod
-	def click(result, item, action=pointer.CLICK):
+	def click(result, item, action=pointer.CLICK, spot=None, keys=()):
 		"""Click, double-click, right-click or point at an item. In a window this is done with the mouse in the
 		middle of the item, and the mouse is put back. A web page item is worked the way NVDA does it: activated,
-		or moved to, and for a right-click its context menu is opened with the Applications key. Main thread."""
+		or moved to, and for a right-click its context menu is opened with the Applications key. Main thread.
+		What only the real mouse does is done with it on a web page too: a click with the middle button, three
+		clicks, a click at a place on the item (spot, shares of its width and height) and a click with keys held
+		down. Returns False when that was wanted and the item's place on the screen is not known."""
+		real = spot is not None or bool(keys) or action in (pointer.MIDDLE, pointer.TRIPLE)
+		if real:
+			point = Screen.pointOf(result, item, spot)
+			if point is None:
+				return False
+			old = mousetools.position()
+			with mousetools.keysDown(keys):
+				mousetools.click(point[0], point[1], action)
+			wx.CallLater(250, mousetools.moveTo, *old)
+			return True
 		if item.get("web") is not None:
 			if action in (pointer.RIGHT, pointer.HOVER):
 				webtools.moveTo(item)
@@ -830,6 +852,31 @@ class Screen:
 		mousetools.click(x, y, action)
 		if action != pointer.HOVER:  # pointing at something means leaving the pointer there
 			wx.CallLater(250, mousetools.moveTo, *old)
+
+	@staticmethod
+	def pointOf(result, item, spot=None):
+		"""The middle of an item on the screen, for the mouse, or the place on it that spot gives as shares of
+		its width and height; None when its place is not known. An item of a web page is brought into view
+		first, and NVDA's reading position is put on it. Main thread."""
+		if item.get("web") is None:
+			box = item.get("box")
+			if spot is None or not box:
+				return result.screenPoint(item)
+			info = result.imageInfo
+			left, top = info.convertXToScreen(box[0]), info.convertYToScreen(box[1])
+			right, bottom = info.convertXToScreen(box[2]), info.convertYToScreen(box[3])
+		else:
+			webtools.moveTo(item)
+			obj = _safe(lambda: item["web"].obj)
+			if obj is None:
+				return None
+			_safe(obj.scrollIntoView)
+			loc = _safe(lambda: obj.location)
+			if not loc or loc.width <= 0 or loc.height <= 0:
+				return None
+			left, top, right, bottom = loc.left, loc.top, loc.left + loc.width, loc.top + loc.height
+		across, down = spot or (0.5, 0.5)
+		return round(left + across * max(0, right - left - 1)), round(top + down * max(0, bottom - top - 1))
 
 
 # --- Knowledge ---
@@ -1268,8 +1315,56 @@ def build(plugin):
 		found = result.items[index]
 		if action not in pointer.ACTIONS:
 			action = pointer.CLICK
-		# Following a link only goes to another page, and pointing changes nothing; everything else is asked about.
-		if action != pointer.HOVER and not (found.get("kind") == "link" and action == pointer.CLICK):
+		if action in (pointer.HOVER, pointer.HOLD):
+			# Both need the real mouse on the item, also on a web page: a menu that opens when the pointer rests
+			# on it, or a button that works only while it is held down, takes no notice of NVDA's own ways.
+			point = onMain(Screen.pointOf, result, found)
+			if point is None:
+				if action == pointer.HOVER:
+					return (
+						f"NVDA's reading position is on {found['text']}. Where it is on the screen is not known, so the "
+						"mouse pointer could not be rested on it.")
+				raise ToolError(
+					f"Where {found['text']} is on the screen is not known, so it could not be held down. Pointer mode "
+					"lets the user put the mouse pointer on it: G holds the mouse button and G lets go.")
+			# The window as it was listed; for a web page, the window in front.
+			box = mousetools._windowBox(result) if found.get("web") is None else onMain(screen.box, "window")
+			read = config.conf["visionClaw"]["useOcr"]
+			if action == pointer.HOVER:
+				# Pointing changes nothing, so nothing is asked; the pointer stays there.
+				before, after = mousetools.rest(plugin._grab, box, point, task.cancel)
+				task.check()
+				return mousetools.restText(*mousetools.appearedText(before, after, read), found["text"])
+			seconds = pointer.holdSeconds(asked or task.request)
+			# Translators: Asked before VisionClaw presses the mouse button on something and keeps it down. {time} is how long.
+			confirm(_("Press and hold {item} for {time}?").format(item=found["text"], time=pointer.secondsText(seconds)))
+			old = mousetools.position()
+			before = _safe(lambda: plugin._grab(box))
+			try:
+				mousetools.hold(point[0], point[1], seconds, task.cancel)
+				time.sleep(CLICK_SETTLE_SECONDS)
+				after = _safe(lambda: plugin._grab(box)) if before is not None else None
+			finally:
+				mousetools.moveTo(*old)
+			task.check()
+			task.items = None  # the window has probably changed
+			said = f"Held the mouse button down on {found['text']} for {pointer.secondsText(seconds)}."
+			if before is None or after is None:
+				return said
+			changed, shown = mousetools.appearedText(before, after, read)
+			return said + (f" This appeared: {shown}" if shown else " What the window shows changed." if changed
+				else " Nothing VisionClaw can see changed in the window.")
+		# What only the user's own words can say: keys held down during the click, and where on the item it lands.
+		words = asked or task.request
+		keys = pointer.modifiersOf(words)
+		spot = pointer.spotOf(words)
+		what = found["text"]
+		if spot is not None:
+			what += f", {pointer.spotText(spot)}"
+		if keys:
+			what += " with " + " and ".join(key.capitalize() for key in keys) + " held down"
+		# Following a link only goes to another page; everything else is asked about.
+		if keys or spot is not None or not (found.get("kind") == "link" and action == pointer.CLICK):
 			confirm({
 				# Translators: Asked before VisionClaw clicks something. {item} is what will be clicked.
 				pointer.CLICK: _("Click {item}?"),
@@ -1277,17 +1372,26 @@ def build(plugin):
 				pointer.DOUBLE: _("Double-click {item}?"),
 				# Translators: Asked before VisionClaw right-clicks something.
 				pointer.RIGHT: _("Right-click {item}?"),
-			}[action].format(item=found["text"]))
-		onMain(Screen.click, result, found, action)
-		if action == pointer.HOVER:
-			return f"The mouse pointer is on {found['text']}."
+				# Translators: Asked before VisionClaw clicks something with the middle mouse button.
+				pointer.MIDDLE: _("Click {item} with the middle mouse button?"),
+				# Translators: Asked before VisionClaw clicks something three times in a row.
+				pointer.TRIPLE: _("Triple-click {item}?"),
+			}[action].format(item=what))
+		if onMain(Screen.click, result, found, action, spot, keys) is False:
+			raise ToolError(
+				f"Where {found['text']} is on the screen is not known, so the mouse could not be used on it. Pointer "
+				"mode lets the user put the mouse pointer on it.")
 		time.sleep(CLICK_SETTLE_SECONDS)
 		task.items = None  # the window has probably changed
-		done = {pointer.CLICK: "Clicked", pointer.DOUBLE: "Double-clicked", pointer.RIGHT: "Right-clicked"}[action]
-		return f"{done} {found['text']}."
+		done = {
+			pointer.CLICK: "Clicked", pointer.DOUBLE: "Double-clicked", pointer.RIGHT: "Right-clicked",
+			pointer.MIDDLE: "Clicked with the middle mouse button:", pointer.TRIPLE: "Triple-clicked"}[action]
+		return f"{done} {what}."
 
 	add("click_item",
-		"click, double-click, right-click or point at one item from list_items: a link, a button, an item in a window",
+		"click, double-click, triple-click, right-click, click with the middle button, hover over, or press and hold "
+		"one item from list_items: a link, a button, an item in a window; also with Control, Shift or Alt held down, "
+		"or at a place on the item; hovering says what appeared",
 		clickItem, {
 			"item": text("the number or the name of the item, from list_items", maxLength=80),
 			"action": text("what to do with the mouse", enum=pointer.ACTIONS, auto=pointer.actionOf),
@@ -1647,14 +1751,22 @@ def build(plugin):
 		# Translators: Asked before VisionClaw saves a hotkey for a program.
 		confirm(_("In {app}, make {key} {action} \"{item}\"?").format(app=app, key=key, action=action, item=name))
 		plugin.helpers.add(app, key, keyId, action, name)
-		return f"In {app}, pressing {key} now does this: {action} \"{name}\"."
+		more = {
+			pointer.HOVER: " It rests the mouse pointer on it and says what appears.",
+			pointer.HOLD: " The mouse button stays down on it until you press the hotkey again, or Escape.",
+		}.get(action, "")
+		return f"In {app}, pressing {key} now does this: {action} \"{name}\".{more}"
 
 	add("create_helper",
-		"give the program in front its own hotkey that clicks an item or reads the text at an item, found by name each time",
+		"give the program in front its own hotkey that clicks an item, hovers over it, holds it down, or reads the "
+		"text at it, found by name each time",
 		createHelper, {
 			"key": text("the hotkey, like NVDA+alt+1", maxLength=30),
-			"action": text("click, double click or right click the item; read speaks the item and the text after it",
-				enum=[pointer.CLICK, pointer.DOUBLE, pointer.RIGHT, "read"]),
+			"action": text(
+				"click, double click, triple click, right click or middle click the item; hover rests the mouse pointer "
+				"on it and says what appears; press and hold keeps the mouse button down on it until the hotkey is "
+				"pressed again; read speaks the item and the text after it",
+				enum=pointer.ACTIONS + ["read"], auto=helperAction),
 			"item": text("the name of the item, from list_items", maxLength=80),
 		}, changes=True, before="list_items", title="Making the hotkey")
 

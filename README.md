@@ -16,12 +16,13 @@ VisionClaw is a fork of [VisionMate](https://github.com/athee06/VisionMate) by A
 everything VisionMate does: image descriptions, the overlay for windows NVDA cannot read, photo descriptions in
 chat apps, and names for unlabelled buttons.
 
-> **Status: version 1.0.0, the first full release.** The orchestration core has been tested with scripted models and with
+> **Status: version 1.1.0.** The orchestration core has been tested with scripted models and with
 > real models through the bundled engine. Inside NVDA 2026.3.1 the owner has run the models window, a first
 > set of requests, five tests of version 0.4.0 and three of 0.8.2; **most of the test plan has not been run inside NVDA
 > yet**, and what 0.9.0 to 0.11.0 add (the command fix, the log, the audit, the questions about pictures, questions
 > answered from NVDA, the program, the window and Windows, the window that says what is new, learning about a
-> program from the internet), scrolling and
+> program from the internet), what 1.1.0 adds (controls that are hovered over, held down, swiped or clicked at
+> the right moment, and the choice of quant), scrolling and
 > the arrow keys for dials not at all. Expect rough edges and please report them. See
 > [docs/STATUS.md](docs/STATUS.md) for exactly what was tested.
 
@@ -480,12 +481,16 @@ where nothing can be listed at all. The arrow keys move the mouse pointer inside
   puts the pointer on it. G then holds it, the arrow keys move it, and G lets go.
 - Enter or Space clicks, Shift+Enter double-clicks, the Applications key right-clicks.
 - **G holds the mouse button down; move; G again lets go.** That is a drag done by hand.
+- **T rests the pointer where it is and says what appears**: a tip, a menu that opens by itself, a preview.
+- **C clicks the moment what is under the pointer changes.** Shift+C only sounds a tone then, so that you press
+  Enter yourself. Any key stops the watch.
 - W has the vision model say what is at the pointer. R reads the text there. P says where the pointer is in the
   window. Home goes to the middle. H repeats the keys. Escape turns pointer mode off.
 All other keys keep working as usual.
 
 **App helpers** can right-click or double-click their item as well as click it: "give this program a hotkey
-that right-clicks the canvas".
+that right-clicks the canvas". They can also hover over it and say what appears, or hold the mouse button
+down on it until the hotkey is pressed again.
 
 **Scrollbars and other things made only for the mouse.** A deep inspection of a window ("inspect this window")
 now also looks at its picture: plain code finds the scrollbars by their look, on a screen of any size and
@@ -497,6 +502,61 @@ look; the wheel still scrolls there.
 
 When you name the things yourself, as in "drag the New Game button onto the Quit button", your own words decide
 which items are meant, not the model's copy of them.
+
+## Controls that need more than a click
+
+Some controls are worked by neither a click nor a drag from one thing to another. VisionClaw does each of
+these from the keyboard, and tells you afterwards what happened.
+
+- **Hovering.** "Hover over the Help icon." The mouse pointer rests on it, on a web page too, and the window is
+  compared before and after: you hear the text that appeared, such as a tip or a menu that opens by itself, or
+  that nothing appeared. Nothing is asked first, because pointing changes nothing. The pointer stays there, so
+  you can list what is in the window again and click what opened.
+- **Holding the button down.** "Press and hold the Record button for 3 seconds", "long-press the app icon".
+  The button is never left down: it comes up when the time is over, when you stop the request, and at most
+  after a minute. For a button you hold as long as you need it, such as push to talk, ask for a hotkey:
+  "make NVDA+Alt+3 hold down the Talk button". The first press holds the button, the second press, or Escape,
+  lets go, and after two minutes it lets go by itself and says so.
+- **Gestures.** "Swipe left on the card", "flick up", "draw a circle on the canvas", "draw a line down then
+  right with the right button held down". A swipe or line needs its direction, a shape its name: a circle
+  (clockwise or anticlockwise), a tick, a zigzag, a square, a triangle, a cross, or one of the letters L, V,
+  Z, N, M and W. Say small, large or a percentage for its size, slowly or flick for its speed. For any other
+  shape, in pointer mode G holds the mouse button, the arrow keys draw, and G lets go.
+- **Timing.** "Click the Go button as soon as it changes", "click Catch when it appears, wait up to 2
+  minutes": VisionClaw watches the place and clicks at once when it changes. "Click the cookie 20 times",
+  "click the drum 8 times, twice a second": clicks in a steady rhythm. Stated plainly: VisionClaw looks about
+  25 times a second, so the click comes a moment after the change, and what must be hit more exactly than that
+  can be missed. Something that moves all the time has no single moment VisionClaw can tell; it says so and
+  clicks nothing.
+- **Other buttons and keys.** "Middle-click the link", "triple-click the paragraph", "control-click the second
+  file", "click Photo 3 with the Shift key held down". The key goes down before the click and always comes up
+  after it.
+- **A place on a thing.** "Click the seek bar 30 percent across", "click the right end of the timeline", "click
+  the top left corner of the map": for a bar that is clicked where the value should be, a picture or a board.
+- **Larger and smaller.** "Zoom in", "zoom out": the mouse wheel with the Control key held down, which is what a
+  sighted person does with a mouse where two fingers would be used on a touch screen. You hear whether anything
+  changed.
+- **A pad, a colour field or a joystick**, which is dragged in any direction: in pointer mode, G holds the
+  button, the arrow keys move it both ways, and G lets go.
+
+**The inspection finds them.** "Inspect this window" or "inspect this page" now also tells you which controls
+are worked in one of these ways. Plain code knows it where the control's own name or description says so
+("Hold to record", "Swipe to unlock", "Sign here", "Hover for details"); for a control whose kind NVDA cannot
+tell, the models look at its picture and at what is reported about it. For a control that is hovered over or
+held down, "fix it" makes a hotkey: one that rests the pointer on it and says what appears, or one that holds
+the button down until you press it again. For the others the report says what to ask for. A model can be
+wrong, and the report says who said what.
+
+**Every kind of control.** NVDA has 156 kinds of control. VisionClaw now knows for each of them how it is
+worked, that it only holds or shows something, or that it must be looked at. It also reads what Windows
+reports about a control (that it can be dragged, moved freely, scrolled or selected), what a web page's code
+says (its role, that it can be dragged, that it opens a menu), and NVDA's states (checkable, editable,
+draggable, has a pop-up).
+
+What VisionClaw cannot do, stated plainly: gestures with two fingers such as a pinch or a turn (the wheel with
+Control stands in for a pinch); pressure; dragging between two different windows; and anything in a game that
+reads the mouse directly. None of this has been tried in real programs yet, only with stand-ins for the mouse
+and drawn pictures.
 
 ## Dials, knobs and sliders that are only worked by dragging
 

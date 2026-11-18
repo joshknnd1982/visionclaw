@@ -65,6 +65,17 @@ def directionOf(words):
 	return DOWN
 
 
+def zoomOf(words):
+	"""Whether a request wants what is shown made larger ("in") or smaller ("out"), which a sighted person does
+	with the Control key and the mouse wheel, or with two fingers; None when it asks for neither."""
+	text = (words or "").lower()
+	if re.search(r"\bzoom(s|ed|ing)?\s+(back\s+)?out\b|\bunzoom\b", text):
+		return "out"
+	if re.search(r"\bzoom(s|ed|ing)?\b", text):
+		return "in"
+	return None
+
+
 def amountOf(words):
 	"""How far a request wants to scroll, as (notches of the wheel, whether to go on until the end)."""
 	text = (words or "").lower()

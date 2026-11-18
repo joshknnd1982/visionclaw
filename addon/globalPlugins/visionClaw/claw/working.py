@@ -14,22 +14,42 @@ import re
 CLICK, DOUBLE, RIGHT, TYPE, CHOOSE = "click", "double click", "right click", "type", "open and choose"
 UPDOWN, SIDEWAYS, AROUND, DRAG_TO = "drag up and down", "drag sideways", "turn in a circle", "drag to another place"
 WHEEL, SHOWS, UNSURE = "mouse wheel", "only shows something", "cannot tell"
-WAYS = [CLICK, DOUBLE, RIGHT, TYPE, CHOOSE, UPDOWN, SIDEWAYS, AROUND, DRAG_TO, WHEEL, SHOWS, UNSURE]
+# Ways that are neither a click nor a drag: the pointer rests on it, the button is kept down, a line or shape
+# is drawn with the button down, or it must be clicked at the right moment.
+HOVER, HOLD, GESTURE, TIMED = "hover", "press and hold", "swipe or draw", "click at the right moment"
+# A pad, a colour field, a joystick or a map: dragged across and up and down at once.
+PAD = "drag in any direction"
+WAYS = [
+	CLICK, DOUBLE, RIGHT, TYPE, CHOOSE, UPDOWN, SIDEWAYS, AROUND, PAD, DRAG_TO, WHEEL, HOVER, HOLD, GESTURE, TIMED,
+	SHOWS, UNSURE]
+SPECIAL = (HOVER, HOLD, GESTURE, TIMED, PAD)
 # Ways that change a value by moving the mouse: arrow keys can stand in for them.
 TURNED = (UPDOWN, SIDEWAYS, AROUND, WHEEL)
 PRESSED = (CLICK, DOUBLE, RIGHT)
 # What can be done about a control the keyboard does not work.
 NOTHING, PRESS_KEY, ARROW_KEYS, ADVICE = "nothing", "press key", "arrow keys", "advice"
+# A key that rests the pointer on it and says what appears; a key that keeps the mouse button down on it.
+REST_KEY, HOLD_KEY = "rest key", "hold key"
 
 _BY_ROLE = {
 	"BUTTON": CLICK, "LINK": CLICK, "CHECKBOX": CLICK, "RADIOBUTTON": CLICK, "SWITCH": CLICK, "TOGGLEBUTTON": CLICK,
 	"TAB": CLICK, "MENUITEM": CLICK, "LISTITEM": CLICK, "TREEVIEWITEM": CLICK, "TABLECOLUMNHEADER": CLICK,
 	"DATAITEM": CLICK, "COLORCHOOSER": CLICK, "ICON": DOUBLE,
+	"CHECKMENUITEM": CLICK, "RADIOMENUITEM": CLICK, "TEAROFFMENU": CLICK, "TREEVIEWBUTTON": CLICK, "HEADERITEM": CLICK,
+	"CHARTELEMENT": CLICK, "IMAGEMAP": CLICK, "DESKTOPICON": DOUBLE,
 	"EDITABLETEXT": TYPE, "PASSWORDEDIT": TYPE, "RICHEDIT": TYPE, "TERMINAL": TYPE, "SPINBUTTON": TYPE,
-	"HOTKEYFIELD": TYPE, "DATEEDITOR": TYPE,
+	"HOTKEYFIELD": TYPE, "DATEEDITOR": TYPE, "EDITBAR": TYPE, "IPADDRESS": TYPE,
 	"COMBOBOX": CHOOSE, "MENUBUTTON": CHOOSE, "DROPDOWNBUTTON": CHOOSE, "SPLITBUTTON": CHOOSE,
+	"DROPLIST": CHOOSE, "DROPDOWNBUTTONGRID": CHOOSE,
 	"DIAL": AROUND,
+	# The corner or edge a window or a pane is resized by.
+	"GRIP": PAD,
 }
+# Kinds whose name says nothing about how they are worked: a picture, a canvas, an embedded program, a bare
+# pane. In a window these are for the models to look at.
+_OPEN = frozenset((
+	"GRAPHIC", "CANVAS", "UNKNOWN", "PANE", "EMBEDDEDOBJECT", "DIAGRAM", "CHART", "SHAPE", "VIDEO", "AUDIO", "ANIMATION",
+))
 # Kinds that only hold or show other things. Never shown to a model as something to work.
 _PASSIVE = frozenset((
 	"STATICTEXT", "PROGRESSBAR", "GROUPING", "SEPARATOR", "HEADING", "PARAGRAPH", "LIST", "TABLE", "TABLECELL",
@@ -38,6 +58,15 @@ _PASSIVE = frozenset((
 	"APPLICATION", "ARTICLE", "REGION", "FORM", "LABEL", "TEXTFRAME", "BLOCKQUOTE", "FOOTER", "HEADER", "ALERT",
 	"SCROLLPANE", "SCROLLBAR", "LISTITEM_MARKER", "CAPTION", "TABLEBODY", "TABLEHEADER", "TABLEFOOTER", "ROOTPANE",
 	"LAYEREDPANE", "GLASSPANE", "DESKTOPPANE", "OPTIONPANE", "VIEWPORT", "DEFINITION", "TERM", "FIGURE", "MARKED_CONTENT",
+	# The rest of NVDA's kinds that hold or show something, read from NVDA's own list on 2026-11-18, so that
+	# every kind NVDA has is known here (tests/test_working.py holds the list).
+	"ALIGNMENT", "BGCOLOR", "BOLD", "BORDER", "BOX", "BUSY_INDICATOR", "CALENDAR", "CARET", "CHARACTER", "CLOCK",
+	"COMMENT", "CURSOR", "DATAGRID", "DELETED_CONTENT", "DIRECTORYPANE", "ENDNOTE", "FGCOLOR", "FILECHOOSER", "FILLER",
+	"FONTCHOOSER", "FONTNAME", "FONTSIZE", "FOOTNOTE", "HEADING1", "HEADING2", "HEADING3", "HEADING4", "HEADING5",
+	"HEADING6", "HELPBALLOON", "INDENT", "INDICATOR", "INPUTWINDOW",
+	"INSERTED_CONTENT", "ITALIC", "LINE", "MATH", "NOTE", "PAGE", "PANEL", "REDUNDANTOBJECT", "RULER", "SOUND",
+	"SPLITPANE", "STYLE", "SUBSCRIPT", "SUGGESTION", "SUPERSCRIPT", "TABLECOLUMN", "TABLEROWHEADER", "UNDERLINE",
+	"WHITESPACE",
 ))
 # Inside these, a control that does not take the focus is as it should be: the title bar's buttons, the
 # arrows of a scrollbar, the parts of a combo box.
@@ -55,16 +84,23 @@ JUDGE_SCHEMA = {
 VISION_SYSTEM = (
 	"You look at a picture of one control from a computer program or game, with a little of what is around it. "
 	"You say how a person works it with a mouse. Choose one:\n"
+	# The ways of dragging come first: measured with Qwen3.5 9B on 2026-11-18, with the click first an upright
+	# fader was called a click, and with the drags first all twelve drawn controls were named rightly.
+	"drag up and down: a slider or fader that stands upright.\n"
+	"drag sideways: a slider that lies flat, or a bar that is dragged left and right.\n"
+	"turn in a circle: a round dial or knob.\n"
+	"drag to another place: a thing that is picked up and dropped somewhere else.\n"
+	"drag in any direction: a square pad, a colour field, a joystick or a map that is moved across and up and down.\n"
 	"click: a button, a link, a box to tick, a tab, an icon that is pressed.\n"
 	"double click: a file, a folder or a desktop icon that is opened.\n"
 	"right click: something that only opens a menu.\n"
 	"type: a field for text or numbers.\n"
 	"open and choose: a list that drops down.\n"
-	"drag up and down: a slider or fader that stands upright.\n"
-	"drag sideways: a slider that lies flat, or a bar that is dragged left and right.\n"
-	"turn in a circle: a round dial or knob.\n"
-	"drag to another place: a thing that is picked up and dropped somewhere else.\n"
 	"mouse wheel: a long list or a view that is scrolled.\n"
+	"hover: a thing that shows a tip, a menu or more when the pointer only rests on it, without a click.\n"
+	"press and hold: a button that works only while it is held down, or only after it is held for a while.\n"
+	"swipe or draw: an area that is swiped across, or where a line, a shape or a signature is drawn.\n"
+	"click at the right moment: a moving mark, a filling bar or a target that must be clicked at one moment.\n"
 	"only shows something: text, a picture or a meter that cannot be worked.\n"
 	"cannot tell: the picture does not show what it is."
 )
@@ -74,7 +110,9 @@ CODER_SYSTEM = (
 	"about one control. You say how a person works that control with a mouse. Choose one of: "
 	+ ", ".join(WAYS) + ". A slider, range or scrollbar is dragged; a dial or knob is turned in a circle; "
 	"something with an invoke, press, click or toggle action is clicked; something that takes text is typed "
-	"into; a plain text, image or progress bar only shows something. If the facts do not say, choose cannot tell."
+	"into; a plain text, image or progress bar only shows something; something whose name or description says "
+	"to hold it down is press and hold, to point at it is hover, to swipe, slide, sign or draw is swipe or draw, "
+	"and to press at one moment is click at the right moment. If the facts do not say, choose cannot tell."
 )
 
 
@@ -82,19 +120,65 @@ def byRole(node, box=None):
 	"""How a control is worked, from the kind NVDA says it is, or None when the kind does not say.
 	box: its place (left, top, right, bottom), which says which way a slider lies."""
 	role = node.get("role") or ""
+	upright = box is not None and box[3] - box[1] > box[2] - box[0]
 	if role == "SLIDER":
-		if box is not None and box[3] - box[1] > box[2] - box[0]:
-			return UPDOWN
-		return SIDEWAYS
+		return UPDOWN if upright else SIDEWAYS
+	if role == "THUMB":
+		# The part that is dragged: of a slider it moves along the slider; the bar between two panes, which
+		# stands upright, is dragged sideways. Without its place nothing is said.
+		return None if box is None else SIDEWAYS if upright else UPDOWN
 	return _BY_ROLE.get(role)
 
 
+def knownRole(role):
+	"""Whether a kind of control NVDA has is known here: how it is worked, that it only holds or shows
+	something, or that it is left for the models to look at."""
+	return role in _BY_ROLE or role in _PASSIVE or role in _OPEN or role in ("SLIDER", "THUMB")
+
+
+# The kinds a web page gives its own controls (ARIA roles). Written from what is commonly used, not checked
+# against the standard's own list; a kind that is missing here is left for the models.
 _WEB_ROLES = {
 	"slider": SIDEWAYS, "scrollbar": UPDOWN, "button": CLICK, "link": CLICK, "checkbox": CLICK, "switch": CLICK,
 	"radio": CLICK, "tab": CLICK, "menuitem": CLICK, "option": CLICK, "treeitem": CLICK, "textbox": TYPE,
 	"searchbox": TYPE, "spinbutton": TYPE, "combobox": CHOOSE, "listbox": CHOOSE,
+	"menuitemcheckbox": CLICK, "menuitemradio": CLICK, "gridcell": CLICK, "columnheader": CLICK, "rowheader": CLICK,
+	"row": CLICK, "separator": SIDEWAYS, "progressbar": SHOWS, "meter": SHOWS, "status": SHOWS, "timer": SHOWS,
+	"marquee": SHOWS, "log": SHOWS, "alert": SHOWS, "tooltip": SHOWS, "img": SHOWS, "math": SHOWS, "note": SHOWS,
 }
+# What a control's states say, as NVDA names them, where neither Windows nor the page's code said more.
+_STATE_WAYS = (
+	(("DRAGGABLE",), DRAG_TO), (("EDITABLE",), TYPE),
+	(("HASPOPUP", "HASPOPUP_DIALOG", "HASPOPUP_GRID", "HASPOPUP_LIST", "HASPOPUP_TREE"), CHOOSE),
+	(("CHECKABLE", "CHECKED", "HALFCHECKED", "PRESSED", "HALF_PRESSED", "SELECTABLE", "LINKED", "COLLAPSED", "EXPANDED"), CLICK),
+)
 _PRESS_ACTIONS = ("click", "press", "invoke", "activate", "toggle", "check", "uncheck", "jump", "open", "select")
+# What a control's own name or description says about how it is worked. Kept narrow: a button called Hold,
+# as on a telephone, is clicked.
+_SAID = (
+	(HOLD, re.compile(
+		r"\b(press|click|tap|touch|push) (and|&) hold\b|\bhold (down )?to \w+|\bhold (it )?(down|for \d)|\blong[- ]press\b"
+		r"|\bpush[- ]to[- ]talk\b|\bkeep (it )?(pressed|held)\b|\bwhile (it is )?(held|pressed)\b"
+		r"|\bkeep (the )?(left )?(mouse )?button (down|pressed|held)\b", re.IGNORECASE)),
+	(HOVER, re.compile(
+		r"\bhover\b|\bmouse ?over\b|\broll ?over\b|\bpoint (at|to) (it|this|here)\b|\brest the (mouse|pointer)\b", re.IGNORECASE)),
+	(GESTURE, re.compile(
+		r"\bswipe\b|\bflick\b|\bslide to \w+|\bsign(ature)? (here|pad|area|box|field)\b|\bdraw (here|your|a|an|the)\b"
+		r"|\bscratch (here|to|off)\b|\bmouse gesture\b|\bdrawing (area|canvas|pad)\b"
+		r"|\bsketch(ing|es)?\b|\bfreehand\b|\bhandwrit(e|ing|ten)\b", re.IGNORECASE)),
+	(TIMED, re.compile(
+		r"\bat the right (moment|time)\b|\b(press|click|tap|hit|stop) (it )?(when|as soon as|in time|on the beat)\b"
+		r"|\bquick[- ]time\b|\btiming (bar|game|meter)\b|\breaction (test|time)\b", re.IGNORECASE)),
+)
+
+
+def bySaid(thing):
+	"""How a control is worked where its own name or description says so in words, as on a button called
+	"Hold to record", or None. thing: a control of fixmatch or the facts of a deep query."""
+	text = " ".join(str(thing.get(key) or "") for key in ("name", "description", "text"))
+	if not text.strip():
+		return None
+	return next((way for way, pattern in _SAID if pattern.search(text)), None)
 
 
 def byFacts(facts):
@@ -107,18 +191,43 @@ def byFacts(facts):
 	span = facts.get("range")
 	if span is not None or "a value in a range" in patterns:
 		return UPDOWN if upright else SIDEWAYS
-	role = str((facts.get("web") or {}).get("xml-roles") or "").split(" ")[0].lower()
+	said = bySaid(facts)
+	if said is not None:
+		return said
+	if facts.get("role") == "THUMB" and box is not None:
+		return byRole(facts, box)
+	# The plain text control of Windows: it shows something and is not worked.
+	if str(facts.get("windowClass") or "").lower() == "static" and not facts.get("actions") and not patterns:
+		return SHOWS
+	web = facts.get("web") or {}
+	role = str(web.get("xml-roles") or "").split(" ")[0].lower()
 	if role in _WEB_ROLES:
-		return UPDOWN if role == "slider" and upright else _WEB_ROLES[role]
+		if role in ("slider", "separator"):
+			# A slider lies as it is shaped; the bar between two panes is dragged across the way it stands.
+			return (UPDOWN if upright else SIDEWAYS) if role == "slider" else (SIDEWAYS if upright or box is None else UPDOWN)
+		return _WEB_ROLES[role]
+	states = set(facts.get("states") or ())
+	# Windows or the page says it is picked up and dropped, or moved about freely.
+	if "drag" in patterns or str(web.get("draggable") or "").lower() == "true":
+		return DRAG_TO
+	if "move and resize" in patterns:
+		return PAD
 	if "expand and collapse" in patterns:
 		return CHOOSE
-	if "invoke" in patterns or "toggle" in patterns:
+	if "invoke" in patterns or "toggle" in patterns or "select" in patterns:
 		return CLICK
 	if any(str(action).lower().startswith(_PRESS_ACTIONS) for action in facts.get("actions") or ()):
 		return CLICK
-	states = set(facts.get("states") or ())
 	if "a value as text" in patterns and not states & {"READONLY", "UNAVAILABLE"}:
 		return TYPE
+	if "scroll" in patterns:
+		return WHEEL
+	if str(web.get("haspopup") or "").lower() not in ("", "false"):
+		return CHOOSE
+	if not states & {"READONLY", "UNAVAILABLE"}:
+		for names, way in _STATE_WAYS:
+			if states.intersection(names):
+				return way
 	return None
 
 
@@ -150,16 +259,24 @@ def survey(nodes, page=False):
 	ways       {way: how many controls}
 	mouseOnly  controls whose kind says how they are worked but that never take the keyboard focus
 	unsure     controls that look worked but whose kind says nothing; these are for the models to look at
+	special    (control, way) for each whose own name says it is hovered over, held down, swiped or drawn on,
+	           or clicked at the right moment: the keyboard does none of these, whether it takes the focus or not
 	On a web page NVDA's browse mode reaches and presses every link and button itself, so there only
 	controls that are dragged count as mouse only."""
 	parents = {id(node["up"]) for node in nodes if node.get("up") is not None}
-	ways, mouseOnly, unsure = {}, [], []
+	ways, mouseOnly, unsure, special = {}, [], [], []
 	for node in nodes:
 		if not _showing(node):
 			continue
 		role = node.get("role") or ""
 		states = set(node.get("states") or ())
 		way = byRole(node)
+		# A control that is worked at all and whose name says how: "Hold to record", "Swipe to unlock".
+		said = bySaid(node) if way is not None or "CLICKABLE" in states or "FOCUSABLE" in states else None
+		if said is not None and not _under(node, _INNER):
+			ways[said] = ways.get(said, 0) + 1
+			special.append((node, said))
+			continue
 		if way is not None:
 			ways[way] = ways.get(way, 0) + 1
 			if "FOCUSABLE" in states or _under(node, _INNER) or role == "MENUITEM":
@@ -172,9 +289,9 @@ def survey(nodes, page=False):
 			continue
 		if _under(node, frozenset(_BY_ROLE) | _INNER):
 			continue  # a part of a control that is already counted
-		if "CLICKABLE" in states or (not page and ("FOCUSABLE" in states or role in ("GRAPHIC", "CANVAS", "UNKNOWN", "PANE"))):
+		if "CLICKABLE" in states or (not page and ("FOCUSABLE" in states or role in _OPEN)):
 			unsure.append(node)
-	return {"ways": ways, "mouseOnly": mouseOnly, "unsure": unsure}
+	return {"ways": ways, "mouseOnly": mouseOnly, "unsure": unsure, "special": special}
 
 
 def waysText(ways):
@@ -184,6 +301,8 @@ def waysText(ways):
 	words = {
 		CLICK: "clicked", DOUBLE: "double-clicked", TYPE: "typed into", CHOOSE: "opened to choose from",
 		UPDOWN: "dragged up and down", SIDEWAYS: "dragged sideways", AROUND: "turned in a circle",
+		HOVER: "pointed at without a click", HOLD: "pressed and held down", GESTURE: "swiped or drawn on",
+		TIMED: "clicked at the right moment", PAD: "dragged in any direction",
 	}
 	parts = [f"{count} {'is' if count == 1 else 'are'} {words[way]}"
 		for way, count in sorted(ways.items(), key=lambda pair: (-pair[1], WAYS.index(pair[0]))) if way in words]
@@ -223,6 +342,12 @@ def remedy(way, focusable):
 		return NOTHING if focusable else PRESS_KEY
 	if way in (TYPE, CHOOSE):
 		return NOTHING if focusable else ADVICE
+	# Neither of these is done by the keyboard, even on a control that takes the focus: Enter clicks a button,
+	# it does not keep it down, and the focus does not always show what the pointer shows.
+	if way == HOVER:
+		return REST_KEY
+	if way == HOLD:
+		return HOLD_KEY
 	if way == SHOWS:
 		return NOTHING
 	return ADVICE
@@ -233,6 +358,24 @@ def adviceFor(way):
 		DRAG_TO: "Ask VisionClaw to drag it onto something by name, or pick it up with G in the overlay.",
 		TYPE: "Ask VisionClaw to click it, then type.",
 		CHOOSE: "Ask VisionClaw to click it, then to list what is in the window.",
+		HOVER: (
+			"Ask VisionClaw to hover over it by name: it rests the mouse pointer on it and says what appeared. In "
+			"pointer mode (NVDA+Alt+K), T does the same for what is under the pointer."),
+		HOLD: (
+			"Ask VisionClaw to press and hold it by name, with how many seconds, or for a hotkey that holds it down "
+			"until you press the hotkey again. In pointer mode (NVDA+Alt+K), G holds the mouse button and G lets go."),
+		GESTURE: (
+			"Ask VisionClaw to swipe it left, right, up or down, or to draw a circle, a tick, a zigzag or a line on "
+			"it. For any other shape, in pointer mode (NVDA+Alt+K) G holds the mouse button, the arrow keys draw, and "
+			"G lets go."),
+		TIMED: (
+			"Ask VisionClaw to click it as soon as it changes, or to click it a number of times in a steady rhythm. "
+			"In pointer mode (NVDA+Alt+K), C clicks what is under the pointer the moment it changes, and Shift+C "
+			"only sounds a tone then, so that you press Enter yourself. VisionClaw looks about 25 times a second; "
+			"what must be hit more exactly than that can be missed."),
+		PAD: (
+			"In pointer mode (NVDA+Alt+K), put the pointer on it, press G to hold the mouse button, move it in any "
+			"direction with the arrow keys, and press G to let go. Or ask VisionClaw to drag it in a direction by name."),
 	}.get(way, "Pointer mode (NVDA+Alt+K) lets you put the mouse pointer on it and try it.")
 
 
@@ -292,6 +435,8 @@ def factsText(facts):
 	lines.append(f"It is reported as: {kind}" + (f", called {name}." if name else ", with no name."))
 	if facts.get("value"):
 		lines.append(f"Its value is {str(facts['value'])[:60]}.")
+	if facts.get("description"):
+		lines.append(f"Its description is: {str(facts['description'])[:120]}.")
 	states = [state for state in facts.get("states") or () if state]
 	if states:
 		lines.append("Its states: " + ", ".join(states[:8]).lower() + ".")

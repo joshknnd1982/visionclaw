@@ -256,6 +256,31 @@ Settings, Display, Scale).
       were typed into the program as usual while it was on.
 - [ ] "Make this control keyboard navigable" turns pointer mode on.
 
+## Controls that need more than a click (1.1.0)
+- [ ] "Hover over the ... icon" on something that shows a tip: the tip's text is said. On something that shows
+      nothing: "Nothing VisionClaw can see appeared." No question is asked first.
+- [ ] On a web page with a menu that opens when the mouse is over it: "hover over ..." opens it, and "list what
+      is in the window" then lists its items.
+- [ ] "Press and hold the ... button for 3 seconds" asks first, holds for three seconds, and says what the
+      window then showed. Stopping the request (NVDA+Alt+X) while it holds lets go at once.
+- [ ] "Make NVDA+Alt+3 hold down the ... button": the hotkey says "Holding the mouse button down on ...";
+      pressing it again says "Let go of ..."; Escape lets go as well. Clicks work normally afterwards.
+- [ ] "Middle-click the ... link" in a browser opens it in a new tab. "Control-click the second file" in File
+      Explorer's picture adds it to the selection, and the Control key is not stuck afterwards (type a letter).
+- [ ] "Click the seek bar 30 percent across" in a media player moves the position.
+- [ ] "Swipe left on ..." in a program that takes swipes with the mouse; "draw a circle" in Paint draws a
+      circle; "draw a line down then right with the right button held down" in a browser with mouse gestures.
+      Each asks first and says whether the window changed.
+- [ ] "Click the ... button as soon as it changes" on something that changes after a while: it is clicked
+      then. On something that never changes with "wait 5 seconds": nothing is clicked, and that is said.
+- [ ] "Click the ... 10 times" clicks ten times, evenly.
+- [ ] "Zoom in" and "zoom out" in a browser or an image viewer: the view gets larger and smaller, and the
+      Control key is not stuck afterwards.
+- [ ] Pointer mode: T on a toolbar button says its tip. C on something that will change clicks it when it does;
+      Shift+C only sounds the tone; any key stops the watch and says so.
+- [ ] "Inspect this window" in a program with a button named like "Hold to record": the report says it is
+      worked by holding the mouse button down, and "fix it" offers a hotkey for it.
+
 ## Dials and sliders that are dragged (0.6.0)
 - [x] In a program with a dial or knob NVDA cannot move (a music program, a plug-in, a game's settings): "let
       the arrow keys work the ... dial" asks first, then says how it is worked. The control is where it was.

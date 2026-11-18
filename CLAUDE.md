@@ -29,6 +29,17 @@ keyboard and speech alone.
 5. **Always give the user a choice.** Never hide a model or an option because of the computer it runs on.
    Every model in the catalog, including the 7B and 9B ones, is offered with every graphics option (they are
    still fast through Vulkan on modest PCs). Hardware only decides what is suggested first.
+   The owner said on 2026-11-18: "user should be able to choose between q4_k_m and q6_k for everything.
+   **user choice** visionclaw suggests, user can take the suggestion or make his own model and quant choices."
+   Every model is offered as Q4_K_M and as Q6_K (`catalog.QUANTS`). Each quant is an entry of its own in the
+   same folder, so the vision projector is shared and downloaded once, and an older VisionClaw can still read
+   `models.json`. The Q4_K_M entries keep their old ids, so an older setting without a quant still means
+   Q4_K_M. The models window has a second list under each model for its quant, with sizes and plain words
+   (`dialogs.modelLabel`, `quantLabel`). The suggested model and quant are marked, never forced. Q4_K_M is
+   suggested unless measuring shows Q6_K clearly better for a model (`catalog.SUGGESTED_QUANTS`, measured
+   with `tests/live_quants.py`). A stored model is one folder and quant (`catalog.storeKey`), so the quant no
+   longer used can be offered for removal. A new model in the catalog comes in both quants, from the same
+   publisher and revision, or the owner is told which quant is missing.
 
 6. **The user cannot read, write or debug code.** Never make the user's safety or success depend on looking at
    code. Say what code does in plain words taken from the code itself (`microaddons.describe`). When generated
@@ -161,8 +172,32 @@ keyboard and speech alone.
   (two for a drag), that is used, whatever the model wrote in the form (`nvdatools.mentioned`, `meant`). Give a
   tool that picks an item the `asked` auto field.
 - **Tests never move the real mouse or type into the real computer.** `tests/test_nvda_stub.py` replaces
-  `mousetools.moveTo`, `mousetools._button` and `nvdatools.typeUnicode` with functions that write down what
-  would have happened.
+  `mousetools.moveTo`, `mousetools._button`, `mousetools._key` and `nvdatools.typeUnicode` with functions that
+  write down what would have happened.
+- **Every way a sighted person works a control has a keyboard way, and every kind of control is known.** The
+  owner said on 2026-11-18, of controls worked by hovering, holding the button down, gestures and timing: "I
+  want those to be on the list of visionclaw controls which visionclaw must be able to make accessible too",
+  then "if you can think of any other controls to add ... add those", and "both controls and control types".
+  The list is `working.WAYS`: click, double click, right click, type, open and choose, drag up and down,
+  sideways, in a circle, in any direction, to another place, the mouse wheel, hover, press and hold, swipe or
+  draw, click at the right moment. Each has a means that really does it (`claw/pointer.py`, `mousetools.py`):
+  `click_item` (also the middle button, three clicks, a key held down, a place on the item, hovering with what
+  appeared read out, holding for a time), `draw_gesture`, `timed_click`, `scroll_view` (also zoom), a hotkey
+  that holds or hovers (`helpers._pointed`), and the keys of pointer mode. A new way needs all of: a line in
+  both questions to the models, a remedy (`working.remedy`, `adviceFor`), a means, a case in
+  `tests/live_working.py`, and what it cannot do said in plain words. Every kind NVDA has is sorted
+  (`working.knownRole`; the list in `tests/test_working.py` was read from the installed NVDA's
+  `controlTypes.Role`; read it again for a newer NVDA, do not write it from memory). What a control's own name
+  says ("Hold to record") is decided by plain code (`working.bySaid`), kept narrow. A mouse button or a key
+  that VisionClaw presses down always comes up again: in a `finally`, when the request is stopped, and after
+  `pointer.HOLD_LIMIT` for a hotkey; never add a way to leave one down.
+- **A recipe that reads everything from the user's words is checked against them.** When a model chooses
+  `timed_click` or `gesture` and the words name no moment and no count, or no direction and no shape, plain
+  code takes what the words point to instead (`planner.fitted`). Both real models sent "press and hold ... for
+  2 seconds" to the timed click twice, hint or no hint.
+- **In a question to a model, the order of the choices matters.** With the click listed first, Qwen3.5 9B
+  called an upright fader a click; with the ways of dragging first, it named all twelve drawn controls
+  rightly (`working.VISION_SYSTEM`, 2026-11-18). Measure before moving a line.
 - **Accessibility fixes are data, not model code.** A fixes add-on is `fixes.build(scope, fixes)`: the text of
   `claw/fixmatch.py` and `fixruntime.py` below their marker lines, plus the fixes as a literal. Never let a
   model write or repair it (`nvdatools.fixAddon` refuses), and never hang a fix on something that is not fixed
@@ -329,7 +364,9 @@ addon/
     nvdatools.py             the tools the models can call, written against the NVDA API
     webtools.py              the web through NVDA's browse mode: a page's links, buttons, fields and text
     mousetools.py            the mouse from the keyboard: click, right-click, double-click, drag, the wheel,
-                             the screen's scaling, pointer mode
+                             the screen's scaling, pointer mode; holding the button, resting the pointer and
+                             what appeared, gestures, a click when something changes or in a rhythm, keys held
+                             down during a click or a turn of the wheel
     accesstools.py           deep inspection, lasting fixes for a website or program, installed add-ons;
                              both models judging how a control is worked
     deepquery.py             a deep query of one control: NVDA, UI Automation, the window, the off-screen model
@@ -376,7 +413,9 @@ addon/
       debuglog.py            VisionClaw's own log file: levels, rotation, errors with their place in the code
       web.py                 web addresses, search addresses, the passages of a page that matter
       drivers.py             rules that keep speech and braille alive; what happened with each driver
-      pointer.py             which mouse action is meant, where a drag ends, how pointer mode moves
+      pointer.py             which mouse action is meant, where a drag ends, how pointer mode moves; how long
+                             to hold, which keys are held, a place on a thing, gestures as strokes, when and
+                             how often to click, where a picture changed
       scrolling.py           how far to scroll, steps that follow the screen, whether a scroll moved anything,
                              scrollbars found in a picture
       changes.py             every setting VisionClaw changed, so that it can be listed and put back
@@ -398,7 +437,8 @@ addon/
       skills/                VisionClaw's own skills, one folder with a SKILL.md each
       knowledge.py           searchable NVDA add-on knowledge (claw/knowledge/*.md)
       guides.py              the downloaded developer guides: fixed addresses, web page to Markdown, sections
-      working.py             how a control is worked, from NVDA's facts or from both models; which remedy fits;
+      working.py             how a control is worked, from NVDA's facts, its own name or both models, for
+                             every kind of control NVDA has; which remedy fits;
                              what a window's class says about the toolkit or game engine
       dragcontrol.py         the drags, wheel turns and values behind the arrow keys; whether a control changed
       microaddons.py         check, store, package generated add-ons
@@ -540,6 +580,10 @@ A session is done only when its "Done when" line is true.
   browser; `app_notes` and `forget_notes`; questions are answered from the notes by `look_up`.
 - [x] **3.30 The models used for more.** A model names the program and its kind, writes the notes, says what
   "this" means, and judges whether what was looked up answers the question; plain code checks each.
+- [x] **3.31 Controls that need more than a click, and every kind of control.** Hover with what appeared read
+  out, press and hold, gestures, a click at the right moment or in a rhythm, the middle button, a key held
+  down, a place on a thing, zoom; found by the inspection from a control's own name or by the models; hotkeys
+  that hold or hover; all 156 kinds of control NVDA has sorted.
 - [ ] **3.5 Test inside NVDA.** Install the build in NVDA (ask the user first) and walk through
   `docs/TESTPLAN.md`. Fix what breaks. *Done when:* every item in the test plan is ticked by a real run.
 
@@ -552,7 +596,7 @@ A session is done only when its "Done when" line is true.
   examples; add a `learn` command that studies a topic and stores notes. *Done when:* a question about an NVDA
   feature is answered with a quote from the user guide.
 - [x] **4.3 Skills.** SmallClaw-style `SKILL.md` files (starting words, the jobs they are for, plain sentences,
-  and optional fixed steps), 38 built in for what blind people do at a computer, six of them for the add-ons
+  and optional fixed steps), 39 built in for what blind people do at a computer, six of them for the add-ons
   the models write (`claw/skills/`), chosen by
   plain code from the request's words, their sentences given to the forms, the vision model, the coder and the
   answer of their jobs; a skill with steps runs them as its plan. The user makes, changes, turns off, deletes and
@@ -589,6 +633,8 @@ python tests/live_side_by_side.py        two real engines on two backends; needs
 python tests/live_addon.py               a real model writes four add-ons and debugs one; read every result
 python tests/live_addon_memories.py      a real model writes add-ons with a memory, the library and the notes on
                                          accessibility interfaces put first; read every result
+python tests/live_quants.py FOLDER 1 ID1 ID2   two quants of one coder write the same add-ons; counts passes
+                                         and repair rounds; read every add-on it writes to a file
 python tests/live_working.py             both real models say how drawn and described controls are worked
 python tests/live_prompts.py             a real vision model describes drawn pictures with and without the
                                          instructions for blind users; read every answer

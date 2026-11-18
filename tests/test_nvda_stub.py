@@ -222,6 +222,10 @@ wheels = []
 mousetools._wheel = lambda flag, amount: wheels.append((flag, amount))
 mousetools._dpi = lambda x, y: 96
 mousetools._WHEEL_STEP = mousetools._SCROLL_SETTLE = 0
+# No key of the keyboard is really pressed either, and the pointer does not really rest anywhere.
+keysPressed = []
+mousetools._key = lambda code, up: keysPressed.append((code, up))
+mousetools._REST = 0
 nvdatools.typeUnicode = typed.append  # nothing is really typed into the computer during the tests
 from visionClaw.claw import orchestrator, planner  # noqa: E402
 from visionClaw.claw import task as taskModule  # noqa: E402
@@ -238,7 +242,7 @@ with open(os.path.join(CONFIG_DIR, "visionClaw", "lessons.json"), "w", encoding=
 	], f)
 instance = plugin.GlobalPlugin()
 registry = instance.orchestrator.registry
-assert len(registry.names()) == 61, registry.names()
+assert len(registry.names()) == 63, registry.names()
 # Lessons from searches that happened to find something misled; they are dropped when VisionClaw starts.
 assert instance.memory.all() == ["Tool set_setting: this form failed: {} (x). This form worked: {}."], instance.memory.all()
 assert set(planner.available(registry)) == set(planner.RECIPES), set(planner.RECIPES) - set(planner.available(registry))
@@ -841,12 +845,130 @@ assert moves[0] == (200, 200) and buttons == [RIGHT_DOWN, RIGHT_UP], (moves, but
 fresh()
 worked, result = registry.call(task, "click_item", {"item": "File", "action": "double click", "asked": ""})
 assert worked and result == "Double-clicked File icon." and buttons == [LEFT_DOWN, LEFT_UP, LEFT_DOWN, LEFT_UP]
-# Pointing at something asks nothing, presses nothing, and leaves the pointer there.
+# Resting the pointer on something asks nothing, presses nothing, and leaves the pointer there. The window is
+# looked at before and after, and what appeared is read out: a tip, a menu that opens by itself.
+from PIL import Image, ImageDraw  # noqa: E402
+
+plainShot = Image.new("RGB", (800, 600), "white")
+tipShot = plainShot.copy()
+ImageDraw.Draw(tipShot).rectangle((400, 320, 560, 350), fill="black")
+realOcr, mousetools.ocr = mousetools.ocr, types.SimpleNamespace(
+	recognize=lambda image: image, rowsText=lambda image: "Empties the trash" if image.convert("L").getextrema()[0] < 50 else "")
+conf["visionClaw"]["useOcr"] = True
+shots = [plainShot, tipShot]
+realGrab, instance._grab = instance._grab, lambda box: shots.pop(0)
 fresh()
 asked = len(questions)
 worked, result = registry.call(task, "click_item", {"item": "Trash", "action": "hover", "asked": ""})
-assert worked and result == "The mouse pointer is on Trash icon." and buttons == [] and moves == [(500, 400)]
-assert len(questions) == asked
+assert worked and result == "The mouse pointer rests on Trash icon. This appeared: Empties the trash", result
+assert buttons == [] and moves == [(498, 400), (500, 400)] and len(questions) == asked, moves
+# Nothing appeared: that is what is said.
+shots = [plainShot, plainShot.copy()]
+fresh()
+worked, result = registry.call(task, "click_item", {"item": "Trash", "action": "hover", "asked": ""})
+assert worked and result == "The mouse pointer rests on Trash icon. Nothing VisionClaw can see appeared.", result
+# The window cannot be looked at: nothing is claimed about what appeared.
+shots = []
+fresh()
+worked, result = registry.call(task, "click_item", {"item": "Trash", "action": "hover", "asked": ""})
+assert worked and result.endswith("The window could not be looked at, so what appeared is not known."), result
+
+# Press and hold: the button goes down, stays down for as long as the words say, and comes up; the user is
+# asked first and told what the window then showed.
+shots = [plainShot, tipShot]
+fresh()
+began = time.time()
+worked, result = registry.call(task, "click_item", {
+	"item": "?", "action": "press and hold", "asked": "press and hold the File icon for half a second"})
+assert worked and result == "Held the mouse button down on File icon for half a second. This appeared: Empties the trash", result
+assert time.time() - began >= 0.45 and questions[-1] == "Press and hold File icon for half a second?", questions[-1]
+assert buttons == [LEFT_DOWN, LEFT_UP] and moves[0] == (200, 200) and moves[-1] == (7, 7), (buttons, moves)
+# Stopped while the button is down: it comes up at once, and never stays down.
+shots = [plainShot, plainShot]
+fresh()
+stopping = taskModule.Task("test")
+stopping.items = window
+threading.Timer(0.1, stopping.stop).start()
+began = time.time()
+try:
+	registry.call(stopping, "click_item", {"item": "File", "action": "press and hold", "asked": "hold down the File icon for 30 seconds"})
+	raise AssertionError("a stopped request must not go on")
+except taskModule.Cancelled:
+	pass
+assert time.time() - began < 5 and buttons == [LEFT_DOWN, LEFT_UP], buttons
+
+# The middle button, and a click with a key held down: the key goes down before the click and comes up after.
+fresh()
+worked, result = registry.call(task, "click_item", {"item": "File", "action": "middle click", "asked": ""})
+assert worked and result == "Clicked with the middle mouse button: File icon." and buttons == [32, 64], (result, buttons)
+fresh()
+del keysPressed[:]
+worked, result = registry.call(task, "click_item", {"item": "?", "action": "click", "asked": "control-click the Trash icon"})
+assert worked and result == "Clicked Trash icon with Control held down.", result
+assert questions[-1] == "Click Trash icon with Control held down?" and keysPressed == [(0x11, False), (0x11, True)], keysPressed
+assert buttons == [LEFT_DOWN, LEFT_UP] and moves[0] == (500, 400)
+fresh()
+worked, result = registry.call(task, "click_item", {"item": "File", "action": "triple click", "asked": ""})
+assert worked and result == "Triple-clicked File icon." and buttons == [LEFT_DOWN, LEFT_UP] * 3, (result, buttons)
+# A click at a place on a thing, as on a bar that is clicked where the value should be.
+window.items[2]["box"] = (100, 490, 300, 510)
+window.imageInfo.convertXToScreen, window.imageInfo.convertYToScreen = (lambda x: x + 100), (lambda y: y + 100)
+fresh()
+worked, result = registry.call(task, "click_item", {"item": "?", "action": "click", "asked": "click the Volume slider 25 percent across"})
+assert worked and result == "Clicked Volume slider, 25 percent across." and moves[0] == (250, 600), (result, moves)
+del window.items[2]["box"]
+
+# A gesture: a swipe from the item the words name, a share of the window long, with the button down all the
+# way; the user is asked, the pointer is put back, and whether the window changed is said.
+shots = [plainShot, tipShot]
+fresh()
+worked, result = registry.call(task, "draw_gesture", {"asked": "swipe left on the Trash icon"})
+assert worked and result == (
+	"Drew a swipe to the left on Trash icon, with the mouse button held down. What the window shows changed."), result
+assert questions[-1] == "Draw a swipe to the left on Trash icon, with the mouse button held down?", questions[-1]
+assert buttons == [LEFT_DOWN, LEFT_UP] and moves[0] == (500, 400) and moves[-2] == (350, 400) and moves[-1] == (7, 7), moves
+# With the right button, as mouse gestures in some programs want; nothing changed is said too.
+shots = [plainShot, plainShot.copy()]
+fresh()
+worked, result = registry.call(task, "draw_gesture", {"asked": "draw a circle on the File icon with the right button held down"})
+assert worked and result == (
+	"Drew a circle, clockwise on File icon, with the right mouse button held down. Nothing VisionClaw can see "
+	"changed in the window."), result
+assert buttons == [RIGHT_DOWN, RIGHT_UP] and len(moves) > 20
+# Words that name no gesture: nothing is drawn.
+fresh()
+worked, result = registry.call(task, "draw_gesture", {"asked": "do the thing on the Trash icon"})
+assert not worked and "does not say which gesture" in result and buttons == [], result
+
+# A click in a rhythm, and a click the moment the thing changes.
+instance._grab = lambda box: plainShot
+fresh()
+worked, result = registry.call(task, "timed_click", {"asked": "click the Trash icon 3 times, every 100 milliseconds"})
+assert worked and result.startswith("Clicked Trash icon 3 times, one every 100 milliseconds."), result
+assert questions[-1] == "Click Trash icon 3 times, one every 100 milliseconds?" and buttons == [LEFT_DOWN, LEFT_UP] * 3
+light, dark = Image.new("L", (96, 96), 255), Image.new("L", (96, 96), 0)
+frames = [light] * 8 + [dark]
+instance._grab = lambda box: frames.pop(0) if len(frames) > 1 else frames[0]
+fresh()
+worked, result = registry.call(task, "timed_click", {"asked": "click the Trash icon when it changes"})
+assert worked and result.startswith("Trash icon changed after ") and "was clicked at once" in result, result
+assert questions[-1] == "Click Trash icon as soon as it changes? VisionClaw watches it for up to 30 seconds."
+assert buttons == [LEFT_DOWN, LEFT_UP] and moves[0] == (500, 400) and moves[-1] == (7, 7), (buttons, moves)
+# It never changes: nothing is clicked, and that is said.
+frames = [light]
+fresh()
+worked, result = registry.call(task, "timed_click", {"asked": "click the Trash icon when it changes, wait 1 second"})
+assert not worked and "Nothing changed at Trash icon in 1 second, so nothing was clicked." in result and buttons == [], result
+# It changes all the time: no moment can be told from another, so nothing is clicked.
+flicker = [light, dark] * 40
+instance._grab = lambda box: flicker.pop(0)
+fresh()
+worked, result = registry.call(task, "timed_click", {"asked": "click the Trash icon as soon as it lights up"})
+assert not worked and "moves or changes all the time" in result and buttons == [], result
+# Words that say neither when nor how often: nothing is clicked.
+worked, result = registry.call(task, "timed_click", {"asked": "the Trash icon"})
+assert not worked and "does not say when to click" in result, result
+instance._grab, mousetools.ocr = realGrab, realOcr
 # Dragging one item onto another: the button goes down on the first, travels in small steps, and comes up on
 # the second. The button never stays down.
 fresh()
@@ -1188,6 +1310,18 @@ pictures = [shot(0), shot(60)]
 del wheels[:]
 worked, result = registry.call(task, "scroll_view", {"direction": "right", "asked": "scroll right a little"})
 assert worked and wheels == [(HWHEEL, 120)] and result == "Scrolled right 1 notches of the wheel in the window Notes.", (result, wheels)
+# Larger and smaller: the wheel with the Control key held down, which comes up again; a little at a time.
+pictures = [shot(0), shot(60)]
+del wheels[:], keysPressed[:]
+worked, result = registry.call(task, "scroll_view", {"direction": "down", "asked": "zoom in"})
+assert worked and result == "Made what the window Notes shows larger, with the Control key and 2 notches of the mouse wheel.", result
+assert wheels == [(WHEEL, 120)] * 2 and keysPressed == [(0x11, False), (0x11, True)], (wheels, keysPressed)
+assert questions[-1] == "Make what the window Notes shows larger, with the Control key and the mouse wheel?", questions[-1]
+pictures = [shot(0), shot(0)]
+del wheels[:], keysPressed[:]
+worked, result = registry.call(task, "scroll_view", {"direction": "down", "asked": "zoom out"})
+assert worked and result.startswith("Nothing VisionClaw can see changed in the window Notes."), result
+assert wheels == [(WHEEL, -120)] * 2 and keysPressed == [(0x11, False), (0x11, True)], (wheels, keysPressed)
 # The user says no: the wheel is not turned.
 instance.clawAsk = lambda question, choices: 1
 pictures = [shot(0), shot(60)]
@@ -1235,7 +1369,49 @@ pictures = [shot(0)]
 press("s")
 settle(4)
 assert said[-1].startswith("No scrollbar was found in this window's picture.")
+# T rests the pointer where it is and says what appeared.
+realOcr, mousetools.ocr = mousetools.ocr, types.SimpleNamespace(
+	recognize=lambda image: image, rowsText=lambda image: "Empties the trash" if image.convert("L").getextrema()[0] < 50 else "")
+pictures = [plainShot, tipShot]
+press("t")
+settle(5)
+assert said[-1] == "Empties the trash", said[-1]
+pictures = [plainShot, plainShot.copy()]
+press("t")
+settle(6)
+assert said[-1] == "Nothing appeared.", said[-1]
+# C watches what is under the pointer and clicks the moment it changes; Shift+C only says so, with a tone.
+frames = [light] * 8 + [dark]
+instance._grab = lambda box: frames.pop(0) if len(frames) > 1 else frames[0]
+del buttons[:]
+press("c")
+settle(8)
+assert said[-2] == "Watching what is here. Any key of pointer mode stops it." and said[-1] == "It changed, and was clicked.", said[-2:]
+assert buttons == [LEFT_DOWN, LEFT_UP], buttons
+frames = [light] * 8 + [dark]
+del buttons[:]
+press("shift+c")
+settle(10)
+assert said[-1] == "It changed." and buttons == [], (said[-1], buttons)
+# Any key ends a watch, and does nothing else.
+frames = [light]
+press("c")
+time.sleep(0.3)
+at = (instance.pointerMode.x, instance.pointerMode.y)
+press("rightarrow")
+settle(12)
+assert said[-1] == "Stopped watching." and buttons == [] and (instance.pointerMode.x, instance.pointerMode.y) == at, said[-1]
 instance.pointerMode.stop()
+# A hotkey that rests the pointer on its item and says what appeared, found by name each time.
+instance.clawScreen.items = lambda: window
+pictures = [plainShot, tipShot]
+instance._grab = lambda box: pictures.pop(0)
+del moves[:], buttons[:]
+helpers._run({"key": "NVDA+alt+4", "action": "hover", "item": "Trash"}, "notes", "kb:nvda+alt+4")
+assert said[-1] == "Empties the trash" and moves[-1] == (500, 400) and buttons == [], (said[-1], moves)
+helpers._run({"key": "NVDA+alt+4", "action": "hover", "item": "Moon"}, "notes", "kb:nvda+alt+4")
+assert said[-1] == "Moon is not in this window right now.", said[-1]
+mousetools.ocr = realOcr
 sys.modules["ui"].message = lambda text: None
 
 # The inspection of a window says what its picture shows of scrollbars, and what the vision model sees.
@@ -1403,12 +1579,16 @@ assert dialogs.lookResult({"new": [], "tooNew": 0, "refused": 0, "updated": ""})
 	"There are no newer models. The lists here already offer every model on VisionClaw's list.")
 # In the lists of the models window, the very smallest models say what they are, so that it is heard while
 # moving through the list; the others, and the suggested one, are worded as before.
-shelf = types.SimpleNamespace(_models=types.SimpleNamespace(isInstalled=lambda entry: False, missingBytes=lambda entry: 703 * 2 ** 20))
-labelOf = lambda ident, suggested=None: dialogs.ModelsDialog._label(shelf, catalog.Catalog("nowhere").get(ident), suggested)  # noqa: E731
-assert labelOf("qwen3.5-0.8b") == "Qwen3.5 0.8B, 703 MB to download, very small: fast, less accurate", labelOf("qwen3.5-0.8b")
+# Each model is said with what each of its quants would download.
+shelf = types.SimpleNamespace(entries=catalog.Catalog("nowhere").entries, isInstalled=lambda entry: False,
+	missingBytes=lambda entry: 703 * 2 ** 20)
+labelOf = lambda ident, suggested=None: dialogs.modelLabel(shelf, catalog.Catalog("nowhere").get(ident), suggested)  # noqa: E731
+assert labelOf("qwen3.5-0.8b") == (
+	"Qwen3.5 0.8B, Q4_K_M 703 MB to download, Q6_K 703 MB to download, very small: fast, less accurate"), labelOf("qwen3.5-0.8b")
 assert labelOf("qwen2.5-coder-0.5b").endswith(", very small: fast, less accurate")
-assert labelOf("qwen3.5-2b", "qwen3.5-2b") == "Qwen3.5 2B, 703 MB to download, suggested"
-assert labelOf("qwen3.5-9b") == "Qwen3.5 9B, 703 MB to download"
+assert labelOf("qwen3.5-2b", "qwen3.5-2b") == "Qwen3.5 2B, Q4_K_M 703 MB to download, Q6_K 703 MB to download, suggested"
+assert labelOf("qwen3.5-9b") == "Qwen3.5 9B, Q4_K_M 703 MB to download, Q6_K 703 MB to download"
+assert labelOf("qwen3.5-9b-q6k", "qwen3.5-9b-q6k").endswith(", suggested")
 
 # --- Arrow keys for a control that is dragged: a dial, a slider, a value Windows offers ---
 
@@ -1675,6 +1855,64 @@ for binding in list(made.values()):
 	assert instance.helpers.remove(binding["key"])
 instance.runtime = realRuntime
 deepquery._rangePattern = realPattern
+
+# Controls that are worked by neither a click nor a drag. Their own names say how: one is held down, one is
+# swiped. No model is asked. The one that is held down gets a hotkey although it takes the focus, because
+# Enter clicks a button and does not keep it down; for the other the report says what to ask for.
+recordButton = thing("BUTTON", "Hold to record", ["FOCUSABLE"], box=(100, 400, 300, 440), autoId="recordButton")
+unlock = thing("PANE", "Swipe to unlock", ["CLICKABLE"], box=(400, 400, 700, 440))
+recorder = thing("WINDOW", "Recorder", box=(0, 0, 800, 600), children=[recordButton, unlock, okButton])
+sys.modules["api"].getForegroundObject = lambda: recorder
+sys.modules["api"].getFocusObject = lambda: okButton
+task = taskModule.Task("test")
+worked, result = registry.call(task, "check_access", {"target": "window", "depth": "quick"})
+assert worked and "with a mouse 1 is clicked, 1 is pressed and held down, 1 is swiped or drawn on." in result, result
+assert ("1 control here is worked with the mouse in a way the keyboard does not do: Hold to record is worked by "
+	"holding the mouse button down on it.") in result, result
+assert "Swipe to unlock is worked by swiping across it or drawing on it." in result, result
+assert "Ask VisionClaw to swipe it left, right, up or down" in result and "with hotkeys of its own" in result, result
+del questions[:], buttons[:], moves[:]
+worked, result = registry.call(task, "fix_access", {"which": "fix the control that is held down"})
+assert worked and result.startswith("Made 1 hotkey in mixer: NVDA+alt+") and result.endswith(
+	"holds the mouse button down on Hold to record until you press it again. Ask VisionClaw to remove a hotkey to undo one."), result
+assert questions[-1].startswith("Make these hotkeys in mixer? NVDA+alt+") and "arrow keys" not in questions[-1], questions
+held = [b for b in instance.helpers._bindings["mixer"].values() if b["name"] == "Hold to record"][0]
+assert held["action"] == "press and hold" and held["find"] == {"rule": {"role": "BUTTON", "autoId": "recordButton"}}, held
+assert buttons == []  # nothing is pressed until the hotkey is
+# The hotkey finds the button again, presses the mouse button on its middle and keeps it down; the same
+# hotkey lets go, and so does Escape.
+press(held["key"].lower())
+for _ in range(300):
+	if instance.pointerMode.kept is not None:
+		break
+	time.sleep(0.01)
+assert instance.pointerMode.kept == "Hold to record" and buttons == [LEFT_DOWN] and moves[-1] == (200, 420), (buttons, moves)
+assert said[-1] == "Holding the mouse button down on Hold to record. Press the hotkey again, or Escape, to let go.", said[-1]
+press(held["key"].lower())
+assert instance.pointerMode.kept is None and buttons == [LEFT_DOWN, LEFT_UP] and said[-1] == "Let go of Hold to record.", said[-1]
+press(held["key"].lower())
+for _ in range(300):
+	if instance.pointerMode.kept is not None:
+		break
+	time.sleep(0.01)
+press("escape")
+assert instance.pointerMode.kept is None and buttons == [LEFT_DOWN, LEFT_UP] * 2, buttons
+assert instance.getScript(key("escape")) is None  # nothing is held: Escape is the program's own again
+# VisionClaw going away lets go of a button that is still down.
+press(held["key"].lower())
+for _ in range(300):
+	if instance.pointerMode.kept is not None:
+		break
+	time.sleep(0.01)
+instance.pointerMode.stop(say=False)
+assert instance.pointerMode.kept is None and buttons[-1] == LEFT_UP
+assert "holds" not in instance.helpers.listText() and "does press and hold \"Hold to record\"" in instance.helpers.listText()
+assert instance.helpers.remove(held["key"])
+# The focused control, queried in depth: its own name comes before its kind.
+sys.modules["api"].getFocusObject = lambda: recordButton
+worked, result = registry.call(taskModule.Task("test"), "check_access", {"target": "control", "depth": "deep"})
+assert worked and "A sighted person works it like this: press and hold. That comes from its own name." in result, result
+assert "Ask VisionClaw to press and hold it by name" in result, result
 
 # --- The developer guides: downloaded only after a yes, kept as Markdown, and read by the models ---
 

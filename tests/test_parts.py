@@ -39,8 +39,11 @@ assert catalog.recommend(VISION, 8, 0) == "qwen3.5-2b" and catalog.recommend(COD
 assert catalog.recommend(VISION, 64, 0) == "qwen3.5-4b" and catalog.recommend(CODER, 16, 12000) == "qwen3.5-4b-coder"
 assert {"qwen2.5-coder-7b", "qwen3.5-9b"} <= set(ids)
 # Several small sizes of each kind are offered, the smallest first; the very smallest are never the suggestion.
-assert [e["id"] for e in catalog.CATALOG if e["role"] == VISION] == ["qwen3.5-0.8b", "qwen3.5-2b", "qwen3.5-4b", "qwen3.5-9b"]
-assert [e["id"] for e in catalog.CATALOG if e["role"] == CODER][:2] == ["qwen2.5-coder-0.5b", "qwen2.5-coder-1.5b"]
+assert [e["id"] for e in catalog.CATALOG if e["role"] == VISION] == [
+	"qwen3.5-0.8b", "qwen3.5-0.8b-q6k", "qwen3.5-2b", "qwen3.5-2b-q6k", "qwen3.5-4b", "qwen3.5-4b-q6k", "qwen3.5-9b",
+	"qwen3.5-9b-q6k"]
+assert [e["id"] for e in catalog.CATALOG if e["role"] == CODER][:4] == [
+	"qwen2.5-coder-0.5b", "qwen2.5-coder-0.5b-q6k", "qwen2.5-coder-1.5b", "qwen2.5-coder-1.5b-q6k"]
 for memory, card in ((2, 0), (8, 0), (16, 4000)):
 	assert catalog.recommend(VISION, memory, card) == "qwen3.5-2b" and catalog.recommend(CODER, memory, card) == "qwen2.5-coder-1.5b"
 
@@ -155,6 +158,111 @@ try:
 finally:
 	catalog.CATALOG[:] = real
 
+# --- Quants: every model in Q4_K_M and Q6_K, the user's choice (the owner, 2026-11-18) ---
+
+assert catalog.QUANTS == ("Q4_K_M", "Q6_K") and catalog.DEFAULT_QUANT == "Q4_K_M"
+fours = [e for e in catalog.CATALOG if catalog.quantOf(e) == catalog.Q4]
+assert len(fours) == 9 and len(catalog.CATALOG) == 18
+for four in fours:
+	six = catalog.variant(catalog.CATALOG, four, catalog.Q6)
+	# Every model, the 7B and 9B included, can be had as Q6_K: from the same publisher, at the same revision,
+	# in the same folder, with the same vision projector, so that the projector is downloaded once.
+	assert six is not None and six["id"] == four["id"] + "-q6k", four["id"]
+	assert (six["role"], six["dir"], six["source"], six["thinking"], six["maxContext"], six.get("suggest", True)) == (
+		four["role"], four["dir"], four["source"], four["thinking"], four["maxContext"], four.get("suggest", True))
+	fourModel, sixModel = (next(f for f in e["files"] if f["kind"] == "model") for e in (four, six))
+	assert sixModel["url"].rsplit("/", 1)[0] == fourModel["url"].rsplit("/", 1)[0], four["id"]
+	assert catalog._namesQuant(sixModel["name"], "Q6_K") and sixModel["size"] > fourModel["size"]
+	assert [f for f in six["files"] if f["kind"] == "mmproj"] == [f for f in four["files"] if f["kind"] == "mmproj"]
+	assert six["memoryGb"] > four["memoryGb"]
+	assert catalog.modelName(six) == catalog.modelName(four) == four["name"]
+	assert catalog.displayName(four).startswith(four["name"].split(",")[0] + " Q4_K_M")
+	assert catalog.variants(catalog.CATALOG, six) == [four, six] and catalog.storeKey(four) == four["dir"]
+	assert catalog.storeKey(six) == four["dir"] + "@Q6_K"
+assert catalog.displayName(catalog.CATALOG[-1]) == "Qwen3.5 9B Q6_K, used for coding"
+assert catalog.models(catalog.CATALOG) == fours
+# What a file is, when an older list does not say: from its name, where Q6_K_XL is not Q6_K.
+assert catalog.quantOf({"files": [{"kind": "model", "name": "qwen2.5-coder-1.5b-instruct-q6_k.gguf"}]}) == "Q6_K"
+assert catalog.quantOf({"files": [{"kind": "model", "name": "Qwen3.5-2B-UD-Q6_K_XL.gguf"}]}) == ""
+assert catalog.quantOf(None) == ""
+# The suggestion stays Q4_K_M, whatever the computer; a model measured better in Q6_K would be suggested so.
+assert catalog.recommend(VISION, 64, 0) == "qwen3.5-4b" and catalog.suggestedQuant(catalog.CATALOG[3]) == "Q4_K_M"
+catalog.SUGGESTED_QUANTS["qwen2.5-coder-1.5b"] = "Q6_K"
+try:
+	assert catalog.recommend(CODER, 8, 0) == "qwen2.5-coder-1.5b-q6k" and catalog.recommend(VISION, 8, 0) == "qwen3.5-2b"
+finally:
+	del catalog.SUGGESTED_QUANTS["qwen2.5-coder-1.5b"]
+# A quant a list names must be its file's.
+sixEntry = copy.deepcopy(catalog.variant(catalog.CATALOG, catalog.CATALOG[2], catalog.Q6))
+assert catalog.checkEntry(sixEntry)["quant"] == "Q6_K"
+for wrong in ("Q4_K_M", "q6_k", "Q6", "../x", 6):
+	try:
+		catalog.checkEntry(dict(sixEntry, quant=wrong))
+		raise AssertionError(wrong)
+	except ValueError:
+		pass
+assert "quant" not in catalog.checkEntry(dict(sixEntry, quant=""))
+
+# The user's choice is kept as the entry's id. An older setting, made before there were quants, names the
+# Q4_K_M entry and goes on meaning it; a Q6_K choice is used when it is on the disk.
+
+
+class Everything(catalog.Catalog):
+	def isInstalled(self, entry):
+		return entry["id"] != catalog.VISIONMATE_ID
+
+
+from visionClaw.claw import runtime  # noqa: E402
+everything = Everything(tempfile.mkdtemp())
+for setting, wanted in (("qwen3.5-2b", "Q4_K_M"), ("qwen3.5-2b-q6k", "Q6_K"), ("qwen3.5-9b-q6k", "Q6_K")):
+	chosen = runtime.ModelRuntime("engine", everything, lambda: {"visionModel": setting}).entry(VISION)
+	assert chosen["id"] == setting and catalog.quantOf(chosen) == wanted, setting
+coderChosen = runtime.ModelRuntime("engine", everything, lambda: {"coderModel": "qwen2.5-coder-7b-q6k"}).entry(CODER)
+assert coderChosen["id"] == "qwen2.5-coder-7b-q6k" and coderChosen["files"][0]["name"].endswith("q6_k.gguf")
+# The same model in two quants is two files: never one model doing both jobs by mistake.
+mixed = runtime.ModelRuntime("engine", everything, lambda: {"visionModel": "qwen3.5-4b", "coderModel": "qwen3.5-4b-coder-q6k"})
+assert not mixed.oneModel()
+same = runtime.ModelRuntime("engine", everything, lambda: {"visionModel": "qwen3.5-4b-q6k", "coderModel": "qwen3.5-4b-coder-q6k"})
+assert same.oneModel()
+
+# On the disk: a folder holding both quants is two stored models. The projector they share is downloaded once,
+# counted once, and removed only with the last of them.
+real = list(catalog.CATALOG)
+try:
+	def tiny(ident, quant, files):
+		return {"id": ident, "dir": "pair", "role": VISION, "name": "Qwen Pair", "small": True, "thinking": False,
+			"memoryGb": 1, "maxContext": 4096, "quant": quant,
+			"files": [{"kind": kind, "name": name, "size": size, "sha256": "0" * 64, "url": ""} for kind, name, size in files]}
+	catalog.CATALOG[:] = [
+		tiny("pair", "Q4_K_M", [("model", "pair-Q4_K_M.gguf", 20), ("mmproj", "eyes.gguf", 6)]),
+		tiny("pair-q6k", "Q6_K", [("model", "pair-Q6_K.gguf", 30), ("mmproj", "eyes.gguf", 6)]),
+	]
+	folder = tempfile.mkdtemp()
+	disk = catalog.Catalog(folder)
+
+	def put(name, size):
+		os.makedirs(os.path.join(folder, "pair"), exist_ok=True)
+		with open(os.path.join(folder, "pair", name), "wb") as f:
+			f.write(b"x" * size)
+	put("pair-Q4_K_M.gguf", 20)
+	put("eyes.gguf", 6)
+	four, six = catalog.CATALOG
+	# Switching to Q6_K downloads only its own file: the projector is already there.
+	assert disk.isInstalled(four) and disk.missingBytes(six) == 30
+	assert [(m["key"], m["name"], m["bytes"]) for m in disk.stored()] == [("pair", "Qwen Pair Q4_K_M", 26)]
+	put("pair-Q6_K.gguf", 30)
+	found = disk.stored()
+	assert [(m["key"], m["name"], m["bytes"], m["ids"]) for m in found] == [
+		("pair", "Qwen Pair Q4_K_M", 26, ["pair"]), ("pair@Q6_K", "Qwen Pair Q6_K", 30, ["pair-q6k"])], found
+	assert disk.freedBy(["pair"]) == 20 and disk.freedBy(["pair@Q6_K"]) == 30 and disk.freedBy(["pair", "pair@Q6_K"]) == 56
+	# Removing the quant no longer used keeps the projector for the other.
+	assert disk.removeStored("pair") == 20 and disk.isInstalled(six) and not disk.isInstalled(four)
+	assert [(m["key"], m["bytes"]) for m in disk.stored()] == [("pair@Q6_K", 36)]
+	assert disk.freedBy(["pair@Q6_K"]) == 36
+	assert disk.removeStored("pair@Q6_K") == 36 and disk.stored() == [] and not os.path.exists(os.path.join(folder, "pair"))
+finally:
+	catalog.CATALOG[:] = real
+
 # --- Newer models: the list the user can have fetched ---
 
 # Every built-in model follows the rules a fetched one must follow, and the published list is the catalog.
@@ -241,11 +349,12 @@ for wrong in ({"format": 2, "models": []}, {"format": 1}, [], "list", {"format":
 folder = tempfile.mkdtemp()
 asked = []
 shelf = catalog.Catalog(folder)
-assert shelf.offered() == [] and len(shelf.entries(VISION)) == 4
+assert shelf.offered() == [] and len(shelf.entries(VISION)) == 8
 found = shelf.look("0.4.0", lambda url: asked.append(url) or copy.deepcopy(later))
 assert asked == [catalog.LIST_URL]
 assert found == {"new": ["Qwen9 1B"], "tooNew": 1, "refused": 0, "updated": "2027-03-01"}, found
-assert [e["id"] for e in shelf.entries(VISION)] == ["qwen3.5-0.8b", "qwen3.5-2b", "qwen3.5-4b", "qwen3.5-9b", "qwen9-1b"]
+assert [e["id"] for e in catalog.models(shelf.entries(VISION))] == [
+	"qwen3.5-0.8b", "qwen3.5-2b", "qwen3.5-4b", "qwen3.5-9b", "qwen9-1b"]
 assert shelf.get("qwen9-1b") == good and catalog.recommend(VISION, 8, 0) == "qwen3.5-2b"
 assert shelf.look("0.4.0", lambda url: copy.deepcopy(later))["new"] == []  # nothing is new the second time
 again = catalog.Catalog(folder)

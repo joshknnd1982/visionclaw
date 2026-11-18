@@ -12,7 +12,7 @@ import threading
 import time
 
 from . import backend
-from .catalog import CODER, VISION
+from .catalog import CODER, VISION, displayName
 from . import debuglog
 from ..engine import Engine, EngineError, imageMessages
 
@@ -209,7 +209,7 @@ class ModelRuntime:
 		disk, and where a loaded model runs. Read from the settings and the disk by plain code; no model is
 		asked, because a model does not know its own name."""
 		def named(entry):
-			return entry["name"].split(", used for")[0]
+			return displayName(entry).split(", used for")[0]
 
 		vision, coder = self.entry(VISION), self.entry(CODER)
 		lines = []
@@ -305,7 +305,7 @@ class ModelRuntime:
 			slot = self._slot(role)
 			engine = self.engines[slot]
 			found[role] = {
-				"model": entry["name"] if entry else None,
+				"model": displayName(entry) if entry else None,
 				"loaded": engine.running,
 				"backend": self.backends[slot],
 				"context": engine.context,
