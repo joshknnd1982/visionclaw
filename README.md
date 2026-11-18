@@ -342,7 +342,7 @@ Ask **learn about this program** or **learn about this game** while you are in i
    page does not have, or whose words are mostly not in the page, is dropped. Where nothing stands, the
    page's own words are kept. The very smallest models do not write notes; their notes are the page's words.
 5. **The notes are a file.** One Markdown file for each program, in the folder `notes` of VisionClaw's data
-   (`%APPDATA%\nvda\visionClaw\notes`). It says at the top that it is from the internet and may be wrong,
+   (`%APPDATA%\nvda\addons\visionClaw\data\notes`). It says at the top that it is from the internet and may be wrong,
    and under every note which page it is from.
 
 After that, ask your questions in the program: *how do I duplicate a line*, *which key closes a tab*, *what
@@ -887,13 +887,42 @@ Gestures dialog, under VisionClaw.
 By default VisionClaw asks before it changes a setting, clicks, presses keys or types. You can turn that off in
 settings. Anything that could take speech or braille away is always asked about, whatever the setting.
 
+## Taking VisionClaw along: a portable copy
+
+Everything VisionClaw keeps is inside its own add-on folder, in the folder `data`
+(`%APPDATA%\nvda\addons\visionClaw\data` in an installed NVDA): the models, the guides, the training material,
+notes, memories, skills, your library, the logs, and whatever else you have it download or keep. Its size is
+whatever you have put there. When VisionClaw is updated, this folder moves into the newer version by itself; when
+VisionClaw is removed, it is kept in `%APPDATA%\nvda\visionClaw`, and a later install takes it in again. A
+VisionClaw older than 1.4.0 kept it in `%APPDATA%\nvda\visionClaw`; it is moved in the first time 1.4.0 starts.
+
+In VisionClaw's settings, press *Make a portable copy of VisionClaw with everything in it* (Alt+X). The window
+says what goes in, part by part with its size, and offers two ways:
+
+- **One file that installs VisionClaw with everything on any computer**, `VisionClaw-<version>-portable.nvda-addon`.
+  Put it on a flash drive or send it, and open it on the other computer while NVDA is running; NVDA asks
+  before it installs it. Where VisionClaw is there already, what that computer has is kept and the rest is added.
+- **VisionClaw with everything, straight into a portable NVDA**, as on a flash drive. Choose the folder of a
+  portable NVDA, or the drive it is on; VisionClaw then starts with that NVDA. Copying again finishes a copy that
+  was stopped and skips what is there already.
+
+Nothing is left out of the data folder. Your VisionClaw settings come along too, and are taken over by a
+VisionClaw that has no models chosen yet; one that was used already keeps its own. To make a portable NVDA
+itself, the window has a button for NVDA's own window (NVDA menu, Tools, Create portable copy): check *Copy
+current user configuration* there, and VisionClaw comes along with everything.
+
+Writing many gigabytes to a flash drive takes a while; a progress bar shows how far it is, and Cancel stops it.
+A drive formatted as FAT32 cannot hold a file of 4 GB or more, so VisionClaw says so before it starts; exFAT and
+NTFS can. The copy holds the lessons and guides VisionClaw downloaded for your own reading; their owners keep
+their copyright, so give a copy to someone else only where they allow it.
+
 ## VisionClaw's own log
 
 VisionClaw keeps a log of its own, so that when something goes wrong it can be found out why. NVDA's own log
 is often switched off; this one does not depend on it.
 
 - It is the file `visionclaw.log` in the folder `logs` of VisionClaw's data folder
-  (`%APPDATA%\nvda\visionClaw\logs`). Ask *open the VisionClaw log*, or use the button in VisionClaw's settings.
+  (`%APPDATA%\nvda\addons\visionClaw\data\logs`). Ask *open the VisionClaw log*, or use the button in VisionClaw's settings.
 - **Detailed** (the default) records every request, every step, every question put to a model with its
   answer, every tool with what it was given and what it found, every question you were asked and what you
   chose, how the engine started, and every error with the place in the code where it happened. **Brief**

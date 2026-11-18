@@ -2,7 +2,7 @@
 
 Tick an item only after doing it in a running NVDA. Write the NVDA version and the models used at the top of
 `docs/STATUS.md` when done. If something fails, VisionClaw's own log has what happened: ask "open the
-VisionClaw log", or open `%APPDATA%\nvda\visionClaw\logs\visionclaw.log`. It is written whatever NVDA's own
+VisionClaw log", or open `%APPDATA%\nvda\addons\visionClaw\data\logs\visionclaw.log`. It is written whatever NVDA's own
 logging level is.
 
 Before you start: disable VisionMate in the Add-on Store, install the VisionClaw build, restart NVDA.
@@ -382,7 +382,7 @@ Settings, Display, Scale).
 - [ ] After restarting NVDA the key still works.
 - [ ] The question before turning an add-on on says in plain words what the code does (keys, what it reacts
       to, which programs, whether it speaks or beeps).
-- [ ] A failing add-on: put an add-on that fails into `%APPDATA%\nvda\visionClaw\addons` (for example, change
+- [ ] A failing add-on: put an add-on that fails into `%APPDATA%\nvda\addons\visionClaw\data\addons` (for example, change
       `ui.message` to `ui.mesage` in one VisionClaw wrote) and restart NVDA. Pressing its key gives no NVDA error
       sound; "had a problem ... is correcting" is spoken; after a while "was corrected and is on again", and the
       key works.

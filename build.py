@@ -49,7 +49,8 @@ def main():
 	count = 0
 	with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as z:
 		for dirpath, dirnames, files in os.walk(SRC):
-			dirnames[:] = sorted(d for d in dirnames if d != "__pycache__")
+			# addon/data is VisionClaw's data folder when it runs from here; a build never carries anyone's data.
+			dirnames[:] = sorted(d for d in dirnames if d != "__pycache__" and not (dirpath == SRC and d == "data"))
 			for name in sorted(files):
 				if name.endswith((".pyc", ".log", ".part")):
 					continue

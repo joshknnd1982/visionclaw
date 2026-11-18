@@ -36,7 +36,7 @@ from speech import extensions as speechExtensions
 
 from . import autodescribe, clawui, controlkeys, curtain, dialogs, explorer, followup, hardware, helpers, imaging, labels, localmedia, mousetools, nvdatools, ocr, sounds, updater, viewers, winzapp
 from . import asktools, memorytools, padtools, touchinput
-from .claw import catalog, direct, drivers, guides, learn, offers, prompts, training
+from .claw import catalog, direct, drivers, guides, learn, offers, portable, prompts, training
 from .claw.changes import ChangeLog
 from .claw import debuglog
 from .claw import task as clawTask
@@ -57,8 +57,13 @@ CONF_SECTION = "visionClaw"
 PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
 ADDON_DIR = os.path.abspath(os.path.join(PLUGIN_DIR, "..", ".."))
 ENGINE_DIR = os.path.join(ADDON_DIR, "engine")
-# Kept outside the add-on folder so the data survives add-on updates.
-DATA_DIR = os.path.join(globalVars.appArgs.configPath, "visionClaw")
+# Everything VisionClaw keeps is inside the add-on's own folder, so that it goes wherever the add-on goes: into
+# a portable NVDA, and into a portable copy (claw/portable.py, portableui.py). NVDA deletes the add-on's folder
+# when it is updated or removed; installTasks.onUninstall first moves the data into the newer version, or back
+# to OLD_DATA_DIR when VisionClaw is removed.
+DATA_DIR = os.path.join(ADDON_DIR, portable.DATA)
+# Where VisionClaw 1.3.0 and older kept it, and where it waits after VisionClaw was removed: moved in at start.
+OLD_DATA_DIR = os.path.join(globalVars.appArgs.configPath, portable.OLD_NAME)
 MODELS_DIR = os.path.join(DATA_DIR, "models")
 # VisionMate's vision data, if that add-on downloaded it here. It can be used as it is, without a new download.
 VISIONMATE_DATA = os.path.join(globalVars.appArgs.configPath, "visionMate", "data")
@@ -445,10 +450,22 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 
 	def __init__(self):
 		super().__init__()
+		self.addonDir, self.dataDir = ADDON_DIR, DATA_DIR
+		# What an older VisionClaw, or one that was removed, kept in NVDA's configuration folder comes in first.
+		moved, problems = portable.moveIn(OLD_DATA_DIR, DATA_DIR)
 		os.makedirs(DATA_DIR, exist_ok=True)
+		# A portable copy carries the settings it was made with; an NVDA whose VisionClaw has no models chosen yet
+		# takes them over, once.
+		carried = self._takeCarriedSettings()
 		# VisionClaw's own log, written whatever NVDA's logging level is. It stays on this computer.
 		debuglog.start(os.path.join(DATA_DIR, "logs"), conf()["debugLog"])
 		self._logStart()
+		if moved:
+			debuglog.log("start", f"Moved {moved} things from {OLD_DATA_DIR} into the data folder {DATA_DIR}.")
+		for path, error in problems:
+			debuglog.error("start", f"{path} could not be moved into the data folder; it is tried again at the next start", error)
+		if carried:
+			debuglog.log("start", f"Took over the settings that came with this copy: {sorted(carried)}")
 		# Who the user is and how to answer them: told to the models with every answer and description. Read again
 		# when NVDA switches to another configuration profile or reloads its configuration, so they always apply.
 		applyPrompts()
@@ -598,6 +615,33 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 				f"Log level: {debuglog.level()}. This log stays on this computer; VisionClaw sends it nowhere."))
 		except Exception:
 			log.debugWarning("VisionClaw: the first log entry could not be written", exc_info=True)
+
+	def _takeCarriedSettings(self):
+		"""The settings that came with a portable copy, taken over when no model is chosen here yet."""
+		try:
+			c = conf()
+			carried = portable.takeSettings(DATA_DIR, {key: c[key] for key in confspec})
+		except Exception:
+			log.debugWarning("VisionClaw: the carried settings could not be read", exc_info=True)
+			return None
+		taken = {}
+		for key, value in (carried or {}).items():
+			try:
+				c[key] = value
+				taken[key] = value
+			except Exception:
+				log.debugWarning(f"VisionClaw: the carried setting {key} could not be taken over", exc_info=True)
+		return taken
+
+	def showPortable(self, parent=None):
+		"""The window that makes a portable copy of VisionClaw with everything in it (portableui.py)."""
+		from . import portableui
+		portableui.show(self, parent)
+
+	def portableSettings(self):
+		"""The VisionClaw settings that a portable copy carries."""
+		c = conf()
+		return {key: c[key] for key in confspec}
 
 	def downloadState(self):
 		"""What of the things VisionClaw can download is on this computer already (claw/offers.py)."""

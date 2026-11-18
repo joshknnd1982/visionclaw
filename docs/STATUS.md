@@ -1,6 +1,6 @@
 # VisionClaw status
 
-Updated 2026-11-18, version 1.2.0.
+Updated 2026-11-18, version 1.4.0.
 
 ## What exists
 
@@ -1356,6 +1356,35 @@ in the settings, `orchestrator._offered`, the file `offered.json`.
 - **Not tested:** the button in the settings and its window, which need NVDA; the sentence spoken at the end
   of a real answer; `downloads_info` among the recipes the real models choose from, which was added after the
   last run of `tests/live_orchestrator.py` had started.
+
+## The data folder inside the add-on, and a portable copy (1.4.0, 2026-11-18)
+
+The owner asked that everything VisionClaw keeps go inside the add-on's folder, and for a button in the settings
+that makes a portable copy with all of it, "no exceptions", whatever its size.
+
+- Where NVDA deletes an add-on's folder was read from NVDA's own source (`source/addonHandler/__init__.py` on
+  GitHub, 2026-11-18): an update is unpacked into `visionClaw.pendingInstall`; at the next start the old folder
+  is removed after the old copy's `onUninstall`, then the new one is renamed into place. NVDA's "Create portable
+  copy" with the user's configuration copies the whole configuration folder (`installer.copyUserConfig`), add-ons
+  included.
+- `tests/test_portable.py`, plain Python: merging keeps this computer's file where both have one; moving in at
+  start; an update carries the data into the pending folder, also when the new copy brings data of its own; a
+  removal keeps it in the configuration folder; a pending install that is taken away keeps nothing;
+  `installTasks.onUninstall` itself, loaded as NVDA loads it, with stand-ins for NVDA's modules; every file of
+  the data folder in the copy, a new one added later included; FAT32 and room; finding a portable NVDA and
+  refusing an installed one; the settings taken over once and only by a VisionClaw with no models; a whole
+  `.nvda-addon` file read back and unpacked; stopping leaves nothing; copying into a portable NVDA and copying
+  again skips what is there. Passes.
+- `tests/test_portable_window.py`, the real wxPython 4 with stand-ins for NVDA's gui: what the window says goes
+  in, with a folder it has no name for; every refusal and question; what is said when done or stopped. Passes.
+- `tests/test_nvda_stub.py`: the real plugin moves what is in the old folder into its data folder at start,
+  keeps its own file where both have one, and takes over carried settings. Passes.
+- A real file of 1.1 GB, random bytes, put into a `.nvda-addon` file by `portable.writeBundle` (zip64) in about
+  a second and unpacked again with Python's zipfile, as NVDA unpacks: the same SHA-256.
+- **Not tested:** nothing of this has run inside NVDA. Not the move of the owner's 8.6 GB at the first start,
+  not an update carrying the data, not the window in NVDA, not a copy of the real data folder, not installing
+  such a file on another computer, not starting VisionClaw from a portable NVDA on a flash drive. The 4 GB check
+  reads the drive's file system from Windows; it was not tried on a real FAT32 drive.
 
 ## What was not tested
 

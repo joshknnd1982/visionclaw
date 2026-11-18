@@ -210,6 +210,12 @@ sys.modules["contentRecog"].recogUi = sys.modules["contentRecog.recogUi"]
 # The real add-on package this time, with its own __init__.
 sys.path.insert(0, os.path.join(ROOT, "addon", "globalPlugins"))
 plugin = importlib.import_module("visionClaw")
+# VisionClaw keeps its data in its own add-on folder (claw/portable.py). Here that is a folder of the test's own,
+# so that the test never writes into this repository.
+DATA = os.path.join(CONFIG_DIR, "addons", "visionClaw", "data")
+assert plugin.DATA_DIR == os.path.join(plugin.ADDON_DIR, "data"), plugin.DATA_DIR
+assert plugin.OLD_DATA_DIR == os.path.join(CONFIG_DIR, "visionClaw"), plugin.OLD_DATA_DIR
+plugin.DATA_DIR, plugin.MODELS_DIR = DATA, os.path.join(DATA, "models")
 from visionClaw import mousetools, nvdatools, padtools, webtools  # noqa: E402
 from visionClaw.claw import guides as shippedGuides  # noqa: E402
 
@@ -254,7 +260,24 @@ with open(os.path.join(CONFIG_DIR, "visionClaw", "lessons.json"), "w", encoding=
 			"This form worked: {\"words\": \"speech rate\"}.", "topic": "restore the voice pitch", "time": 1.0},
 		{"text": "Tool set_setting: this form failed: {} (x). This form worked: {}.", "topic": "x", "time": 2.0},
 	], f)
+# What VisionClaw 1.3.0 kept in NVDA's configuration folder is moved into the add-on's data folder at start,
+# and settings that came with a portable copy are taken over by a VisionClaw with no models chosen.
+with open(os.path.join(CONFIG_DIR, "visionClaw", "labels.json"), "w", encoding="utf-8") as f:
+	f.write("{}")
+os.makedirs(DATA, exist_ok=True)
+with open(os.path.join(DATA, "labels.json"), "w", encoding="utf-8") as f:
+	f.write('{"from": "a portable copy"}')
+with open(os.path.join(DATA, "carried-settings.json"), "w", encoding="utf-8") as f:
+	json.dump({"searchEngine": "bing", "updateLastCheck": "123", "noSuchSetting": 1}, f)
 instance = plugin.GlobalPlugin()
+assert not os.path.exists(os.path.join(CONFIG_DIR, "visionClaw")), os.listdir(os.path.join(CONFIG_DIR, "visionClaw"))
+assert os.path.isfile(os.path.join(DATA, "lessons.json"))
+# Where both had a file, this computer's own is kept.
+assert open(os.path.join(DATA, "labels.json"), encoding="utf-8").read() == "{}"
+assert conf["visionClaw"]["searchEngine"] == "bing" and conf["visionClaw"]["updateLastCheck"] == ""
+assert not os.path.exists(os.path.join(DATA, "carried-settings.json"))
+conf["visionClaw"]["searchEngine"] = "duckduckgo"
+assert instance.dataDir == DATA and instance.portableSettings()["searchEngine"] == "duckduckgo"
 # The controller is looked for by a thread of its own; here every look is made by the test.
 instance.controller._stopped.set()
 instance.controller._thread.join(5)
@@ -528,7 +551,7 @@ helpers = instance.helpers
 assert helpers.keyId("NVDA+alt+1") == "kb:nvda+alt+1" and helpers.keyId("bogus") is None
 helpers.add("spacetrader", "NVDA+alt+1", "kb:nvda+alt+1", "click", "New Game")
 assert "App helper in spacetrader: NVDA+alt+1 does click \"New Game\"." in helpers.listText()
-assert json.load(open(os.path.join(CONFIG_DIR, "visionClaw", "helpers.json")))["spacetrader"]
+assert json.load(open(os.path.join(DATA, "helpers.json")))["spacetrader"]
 assert helpers.remove("NVDA+alt+1") and "New Game" not in helpers.listText() and not helpers.remove("NVDA+alt+1")
 
 # --- A generated add-on: checked, loaded into NVDA's running plugins, removed ---
@@ -2797,7 +2820,7 @@ worked, result = registry.call(task, "run_command", {"command": "dateTime", "ask
 assert not worked and "a fault inside VisionClaw (AttributeError" in result, result
 sys.modules["scriptHandler"].executeScript = executeScript
 written = debuglog.tail(200)
-assert debuglog.path() == os.path.join(CONFIG_DIR, "visionClaw", "logs", "visionclaw.log") and debuglog.detailed()
+assert debuglog.path() == os.path.join(DATA, "logs", "visionclaw.log") and debuglog.detailed()
 assert "tool: ERROR: run_command failed" in written and "wasInSayAll" in written and "nvdatools.py" in written
 assert "command: Running dateTime (script_dateTime of __main__), pressed 1 time(s)" in written
 with open(debuglog.path(), encoding="utf-8") as f:
@@ -2891,7 +2914,7 @@ os.startfile = started.append
 try:
 	sys.modules["api"].getFocusObject = lambda: types.SimpleNamespace(appModule=None, treeInterceptor=None)
 	worked, result = registry.call(taskModule.Task("t"), "audit_nvda", {"asked": "do a full audit of nvda"})
-	auditPath = os.path.join(CONFIG_DIR, "visionClaw", "nvda-audit.md")
+	auditPath = os.path.join(DATA, "nvda-audit.md")
 	assert worked and result.startswith("VisionClaw went through all of this NVDA. Commands that can be used where you are now: 6. "
 		"5 have a description, 1 have none, and 5 have a key."), result
 	assert f"is saved as the file {auditPath}." in result and started == [], (result, started)
@@ -3153,7 +3176,7 @@ class LearningModel:
 
 
 realRuntime, instance.runtime = instance.runtime, LearningModel()
-notesFile = os.path.join(CONFIG_DIR, "visionClaw", "notes", "spacetrader.md")
+notesFile = os.path.join(DATA, "notes", "spacetrader.md")
 questions = []
 # The user is asked before anything goes online, whatever the settings say. No: nothing is requested.
 instance.clawAsk = lambda question, choices: questions.append((question, choices)) or 1

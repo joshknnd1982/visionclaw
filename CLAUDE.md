@@ -122,7 +122,9 @@ keyboard and speech alone.
   `training.HOSTS`, over https, and nothing is sent but the requests. What comes back is text to read, never
   run. AFB and Hadley keep their copyright and the wiki states no licence: every file says at its top where
   it is from and whose it is, it is kept for the user's own reading on this computer, nothing of it is passed
-  on or put into the add-on, and an answer made from it says where it is from. A site that answers a program
+  on or put into the add-on, and an answer made from it says where it is from. The one exception is the
+  portable copy the user makes of their own VisionClaw (see "The data folder is inside the add-on"): the owner
+  said it carries everything, and the window says that the owners keep their copyright. A site that answers a program
   with a challenge is not to be worked around; the earlier copy stays. Never add a source without the owner's
   yes; `tests/test_training.py` fails when the sources or servers change.
   **No search engine is asked by the add-on's own code.** It was tried on 2026-11-17: DuckDuckGo's page for
@@ -581,6 +583,33 @@ keyboard and speech alone.
   triple-quoted Python with apostrophes fail to parse, and a heredoc turns two backslashes into one, so that
   a regular expression's `\b` arrives as a backspace character. Write the patch script with the Write tool
   and run it.
+- **The data folder is inside the add-on, and the whole of it can be carried away.** The owner said on
+  2026-11-18: "everything in the data folder, **no exceptions.** must be moved, copied, made portable. and on
+  subsequent installs of the addon onto local machines, non-portable, the data folder must go inside the addon
+  folder itself", and: "the data folder may not be a fixed size depending on what the user has downloaded and
+  stored in that folder". What follows from it (`claw/portable.py`, `portableui.py`, `installTasks.py`):
+  - **Where.** Everything VisionClaw keeps is in `data` inside the add-on's folder (`DATA_DIR`). Never keep
+    anything in NVDA's configuration folder again. The first start of 1.4.0 or later moves in what an older
+    VisionClaw kept in `nvda\visionClaw` (`portable.moveIn`); on one drive that is a rename, however big.
+  - **Never lost.** NVDA deletes an add-on's folder at the next start after an update or a removal, after
+    calling the old copy's `onUninstall` (read from NVDA's `addonHandler` on 2026-11-18; read it again before
+    changing this). `onUninstall` moves `data` into `visionClaw.pendingInstall` for an update, or back to
+    `nvda\visionClaw` for a removal, where a later install takes it in (`portable.carryOver`). Where both
+    have a file, this computer's own wins. Nothing is ever deleted. `installTasks.py` loads `portable.py` by
+    its path, so `portable.py` must import nothing of NVDA and nothing of the package.
+  - **No exceptions, any size.** A portable copy is the whole add-on folder and every file of `data`, whatever
+    is there when the copy is made (`portable.files`): models of any size, guides, training material, notes,
+    memories, skills, the library, logs, unfinished downloads. Never add a list of what to leave out, and never
+    assume a size: measure the folder each time. Only `__pycache__` outside `data` is left out.
+  - **Two ways, the user chooses.** One `.nvda-addon` file that NVDA installs on any computer, asking first
+    (`portable.writeBundle`; models stored as they are, zip64 for big files), or a copy straight into a
+    portable NVDA's `userConfig\addons\visionClaw` (`portable.copyTo`, which skips what is there already). An
+    installed NVDA and the running one are refused. The settings go along as `data\carried-settings.json` and
+    are taken over once, only by a VisionClaw with no models chosen (`portable.takeSettings`). A button opens
+    NVDA's own window for a portable NVDA, which now carries VisionClaw with everything too.
+  - **Said before, not after.** Room on the drive and FAT32's limit of 4 GB for one file are checked before the
+    copy starts (`portable.check`); the copy shows a progress bar, can be stopped, and leaves no half file. A
+    build never carries anyone's data (`build.py` leaves out `addon/data`).
 - **Never commit** model files (`*.gguf`, `*.bin`), `dist/`, tokens, or the `SmallClaw/` reference clone.
 
 ## Layout
@@ -635,6 +664,8 @@ addon/
     followup.py              questions in the description window: all are answered; a question about a key is
                              given the one NVDA command it is about
     helpers.py               app helpers and generated add-ons: loading them live, their hotkeys
+    portableui.py            the window that makes a portable copy: one .nvda-addon file with everything, or
+                             VisionClaw with everything straight into a portable NVDA; progress, stopping
     (the rest)               VisionMate features: overlay, OCR, chat photos, labels ...
     claw/                    SmallClaw-style core. NO NVDA imports.
       catalog.py             model catalog, the fetched list of newer models and its checks, what is
@@ -706,6 +737,9 @@ addon/
                              what a window's class says about the toolkit or game engine
       dragcontrol.py         the drags, wheel turns and values behind the arrow keys; whether a control changed
       microaddons.py         check, store, package generated add-ons
+      portable.py            the data folder inside the add-on: moved in at start, carried over when NVDA
+                             deletes the add-on's folder; a portable copy as one file or into a portable NVDA;
+                             the settings that go with it. Loaded by installTasks.py by its path
       task.py                task state, progress events, cancel
       orchestrator.py        runs a whole request from start to finish
 tests/                       plain-Python tests; tests/live_*.py need the engine and a model
@@ -880,6 +914,9 @@ A session is done only when its "Done when" line is true.
   sentence said once after a fitting answer.
 - [x] **3.40 A hand on the mouse.** A skill for the times a blind user works a real mouse or trackpad, in place
   of the skill that leads back to the keyboard. Not measured with a model.
+- [x] **3.43 The data folder inside the add-on, and a portable copy.** Moved in at start, carried over on
+  update and removal; one file or a portable NVDA with everything in it, made from the settings. Tested with
+  plain Python, the real wxPython and a real file of 1.1 GB; not run inside NVDA.
 - [ ] **3.5 Test inside NVDA.** Install the build in NVDA (ask the user first) and walk through
   `docs/TESTPLAN.md`. Fix what breaks. *Done when:* every item in the test plan is ticked by a real run.
 
@@ -937,6 +974,9 @@ python tests/live_side_by_side.py        two real engines on two backends; needs
 python tests/live_addon.py               a real model writes four add-ons and debugs one; read every result
 python tests/live_addon_memories.py      a real model writes add-ons with a memory, the library and the notes on
                                          accessibility interfaces put first; read every result
+python tests/test_portable.py            the data folder moved in, carried over when NVDA deletes the add-on's folder,
+                                         a portable copy as one file and into a portable NVDA, the settings it carries
+python tests/test_portable_window.py     the portable copy's window with the real wxPython: what it says, each refusal
 python tests/test_training.py            the training material against a stand-in internet: the fixed sources, a
                                          lesson without the site around it, gates, the Markdown help files
 python tests/live_addon_guides.py MODELS GUIDES   a real model writes the same add-ons with and without lines of

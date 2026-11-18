@@ -14,3 +14,5 @@ addon/engine/*.exe
 # Reference clone of SmallClaw, not part of this repository.
 SmallClaw/
 .claude/
+# VisionClaw's data folder, when the add-on runs from this folder.
+addon/data/

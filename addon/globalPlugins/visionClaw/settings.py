@@ -154,6 +154,10 @@ class VisionClawPanel(gui.settingsDialogs.SettingsPanel):
 		# Translators: Button in settings that opens the window for choosing and downloading models.
 		self.modelsBtn = helper.addItem(wx.Button(self, label=_("Choose or &download models...")))
 		self.modelsBtn.Bind(wx.EVT_BUTTON, lambda e: self.plugin.showDataDialog() if self.plugin else None)
+		# Translators: Button in settings that makes a portable copy of VisionClaw with all its models and data.
+		self.portableBtn = helper.addItem(wx.Button(self, label=_(
+			"Make a portable copy of VisionClaw with everything in it, for a flash drive or another computer (e&xport)...")))
+		self.portableBtn.Bind(wx.EVT_BUTTON, lambda e: self.plugin.showPortable(self) if self.plugin else None)
 		self.autoDescribe = checkbox(
 			# Translators: Checkbox in settings.
 			_("&Automatically describe images without a label, photos in chats and photos in image viewers (NVDA+Alt+G)"), "autoDescribe")
