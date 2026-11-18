@@ -27,11 +27,13 @@ import wx
 from .vclog import log
 
 from . import mousetools, net, nvdainfo, ocr, webtools
-from .claw import changes, commands, debuglog, drivers, fixes, guides, inside, lookup, match, microaddons, pointer, policy, web
+from .claw import changes, commands, debuglog, drivers, fixes, guides, inside, lookup, match, microaddons, pointer, policy, prompts, web
 from .claw.catalog import CODER, VISION
 from .claw.llm import LLM, clip
 from .claw.memory import score, wordList, words as wordsOf
+from .claw.knowledge import Knowledge
 from .claw.tools import ANSWER, VERBATIM, Registry, Tool, ToolError
+from .claw.skills import addonGuide, stepGuide
 from .engine import EngineError, prepareImage
 
 addonHandler.initTranslation()
@@ -1125,6 +1127,17 @@ def fixAddon(plugin, task, name, said=""):
 	lessons = plugin.memory.search("NVDA add-on code mistake " + purpose, limit=3)
 	if lessons:
 		notes += "\nMistakes made before on this computer:\n" + "\n".join(f"- {text}" for text in lessons)
+	# What the user asked VisionClaw to remember, their library and the notes on accessibility interfaces that
+	# belong with the add-on: before the notes, which are cut off at their end; the skill's guide goes before all.
+	from . import memorytools
+	mine = memorytools.forCoder(plugin, purpose).strip()
+	if mine:
+		notes = f"{mine}\n{notes}"
+	# What a skill says about add-ons comes first: the notes are cut off at their end. When VisionClaw corrects
+	# an add-on by itself there is no request, so the skills are chosen by what the add-on is for.
+	guide = stepGuide(task) or addonGuide(getattr(plugin, "skills", None), purpose)
+	if guide:
+		notes = f"{guide}\n{notes}"
 	fixed = microaddons.fix(LLM(plugin.runtime, task), task, purpose, source, problems, notes, task.params, CODER, VISION)
 	repairs = meta.get("repairs", 0) + 1
 	store.save(ident, fixed, purpose, repairs=repairs)
@@ -1199,10 +1212,14 @@ def build(plugin):
 			ocr.promptPart(lines) + f"Look at this picture of the user's {target} and answer: {question} "
 			"Answer in a few short sentences. If you cannot see it, say so instead of guessing."
 		)
+		# What a chosen skill says about looking, such as how a photo or a chart is best described.
+		guide = stepGuide(task)
+		if guide:
+			prompt += f"\n{guide}"
 		seer = policy.roleName(VISION, policy.isOneModel(plugin.runtime))
 		task.emit("talk", f"Asked the {seer}: {question}")
 		answer = plugin.runtime.describe(prepareImage(image, config.conf["visionClaw"]["detailSize"]), prompt, 350,
-			cancel=task.cancel)
+			cancel=task.cancel, system=prompts.seeing())
 		task.check()
 		task.emit("talk", f"The {seer} answered: {clip(answer, 400)}")
 		return answer or f"The {seer} gave no answer."
@@ -1466,6 +1483,12 @@ def build(plugin):
 		lessons = plugin.memory.search(words, limit=2)
 		if lessons:
 			found += "\n\nLearned earlier on this computer:\n" + "\n".join(f"- {t}" for t in lessons)
+		# The user's own library, searched the same way.
+		shelf = Knowledge(folder="")
+		shelf.addSource("library", plugin.library.sections)
+		inLibrary = shelf.text(words, limit=2, chars=600)
+		if inLibrary:
+			found = f"{found}\n\nFrom your library:\n{inLibrary}".strip()
 		if not found.strip():
 			raise ToolError("Nothing was found for those words. Try other words.")
 		return found
@@ -1602,13 +1625,6 @@ def build(plugin):
 	add("show_log", "open VisionClaw's own debug log, the file that records what VisionClaw did and every error",
 		showLog, looks=True, title="Opening VisionClaw's log", tell=VERBATIM)
 
-	def remember(task, note):
-		plugin.memory.add(note, topic=task.request[:120])
-		return "Remembered for next time."
-
-	add("remember", "keep a short note about what worked, for similar requests later", remember,
-		{"note": text("one sentence worth remembering", maxLength=300)}, title="Remembering", tell=VERBATIM)
-
 	def askUserTool(task, question):
 		answer = plugin.clawAskText(question)
 		task.check()
@@ -1657,6 +1673,15 @@ def build(plugin):
 		lessons = plugin.memory.search("NVDA add-on code mistake " + purpose, limit=3)
 		if lessons:
 			notes += "\nMistakes made before on this computer:\n" + "\n".join(f"- {t}" for t in lessons)
+		# What the user asked VisionClaw to remember, their library and the notes on accessibility interfaces that
+		# belong with the add-on: before the notes, which are cut off at their end; the skill's guide goes before all.
+		mine = memorytools.forCoder(plugin, purpose).strip()
+		if mine:
+			notes = f"{mine}\n{notes}"
+		# What a chosen skill says about add-ons comes first: the notes are cut off at their end.
+		guide = stepGuide(task) or addonGuide(plugin.skills, purpose)
+		if guide:
+			notes = f"{guide}\n{notes}"
 		source = microaddons.write(llm, task, purpose, facts, notes, params, CODER, VISION)
 		keys = microaddons.gestures(source)
 		keyText = " Keys: " + "; ".join(f"{k} ({d})" if d else k for k, d in keys) + "." if keys else ""
@@ -1978,12 +2003,18 @@ def build(plugin):
 	# A newer version of VisionClaw itself, when the user asks for it in words.
 	from . import updater
 	updater.register(plugin, add, text)
+	# Skills: making, listing, reading, turning off and deleting them, in words.
+	from . import skilltools
+	skilltools.register(plugin, add, text, onMain, confirm)
 	# A question: NVDA is asked, then the program, then its window, then Windows.
 	from . import asktools
 	asktools.register(plugin, add, text, onMain, _commands)
 	# Learning about the program in front from the internet, after a question, and the notes kept of it.
 	from . import learntools
 	learntools.register(plugin, add, text, onMain, confirm)
+	# What the user asked VisionClaw to remember, as Markdown files, and the user's library of documents.
+	from . import memorytools
+	memorytools.register(plugin, add, text, onMain, confirm)
 
 	registry.add(Tool(ANSWER, "tell the user the result in plain words; always the last step", lambda task: ""))
 	return registry

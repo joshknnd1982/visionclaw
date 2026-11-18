@@ -141,11 +141,23 @@ class LLM:
 		"""Ask for plain text. code is for program code: nothing is filtered out of it."""
 		options = {"temperature": temperature}
 		entry = self.runtime.entry(role)
-		if reasoning in _THINK_TOKENS and entry is not None and entry.get("thinking"):
+		thinks = reasoning in _THINK_TOKENS and entry is not None and entry.get("thinking")
+		limit = maxTokens
+		if thinks:
 			options["chat_template_kwargs"] = {"enable_thinking": True}
-			maxTokens += _THINK_TOKENS[reasoning]
+			limit += _THINK_TOKENS[reasoning]
 		messages = self._messages(system, user, image)
-		answer, _info = self._ask(
-			role, messages, maxTokens, options, self._context(system, user, image, maxTokens), onText,
+		answer, info = self._ask(
+			role, messages, limit, options, self._context(system, user, image, limit), onText,
 			raw="code" if code else False)
+		if thinks and not (answer or "").strip():
+			# A model with its own thinking mode can think until no tokens are left, and then the answer is empty:
+			# measured with Qwen3.5 9B writing an add-on at reasoning High. Asked again without thinking, it answers.
+			debuglog.log("model", (
+				f"The {role} model thought until it had no tokens left (it stopped because: {info.get('finish')}) "
+				"and gave no answer; asking again without thinking."))
+			options = {"temperature": temperature}
+			answer, _info = self._ask(
+				role, messages, maxTokens, options, self._context(system, user, image, maxTokens), onText,
+				raw="code" if code else False)
 		return answer

@@ -340,5 +340,42 @@ Settings, Display, Scale).
       (Owner, 0.8.2, 2026-11-17: asked a request twice in a row and reports that answering is faster. No
       seconds were given, and it was not said whether the first one came right after NVDA started. Not ticked.)
 
+## Skills (after 0.11.0)
+- [ ] NVDA+Alt+I opens the skills window. The list says each skill's name, and "yours" or "off" where that is so;
+      arrowing through it fills the box below with everything about the chosen skill, which can be read line by
+      line. The count under the list is right.
+- [ ] New skill: the name, the line about what it is for, the starting words, the jobs it is for (a checkable
+      list), what it tells VisionClaw, and steps (Add a step: a list of jobs, then the words) can all be reached
+      with Tab and filled in by keyboard. Leaving out the starting words is refused with a message that says why.
+- [ ] Change on a built-in skill keeps your copy, marked yours; "Delete your copy" brings VisionClaw's own back.
+- [ ] Turn off, then Turn on: the button's name follows, and NVDA says the new state.
+- [ ] Delete is only offered for your own skills, and asks first.
+- [ ] Import a skill file: a SKILL.md from another computer is shown in full before it is kept.
+- [ ] "Open the skills folder" (in the window and in VisionClaw's settings) opens File Explorer on the folder,
+      with README.md in it.
+- [ ] In the Ask window: "Make a new skill: when I ask about recipes, read the ingredients first" asks before
+      saving, and the skill then shows in the window; "Which skills do you have?", "What does the chart skill
+      do?", "Turn off the game skill", "Delete my recipes skill" each do what they say.
+- [ ] "Quick status" says the time, the date and the battery, without the models choosing a plan.
+- [ ] "Describe this photo" on a picture: the description starts with what kind of picture it is and its main
+      subject (the skill "Describe a photo or picture").
+
+## How VisionClaw answers: instructions for blind users
+- [ ] NVDA menu, Preferences, Settings, VisionClaw: the button "How VisionClaw answers, and your own
+      instructions" opens a window with a list of seven instructions and an edit box. Moving in the list puts
+      the chosen instruction's words in the box, and the box can be read line by line.
+- [ ] Write "Call me Sam." into your own instructions, press OK, ask "What time is it?" or a question such as
+      "How do I read the title of this window?": the answer follows your instruction.
+- [ ] Change "How answers are worded", press OK, open the window again: the entry says "(changed)". Press
+      "Restore the original of this instruction" and OK: the entry no longer says "(changed)" and answers are
+      as before.
+- [ ] Change two instructions, press "Restore all originals" and OK: every entry is back to the original and
+      your own instructions are empty. Cancel instead of OK keeps everything as it was.
+- [ ] With your own instructions set, switch to another configuration profile and back (or reload the
+      configuration with NVDA+Control+R): the instructions still apply.
+- [ ] With your own instructions set, choose other models in the models window: the instructions still apply.
+- [ ] NVDA+Alt+D on a dialog: the description starts with what is shown, says which button has the focus,
+      and has no stars, hashes or list marks.
+
 ## Stopping NVDA
 - [ ] NVDA exits without an error, and no `vcengine.exe` is left running (Task Manager).

@@ -35,15 +35,20 @@ from scriptHandler import script
 from speech import extensions as speechExtensions
 
 from . import autodescribe, clawui, controlkeys, curtain, dialogs, explorer, followup, hardware, helpers, imaging, labels, localmedia, mousetools, nvdatools, ocr, sounds, updater, viewers, winzapp
-from .claw import catalog, drivers, guides, learn
+from . import asktools, memorytools
+from .claw import catalog, drivers, guides, learn, prompts
 from .claw.changes import ChangeLog
 from .claw import debuglog
 from .claw import task as clawTask
 from .claw.catalog import CODER, VISION
 from .claw.knowledge import Knowledge
+from .claw.library import Library
+from .claw.memories import Memories
 from .claw.memory import Memory
 from .claw.orchestrator import Orchestrator
 from .claw.runtime import ModelRuntime
+from .claw.planner import RECIPES
+from .claw.skills import Skills
 from .engine import EngineError, imageMessages, prepareImage
 
 addonHandler.initTranslation()
@@ -68,24 +73,8 @@ NO_PRELOAD_IDLE_SECONDS = 10 * 60
 # After freeing for low memory, VisionClaw gets ready again once this much is free.
 RELOAD_MEMORY_GB = 6
 
-QUICK_PROMPT = (
-	"Describe this image for a blind person in 2-3 short sentences. "
-	"Say what it is, the main subjects, and read any important text."
-)
-DETAIL_PROMPT = (
-	"Describe this image in detail for a blind person. Start with what kind of image it is, "
-	"then describe the layout, people, objects, colours and actions. "
-	"Read all visible text exactly as written."
-)
-AUTO_PROMPT = (
-	"Describe this image in one short sentence for a blind person. "
-	"If it contains important text, read it."
-)
-# Added to every prompt: say what cannot be seen instead of guessing.
-HONESTY = (
-	" If text is too small or blurry to read, say so instead of guessing it. "
-	"Do not guess who a person is or how old they are."
-)
+# What is asked for when a picture is described quickly, in detail and in one sentence: claw/prompts.py, where
+# the user can rewrite them (prompts.part("quick"), "detailed", "brief").
 # What NVDA knows about where the image is. Each part is cut to this length.
 CONTEXT_PART_CHARS = 100
 ICON_PROMPT = (
@@ -160,6 +149,8 @@ confspec = {
 	"updateLastCheck": 'string(default="")',
 	# VisionClaw's own log, in its data folder: everything, the main events only, or nothing.
 	"debugLog": 'option("detailed", "brief", "off", default="detailed")',
+	# When VisionClaw keeps a memory: when asked or when the user says something lasting, only when asked, never.
+	"remember": 'option("auto", "asked", "off", default="auto")',
 	"sideBySide": "boolean(default=True)",
 	"searchEngine": 'option("duckduckgo", "google", "bing", default="duckduckgo")',
 	"autoFixAddons": "boolean(default=True)",
@@ -167,6 +158,18 @@ confspec = {
 	"speakProgress": "boolean(default=True)",
 	"preload": "boolean(default=True)",
 	"answerInNvdaLanguage": "boolean(default=True)",
+	# The instructions every answer and description gets (claw/prompts.py). "" is VisionClaw's own wording.
+	"ownInstructions": 'string(default="")',
+	"promptUser": 'string(default="")',
+	"promptSpeaking": 'string(default="")',
+	"promptSeeing": 'string(default="")',
+	"promptAddon": 'string(default="")',
+	"promptCodeKey": 'string(default="")',
+	"promptCodeAuto": 'string(default="")',
+	"promptCodeProgram": 'string(default="")',
+	"promptQuick": 'string(default="")',
+	"promptDetailed": 'string(default="")',
+	"promptBrief": 'string(default="")',
 	"progressBeeps": "boolean(default=True)",
 	"useOcr": "boolean(default=True)",
 	"iconLabeler": "boolean(default=False)",
@@ -201,14 +204,37 @@ def _runtimeSettings():
 	return {key: c[key] for key in ("backend", "visionModel", "coderModel", "sideBySide")}
 
 
-def _languageInstruction():
+def _languageName():
+	"""The language answers are to be in, or "" for English or when the user did not ask for NVDA's."""
 	if not conf()["answerInNvdaLanguage"]:
 		return ""
 	lang = languageHandler.getLanguage().split("_")[0]
 	if lang == "en":
 		return ""
-	name = languageHandler.getLanguageDescription(lang) or lang
-	return f" Answer in {name}."
+	return languageHandler.getLanguageDescription(lang) or lang
+
+
+def _languageInstruction():
+	name = _languageName()
+	return f" Answer in {name}." if name else ""
+
+
+PROMPT_KEYS = {
+	"user": "promptUser", "speaking": "promptSpeaking", "seeing": "promptSeeing", "addon": "promptAddon",
+	"codeKey": "promptCodeKey", "codeAuto": "promptCodeAuto", "codeProgram": "promptCodeProgram",
+	"quick": "promptQuick", "detailed": "promptDetailed", "brief": "promptBrief",
+}
+
+
+def applyPrompts():
+	"""Hand the user's instructions and wording to claw/prompts.py, which every answer and description reads."""
+	try:
+		c = conf()
+		prompts.configure({part: c[key] for part, key in PROMPT_KEYS.items()}, c["ownInstructions"], _languageName())
+	except Exception:
+		# VisionClaw's own wording is used then: the instructions apply, only the user's changes are missing.
+		log.error("VisionClaw: the instructions for answers could not be read from the settings", exc_info=True)
+		prompts.configure()
 
 
 def _contextPrompt(parts):
@@ -327,8 +353,8 @@ class _VisionEngine:
 	def usingGpu(self):
 		return self._runtime.engines[VISION].usingGpu
 
-	def describe(self, jpegBytes, prompt, maxTokens, onText=None, cancel=None):
-		return self._runtime.describe(jpegBytes, prompt, maxTokens, onText, cancel)
+	def describe(self, jpegBytes, prompt, maxTokens, onText=None, cancel=None, system=None):
+		return self._runtime.describe(jpegBytes, prompt, maxTokens, onText, cancel, system=system)
 
 	def chat(self, messages, maxTokens, onText=None, cancel=None):
 		return self._runtime.chat(VISION, messages, maxTokens, onText, cancel)
@@ -415,6 +441,11 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		# VisionClaw's own log, written whatever NVDA's logging level is. It stays on this computer.
 		debuglog.start(os.path.join(DATA_DIR, "logs"), conf()["debugLog"])
 		self._logStart()
+		# Who the user is and how to answer them: told to the models with every answer and description. Read again
+		# when NVDA switches to another configuration profile or reloads its configuration, so they always apply.
+		applyPrompts()
+		config.post_configProfileSwitch.register(applyPrompts)
+		config.post_configReset.register(applyPrompts)
 		# What the engines write about themselves is kept when either log is detailed. Each start begins the
 		# file anew, so it stays small.
 		debug = log.isEnabledFor(logging.DEBUG) or debuglog.detailed()
@@ -439,9 +470,16 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		# What VisionClaw learned about programs from the internet, when asked to: one Markdown file each.
 		self.appNotes = learn.Notes(os.path.join(DATA_DIR, "notes"))
 		self.memory = Memory(os.path.join(DATA_DIR, "lessons.json"))
+		# What the user asked VisionClaw to remember, as Markdown files they can read, change and delete.
+		self.memories = Memories(os.path.join(DATA_DIR, "memories"))
+		# The user's own documents, looked things up in with NVDA, the program, its window and Windows.
+		self.library = Library(os.path.join(DATA_DIR, "library"))
+		self.library.prepare()
 		self.driverNotes = drivers.DriverNotes(os.path.join(DATA_DIR, "drivers.json"))
 		# Every setting VisionClaw changes is written down, so that it can be put back.
 		self.changes = ChangeLog(os.path.join(DATA_DIR, "changes.json"))
+		# How and when VisionClaw does a kind of job: its own skills, and the user's in a folder of their own.
+		self.skills = Skills(os.path.join(DATA_DIR, "skills"), recipes=set(RECIPES))
 		self.helpers = helpers.Helpers(self, DATA_DIR)
 		self.pointerMode = mousetools.PointerMode(self)
 		# Newer versions of VisionClaw itself. Looks by itself only if the user chose that in the settings.
@@ -456,6 +494,10 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		self.memory.forget(lambda text: text.startswith(searching))
 		self.orchestrator = Orchestrator(self.runtime, registry, self.clawAsk, self._clawSituation, self.memory)
 		self.orchestrator.stepwise = lambda: config.conf["visionClaw"]["oneAtATime"]
+		self.orchestrator.memories = self.memories
+		self.orchestrator.program = lambda: nvdatools.onMain(asktools.programNow)["app"]
+		self.orchestrator.remembering = memorytools.when
+		self.orchestrator.skills = self.skills
 		wx.CallLater(2000, self.helpers.loadEnabled)
 		self._autoCache = collections.OrderedDict()
 		self._autoGeneration = 0
@@ -551,6 +593,8 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		if speech.speakTextInfo == self._speakTextInfo:
 			speech.speakTextInfo = self._origSpeakTextInfo
 		speechExtensions.pre_speechCanceled.unregister(self._onSpeechCanceled)
+		config.post_configProfileSwitch.unregister(applyPrompts)
+		config.post_configReset.unregister(applyPrompts)
 		if self.clawTask is not None:
 			self.clawTask.stop()
 		if getattr(self, "_debugTask", None) is not None:
@@ -616,6 +660,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 
 	def onSettingsSaved(self):
 		debuglog.setLevel(conf()["debugLog"])
+		applyPrompts()
 		debuglog.log("start", f"Settings saved: { {key: conf()[key] for key in confspec} }")
 		self.runtime.resetFailures()
 		self._hasData = self.runtime.hasModel(VISION)
@@ -705,12 +750,65 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 				self._startEngineInBackground()
 		return freed
 
+	def showAnswers(self, parent=None):
+		"""The window where the user reads and changes how VisionClaw answers (claw/prompts.py)."""
+		if getattr(self, "_answersDialog", None):
+			try:
+				self._answersDialog.Raise()
+				return
+			except RuntimeError:
+				pass  # it was closed
+		c = conf()
+		names = [
+			# Translators: Names of the instructions in the window "How VisionClaw answers".
+			("own", _("Your own instructions, for every answer, description and add-on")),
+			("user", _("What VisionClaw is told about you")),
+			("speaking", _("How answers are worded")),
+			("seeing", _("What matters in a picture")),
+			("addon", _("What add-ons written for you must be")),
+			("quick", _("Quick description of a picture")),
+			("detailed", _("Detailed description of a picture")),
+			("brief", _("One-sentence description, for automatic descriptions")),
+			("codeKey", _("Add-ons started with a key")),
+			("codeAuto", _("Add-ons that work by themselves")),
+			("codeProgram", _("Add-ons for one program or game")),
+		]
+		values = {part: prompts.part(part) if prompts.isCustom(part) else "" for part in prompts.PARTS}
+		values["own"] = c["ownInstructions"]
+		defaults = dict(prompts.DEFAULTS, own="")
+
+		def onSave(values):
+			c = conf()
+			c["ownInstructions"] = prompts.oneLine(values.get("own"), prompts.OWN_CHARS)
+			for part, key in PROMPT_KEYS.items():
+				text = prompts.oneLine(values.get(part), prompts.PART_CHARS)
+				# Empty, or VisionClaw's own wording: kept as "", so a newer VisionClaw's wording is used.
+				c[key] = "" if text in ("", prompts.DEFAULTS[part]) else text
+			applyPrompts()
+			debuglog.log("start", f"How VisionClaw answers was changed: own instructions {c['ownInstructions']!r}, "
+				f"rewritten parts {prompts.customized()}")
+			# Translators: Said after the user's changes to how VisionClaw answers were kept.
+			ui.message(_("Kept. Every answer and description from now on follows these instructions."))
+
+		self._answersDialog = dialogs.AnswersDialog(parent or gui.mainFrame, names, values, defaults, onSave)
+		dialogs.show(self._answersDialog)
+
 	def showManageModels(self):
 		if getattr(self, "_manageDialog", None):
 			self._manageDialog.Raise()
 			return
 		self._manageDialog = dialogs.ManageModelsDialog(gui.mainFrame, self)
 		dialogs.show(self._manageDialog)
+
+	def showSkills(self, parent=None):
+		"""The skills window: every skill, and buttons to make, change, turn off, delete and import them, and to
+		open the folder of the user's skills."""
+		if getattr(self, "_skillsDialog", None):
+			self._skillsDialog.Raise()
+			return
+		from . import skillsui
+		self._skillsDialog = skillsui.SkillsDialog(parent or gui.mainFrame, self.skills)
+		dialogs.show(self._skillsDialog)
 
 	def _offerCleanup(self, keep):
 		"""After other models were chosen: offer to remove the ones that are no longer used. The user decides."""
@@ -929,6 +1027,25 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		else:
 			self.showDataDialog()
 
+	@script(
+		# Translators: Description of a command in the Input Gestures dialog.
+		description=_(
+			"Opens the window of VisionClaw's skills, to read, make, change, turn off, delete or import skills, "
+			"and to open the skills folder."
+		),
+		gesture="kb:NVDA+alt+i",
+	)
+	def script_clawSkills(self, gesture):
+		self.showSkills()
+
+	@script(
+		# Translators: Description of a command in the Input Gestures dialog. It has no key until the user gives it one.
+		description=_("Shows what VisionClaw remembers, to forget some or all of it"),
+	)
+	def script_clawMemories(self, gesture):
+		from . import memoriesui
+		memoriesui.show(self)
+
 	# --- Describing ---
 
 	def _onSpeechCanceled(self):
@@ -1005,9 +1122,11 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		else:
 			prompt = (
 				_contextPrompt(context) + textPart
-				+ {QUICK: QUICK_PROMPT, DETAILED: DETAIL_PROMPT, AUTO: AUTO_PROMPT}[mode]
-				+ HONESTY + _languageInstruction()
+				+ prompts.part({QUICK: "quick", DETAILED: "detailed", AUTO: "brief"}[mode])
+				+ _languageInstruction()
 			)
+		# Who the user is and what matters to them in a picture. An icon's name in a few words needs none of it.
+		system = None if mode == ICON else prompts.seeing()
 		maxTokens = {QUICK: 200, DETAILED: 600, AUTO: 80, ICON: 8}[mode]
 		# Beep until speech starts, or until the detailed description window opens.
 		# Automatic descriptions stay quiet so reading is not cluttered.
@@ -1035,7 +1154,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			for attempt in range(2):
 				try:
 					self._ensureEngine()
-					text = self._engine.describe(jpeg, prompt, maxTokens, onText, cancel)
+					text = self._engine.describe(jpeg, prompt, maxTokens, onText, cancel, system=system)
 					break
 				except EngineError:
 					# The GPU can fail mid-request (e.g. driver reset). Retry once on the processor.
@@ -1066,7 +1185,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 				# Translators: Reported when no description was produced.
 				_speak(_("No description was produced."))
 		elif detailed:
-			conversation["start"] = imageMessages(jpeg, prompt) + [{"role": "assistant", "content": text}]
+			conversation["start"] = imageMessages(jpeg, prompt, system) + [{"role": "assistant", "content": text}]
 			window.finish(_clean_paragraphs(text))
 		else:
 			speaker.flush()
@@ -1170,9 +1289,9 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	def _userActive(self):
 		return self._busy or time.monotonic() - self._lastRequest < BACKGROUND_IDLE_SECONDS
 
-	def _backgroundDescribe(self, image, prompt, maxTokens, size, cancel):
+	def _backgroundDescribe(self, image, prompt, maxTokens, size, cancel, system=None):
 		self._ensureEngine()
-		return self._engine.describe(prepareImage(image, size), prompt, maxTokens, cancel=cancel)
+		return self._engine.describe(prepareImage(image, size), prompt, maxTokens, cancel=cancel, system=system)
 
 	def nameIcons(self, app, icons, onNamed):
 		"""Name icons for the overlay in the background, up to 16 at a time from one picture.
@@ -1322,10 +1441,10 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 				break
 
 	def _readAheadJob(self, image, key, context):
-		prompt = _contextPrompt(context[:2]) + AUTO_PROMPT + HONESTY + _languageInstruction()
+		prompt = _contextPrompt(context[:2]) + prompts.part("brief") + _languageInstruction()
 
 		def run(cancel):
-			text = self._backgroundDescribe(image, prompt, 80, conf()["quickSize"], cancel)
+			text = self._backgroundDescribe(image, prompt, 80, conf()["quickSize"], cancel, prompts.seeing())
 			if text is None:
 				return False
 			if text:
@@ -1530,10 +1649,10 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		self._describeChatPhotoNow(key, image, fetch["mode"])
 
 	def _chatPhotoJob(self, key, image):
-		prompt = _contextPrompt(CHAT_PHOTO_CONTEXT) + AUTO_PROMPT + HONESTY + _languageInstruction()
+		prompt = _contextPrompt(CHAT_PHOTO_CONTEXT) + prompts.part("brief") + _languageInstruction()
 
 		def run(cancel):
-			text = self._backgroundDescribe(image, prompt, 80, conf()["quickSize"], cancel)
+			text = self._backgroundDescribe(image, prompt, 80, conf()["quickSize"], cancel, prompts.seeing())
 			if text is None:
 				return False
 			if text and not self.chatPhotos.get(key):

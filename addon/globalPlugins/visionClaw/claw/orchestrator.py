@@ -7,7 +7,9 @@
 # time, check the result, tell the user what really happened, and remember what was learned.
 # No NVDA dependencies.
 
-from . import agent, consensus, debuglog, lookup, planner, policy, shapes
+from . import agent, consensus, debuglog, lookup, planner, policy, prompts, shapes
+from . import memories as memoriesModule
+from . import skills as skillsModule
 from . import task as taskModule
 from .catalog import CODER, VISION
 from .llm import LLM, LLMError, clip, plainSpeech
@@ -15,9 +17,10 @@ from .runtime import ModelMissing
 from .tools import ANSWER, SUMMARIZE, VERBATIM
 from ..engine import EngineError
 
-_ANSWER_SYSTEM = (
-	"You are VisionClaw, an assistant inside the NVDA screen reader. Answer the user from the information given. "
-	"They are blind and will hear your words spoken, so use short, plain sentences and no lists or symbols.\n"
+# The task of an answer. Who the user is and how an answer is worded come from prompts.speaking, which the user
+# can rewrite; these rules stay, because they keep the answer to what really happened.
+_ANSWER_TASK = (
+	"You are VisionClaw, an assistant inside the NVDA screen reader. Answer the user from the information given.\n"
 	"Rules: Use only the information given; never add anything that is not in it. "
 	"Answer exactly what the user asked. Information may come in several pieces that say where they are from; "
 	"use the pieces that are about the question and leave out the others. Each numbered piece stands alone: "
@@ -32,8 +35,7 @@ _PICK_SYSTEM = (
 # For a model that is not one of the very smallest: it may also say that no line answers the question. A very
 # small model is never given that choice; it takes it at random.
 _JUDGE_SYSTEM = (
-	"You are VisionClaw, an assistant inside the NVDA screen reader, helping a blind person. You are given what "
-	"the user asked, where they are, and numbered lines that were looked up. Choose the line that tells the user "
+	prompts.IDENTITY + " You are given what the user asked, where they are, and numbered lines that were looked up. Choose the line that tells the user "
 	"how to do what they asked or answers their question, by its number. A line that is about something else, "
 	"even if it shares words with the question, does not answer it. If no line answers the question, choose 0."
 )
@@ -54,7 +56,9 @@ class Orchestrator:
 	"""runtime: the two models, or one model that does both jobs. registry: the tools.
 	askUser(question, choices) returns the index the user chose, or None.
 	situation() returns a short text about where the user is (app, window, focused control), or "".
-	memory: lessons from earlier tasks, or None."""
+	memory: lessons from earlier tasks, or None.
+	Set after it is made: memories, the user's own memories (claw/memories.py), or None; program() gives the
+	program in front; remembering() says when memories may be kept without being asked (memories.WHEN)."""
 
 	def __init__(self, runtime, registry, askUser, situation=None, memory=None, lead=policy.LEAD,
 			other=policy.OTHER):
@@ -67,6 +71,11 @@ class Orchestrator:
 		self.other = other
 		# The user's choice of whether the models are asked one small question at a time: auto, always, never.
 		self.stepwise = lambda: policy.AUTO
+		self.memories = None
+		self.program = lambda: ""
+		self.remembering = lambda: memoriesModule.AUTO
+		# The skills: VisionClaw's own and the user's (claw/skills.py), or None.
+		self.skills = None
 
 	def _oneByOne(self):
 		try:
@@ -124,9 +133,23 @@ class Orchestrator:
 		params = task.params = policy.select(planner.quickTriage(request), task.reasoning)._replace(
 			oneByOne=small, oneModel=one)
 		context = self._context(request)
-		steps, how, recipes = consensus.agree(
-			llm, task, request, context, self.registry, params, self.askUser, self.lead, self.other)
+		# The skills that fit the request, chosen by plain code from its words. One with steps of its own, whose
+		# starting words the request has word for word, is the plan: the user's own, or one VisionClaw ships.
+		task.skills = self._chooseSkills(task, request)
+		ownPlan = skillsModule.planned(task.skills, request)
+		found = self._skillPlan(task, ownPlan, request) if ownPlan is not None else None
+		if found is not None:
+			steps, how, recipes = found
+		else:
+			steps, how, recipes = consensus.agree(
+				llm, task, request, context, self.registry, params, self.askUser, self.lead, self.other)
 		task.steps = steps
+		# Only the skills that speak about a step of this plan are kept and named: "turn off the game skill"
+		# has the word game, but the game skill says nothing about turning a skill off.
+		task.skills = [skill for skill in task.skills
+			if planner.OTHER in recipes or any(skillsModule.applies(skill, recipe) for recipe in recipes)]
+		if task.skills:
+			task.emit(taskModule.DETAIL, "Skills used: " + "; ".join(skill.name for skill in task.skills) + ".")
 		params = task.params = policy.select(
 			{"complexity": planner.complexity(recipes), "needs_code": "write_addon" in recipes}, task.reasoning,
 		)._replace(oneByOne=small, oneModel=one)
@@ -141,7 +164,7 @@ class Orchestrator:
 			consensus.AGREED: "The plan is ready" if one else "Both models agree on the plan",
 			consensus.REVISED: "The model corrected its plan" if one else "Both models agree on a corrected plan",
 			consensus.USER_CHOSE: "Using the plan you chose",
-		}[how]
+		}.get(how) or f"Following the skill {ownPlan.name}"
 		task.setState(taskModule.WORKING, f"{agreed}: {len(steps)} steps.")
 
 		# Every model has been used by now, so each has its place.
@@ -156,9 +179,38 @@ class Orchestrator:
 			answer = self._verify(llm, task, request, params, answer)
 
 		self._learn(task)
+		kept = self._keep(task)
+		if kept:
+			answer = f"{answer.rstrip()}\n{kept}" if answer else kept
 		task.answer = answer
 		task.emit(taskModule.ANSWER, answer)
 		task.setState(taskModule.DONE, "Finished.")
+
+	def _chooseSkills(self, task, request):
+		"""The skills that fit a request, by its words. A skill only helps, so a fault here never ends the request."""
+		if self.skills is None:
+			return []
+		try:
+			return self.skills.choose(request)
+		except Exception as e:
+			debuglog.error("skills", "The skills could not be chosen", e)
+			return []
+
+	def _skillPlan(self, task, skill, request):
+		"""The steps a skill sets out, each a proven recipe given the skill's own words for it, or None when none
+		of its recipes can be used here. Returns (steps, how, recipes)."""
+		available = planner.available(self.registry)
+		steps, recipes = [], []
+		for recipe, words in skill.steps:
+			if recipe in available:
+				steps += planner.recipeSteps(recipe, words or request, self.registry)
+				recipes.append(recipe)
+		if not steps:
+			return None
+		task.emit(taskModule.TALK, (
+			f"\"{request}\": following the skill {skill.name}, step by step as it is written: "
+			+ "; ".join(planner.label(recipe) for recipe in recipes) + "."))
+		return steps + [planner.answerStep()], "skill", recipes
 
 	def _context(self, request):
 		parts = []
@@ -168,6 +220,15 @@ class Orchestrator:
 			where = ""
 		if where:
 			parts.append(where)
+		if self.memories is not None:
+			try:
+				mine = self.memories.recall(request, self.program())
+			except Exception as e:
+				debuglog.error("memories", "The memories could not be read for the request", e)
+				mine = []
+			if mine:
+				debuglog.log("memories", f"Given with the request: {mine}")
+				parts.append("The user asked VisionClaw to remember:\n" + "\n".join(f"- {text}" for text in mine))
 		if self.memory is not None:
 			lessons = self.memory.search(request)
 			if lessons:
@@ -192,6 +253,8 @@ class Orchestrator:
 				index += 1
 				continue
 			task.current = index
+			# What the chosen skills say about this kind of step, for the models that work on it.
+			step.guide = skillsModule.guide(getattr(task, "skills", ()), step.recipe)
 			task.emit(taskModule.STEP, f"Step {index + 1} of {len(steps)}: {step.title}.")
 			worked = agent.runStep(llm, task, self.registry, request, steps, index, params, self.lead, self.other)
 			if not worked:
@@ -305,8 +368,11 @@ class Orchestrator:
 				f"The user asked: \"{clip(part, 300)}\"\nInformation found:\n{clip(lookup.numbered(result), 1200)}"
 				for part, result in info) + (
 					"\n\nAnswer each of these questions, in order." if len(info) > 1 else "\n\nAnswer the user.")
+			guide = skillsModule.guide(getattr(task, "skills", ()), anyRecipe={s.recipe for s in self._work(task)})
+			if guide:
+				user += f"\n{guide}"
 			try:
-				summary = llm.text(self.lead, _ANSWER_SYSTEM, user, maxTokens=params.answerTokens, reasoning=params.reasoning)
+				summary = llm.text(self.lead, prompts.speaking(_ANSWER_TASK), user, maxTokens=params.answerTokens, reasoning=params.reasoning)
 			except LLMError:
 				summary = ""
 			pieces.append(" ".join((summary or "").split()) or " ".join(result for _part, result in info))
@@ -403,6 +469,33 @@ class Orchestrator:
 		task.setState(taskModule.WORKING, f"Doing the missing part: {len(extra) - 1} more steps.")
 		self._runSteps(llm, task, request, params, start=len(done))
 		return self._answer(llm, task, request, params)
+
+	def _keep(self, task):
+		"""Keeps what the user said about themselves or how they like things done, when nothing else in the
+		request kept it and they allow it; returns the sentence that tells them, or "". Plain code decides; a
+		memory never ends a request."""
+		if self.memories is None:
+			return ""
+		try:
+			when = self.remembering()
+			steps = [(step.tool, step.status == taskModule.STEP_DONE) for step in task.steps]
+			fact = memoriesModule.worthKeeping(task.request, when, steps, self._changes)
+			if not fact:
+				return ""
+			entry, replaced = self.memories.add(fact, asked=fact, program="")
+		except Exception as e:
+			debuglog.error("memories", "A memory could not be kept", e)
+			return ""
+		return (
+			f"VisionClaw will remember this: {entry.text()}"
+			+ (" It replaces what it remembered before about the same thing." if replaced else "")
+			+ " To make it forget, say forget that.")
+
+	def _changes(self, tool):
+		try:
+			return bool(self.registry.get(tool).changes)
+		except Exception:
+			return False
 
 	def _learn(self, task):
 		if self.memory is None:

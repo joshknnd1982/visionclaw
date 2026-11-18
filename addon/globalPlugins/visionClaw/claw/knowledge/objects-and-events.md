@@ -51,6 +51,13 @@ event_foreground(self, obj, nextHandler) runs when a new window comes to the fro
 event_becomeNavigatorObject(self, obj, nextHandler) runs when object navigation moves.
 event_typedCharacter(self, obj, nextHandler, ch) runs for each typed character.
 event_stateChange(self, obj, nextHandler) runs when a state like checked changes.
+event_UIA_notification(self, obj, nextHandler, displayString=None, **kwargs) runs when a program sends a UI
+Automation notification; the text to say is displayString.
+
+## Reading the status bar of the window in front
+api.getStatusBar() is the status bar of the window in front, or None when it has none. api.getStatusBarText(bar)
+is all of its text: its name and the names and values of its parts. A program often shows amounts, line
+numbers and progress there.
 
 ## Giving a control a better name, overlay classes, relabelling
 To change what NVDA says for some controls, give them your own class:

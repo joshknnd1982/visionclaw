@@ -14,6 +14,7 @@ import re
 import time
 import zipfile
 
+from . import prompts
 from .llm import LLMError, clip
 from .tools import ToolError
 
@@ -480,8 +481,11 @@ def _writer(params):
 	return "model" if getattr(params, "oneModel", False) else "coder model"
 
 
-def _generate(llm, role, user, params):
-	answer = llm.text(role, _SYSTEM, user, maxTokens=params.codeTokens, reasoning=params.reasoning, temperature=0, code=True)
+def _generate(llm, role, user, params, purpose=""):
+	# Who the add-on is for, the user's own instructions and language come with every writing and repair.
+	answer = llm.text(
+		role, prompts.coding(_SYSTEM, purpose), user, maxTokens=params.codeTokens, reasoning=params.reasoning, temperature=0,
+		code=True)
 	return extractCode(answer)
 
 
@@ -495,7 +499,8 @@ def write(llm, task, purpose, facts, notes, params, coder, reviewer):
 	if notes:
 		user += f"Notes about NVDA that may help:\n{clip(notes, 1600)}\n"
 	task.emit("detail", f"The {_writer(params)} is writing the add-on.")
-	return _settle(llm, task, purpose, _generate(llm, coder, user, params), params, coder, reviewer, notes, facts)
+	return _settle(llm, task, purpose, _generate(llm, coder, user, params, purpose), params, coder, reviewer, notes,
+		facts)
 
 
 def fix(llm, task, purpose, source, problems, notes, params, coder, reviewer, facts=""):
@@ -525,7 +530,7 @@ def _settle(llm, task, purpose, source, params, coder, reviewer, notes="", facts
 			reviews -= 1
 			try:
 				verdict = llm.json(
-					reviewer, _REVIEW_SYSTEM, f"Asked for: {clip(purpose, 500)}\nCode:\n{clip(source, 5000)}",
+					reviewer, prompts.coding(_REVIEW_SYSTEM, purpose), f"Asked for: {clip(purpose, 500)}\nCode:\n{clip(source, 5000)}",
 					_REVIEW_SCHEMA, maxTokens=120, reasoning=params.reasoning,
 				)
 			except LLMError:
@@ -570,7 +575,7 @@ def repair(llm, role, purpose, source, problems, params, notes=""):
 	if notes:
 		user += f"\nNotes about NVDA that may help:\n{clip(notes, 1200)}"
 	user += "\nFind the cause, and write the whole corrected file."
-	return _generate(llm, role, user, params)
+	return _generate(llm, role, user, params, purpose)
 
 
 # What an add-on reacts to, in plain words, by the name of the event in its code.
@@ -588,6 +593,7 @@ _EVENT_WORDS = {
 	"show": "when something appears on the screen",
 	"alert": "when a program shows an alert",
 	"liveRegionChange": "when a part of a page or window that updates itself changes",
+	"UIA_notification": "when a program sends a notification to be announced",
 }
 
 

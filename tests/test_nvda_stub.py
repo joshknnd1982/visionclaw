@@ -238,7 +238,7 @@ with open(os.path.join(CONFIG_DIR, "visionClaw", "lessons.json"), "w", encoding=
 	], f)
 instance = plugin.GlobalPlugin()
 registry = instance.orchestrator.registry
-assert len(registry.names()) == 54, registry.names()
+assert len(registry.names()) == 61, registry.names()
 # Lessons from searches that happened to find something misled; they are dropped when VisionClaw starts.
 assert instance.memory.all() == ["Tool set_setting: this form failed: {} (x). This form worked: {}."], instance.memory.all()
 assert set(planner.available(registry)) == set(planner.RECIPES), set(planner.RECIPES) - set(planner.available(registry))
@@ -447,8 +447,26 @@ worked, result = registry.call(task, "inspect_nvda", {"name": "json.nothing"})
 assert not worked and "has nothing called nothing" in result
 worked, result = registry.call(task, "search_help", {"words": "hotkey for a program that has none"})
 assert worked and "App helpers" in result, result
-worked, result = registry.call(task, "remember", {"note": "In Space Trader the Play button is called Start."})
-assert worked and instance.memory.search("Space Trader Play button")
+# Memories: the user's own words, kept as a Markdown file with an index, said back with "your", found again.
+worked, result = registry.call(task, "remember", {
+	"fact": "remember that my braille display is a Focus 40, please", "asked": "remember that my braille display is a Focus 40, please"})
+assert worked and result.startswith("VisionClaw will remember this: Your braille display is a Focus 40."), result
+assert os.path.isfile(os.path.join(instance.memories.folder, "MEMORY.md"))
+assert "Your braille display is a Focus 40." in open(os.path.join(instance.memories.folder, "MEMORY.md"), encoding="utf-8").read()
+worked, result = registry.call(task, "remember", {"fact": "my braille display is a Brailliant BI 20", "asked": "x"})
+assert "It replaces what it remembered before: Your braille display is a Focus 40." in result, result
+assert len(instance.memories.all()) == 1
+worked, result = registry.call(task, "memories", {"asked": "what do you remember about me"})
+assert worked and "Brailliant" in result, result
+assert instance.orchestrator.memories.recall("which braille display do I have") == ["Your braille display is a Brailliant BI 20."]
+worked, result = registry.call(task, "library", {"asked": "what is in my library"})
+assert worked and "library is empty" in result and os.path.isfile(os.path.join(instance.library.folder, "README.txt")), result
+with open(os.path.join(instance.library.folder, "Space Trader manual.txt"), "w", encoding="utf-8") as f:
+	f.write("The Play button is called Start. Press Alt+S to start a new game.\n\nSaving is done with Control+S.")
+worked, result = registry.call(task, "library", {"asked": "what is in my library"})
+assert worked and "1 document: Space Trader manual." in result, result
+worked, result = registry.call(task, "search_help", {"words": "start new game"})
+assert worked and "From your library" in result and "Alt+S" in result, result
 worked, result = registry.call(task, "press_keys", {"keys": "bogusKey"})
 assert not worked and "is not a key" in result
 worked, result = registry.call(task, "list_helpers", {})
@@ -2137,7 +2155,13 @@ assert worked and result.startswith("From Windows: The windows that are open now
 worked, result = registry.call(taskModule.Task("t"), "look_up", {"question": "How do I bake a walnut cake?"})
 assert worked and result.startswith(
 	"Nothing was found about bake or walnut or cake. Asked were: NVDA's commands and user guide, the program explorer, "
-	"its window Program Manager, and what VisionClaw knows about Windows."), result
+	"its window Program Manager, what VisionClaw knows about Windows, the documents in your library, and what you "
+	"asked VisionClaw to remember."), result
+# The library and the memories are asked too, after Windows.
+worked, result = registry.call(taskModule.Task("t"), "look_up", {"question": "what is the Play button called in Space Trader"})
+assert worked and "From your library, Space Trader manual: The Play button is called Start." in result, result
+worked, result = registry.call(taskModule.Task("t"), "look_up", {"question": "which braille display do I have"})
+assert worked and "From what you asked VisionClaw to remember: Your braille display is a Brailliant BI 20." in result, result
 # Looking things up changes nothing, and the recipes for questions use it.
 assert registry.get("look_up").looks and not registry.get("look_up").changes and registry.get("look_up").tell == "summarize"
 assert planner.RECIPES["explain_keys"][2] == ("look_up",) and planner.hint(question) == "explain_keys"
@@ -2347,6 +2371,104 @@ for name in ("learn_app", "note_page", "forget_notes"):
 	assert registry.get(name).changes and registry.get(name).tell == "verbatim"
 assert planner.hint("Learn about this game") == "learn_app" and planner.RECIPES["learn_app"][2] == ("learn_app",)
 instance.runtime = realRuntime
+
+# --- How VisionClaw answers: the user's own instructions and wording (claw/prompts.py) ---
+from visionClaw.claw import prompts  # noqa: E402
+
+vc = conf["visionClaw"]
+assert vc["ownInstructions"] == "" and not any(prompts.isCustom(p) for p in prompts.PARTS)
+instance.showAnswers()
+answersDialog = instance._answersDialog
+# Every part the user may rewrite is listed, the user's own instructions first, and each says if it was changed.
+assert [key for key, _name in answersDialog._names] == ["own"] + list(prompts.PARTS)
+assert all(value == "" for value in answersDialog._values.values())
+assert answersDialog._label("speaking") == "How answers are worded" and answersDialog._label("own").endswith("(none)")
+answersDialog._values["speaking"] = prompts.SPEAKING
+assert not answersDialog._changed("speaking")
+answersDialog._values["speaking"] = "Shout."
+assert answersDialog._label("speaking") == "How answers are worded (changed)"
+# The user writes instructions of their own and rewrites two parts; a part given back as it was stays "".
+answersDialog._onSave({"own": "Call me Sam\nKeep it short", "user": prompts.USER, "speaking": prompts.SPEAKING,
+	"seeing": "Say the colours of everything.", "brief": "Say only what the picture is."})
+assert vc["ownInstructions"] == "Call me Sam. Keep it short." and vc["promptUser"] == "" and vc["promptSpeaking"] == ""
+assert vc["promptSeeing"] == "Say the colours of everything." and prompts.customized() == ["seeing", "brief"]
+assert prompts.part("brief") == "Say only what the picture is." and prompts.part("quick") == prompts.QUICK
+# Opened again, the window shows what the user wrote, and the original where they wrote nothing.
+instance._answersDialog = None
+instance.showAnswers()
+assert instance._answersDialog._values["seeing"] == "Say the colours of everything."
+assert instance._answersDialog._values["user"] == "" and instance._answersDialog._defaults["user"] == prompts.USER
+# Every description gets them, as the first message to the model.
+systems = []
+instance.runtime = types.SimpleNamespace(
+	describe=lambda image, prompt, maxTokens, cancel=None, system=None: systems.append(system) or "A menu.")
+instance._grab = lambda box: Image.new("RGB", (64, 64), "white")
+worked, result = registry.call(taskModule.Task("t"), "look", {"target": "screen", "question": "What is shown?"})
+assert worked and result == "A menu." and "Call me Sam" in systems[0] and "Say the colours of everything." in systems[0]
+assert prompts.SEEING not in systems[0] and prompts.USER in systems[0]
+# Settings saved again keep them; VisionClaw's own wording comes back when the user empties the box.
+instance.runtime = realRuntime
+instance.onSettingsSaved()
+assert prompts.own() == "Call me Sam. Keep it short."
+instance._answersDialog = None
+instance.showAnswers()
+# Restoring every original: the window empties every box, and OK keeps VisionClaw's own wording.
+instance._answersDialog._onSave({key: "" for key, _name in instance._answersDialog._names})
+assert vc["promptSeeing"] == "" and vc["promptBrief"] == "" and prompts.own() == "" and prompts.customized() == []
+assert prompts.part("seeing") == prompts.SEEING and prompts.part("brief") == prompts.BRIEF
+instance.runtime = realRuntime
+
+# Skills (skilltools.py): made in the user's own words, listed, read, turned off and on, deleted. The words
+# that start a new skill are kept only where the user said them; what it tells VisionClaw is the user's words.
+skillQuestions = []
+conf["visionClaw"]["confirmChanges"] = True
+instance.clawAsk = lambda question, choices: skillQuestions.append(question) or 0
+assert instance.orchestrator.skills is instance.skills and len(instance.skills.all()) >= 30
+asked = "Make a new skill: when I ask about recipes, read the ingredients first, with their amounts exactly."
+worked, result = registry.call(taskModule.Task(asked), "add_skill", {
+	"name": "Recipes", "when": "recipes, cooking, ingredients, kitchen", "asked": asked})
+assert worked and result.startswith("Saved the skill Recipes. It is used when your request says: recipes; ingredients."), result
+assert "NVDA+alt+i" in result and "Save a new skill called Recipes?" in skillQuestions[-1]
+made = instance.skills.get("recipes")
+assert made.source == "yours" and made.instructions == (
+	"When I ask about recipes, read the ingredients first, with their amounts exactly."), made.instructions
+assert os.path.isfile(os.path.join(instance.skills.folder, "recipes", "SKILL.md"))
+assert instance.skills.choose("read the ingredients of this recipe")[0].slug == "recipes"
+# Words the user never said cannot start it.
+worked, result = registry.call(taskModule.Task("t"), "add_skill", {
+	"name": "Banking", "when": "bank, money", "asked": "make a skill to read amounts exactly"})
+assert not worked and "Say in the request which words" in result, result
+worked, result = registry.call(taskModule.Task("t"), "list_skills", {"asked": "which skills do you have"})
+assert worked and result.startswith("VisionClaw has ") and "Recipes (yours)" in result, result
+worked, result = registry.call(taskModule.Task("t"), "list_skills", {"asked": "which skills are about charts"})
+assert worked and "Understand a chart, graph or diagram" in result and "Recipes" not in result, result
+worked, result = registry.call(taskModule.Task("t"), "show_skill", {"skill": "x", "asked": "what does the chart skill do"})
+assert worked and result.startswith("Understand a chart, graph or diagram:") and "Used when your request says:" in result, result
+# The user's own words decide which skill is meant, whatever the model wrote.
+worked, result = registry.call(taskModule.Task("t"), "manage_skill", {
+	"skill": "Shop online safely", "action": "turn off", "asked": "turn off the game skill"})
+assert worked and result == "The skill Play a game the screen reader cannot read is off. It can be turned on again.", result
+assert not instance.skills.get("game").on
+worked, result = registry.call(taskModule.Task("t"), "manage_skill", {
+	"skill": "game", "action": "turn on", "asked": "turn on the game skill"})
+assert worked and instance.skills.get("game").on
+# A built-in skill is turned off, after a question, instead of being deleted.
+worked, result = registry.call(taskModule.Task("t"), "manage_skill", {
+	"skill": "chart", "action": "delete", "asked": "delete the chart skill"})
+assert worked and "comes with VisionClaw, so it was turned off" in result and not instance.skills.get("chart").on, result
+assert "cannot be deleted. Turn it off instead?" in skillQuestions[-1]
+instance.skills.setOn("chart", True)
+# Saying no keeps the user's skill.
+instance.clawAsk = lambda question, choices: skillQuestions.append(question) or 1
+worked, result = registry.call(taskModule.Task("t"), "manage_skill", {
+	"skill": "Recipes", "action": "delete", "asked": "delete my recipes skill"})
+assert worked and "nothing was changed" in result and instance.skills.get("recipes") is not None, result
+instance.clawAsk = lambda question, choices: skillQuestions.append(question) or 0
+worked, result = registry.call(taskModule.Task("t"), "manage_skill", {
+	"skill": "Recipes", "action": "delete", "asked": "delete my recipes skill"})
+assert worked and result == "Your skill Recipes was deleted." and instance.skills.get("recipes") is None, result
+assert "Delete your skill Recipes?" in skillQuestions[-1]
+# The skills window (skillsui.py) needs real wx lists, which the stand-in does not have; it is tested in NVDA.
 
 instance.terminate()
 print("OK")

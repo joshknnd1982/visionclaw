@@ -27,6 +27,8 @@ SOURCES = {
 	("drag_item", "item"): ("list_items", NAMES),
 	("go_to_item", "item"): ("list_items", NAMES),
 	("fill_field", "field"): ("list_items", NAMES),
+	("show_skill", "skill"): ("list_skills", NAMES),
+	("manage_skill", "skill"): ("list_skills", NAMES),
 }
 MAX_CHOICES = 30
 NUMBER_PATTERN = "^[+-]?[0-9]{1,4}$"

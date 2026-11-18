@@ -211,6 +211,25 @@ RECIPES = {
 		"make a full audit of this NVDA: count and list every command, module, function, class and object it "
 		"has, and how it works its speech synthesizer and braille display, and save the list as a file",
 		("audit_nvda",)),
+	# Skills: how and when VisionClaw does a kind of job (claw/skills.py). The user's own are made in words or in
+	# the skills window.
+	"add_skill": (
+		"make a new skill",
+		"make a new skill: teach VisionClaw, in the user's own words, how or when to do a kind of job, kept for "
+		"later requests",
+		("add_skill",)),
+	"list_skills": (
+		"say which skills VisionClaw has",
+		"say which skills VisionClaw has, or open the skills window",
+		("list_skills",)),
+	"show_skill": (
+		"say what one skill does",
+		"say what one skill does, when it is used and what it tells VisionClaw",
+		("list_skills", "show_skill")),
+	"manage_skill": (
+		"delete, turn off or turn on a skill",
+		"delete one of the user's skills, or turn a skill off or on",
+		("list_skills", "manage_skill")),
 	"learn_app": (
 		"learn about this program from the internet",
 		"go online and learn about the program or game the user is in, or one they name, and keep notes on it; "
@@ -233,10 +252,34 @@ RECIPES = {
 		"open VisionClaw's own debug log, the file that records what VisionClaw did and every error, to find "
 		"out why something went wrong",
 		("show_log",)),
+	# What the user asks VisionClaw to remember, kept as Markdown files (claw/memories.py), and the user's
+	# library of documents that questions are also answered from (claw/library.py).
+	"remember": (
+		"remember something for you",
+		"keep something the user asks VisionClaw to remember for later: about themselves, how they like things done, "
+		"a program, or where something is",
+		("remember",)),
+	"memories": (
+		"say what VisionClaw remembers",
+		"say what VisionClaw remembers that the user asked it to remember, or open the list of memories",
+		("memories",)),
+	"forget_memory": (
+		"forget something VisionClaw remembers",
+		"delete something VisionClaw remembers: what the user names, the last thing it remembered, or everything",
+		("forget_memory",)),
+	"library": (
+		"say what is in your library of documents",
+		"say which documents are in VisionClaw's library, or open the library's folder so the user can add some",
+		("library",)),
 }
 # Words that point to a recipe. Checked in this order; the first that matches is the hint given to the model,
 # and the choice when the model fails.
 _HINTS = (
+	# Skills. First: the word "skill" can hardly mean anything else.
+	("manage_skill", r"\b(delete|remove|forget|erase|get rid of|turn off|turn on|switch off|switch on|disable|enable|stop using|start using)\b.*\bskills?\b"),
+	("show_skill", r"\b(read|show|explain|describe|tell me about|what does|what is)\b.*\b(the|my) [\w' -]{1,60} skill\b|\bskill (called|named)\b"),
+	("list_skills", r"\b(which|what|list|show|open|how many)\b.*\bskills\b|\bskills (window|folder|list)\b"),
+	("add_skill", r"\b(make|create|add|write|teach|save|new)\b.*\bskills?\b"),
 	("update_visionclaw", r"\b(update|upgrade|updates|new version|newer version|latest version|up to date)\b.*\bvisionclaw\b"
 		r"|\bvisionclaw\b.*\b(update|updates|upgrade|new version|newer version|latest version|up to date)\b"
 		r"|\b(check|look) for (an? |any )?(updates?|new(er)? version)\b"),
@@ -245,6 +288,17 @@ _HINTS = (
 	# Notes on programs, learned from the internet. Before everything that the words page, list or remove
 	# would otherwise set off.
 	("forget_notes", r"\b(delete|remove|forget|erase|clear|get rid of)\b.*\bnotes?\b"),
+	# Memories: what is remembered, then keeping one, then forgetting one. "Don't forget" keeps one.
+	("memories", r"\b(what|which|anything)\b.{0,20}\byou (remember|remembered|know about me|memori[sz]ed)\b"
+		r"|\b(list|show|open|read|see)\b.{0,30}\bmemor(y|ies)\b"),
+	# "Forget everything you remember" forgets; "don't forget that ..." keeps.
+	("forget_memory", r"^(?!.*\b(don'?t|do not) forget\b).*\bforget\b|\b(delete|remove|erase|clear)\b.*\bmemor(y|ies)\b"),
+	("remember", r"\b(remember|memori[sz]e|don'?t forget|do not forget|keep in mind|bear in mind|"
+		r"(make|take) a note that|note that)\b"
+		# Only a statement and nothing more: "I'm new to NVDA. How do I ...?" is a question, and what it says
+		# about the user is kept after it is answered (orchestrator._keep).
+		r"|^\s*(please )?(call me|my name is|i am new to|i'm new to)\b[^?.!;]*[.!]?\s*$"),
+	("library", r"\b(my|your|visionclaw'?s|the) library\b|\blibrary (folder|of documents)\b"),
 	("note_page", r"\b(add|put|save|keep)\b.*\b(page|site|article)\b.*\bnotes?\b"
 		r"|\bnotes?\b.*\bfrom (this|the) (web ?page|page|web ?site|site|article)\b"),
 	("app_notes", r"\b(which|what|list|show|open|read)\b.*\bnotes\b"),

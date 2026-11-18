@@ -279,6 +279,15 @@ def register(plugin, add, text, onMain, commandsNow):
 		passages += system
 		task.emit(taskModule.DETAIL, f"Asked Windows: {windowsIs}, {openCount} open windows, and the keys of Windows.")
 		task.check()
+		# Then the documents the user put into the library, and what the user asked VisionClaw to remember.
+		names = [name for name in (app, who["product"]) if name and name != "unknown"]
+		shelved = _safe(lambda: plugin.library.passages(names), []) or []
+		mine = _safe(lambda: lookup.fromMemories(plugin.memories.all()), []) or []
+		passages += shelved + mine
+		if shelved or mine:
+			task.emit(taskModule.DETAIL, (
+				f"Asked your library: {len(shelved)} passages, and what you asked VisionClaw to remember: {len(mine)}."))
+		task.check()
 		# A question that points at something, "what does this do", is put to a model with where the user is:
 		# it says whether the program, the window or the focused control is meant. Plain code offers the three.
 		extra = ""
@@ -300,17 +309,17 @@ def register(plugin, add, text, onMain, commandsNow):
 					task.emit(taskModule.DETAIL, (
 						f"The {policy.roleName(VISION, policy.isOneModel(plugin.runtime))} takes the question to be about "
 						f"{what}: {named}."))
-		found = lookup.about(question, passages, extra=extra)
+		found = lookup.about(question, passages, extra=extra, program=names)
 		debuglog.log("lookup", (
 			f"Asked {len(passages)} passages about \"{question}\". Telling words: {sorted(lookup.asked(question)[0])}. "
 			f"Found: {[(passage.origin, passage.title or passage.text[:50]) for passage in found]}"))
 		if not found:
-			return lookup.nothingText(question, app, title, notes=bool(noted))
+			return lookup.nothingText(question, app, title, notes=bool(noted), library=bool(shelved), memories=bool(mine))
 		return lookup.resultText(found)
 
 	add(lookup.TOOL,
 		"answer a question about how to do something with the keyboard or what something is: asks NVDA (its "
-		"commands and user guide), then the program in front, then its window, then Windows, and gives what they "
-		"say that is about the question",
+		"commands and user guide), then the program in front, then its window, then Windows, then the user's "
+		"library and memories, and gives what they say that is about the question",
 		lookUp, {"question": text("the user's question, in their own words", maxLength=300, auto=True)},
 		looks=True, title="Asking NVDA, the program, the window and Windows")

@@ -293,9 +293,9 @@ class ModelRuntime:
 		with self._use(self._slot(role)):
 			return engine.chat(messages, maxTokens, onText, cancel, options, raw, info)
 
-	def describe(self, jpegBytes, prompt, maxTokens, onText=None, cancel=None, options=None):
-		"""One image and a prompt, to the vision model."""
-		return self.chat(VISION, imageMessages(jpegBytes, prompt), maxTokens, onText, cancel, options)
+	def describe(self, jpegBytes, prompt, maxTokens, onText=None, cancel=None, options=None, system=None):
+		"""One image and a prompt, to the vision model. system: what it is told first (claw/prompts.py), or None."""
+		return self.chat(VISION, imageMessages(jpegBytes, prompt, system), maxTokens, onText, cancel, options)
 
 	def status(self):
 		"""What is loaded, for telling the user."""

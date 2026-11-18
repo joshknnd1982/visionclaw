@@ -37,6 +37,33 @@ keyboard and speech alone.
 
 ## Rules that always apply
 
+- **Everything is about how blind people use computers.** The owner said on 2026-11-17: "prompts and
+  memories and skills **must** always be relevant to how *blind* people use computers." Every prompt, every
+  memory VisionClaw keeps or offers, every skill (built in or written by the user), every recipe and every
+  answer is about working the computer with the keyboard, speech and braille through NVDA: keys and commands
+  written exactly as NVDA names them, places said in words, nothing that only a sighted person can follow
+  ("click the blue button", "look at", "as you can see", "hover over it"), and the user told what changed.
+  The mouse is not sighted-only: blind people work it with NVDA's keyboard commands when they need it (the
+  owner, 2026-11-17), so never drop or down-rank something for naming the mouse; leave out only what needs
+  sight or a hand on the mouse, and give a plain key first, NVDA's keys that work the mouse next. Model calls that
+  word something for the user take their system prompt from `prompts.speaking(task)` or `prompts.seeing()`
+  (`claw/prompts.py`), whatever model is chosen, so these instructions always apply.
+- **Add-ons written on the fly get the same instructions, skills, memories and notes.** The owner said on
+  2026-11-17: "system prompts and memories and rag and skills must also apply when the local AI models are
+  generating nvda addons on the fly for the nvda user." Every model call that writes, reviews, repairs or
+  debugs a generated add-on (`claw/microaddons.py`, `nvdatools.fixAddon`, `helpers._guard`) has the
+  instructions for blind users in its system prompt (`prompts.coding(task)`), and its user message carries
+  what is relevant to the request: the knowledge notes (RAG), the skills that match, and what the user asked
+  VisionClaw to remember. Keep each short, one small step at a time; the add-on itself speaks through
+  `ui.message` in plain words and is worked from the keyboard. Measure with `python tests/live_addon.py`.
+- **Code-writing skills, instructions, notes and memories are chosen by the request.** The owner said on
+  2026-11-17: "there must be special code-writing skills, system prompts, rag, memories... they must trigger
+  when visionclaw deems each skill is appropriate according to user prompt." Plain code decides from the
+  user's own words which of them fit: the code-writing instructions added to the system prompt
+  (`prompts.coding(task, purpose)`, `prompts.CODE_KINDS`), the skills (`claw/skills.py`, `stepGuide`,
+  `addonGuide`), the knowledge passages and what the user asked VisionClaw to remember
+  (`memorytools.forCoder`). Only what fits is sent, never all of it, and nothing when nothing fits; a small
+  model reads a few short, relevant lines better than many.
 - **Local only.** The add-on's own code connects to the internet only to download models, and only after the
   user says yes. Never add telemetry, cloud APIs, or update checks. The web tools hand an address to the user's
   own browser when the user asks; the models never go online.
@@ -226,10 +253,58 @@ keyboard and speech alone.
   its top where it is from and that it may be wrong. `forget_notes` deletes one or all after a question;
   adding to notes never rewrites what is there (`learn.merged`), because the user may have written into it.
   Notes answer questions as passages of the program (`learn.passages`), each saying which website it is from.
+- **Memories are the user's files too, and kept only when needed.** The owner asked on 2026-11-17 that
+  VisionClaw save memories in Markdown the way Claude does, only when necessary, and that the user can delete
+  some or all of them and start over. One file for each memory in the folder `memories` of VisionClaw's data,
+  with a few lines at its top (name, description, type, program, saved) and an index, `MEMORY.md`, made from
+  the files (`claw/memories.py`). What is kept is the user's own words, turned from "I" to "you" by plain
+  code; no model writes or rephrases a memory. A memory is kept when the user asks (`remember`), or, if the
+  setting "Remember things" allows it (the default), when the user says something lasting about themselves or
+  how they like things done, nothing else in the request kept it (a changed setting is kept by NVDA), and it is
+  about how they work the computer (`memories.worthKeeping`); the answer then says so and how to undo it. A
+  new memory about the same thing replaces the old one. Memories go with a request to the planner
+  (`orchestrator._context`) and answer questions through `look_up`. The user forgets one, the last, or all in
+  words (`forget_memory`; all is always asked about) or in the memories window (`memoriesui.py`: a list with
+  check boxes, the whole memory, Forget checked, Forget all and start over), from the settings or a command
+  without a key. `claw/memory.py` is something else: lessons about failed forms, for the models.
+- **The library is retrieval, done by plain code.** Every source `look_up` asks is cut into small passages;
+  plain code finds those about the question, and only they reach the model (`claw/lookup.py`). After NVDA, the
+  program, its window and Windows come the user's library (`claw/library.py`: Markdown, text, saved web pages
+  and Word documents in the folder `library`; a document whose name names the program in front counts as that
+  program's) and the memories. Notes on accessibility interfaces (`api-*.md`) and on common programs
+  (`app-*.md`) carry a gate in `lookup.NOTES`: they are asked only when the question, or the program in front,
+  names what they are about, so that "how do I press a button" is not answered with the ARIA role. These notes
+  were written on 2026-11-17 from the pages named at the top of each file; when they are brought up to date,
+  read those pages again, keep each section to one answer with the asking words in its heading.
 - **No question about a described picture is refused.** VisionMate asked the model first whether a question
   was "about the image", and a small model said no to what a blind person most needs to ask. The description
   window answers everything (`followup.ANSWER`); the one rule is that what is not shown is said to be not
   shown. Do not bring a gate back.
+- **Every answer and description is told who the user is.** The owner asked on 2026-11-17 for global
+  instructions made for blind people, after VisionAssistantPro's. `claw/prompts.py` holds them in three parts:
+  who the user is (blind, speech or braille), how an answer is worded to be heard (start with the answer, no
+  Markdown, names, numbers and keys copied exactly, places in words, nothing only by its colour, say what is
+  not known), and what matters in a picture (text exactly, focused, selected, checked, greyed out, no guessing
+  who someone is). `prompts.speaking(task)` is the system prompt of every answer a model writes for the user,
+  `prompts.seeing()` of every description and question about a picture, then the user's own instructions and
+  language. The user reads and rewrites all of it in "How VisionClaw answers" (settings); VisionClaw's own
+  wording is kept as "" so a newer one reaches them. Forms, code, notes and judgements get only
+  `prompts.IDENTITY`: the user's words could change ids a form must copy. No examples in these parts, and no
+  model's role named in them (`tests/test_prompts.py`).
+- **Skills are text, chosen by plain code.** A skill (`claw/skills.py`) only tells the models how a kind of job is
+  done well for a blind person; it never holds code, and every tool still asks before it changes anything. Plain
+  code chooses it from the request's words: a phrase of several words must be there word for word unless two or
+  more of its words tell what it is about, so an everyday word alone ("read", "key") never starts a skill. Its
+  sentences go only to the steps of the jobs in its `uses`, and to the answer; never to the very smallest
+  models' one-field questions, and never to the model that chooses the recipe. A skill with steps runs them as
+  they are only when the request has a starting phrase word for word. What a skill made in words tells
+  VisionClaw is the user's own words, and only starting words the user said are kept. A built-in skill is
+  never deleted, only turned off; the user's copy of one takes its place. Built-in skills have no examples, no
+  Markdown in their sentences, and stay under `skills.GUIDE_CHARS`; `tests/test_skills.py` checks every one.
+  Every skill is about how a blind person works the computer: keyboard, speech and braille. Where a program needs
+  the mouse, a skill leads to the keyboard way first and then to NVDA's keys that work the mouse, taken from
+  `tests/nvda_commands.json`, never to "click the icon at the top right". A one-word starting phrase matches
+  by its stem, so check that the stem is not an everyday word ("news" became "new").
 - **Measure with the real model.** After any change to a prompt, a recipe or a form, run
   `python tests/live_orchestrator.py` and read every answer. A change that passes the scripted tests can still
   make a small model worse.
@@ -265,6 +340,13 @@ addon/
                              downloading, handing it to NVDA
     asktools.py              a question: what NVDA, the program in front, its window and Windows each say,
                              the notes on the program, and what "this" means, by the user's words or a model
+    memorytools.py           remembering, listing and forgetting what the user asked VisionClaw to remember;
+                             the user's library of documents
+    memoriesui.py            the memories window: forget the checked ones, or all of them and start over
+    skilltools.py            skills in words: making one from the user's own words, listing, reading, turning
+                             off or on, deleting
+    skillsui.py              the skills window (NVDA+Alt+I): every skill, what the chosen one says, new, change,
+                             turn off, delete, import a file, open the skills folder
     learntools.py            learning about the program in front from the internet after a question, adding a
                              page from the user's browser to the notes, listing, opening and deleting notes
     nvdainfo.py              what NVDA has and uses: synthesizer, voices, braille display, drivers, add-ons;
@@ -285,6 +367,8 @@ addon/
       commands.py            NVDA's commands as data: finding one, and how often its key is pressed
       lookup.py              a question answered from NVDA, the program, the window and Windows: passages,
                              which of them are about the question, a help page as text, what to say when none is
+      memories.py            the user's memories as Markdown files with an index; what to keep, recall, forget
+      library.py             the user's documents read as sections and passages for lookup
       learn.py               what a program is called and what to ask about it; Wikipedia, Wikidata and the
                              program's own website read as text; the useful sections of a page; notes a model
                              writes and plain code checks; the notes as Markdown files and as passages
@@ -296,6 +380,8 @@ addon/
       scrolling.py           how far to scroll, steps that follow the screen, whether a scroll moved anything,
                              scrollbars found in a picture
       changes.py             every setting VisionClaw changed, so that it can be listed and put back
+      prompts.py             what every answer and description is told about the blind user, the user's own
+                             instructions and wording
       fixmatch.py            controls as plain data and the rules that find them; copied into fixes add-ons
       audit.py               the inspection's findings for a page or window, and the fixes each can have
       fixes.py               fixes as data; the add-on put together from them; what it does, in sentences
@@ -307,6 +393,9 @@ addon/
       shapes.py              what a model may write in a field, from the results so far; an answer that only
                              repeats the question; answers quoted from what was looked up
       memory.py              lessons learned, kept between sessions
+      skills.py              skills: SKILL.md read and written, checked, chosen by their words, their sentences
+                             for a step, a skill's own steps as the plan; VisionClaw's own and the user's
+      skills/                VisionClaw's own skills, one folder with a SKILL.md each
       knowledge.py           searchable NVDA add-on knowledge (claw/knowledge/*.md)
       guides.py              the downloaded developer guides: fixed addresses, web page to Markdown, sections
       working.py             how a control is worked, from NVDA's facts or from both models; which remedy fits;
@@ -456,12 +545,18 @@ A session is done only when its "Done when" line is true.
 
 ### Phase 4 — Learning
 - [x] **4.1 Knowledge base** for NVDA add-on development, and lessons memory.
+- [x] **4.4 Memories and the library.** Memories in Markdown, kept when asked or when needed, forgotten in
+  words or in a window; the user's library and notes on accessibility interfaces, Windows and common programs
+  looked things up in with everything else.
 - [ ] **4.2 Learn from this NVDA.** Index NVDA's shipped user guide and the source of installed add-ons as
   examples; add a `learn` command that studies a topic and stores notes. *Done when:* a question about an NVDA
   feature is answered with a quote from the user guide.
-- [ ] **4.3 Skills.** SmallClaw-style `SKILL.md` files (trigger words + instructions) for common jobs: relabel a
-  control, remap a key, announce changes in a window region, fix an unlabelled app. Chosen by keyword, injected
-  into the step prompt.
+- [x] **4.3 Skills.** SmallClaw-style `SKILL.md` files (starting words, the jobs they are for, plain sentences,
+  and optional fixed steps), 38 built in for what blind people do at a computer, six of them for the add-ons
+  the models write (`claw/skills/`), chosen by
+  plain code from the request's words, their sentences given to the forms, the vision model, the coder and the
+  answer of their jobs; a skill with steps runs them as its plan. The user makes, changes, turns off, deletes and
+  imports skills in the skills window (NVDA+Alt+I) or in words, and opens the skills folder with a button.
 
 ### Phase 5 — Quality with real models
 - [ ] **5.1 Evaluation set.** 40 requests with expected outcomes (settings, vision, add-ons, multi-step) in
@@ -484,12 +579,19 @@ A session is done only when its "Done when" line is true.
 ```
 python tests/run_all.py                  every plain-Python test (no model needed)
 python tests/test_lookup.py              questions against every NVDA command and the notes; plain Python
+python tests/test_skills.py              every built-in skill checked; choosing, the user's skills, a skill's plan
+python tests/test_skills_window.py       the skills window with the real wxPython and stand-ins for NVDA's gui
 python tests/test_learn.py               learning about a program against a stand-in internet; every request listed
+python tests/test_memories.py            memories as files, kept, recalled, forgotten; the library; gated notes
 python tests/live_learn.py               a real model and the real internet learn about a program; read every note
 python tests/live_orchestrator.py        needs the engine and a model on this computer
 python tests/live_side_by_side.py        two real engines on two backends; needs VisionMate's vision data
 python tests/live_addon.py               a real model writes four add-ons and debugs one; read every result
+python tests/live_addon_memories.py      a real model writes add-ons with a memory, the library and the notes on
+                                         accessibility interfaces put first; read every result
 python tests/live_working.py             both real models say how drawn and described controls are worked
+python tests/live_prompts.py             a real vision model describes drawn pictures with and without the
+                                         instructions for blind users; read every answer
 python tools/write_models_list.py        writes models.json from the catalog; run after every change to CATALOG
 python tools/write_command_fixture.py    writes tests/nvda_commands.json from NVDA's globalCommands.py
 python tools/audit_nvda_source.py        counts NVDA's modules, commands, drivers and extension points from its source

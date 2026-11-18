@@ -5,6 +5,8 @@
 
 # VisionClaw - settings panel in NVDA's Settings dialog.
 
+import os
+
 import addonHandler
 import config
 import gui
@@ -12,7 +14,7 @@ import wx
 from gui import guiHelper
 
 from . import clawui
-from .claw import backend, debuglog, policy, updates
+from .claw import backend, debuglog, memories, policy, updates
 
 addonHandler.initTranslation()
 
@@ -67,6 +69,21 @@ class VisionClawPanel(gui.settingsDialogs.SettingsPanel):
 			_("Ask the models &one small question at a time:"), wx.Choice, choices=clawui.stepwiseLabels())
 		self.oneAtATime.SetSelection(
 			policy.STEPWISE_CHOICES.index(c["oneAtATime"]) if c["oneAtATime"] in policy.STEPWISE_CHOICES else 0)
+		self.remember = helper.addLabeledControl(
+			# Translators: Label of the choice of when VisionClaw keeps something the user said, as a memory.
+			_("&Remember things:"), wx.Choice, choices=[
+				# Translators: Choices for when VisionClaw keeps a memory.
+				_("When I ask, and when I say something lasting about myself or how I like things"),
+				_("Only when I ask it to remember"),
+				_("Never"),
+			])
+		self.remember.SetSelection(memories.WHEN.index(c["remember"]) if c["remember"] in memories.WHEN else 0)
+		# Translators: Button in settings that opens the window of what VisionClaw remembers, to delete some or all.
+		self.memoriesBtn = helper.addItem(wx.Button(self, label=_("What VisionClaw remem&bers, to forget some or all...")))
+		self.memoriesBtn.Bind(wx.EVT_BUTTON, lambda e: self._openFolder("memories"))
+		# Translators: Button in settings that opens the folder of documents VisionClaw looks things up in.
+		self.libraryBtn = helper.addItem(wx.Button(self, label=_("Open your li&brary of documents...")))
+		self.libraryBtn.Bind(wx.EVT_BUTTON, lambda e: self._openFolder("library"))
 		# Translators: Label of the choice of search engine used when the user asks to search the web.
 		self.searchEngine = helper.addLabeledControl(_("Search the &web with:"), wx.Choice, choices=SEARCH_ENGINES)
 		self.searchEngine.SetSelection(
@@ -109,6 +126,16 @@ class VisionClawPanel(gui.settingsDialogs.SettingsPanel):
 		# Translators: Button in settings that opens VisionClaw's own log.
 		self.logBtn = helper.addItem(wx.Button(self, label=_("Open VisionClaw's lo&g...")))
 		self.logBtn.Bind(wx.EVT_BUTTON, lambda e: self.plugin.openLog() if self.plugin else None)
+		# Translators: Button in settings that opens the window of VisionClaw's skills.
+		self.skillsBtn = helper.addItem(wx.Button(self, label=_("Skills: read, make, change, turn off or delete th&em...")))
+		self.skillsBtn.Bind(wx.EVT_BUTTON, lambda e: self.plugin.showSkills(self) if self.plugin else None)
+		# Translators: Button in settings that opens the folder where the user's own skills are kept.
+		self.skillsFolderBtn = helper.addItem(wx.Button(self, label=_("Open the skills &folder")))
+		self.skillsFolderBtn.Bind(wx.EVT_BUTTON, lambda e: self._openSkillsFolder())
+		# Translators: Button in settings that opens the window where the user reads and changes how VisionClaw
+		# answers, and writes instructions of their own.
+		self.answersBtn = helper.addItem(wx.Button(self, label=_("&How VisionClaw answers, and your own instructions...")))
+		self.answersBtn.Bind(wx.EVT_BUTTON, lambda e: self.plugin.showAnswers(self) if self.plugin else None)
 		# Translators: Button in settings that opens the window for seeing, removing and swapping models.
 		self.manageBtn = helper.addItem(wx.Button(self, label=_("See, remove or swa&p models...")))
 		self.manageBtn.Bind(wx.EVT_BUTTON, lambda e: self.plugin.showManageModels() if self.plugin else None)
@@ -138,6 +165,31 @@ class VisionClawPanel(gui.settingsDialogs.SettingsPanel):
 		# Translators: Checkbox in settings.
 		self.progressBeeps = checkbox(_("Play a soft t&ick while waiting for a description"), "progressBeeps")
 
+	def _openSkillsFolder(self):
+		"""Opens the folder of the user's own skills in File Explorer. Each skill is a folder with SKILL.md in it."""
+		if self.plugin is None:
+			return
+		folder = self.plugin.skills.folder
+		try:
+			self.plugin.skills.prepare()
+			os.startfile(folder)
+		except OSError as e:
+			debuglog.error("settings", "The skills folder could not be opened", e)
+
+	def _openFolder(self, which):
+		"""Opens the folder of memories or the library in File Explorer."""
+		if self.plugin is None:
+			return
+		try:
+			if which == "library":
+				self.plugin.library.prepare()
+				os.startfile(self.plugin.library.folder)
+			else:
+				from . import memoriesui
+				memoriesui.show(self.plugin)
+		except OSError as e:
+			debuglog.error("settings", f"The folder {which} could not be opened", e)
+
 	def onSave(self):
 		c = config.conf[CONF_SECTION]
 		if self.plugin is not None:
@@ -149,6 +201,7 @@ class VisionClawPanel(gui.settingsDialogs.SettingsPanel):
 		c["oneAtATime"] = policy.STEPWISE_CHOICES[max(0, self.oneAtATime.GetSelection())]
 		c["updateCheck"] = updates.MODES[max(0, self.updateCheck.GetSelection())]
 		c["debugLog"] = debuglog.LEVELS[max(0, self.debugLog.GetSelection())]
+		c["remember"] = memories.WHEN[max(0, self.remember.GetSelection())]
 		c["sideBySide"] = self.sideBySide.GetValue()
 		c["autoFixAddons"] = self.autoFixAddons.GetValue()
 		c["searchEngine"] = SEARCH_IDS[max(0, self.searchEngine.GetSelection())]

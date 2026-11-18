@@ -14,10 +14,12 @@ import io
 import json
 import os
 import sys
+import tempfile
 import time
 
 import harness
-from visionClaw.claw import audit, catalog, commands, fixes, lookup, match, orchestrator, pointer, runtime, scrolling, tools, web
+from visionClaw.claw import audit, catalog, commands, fixes, library, lookup, match, memories, orchestrator, pointer, runtime, scrolling, tools, web
+from visionClaw.claw import planner, prompts, skills
 from visionClaw.claw.knowledge import Knowledge
 from visionClaw.claw import task as taskModule
 from visionClaw.claw.catalog import CODER, VISION
@@ -96,8 +98,12 @@ def makeRegistry(rt, state):
 		return f"{settings[setting][0]} was {old} and is now {value}."
 
 	def look(task, target, question):
-		return rt.describe(screenshot(), f"Look at this picture of the user's {target} and answer: {question}", 250,
-			cancel=task.cancel)
+		# As the real tool: the instructions for blind users, and what a chosen skill says about looking.
+		prompt = f"Look at this picture of the user's {target} and answer: {question}"
+		guide = skills.stepGuide(task)
+		if guide:
+			prompt += f"\n{guide}"
+		return rt.describe(screenshot(), prompt, 350, cancel=task.cancel, system=prompts.seeing())
 
 	items = ["Space Trader - Main Menu heading", "New Game button", "Load Game button", "Options button", "Quit button",
 		"Search edit field", "Refund policy heading"]
@@ -173,7 +179,46 @@ def makeRegistry(rt, state):
 
 	def lookUp(task, question):
 		state["asked"] = question
-		return lookup.resultText(lookup.about(question, pool)) or lookup.nothingText(question, "spacetrader", "Space Trader - Main Menu")
+		mine = lookup.fromMemories(KEPT.all()) + SHELF.passages(["spacetrader", "Space Trader"])
+		return lookup.resultText(lookup.about(question, pool + mine, program=["spacetrader"])) or lookup.nothingText(
+			question, "spacetrader", "Space Trader - Main Menu", library=True, memories=bool(KEPT.all()))
+
+	# Memories and the library, as in memorytools.py, in a folder of their own.
+	def remember(task, fact, asked):
+		entry, replaced = KEPT.add(memories.factOf(fact or asked), asked=asked)
+		return f"VisionClaw will remember this: {entry.text()}" + (" It replaces an older memory." if replaced else "")
+
+	def listMemories(task, asked):
+		return KEPT.listText()
+
+	def forgetMemory(task, which):
+		chosen = KEPT.chosen(which)
+		if not chosen:
+			return "None of the memories is about that. " + KEPT.listText()
+		gone = [entry.text() for entry in chosen if KEPT.remove(entry.name)]
+		return "Forgotten: " + "; ".join(gone)
+
+	reg.add(tools.Tool("remember",
+		"keep something the user asks VisionClaw to remember for later: something about them, how they like things "
+		"done, a program, or where to find something; kept in their own words as a file they can read",
+		remember, {
+			"fact": {"type": "string", "description": "what is to be remembered, in the user's own words", "maxLength": 500,
+				"auto": memories.factOf},
+			"asked": {"type": "string", "description": "what the user asked for, in their own words", "maxLength": 500, "auto": True},
+		}, tell=tools.VERBATIM))
+	reg.add(tools.Tool("memories",
+		"say what VisionClaw remembers that the user asked it to remember, or open the list so the user can read it",
+		listMemories, {"asked": {"type": "string", "description": "what the user asked for", "maxLength": 300, "auto": True}},
+		looks=True, tell=tools.VERBATIM))
+	reg.add(tools.Tool("forget_memory",
+		"delete something VisionClaw remembers: what the user names, the last thing it remembered, or everything",
+		forgetMemory, {"which": {"type": "string", "description": "what to forget, in the user's own words", "maxLength": 300,
+			"auto": True}}, changes=True, tell=tools.VERBATIM))
+	reg.add(tools.Tool("library",
+		"say which documents are in VisionClaw's library, that it looks things up in, or open the library's folder so "
+		"the user can add documents",
+		lambda task, asked: SHELF.listText(), {"asked": {"type": "string", "description": "what the user asked for",
+			"maxLength": 300, "auto": True}}, looks=True, tell=tools.VERBATIM))
 
 	V = tools.VERBATIM
 	reg.add(tools.Tool(lookup.TOOL,
@@ -435,11 +480,56 @@ def makeRegistry(rt, state):
 		{"topic": text("what to report on", enum=["speech", "braille", "addons", "general"],
 			auto=lambda part: "braille" if "braille" in part.lower() else "addons" if "add" in part.lower() else "speech")},
 		looks=True, title="Asking NVDA"))
+	# Skills: the real tools need NVDA, so these stand in for them with the same forms.
+	simple("add_skill",
+		"make a new skill: what the user says VisionClaw should do, kept and used whenever later requests have "
+		"its starting words", "Saved the skill {name}. It is used when your request says: {when}.", "Making the skill", {
+			"name": text("a short name for the new skill, in two to five words", maxLength=60),
+			"when": text("the words of the user's request that should start the skill, separated by commas", maxLength=200),
+			"asked": text("what the user asked for, in their own words", maxLength=1000, auto=True),
+		}, changes=True, tell=V)
+	simple("list_skills", "say which skills VisionClaw has, or open the skills window or the folder of the user's skills",
+		"VisionClaw has 31 skills, 0 of them yours:\n1. Describe a photo or picture\n2. Understand a chart, graph or diagram\n"
+		"3. Play a game the screen reader cannot read", "Looking at the skills",
+		{"asked": text("what the user asked for, in their own words", maxLength=300, auto=True)}, looks=True, tell=V)
+	simple("show_skill", "say what one skill does, when it is used and what it tells VisionClaw",
+		"{skill}: everything about it.", "Reading the skill", {
+			"skill": text("the name of the skill, from list_skills", maxLength=80),
+			"asked": text("what the user asked for, in their own words", maxLength=300, auto=True),
+		}, looks=True, before="list_skills", tell=V)
+	simple("manage_skill", "delete one of the user's skills, or turn a skill off or on",
+		"The skill {skill}: {action}.", "Changing the skill", {
+			"skill": text("the name of the skill, from list_skills", maxLength=80),
+			"action": text("what to do with it", enum=["delete", "turn off", "turn on"],
+				auto=lambda part: "turn off" if "off" in part.lower() else "delete"),
+			"asked": text("what the user asked for, in their own words", maxLength=300, auto=True),
+		}, changes=True, before="list_skills", tell=V)
 	reg.add(tools.Tool(tools.ANSWER, "tell the user the result in plain words; always the last step", lambda task: ""))
 	return reg
 
 
+# What the user asks VisionClaw to remember, and the user's library, for the requests below.
+_FOLDER = tempfile.mkdtemp()
+KEPT = memories.Memories(os.path.join(_FOLDER, "memories"))
+SHELF = library.Library(os.path.join(_FOLDER, "library"))
+SHELF.prepare()
+# VisionClaw's own skills, and a folder for the user's that starts empty.
+SKILLS = skills.Skills(os.path.join(_FOLDER, "skills"), recipes=set(planner.RECIPES))
+with open(os.path.join(SHELF.folder, "Space Trader manual.txt"), "w", encoding="utf-8") as _f:
+	_f.write("TRADING\nPress T to open the market. Buy low and sell high.\n\nSAVING\nSaving is done with Control+S.\n")
+
 REQUESTS = (
+	"Remember that my braille display is a Focus 40.",
+	"What do you remember about me?",
+	"Which braille display do I have?",
+	"I'm new to NVDA. How do I read the title of this window?",
+	"Forget that.",
+	"What is in my library?",
+	"How do I open the market in Space Trader?",
+	"What is UI Automation?",
+	"What does aria-label do?",
+	"How do I reopen a closed tab in Chrome?",
+	"How do I turn on Sticky Keys?",
 	"ask nvda to give me the current time and then the date.",
 	"What time is it?",
 	"What is the date today?",
@@ -512,6 +602,13 @@ REQUESTS = (
 	"Which AI model are you using?",
 	"Which add-ons do I have?",
 	"List the add-ons you have made.",
+	# Skills (claw/skills.py): one with steps runs them as they are; one without gives its sentences to the
+	# models; the rest are about skills themselves.
+	"Quick status",
+	"Describe this picture for me.",
+	"Make a new skill: when I ask about recipes, read the ingredients first, with their amounts exactly.",
+	"Which skills do you have?",
+	"Turn off the game skill.",
 )
 
 
@@ -544,6 +641,9 @@ def main():
 			orch = orchestrator.Orchestrator(rt, makeRegistry(rt, state), askUser, lambda: "Program: spacetrader. Window title: Space Trader - Main Menu. Focused control: button, New Game.", Memory("nul"))
 			# A fifth argument says whether the model is asked one small question at a time: auto, always or never.
 			orch.stepwise = lambda: sys.argv[5] if len(sys.argv) > 5 else "auto"
+			orch.memories = KEPT
+			orch.program = lambda: "spacetrader"
+			orch.skills = SKILLS
 			task = taskModule.Task(request, reasoning=reasoning)
 			start = time.time()
 			orch.run(task)

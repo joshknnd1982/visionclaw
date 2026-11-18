@@ -17,19 +17,53 @@ from .llm import clip
 from .memory import _COMMON, _WORD, stem
 
 NVDA, APP, WINDOW, SYSTEM = "nvda", "app", "window", "system"
+# Asked after those four, every time: the documents the user put into VisionClaw's library (claw/library.py),
+# and what the user asked VisionClaw to remember (claw/memories.py).
+LIBRARY, MINE = "library", "mine"
 # The order in which the sources are asked, and in which equally good answers are given.
 ORDER = (NVDA, APP, WINDOW, SYSTEM)
-ORIGINS = {NVDA: "NVDA", APP: "this program", WINDOW: "this window", SYSTEM: "Windows"}
+RANK = ORDER + (LIBRARY, MINE)
+ORIGINS = {
+	NVDA: "NVDA", APP: "this program", WINDOW: "this window", SYSTEM: "Windows", LIBRARY: "your library",
+	MINE: "what you asked VisionClaw to remember"}
 TOOL = "look_up"
-# Where each knowledge file belongs, and what it is called when an answer is taken from it. A file that is
-# not listed is NVDA's.
+# Questions about the interfaces through which programs tell screen readers what is on the screen. Notes on
+# them would answer everyday questions with how a program is made ("button" is an ARIA role), so they are
+# only asked when the question names one of them.
+_API = re.compile(
+	r"\b(ui ?automation|uia|msaa|active accessibility|iaccessible2?|ia2|wai-?aria|aria(-\w+)?|accessibility "
+	r"(api|apis|interfaces?|tree|events?|propert(y|ies))|java access bridge|access bridge|jab|jabswitch|java "
+	r"(program|app|application)s?|swing|control (types?|patterns?)|automation ?id|automationproperties|"
+	r"accessible ?(name|role|description|state)s?|live regions?|landmarks?|winevents?|win events?|"
+	r"(invoke|value|range ?value|toggle|expand ?collapse|selection ?item|selection|scroll ?item|scroll|text|grid|"
+	r"table|window|legacy ?iaccessible|transform|dock|annotation) patterns?|"
+	r"accessibility (of|for) (a|my|the) (program|app|application|control|web ?page|site)|screen reader support)\b",
+	re.IGNORECASE)
+# Notes about programs that many people use. Asked when the question names the program, or the user is in it.
+_BROWSERS = re.compile(
+	r"\b(chrome|google chrome|msedge|edge|firefox|browsers?|web ?pages?|web ?sites?|sites?|tabs?|address bar|"
+	r"bookmarks?|favou?rites|downloads|browsing history|incognito|inprivate|private window)\b", re.IGNORECASE)
+_OFFICE = re.compile(
+	r"\b(microsoft word|ms word|in word|word (document|processor|file)s?|winword|excel|spreadsheets?|"
+	r"work ?books?|work ?sheets?|cells?|outlook|e-?mails?|inbox|ribbon|office)\b", re.IGNORECASE)
+# Where each knowledge file belongs, and what it is called when an answer is taken from it, and, for some,
+# what a question or the program in front must name for the file to be asked. A file that is not listed is
+# NVDA's.
 NOTES = {
 	"windows-keyboard": (SYSTEM, "Windows"),
+	"windows-accessibility": (SYSTEM, "Windows"),
+	"app-explorer": (SYSTEM, "Windows"),
 	"userGuide": (NVDA, "NVDA's user guide"),
 	"addons": (NVDA, "an add-on's help"),
 	"making-apps-accessible": (NVDA, "VisionClaw's notes"),
 	"making-websites-accessible": (NVDA, "VisionClaw's notes"),
 	"guides": (NVDA, "NVDA's developer guides"),
+	"api-uia": (SYSTEM, "VisionClaw's notes on UI Automation", _API),
+	"api-msaa-ia2": (SYSTEM, "VisionClaw's notes on MSAA and IAccessible2", _API),
+	"api-aria": (SYSTEM, "VisionClaw's notes on ARIA for web pages", _API),
+	"api-java-access-bridge": (SYSTEM, "VisionClaw's notes on the Java Access Bridge", _API),
+	"app-browsers": (APP, "VisionClaw's notes on web browsers", _BROWSERS),
+	"app-office": (APP, "VisionClaw's notes on Word, Excel and Outlook", _OFFICE),
 }
 # Written for people who write add-ons. Left out unless the question is about that.
 DEVELOPER_NOTES = frozenset(("addon-development", "objects-and-events", "nvda-inside", "guides"))
@@ -111,10 +145,22 @@ def roots(found):
 	return {root(word) for word in found}
 
 
+# Names of two short words, joined into one, because a word of two letters is not a word here: "UI" of
+# "UI Automation" would be lost, and every section that says "automation" would look alike.
+_JOINED = ((re.compile(r"\bui[ -]?automation\b|\buia\b", re.IGNORECASE), "uiautomation"),)
+
+
+def joined(text):
+	for pattern, name in _JOINED:
+		text = pattern.sub(name, text or "")
+	return text
+
+
 def textWords(text):
 	"""The telling words of a text, as they are compared here. "NVDA" is kept, which it is not elsewhere: in
 	"what is the NVDA key" it is what is asked about."""
-	return roots(stem(word) for word in _WORD.findall((text or "").lower()) if word not in _COMMON or word == "nvda")
+	return roots(
+		stem(word) for word in _WORD.findall(joined(text).lower()) if word not in _COMMON or word == "nvda")
 
 
 _MEANS = roots(stem(word) for word in _MEANS_WORDS.split())
@@ -127,10 +173,11 @@ class Passage:
 	here: it says where the user is, so it belongs to any question about "this" or "here".
 	command: it is a command with its keys. developer: it is written for people who write add-ons."""
 
-	__slots__ = ("source", "title", "text", "origin", "here", "command", "developer", "lead", "_named", "_other")
+	__slots__ = (
+		"source", "title", "text", "origin", "here", "command", "developer", "lead", "gate", "_named", "_other")
 
 	def __init__(self, source, title, text, origin="", here=False, command=False, developer=False, lead=False,
-			named=None, other=None):
+			named=None, other=None, gate=None):
 		self.source = source
 		self.title = " ".join(str(title or "").split())
 		self.text = " ".join(str(text or "").split())
@@ -140,6 +187,8 @@ class Passage:
 		self.developer = developer
 		# The first piece under a heading: where a thing is said to be what it is.
 		self.lead = lead
+		# What a question, or the name of the program in front, must say for this passage to be asked; or None.
+		self.gate = gate
 		self._named = None if named is None else roots(named)
 		self._other = None if other is None else roots(other)
 
@@ -186,7 +235,11 @@ def chunks(body, chars=PASSAGE_CHARS):
 			found.append(piece[:chars * 2])
 			piece = piece[chars * 2:].strip()
 	if piece:
-		found.append(piece)
+		# A last piece of a sentence or two says little on its own; it stays with the piece before it.
+		if found and len(piece) < chars // 3 and len(found[-1]) + len(piece) < chars * 2:
+			found[-1] = f"{found[-1]} {piece}"
+		else:
+			found.append(piece)
 	return found
 
 
@@ -216,10 +269,31 @@ def fromSections(sections):
 	"""Passages from the sections of the knowledge files and the user guide: (title, body, source name) each."""
 	found = []
 	for title, body, name in sections:
-		source, origin = NOTES.get(name, (NVDA, "VisionClaw's notes on NVDA"))
+		source, origin, *gate = NOTES.get(name, (NVDA, "VisionClaw's notes on NVDA"))
 		for at, piece in enumerate(chunks(body)):
-			found.append(Passage(source, title, piece, origin, developer=name in DEVELOPER_NOTES, lead=at == 0))
+			found.append(Passage(
+				source, title, piece, origin, developer=name in DEVELOPER_NOTES, lead=at == 0, gate=gate[0] if gate else None))
 	return found
+
+
+def fromMemories(entries):
+	"""Passages from what the user asked VisionClaw to remember (claw/memories.py), each one whole."""
+	found = []
+	for entry in entries:
+		text = entry.text()
+		if entry.body and entry.body.strip() != entry.title.strip():
+			text = f"{text} {entry.body}"
+		found.append(Passage(MINE, "", text, ORIGINS[MINE], lead=True))
+	return found
+
+
+def gated(passages, question, program=()):
+	"""The passages that may be asked about a question: those with no gate, and those whose gate the question
+	or the name of the program in front opens."""
+	names = " ".join(program) if isinstance(program, (list, tuple)) else str(program or "")
+	return [
+		passage for passage in passages
+		if passage.gate is None or passage.gate.search(question or "") or (names and passage.gate.search(names))]
 
 
 def fromCommand(scriptName, description, category, line, source=NVDA, origin=""):
@@ -233,6 +307,7 @@ def asked(question, extra=""):
 	extra: the name of what the question's "this" or "it" means, where a model said which thing that is. Where
 	the question names something itself, the extra words only break ties; where it names nothing, they are
 	what is asked about."""
+	question = joined(question)
 	said = roots(commands.telling(question))
 	light = said & (_MEANS | _ASKING)
 	if not said - light:
@@ -290,6 +365,17 @@ def _ranked(question, passages, limit, cover, share, inOrder=False, extra=""):
 	# before its settings are listed.
 	place = {id(passage): at for at, passage in enumerate(passages)}
 	found.sort(key=lambda passage: (passage.words()[0] != naming, place[id(passage)] if inOrder else 0))
+	# Within one source, a heading that names more of the question's own words, those that only ask included,
+	# comes first: of the sections that all say "UI Automation", "How NVDA uses UI Automation" answers "how does
+	# NVDA use UI Automation". Each source keeps its places, so this never puts one source before another.
+	every = textWords(question)
+	if len(every) > 1:
+		for origin in {passage.origin for passage in found}:
+			at = [index for index, passage in enumerate(found) if passage.origin == origin]
+			mine = sorted((found[index] for index in at), key=lambda passage: (
+				passage.words()[0] != naming, -len(every & passage.words()[0])))
+			for index, passage in zip(at, mine):
+				found[index] = passage
 	chosen = []
 	# First the best of each source, then the best under each heading, then whatever is left.
 	for kindOf in (lambda p: (p.origin, p.command), lambda p: (p.origin, p.command, p.title)):
@@ -303,14 +389,14 @@ def _ranked(question, passages, limit, cover, share, inOrder=False, extra=""):
 	return [passage for passage in found if passage in chosen]
 
 
-def about(question, passages, limit=MAX_FOUND, cover=COVER, share=SHARE, extra=""):
+def about(question, passages, limit=MAX_FOUND, cover=COVER, share=SHARE, extra="", program=()):
 	"""The passages that are about a question, best first; among equals, in the order the sources are asked.
 	A key that is written out finds what that key does. A question that asks what something is gets
 	explanations before commands. Passages that say where the user is are added when the question is about
 	"this" or "here", and are all there is when nothing else is found for such a question."""
 	# Among equals: in the order the sources are asked, and a command with a key before one without.
-	passages = sorted(passages, key=lambda passage: (
-		ORDER.index(passage.source), passage.command and "no key assigned" in passage.text))
+	passages = sorted(gated(passages, question, program), key=lambda passage: (
+		RANK.index(passage.source), passage.command and "no key assigned" in passage.text))
 	if not isDeveloper(question):
 		passages = [passage for passage in passages if not passage.developer]
 	# A question that only points, "what does this do", is about where the user is, like one that says "here".
@@ -338,6 +424,8 @@ def about(question, passages, limit=MAX_FOUND, cover=COVER, share=SHARE, extra="
 		found = _ranked(question, [
 			passage for passage in passages if passage.lead and said - light <= passage.words()[0]], limit, cover, share,
 			inOrder=True, extra=extra)
+		# A heading that says "What ... is" is where a thing is explained, before others that only name it.
+		found.sort(key=lambda passage: not re.match(r"what\b", passage.title, re.IGNORECASE))
 		found = found or _ranked(
 			question, [passage for passage in passages if not passage.command], limit, cover, share, extra=extra)
 	if not found:
@@ -368,7 +456,7 @@ def saidWords(question, limit=4):
 	return found[:limit]
 
 
-def nothingText(question, program="", window="", notes=None):
+def nothingText(question, program="", window="", notes=None, library=False, memories=False):
 	"""The honest answer when none of the sources says anything about what was asked. notes: whether VisionClaw
 	has notes on the program, where that is known; without them it says how to get some."""
 	named = saidWords(question)
@@ -377,7 +465,11 @@ def nothingText(question, program="", window="", notes=None):
 	where += f", the program {program}" if program else ", the program in front"
 	where += f", its window {window}" if window else ", its window"
 	where += ", VisionClaw's notes on the program" if notes else ""
-	text = f"{NOTHING} {what}. Asked were: {where}, and what VisionClaw knows about Windows."
+	where += ", what VisionClaw knows about Windows"
+	where += ", the documents in your library" if library else ""
+	where += ", what you asked VisionClaw to remember" if memories else ""
+	head, _comma, last = where.rpartition(", ")
+	text = f"{NOTHING} {what}. Asked were: {head}, and {last}."
 	if notes is False:
 		text += (
 			" VisionClaw has no notes on this program yet. Ask it to learn about this program, and it reads up on "

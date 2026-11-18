@@ -813,6 +813,126 @@ through NVDA for `note_page`, and how long a learning takes while NVDA speaks ar
 Qwen3.5 9B was run; how the 2B and 4B models write notes is not measured. Three programs were learned from
 the real internet; games are the weakest: Wikipedia says what a game is and how it plays, seldom its keys.
 
+## Memories in Markdown, the library, and notes on accessibility interfaces (2026-11-17)
+
+The owner asked that VisionClaw save memories in Markdown the way Claude does, only when necessary; that the
+user can delete some or all of them and start over; and that VisionClaw look things up in information about
+accessibility APIs, NVDA, Windows and programs.
+
+- **Memories** (`claw/memories.py`, `memorytools.py`, `memoriesui.py`): one Markdown file for each memory in
+  the folder `memories` of VisionClaw's data, with an index, `MEMORY.md`. Kept when the user asks
+  ("remember that ...", "call me ..."), or, under the default setting "Remember things", when the user says
+  something lasting about how they work the computer and nothing else in the request kept it; the answer says
+  so and how to undo it. The user's own words are kept, "my" turned to "your" by plain code; no model writes
+  a memory. Tools `remember`, `memories`, `forget_memory` (one, the last, or all; all is always asked about);
+  the memories window from the settings or from an NVDA command without a key, with check boxes, the whole
+  memory, Forget checked, and Forget all and start over. The old `remember` tool, which wrote a lesson, is gone.
+- **The library** (`claw/library.py`): Markdown, text, saved web pages and Word documents in the folder
+  `library`, asked by `look_up` after Windows, with the memories; `search_help` reads it too; the tool
+  `library` lists it or opens its folder.
+- **New notes**, each written from the pages named at its top, read on 2026-11-17: `api-uia.md` (37 sections),
+  `api-msaa-ia2.md` (22), `api-aria.md` (26), `api-java-access-bridge.md` (11), `windows-accessibility.md` (24),
+  `app-browsers.md` (23), `app-office.md` (25), `app-explorer.md` (6). The API and program notes are asked only
+  when the question or the program in front names what they are about (`lookup.gated`).
+- **Lookup**: "UI Automation" counts as one word (a two-letter word is not a word there); within one source, a
+  heading that names more of the question comes first; a last piece of a section shorter than a third of a
+  passage stays with the piece before it.
+
+| Test | What it shows | Result |
+|---|---|---|
+| `tests/test_memories.py` | What is kept from the user's words; what is kept without being asked and what is not (a changed setting, a statement not about using the computer, the setting at "only when I ask" or "never"); the files and the index; a memory about the same thing replacing the old one; a file written by hand; recall with a request and in a program; forgetting by words, the last, all; the orchestrator giving memories to the planner and keeping one after a request, and a memory that cannot be saved not ending the request; the library reading text with headings, Markdown, a web page in a subfolder and a Word document, and saying which could not be read; the library and memories answering questions; gated notes; the hints | passes |
+| `tests/test_memories_window.py` | The memories window with the real wxPython (not shown on the screen) and stand-ins for NVDA's gui and ui: the list, the whole memory, nothing checked, a no, forgetting the checked one, forgetting all and starting over | passes |
+| `tests/test_nvda_stub.py` | The real tools against stand-ins for NVDA: remembering, a memory replaced, listing, recall, an empty library, a document added, `search_help` and `look_up` reading the library and the memories | passes |
+| `tests/live_orchestrator.py`, 15 requests, Qwen3.5 9B for both jobs, on this computer | Remember, what do you remember, which braille display, "I'm new to NVDA. How do I read the title of this window?", forget that, the library, a question answered from a manual in the library, UI Automation, aria-label, reopening a tab in Chrome, Sticky Keys, and four earlier requests | First run: 14 of 15 right. "I'm new to NVDA. How do I ..." made the hint say remember, the user was asked, and the whole question was kept. Fixed (the hint now takes only a statement alone, and a question is never kept); run again, the question was answered and only "You're new to NVDA" was kept, and "forget that" removed it. "Which braille display do I have?" was answered by `nvda_info` from the display in use, not from the memory, which is right. |
+| `tests/test_core.py` | A model with its own thinking mode that thinks until no tokens are left is asked again without thinking | passes |
+| `tests/live_addon_memories.py`, Qwen3.5 9B, on this computer, sharing the graphics card with other sessions' engines | A real model writes two add-ons with what the user asked VisionClaw to remember, the user's library and the notes on accessibility interfaces put first (`library.forCoder`): a money key for a game, from a memory ("your money key is NVDA+shift+M") and a manual in the library ("shown in the status bar ... as Credits:"); and announcing UI Automation notifications | First run: both failed with "The file must define class GlobalPlugin". The cause was not the notes: at reasoning High the model thought until all its tokens were used and wrote nothing, every round. Fixed in `llm.text` (an empty answer after thinking is asked for again without thinking). Second run: both passed the checks, but the money key read the focused control, and the other used `event_notification`, which NVDA does not have. The notes had neither: NVDA's source was read and `event_UIA_notification` (the text is `displayString`) and `api.getStatusBar`/`api.getStatusBarText` were added; a library passage now brings NVDA's note on what it names (`library.nvdaNote`). Third run: both right. The money key uses NVDA+shift+M, reads the status bar and says "Credits:"'s amount, or that there is none; the other says `displayString` and calls `nextHandler()`. Still: the money key works in every program, not only the game, and the notification add-on may say a notification twice in the program in front, because NVDA already does there. Each add-on took 10 to 50 minutes, with other engines on the same card. |
+
+Not tested: none of this has run inside NVDA. The memories window has not been used with NVDA speaking it; the
+command that opens it has no key until the user gives it one in Input gestures. The library has been tried with
+small documents only.
+
+## Instructions for blind users in every answer, description and add-on (2026-11-17)
+
+The owner asked for global system prompts made for blind people, after VisionAssistantPro's; that they can be
+changed and the originals always put back; that they apply whatever model is used; and that they, skills,
+memories and notes also reach the add-ons written on the fly, each chosen by the request.
+
+- `claw/prompts.py`: who the user is (blind, speech or braille), how an answer is worded to be heard (start
+  with the answer, no Markdown, names, numbers and keys copied exactly, places in words, nothing only by its
+  colour, no looking or hand on the mouse, say what is not known), what matters in a picture (text exactly,
+  focused, selected, checked, greyed out, never fill in what cannot be read), what an add-on must be for this
+  user, the three description requests (with their honesty sentence), and three code-writing rules added only
+  when the request asks for that kind of add-on (a key, by itself, one program; `prompts.codeKinds`).
+- Every answer a model words for the user (`prompts.speaking`), every description and question about a picture,
+  in the description window, read-ahead, chat photos and the `look` tool (`prompts.seeing`), and every writing,
+  review and repair of an add-on (`prompts.coding`) has them as its system prompt, followed by the user's own
+  instructions and language. Forms and judgements get only `prompts.IDENTITY`, so the user's words cannot
+  change the ids they copy. The instructions are kept in the settings, not with a model, and are sent with
+  every request, so they apply to any model, one or two, after models are removed, added or swapped, and
+  again after NVDA switches or reloads its configuration profile.
+- "How VisionClaw answers, and your own instructions" in VisionClaw's settings: a list of every instruction and
+  an edit box; an entry says "(changed)"; "Restore the original of this instruction", "Restore all originals";
+  an empty box is the original. VisionClaw's own wording lives only in the code, so it can always come back,
+  and a newer version's wording reaches a user who changed nothing.
+- Skills (skills session) and memories and notes (memories session) reach the add-on writer in its user message.
+
+| Test | What it shows | Result |
+|---|---|---|
+| `tests/test_prompts.py` | No example and no model role in any part; how the parts are put together; the user's wording and own instructions used, an original given back not kept as a change; a picture's first message; in a scripted request the answer gets the instructions and no form does; add-on writing, repair and review get them | passes |
+| `tests/test_nvda_stub.py` | The window lists every part with "(changed)"; OK keeps the user's words and turns the original into ""; the `look` tool sends them; settings saved again keep them; restoring all gives back every original | passes |
+| `tests/live_orchestrator.py`, 72 requests, Qwen3.5 9B for both jobs, the model wording the answers, before and after | 56 answers word for word the same. Better: "VisionClaw version 0.8.2 is enabled. NVDA Remote version 2.6" (before: "0.8", "2"), window names kept whole, keys written NVDA+T. Worse at first: "How do I read the title" was answered "press NVDA+T twice" | found, then measured six times each: old wording 0 of 6 wrong, first new order 2 of 6 wrong, the order now used (the task's own rules before the wording rules) 0 of 6 wrong |
+| `tests/live_prompts.py`, Qwen3.5 9B, four drawn pictures, quick, one sentence and a question | With the instructions: the answers start with what is shown, say which button has the focus, which boxes are checked and that Advanced is greyed out, and are shorter. Two faults seen: "Shopping list dot txt" for a file name, and a blurred error number read as a made-up one where the request alone said it was unreadable | the honesty sentence was put back next to the request and "dot" taken out of the rule; see the next line |
+| `tests/live_prompts.py` again, after those changes | The blurred error is now said to be unreadable; the states and the focus are still named. Unasked advice seen ("try pressing F1"): "Give no advice that was not asked for" was added to the wording rules. "Shopping list dot txt" is still said: the model writes the file name that way whatever the rule says | blurred error fixed; "dot txt" is a known limitation |
+| The title question, six times, Qwen3.5 9B, with the wording as it is now (after the advice rule was added) | All six say NVDA plus T reads the title; one also says what the second and third presses do, correctly | 0 of 6 wrong. The keys are written "NVDA plus T", not "NVDA+T" |
+| `tests/live_addon.py`, Qwen3.5 9B writing and reviewing, with the instructions and without, 40 minutes each | With them: "Say hello when I press NVDA+shift+H" and "Beep when a link gets the focus" written right and passed the check and the review (the hello script has a description saying what it does; the beep lets every focus change pass on). Without them: the hello add-on, the same code. Neither run reached the third and fourth add-on in its 40 minutes: the memories session's 9B test shared the card the whole time (one add-on took 30 minutes), and an earlier run of three hours wrote nothing because the 9B thought until its tokens ran out (fixed in `llm.text` by the memories session) | 3 add-ons written, all right; nothing worse with the instructions; the comparison is too small to say they make add-ons better |
+
+Not tested: none of this has run inside NVDA. The window, the profile switch and how the instructions sound
+with a real synthesizer and display are untried. The engine was shared with other sessions' live tests during
+these runs, so the times measured then are not the add-on's.
+
+## Skills: built in, the user's own, chosen by plain code (2026-11-18)
+
+The owner asked that the user can add skills of their own, SmallClaw's SKILL.md files, and that VisionClaw
+comes with a full set of skills that matter to a blind user; then for a button that opens the skills folder,
+and a way to add and remove the chosen skills; and that skills also reach the add-ons written on the fly.
+
+- **What a skill is** (`claw/skills.py`): a folder with a SKILL.md, a few lines at its top (name, description,
+  the words that start it, the jobs it is for, optional fixed steps) and plain sentences on how that kind of job
+  is done well for a blind person. It never holds code, and every tool still asks before it changes anything.
+- **38 built in** (`claw/skills/`): describing a photo, text NVDA cannot read, a window's layout, unlabelled
+  buttons, web forms, shopping, pop-ups and banners, error messages, NVDA for a beginner, comfortable speech,
+  braille, a silent NVDA, games, stubborn programs, naming a control, announcing changes, keys, long web pages,
+  web searches, video calls, email, how a document looks, charts, colours, screen privacy, installers, PDF,
+  tables, music software, the mouse from the keyboard (NVDA's own mouse keys, taken from
+  `tests/nvda_commands.json`), two with fixed steps ("where am I": the window and what it shows; "quick
+  status": the time, the date and the battery), and six for the add-ons the models write (one key, speaking by
+  itself, one program or game, reading what NVDA misses, braille, and the blind user in general).
+- **Chosen by plain code** from the request's words, at most two: a phrase of several words must be there word
+  for word unless two or more of its words tell what it is about, so an everyday word alone does not start a
+  skill. Their sentences go to the forms of the jobs they are for, the `look` tool, the add-on writer and
+  repairer (before the memories and notes) and the answer; never to the one-field questions of the very
+  smallest models, and never to the model that chooses the recipe. A skill with steps runs them as its plan
+  only when the request has one of its starting phrases word for word ("Following the skill ...").
+- **The user's own**: in words ("make a new skill: when I ask about recipes, ...", "which skills do you have",
+  "what does the email skill say", "turn off the game skill", "delete my recipes skill") through the tools
+  `add_skill`, `list_skills`, `show_skill`, `manage_skill`; what the skill tells VisionClaw is the user's own
+  words, and only starting words the user said are kept. Or in the skills window (NVDA+Alt+I, or the button in
+  the settings): every skill, what the chosen one says, New skill, Change, Turn off or on, Delete, Import a skill
+  file (what it says is shown before it is kept), Open the skills folder (also a button in the settings), Read
+  the skills again. A built-in skill is never deleted, only turned off; the user's copy of one takes its place,
+  and deleting that copy brings the original back.
+
+| Test | What it shows | Result |
+|---|---|---|
+| `tests/test_skills.py` | Every built-in skill passes the check (starting words not too common, known jobs, under the length limit, no Markdown or examples); which skill 19 requests start and which code-writing skill 4 add-on requests start, and that requests about something else start none ("what time is it", "turn off the typing echo", "Undo that"); the plan of a skill with steps; the sentences for a job, for an add-on, for the answer; the user's skills, a copy replacing a built-in one, turning off, deleting, a broken file reported and skipped, importing; in a scripted request the skill's plan, its sentences in the form and the answer, a turned-off skill not used | passes |
+| `tests/test_skills_window.py` | The skills window and the window for one skill with the real wxPython (not shown on the screen) and stand-ins for NVDA's gui and ui: the list and the whole of the chosen skill, a built-in one not deleted, turning off and on, the window that makes a skill with its steps chosen from a list of jobs, a skill without starting words refused with the reason, a changed built-in skill kept as the user's copy and the original back when the copy is deleted, a no keeping a skill, the folder made with a note on writing skills | passes |
+| `tests/test_nvda_stub.py` | The real tools against stand-ins for NVDA: making a skill with the question, listing, reading one, turning the game skill off (not the add-on skill for games, a fault found by the prompts session and fixed: a skill whose short name the user says wins), deleting a built-in one turns it off after a question | passes |
+| `tests/live_orchestrator.py`, Qwen3.5 9B for both jobs, the first 20 of the requests | Earlier requests with skills in place | 19 of 20 right; the 20th was cut off when the run was stopped to free the graphics card for the other sessions. "I'm new to NVDA" got the beginner skill and a better answer. One request picked the long web page skill because of the word "news"; its starting words were made longer |
+| `tests/live_orchestrator.py`, Qwen3.5 9B for both jobs, 8 requests about skills, after the other sessions' work | "I'm new to NVDA. How do I read the title", "Make NVDA speak a little faster", "Right-click the Options button" (the mouse skill), "Quick status" (the skill's three steps: the time, the date, the battery), "Describe this picture", making a skill in words, "Which skills do you have", "Turn off the game skill" | All 8 right in the end. Two faults found and fixed. The live test's stand-in for looking at the screen did not give the model the instructions for blind users or the skill's sentences, as the real tool does, and its description came back in Markdown and was cut off; with the stand-in made like the real tool, the description starts with what is shown, quotes the text exactly and says there are no people in the picture, as the photo skill asks. "Turn off the game skill" named the game skill as used, because of the word game, although it says nothing about turning a skill off; now only skills that speak about a step of the plan are kept and named (`tests/test_skills.py` has the case) |
+
+Not tested: none of this has run inside NVDA. The skills window has not been used with NVDA speaking it, and
+NVDA+Alt+I has not been pressed in a real NVDA.
+
 ## What was not tested
 
 - **Model management (0.3.2)**, apart from the owner's report above, was tested against stand-ins only: listing what is stored, removing some or all

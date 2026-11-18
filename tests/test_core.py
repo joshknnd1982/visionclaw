@@ -432,4 +432,26 @@ for name, expected in (
 ):
 	assert backend.isDedicated(name) == expected, name
 assert backend.engineArgs(backend.plan("cpu", [])[0], True) == ["-ngl", "0", "--device", "none", "--no-mmproj-offload"]
+# A thinking model that thinks until no tokens are left gives an empty answer; it is asked again without thinking.
+class ThinkingRuntime(FakeRuntime):
+	def entry(self, role):
+		return {"thinking": True}
+
+	def chat(self, role, messages, maxTokens, onText=None, cancel=None, options=None, raw=False, info=None,
+			context=None):
+		self.calls.append((maxTokens, dict(options or {})))
+		if (options or {}).get("chat_template_kwargs", {}).get("enable_thinking"):
+			if info is not None:
+				info["finish"] = "length"
+			return ""
+		return "class GlobalPlugin: pass"
+
+
+from visionClaw.claw.llm import LLM, HIGH
+thinker = ThinkingRuntime(None)
+assert LLM(thinker, taskModule.Task("write")).text(CODER, "s", "u", maxTokens=500, reasoning=HIGH, code=True) \
+	== "class GlobalPlugin: pass"
+assert len(thinker.calls) == 2 and thinker.calls[0][0] > 500 and thinker.calls[1] == (500, {"temperature": 0.2}), \
+	thinker.calls
+
 print("OK")

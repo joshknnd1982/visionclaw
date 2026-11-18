@@ -667,3 +667,111 @@ def show(dialog):
 	dialog.Show()
 	dialog.Raise()
 	gui.mainFrame.postPopup()
+
+
+class AnswersDialog(wx.Dialog):
+	"""How VisionClaw answers: the user's own instructions and every part of claw/prompts.py the user may rewrite.
+	A list of them, and one edit box with the chosen one's text, which can be read line by line and rewritten.
+	Each can be put back to VisionClaw's original wording, and all of them at once; nothing is kept before OK.
+	names: (key, name) in the order shown, the user's own instructions first under "own"; values maps each key
+	to its text now; defaults maps each key to the original ("" for "own"); onSave(values) keeps them."""
+
+	def __init__(self, parent, names, values, defaults, onSave):
+		# Translators: Title of the window where the user reads and changes how VisionClaw answers.
+		super().__init__(parent, title=_("How VisionClaw answers"))
+		self._names = list(names)
+		self._values = dict(values)
+		self._defaults = dict(defaults)
+		self._onSave = onSave
+		self._shown = None
+		main = wx.BoxSizer(wx.VERTICAL)
+		# Translators: Label of the list of instructions VisionClaw follows, which the user can change.
+		main.Add(wx.StaticText(self, label=_("&Instructions:")), flag=wx.LEFT | wx.RIGHT | wx.TOP, border=10)
+		self.list = wx.ListBox(self, choices=[self._label(key) for key, _name in self._names], size=(600, 140))
+		main.Add(self.list, flag=wx.LEFT | wx.RIGHT | wx.EXPAND, border=10)
+		# Translators: Label of the box with the words of the instruction chosen in the list.
+		main.Add(wx.StaticText(self, label=_("&Words of this instruction (an empty box is the original):")),
+			flag=wx.LEFT | wx.RIGHT | wx.TOP, border=10)
+		self.text = wx.TextCtrl(self, size=(600, 150), style=wx.TE_MULTILINE)
+		main.Add(self.text, flag=wx.LEFT | wx.RIGHT | wx.EXPAND, border=10)
+		row = wx.BoxSizer(wx.HORIZONTAL)
+		# Translators: Button that puts back VisionClaw's original wording of the instruction chosen in the list.
+		self.restoreOneBtn = wx.Button(self, label=_("&Restore the original of this instruction"))
+		# Translators: Button that puts back VisionClaw's original wording of every instruction, and empties the
+		# user's own instructions.
+		self.restoreAllBtn = wx.Button(self, label=_("Restore &all originals"))
+		row.Add(self.restoreOneBtn)
+		row.Add(self.restoreAllBtn, flag=wx.LEFT, border=10)
+		main.Add(row, flag=wx.LEFT | wx.RIGHT | wx.TOP, border=10)
+		buttons = wx.BoxSizer(wx.HORIZONTAL)
+		okBtn = wx.Button(self, wx.ID_OK)
+		cancelBtn = wx.Button(self, wx.ID_CANCEL)
+		buttons.Add(okBtn)
+		buttons.Add(cancelBtn, flag=wx.LEFT, border=10)
+		main.Add(buttons, flag=wx.ALL | wx.ALIGN_RIGHT, border=10)
+		self.SetSizerAndFit(main)
+		self.CentreOnScreen()
+		self.list.Bind(wx.EVT_LISTBOX, lambda e: self.show(self.list.GetSelection()))
+		self.text.Bind(wx.EVT_TEXT, lambda e: self._edited())
+		self.restoreOneBtn.Bind(wx.EVT_BUTTON, lambda e: self.restoreOne())
+		self.restoreAllBtn.Bind(wx.EVT_BUTTON, lambda e: self.restoreAll())
+		okBtn.Bind(wx.EVT_BUTTON, lambda e: self.save())
+		cancelBtn.Bind(wx.EVT_BUTTON, lambda e: self.Destroy())
+		self.Bind(wx.EVT_CLOSE, lambda e: self.Destroy())
+		self.list.SetSelection(0)
+		self.show(0)
+		self.list.SetFocus()
+
+	def _changed(self, key):
+		text = " ".join(str(self._values.get(key) or "").split())
+		return bool(text) and text != " ".join(self._defaults.get(key, "").split())
+
+	def _label(self, key):
+		name = dict(self._names)[key]
+		if key == "own":
+			# Translators: How the user's own instructions are listed when they wrote none, or wrote some.
+			return name + (_(" (written by you)") if self._changed(key) else _(" (none)"))
+		# Translators: Added to an instruction in the list when the user changed VisionClaw's original wording.
+		return name + (_(" (changed)") if self._changed(key) else "")
+
+	def show(self, index):
+		"""Show the instruction at index in the edit box."""
+		if index < 0:
+			return
+		self._shown = None  # the box is being filled, not edited
+		key = self._names[index][0]
+		self.text.SetValue(self._values.get(key) or self._defaults.get(key, ""))
+		self._shown = key
+
+	def _edited(self):
+		if self._shown is None:
+			return
+		self._values[self._shown] = self.text.GetValue()
+		index = [key for key, _name in self._names].index(self._shown)
+		label = self._label(self._shown)
+		if self.list.GetString(index) != label:
+			self.list.SetString(index, label)
+
+	def restoreOne(self):
+		index = self.list.GetSelection()
+		if index < 0:
+			return
+		key, name = self._names[index]
+		self._values[key] = ""
+		self.list.SetString(index, self._label(key))
+		self.show(index)
+		# Translators: Said after one instruction was put back to VisionClaw's original wording. {name} is it.
+		ui.message(_("{name}: the original is back. Press OK to keep it.").format(name=name))
+
+	def restoreAll(self):
+		for index, (key, _name) in enumerate(self._names):
+			self._values[key] = ""
+			self.list.SetString(index, self._label(key))
+		self.show(max(0, self.list.GetSelection()))
+		# Translators: Said after every instruction was put back to VisionClaw's original wording.
+		ui.message(_("Every instruction is back to the original, and your own instructions are empty. Press OK to keep it."))
+
+	def save(self):
+		values = dict(self._values)
+		self.Destroy()
+		self._onSave(values)

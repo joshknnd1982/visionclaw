@@ -35,6 +35,8 @@ class Step:
 		self.part = part
 		# The recipe the step comes from, or None if a model wrote the step itself.
 		self.recipe = recipe
+		# What the chosen skills say about this kind of step (claw/skills.py), for the models that work on it.
+		self.guide = ""
 		self.status = PENDING
 		self.result = ""
 		# What was learned if the step first failed and then worked; kept in memory after the task.

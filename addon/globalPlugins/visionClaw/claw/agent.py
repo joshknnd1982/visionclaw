@@ -9,19 +9,17 @@
 
 import json
 
-from . import policy, shapes
+from . import policy, prompts, shapes
 from . import task as taskModule
 from .llm import LLMError, clip
 
 _FORM_SYSTEM = (
-	"You are VisionClaw, an assistant inside the NVDA screen reader, helping a blind person. "
-	"You fill in one small tool form at a time.\n"
+	prompts.IDENTITY + " You fill in one small tool form at a time.\n"
 	"Rules: Use only what the user asked for and the results so far. Never make up names, ids or numbers: "
 	"copy them exactly as they appear in the results. Fill in every field, as briefly as possible."
 )
 _FIELD_SYSTEM = (
-	"You are VisionClaw, an assistant inside the NVDA screen reader, helping a blind person. "
-	"You answer one small question at a time, with one value.\n"
+	prompts.IDENTITY + " You answer one small question at a time, with one value.\n"
 	"Rules: Use only what the user asked for and the results so far. Copy names, ids and numbers exactly as they "
 	"appear in the results. Give the value itself, never the question or its description."
 )
@@ -121,6 +119,10 @@ def _formPrompt(request, steps, index, tool, tries, hint, skip, narrowed=None):
 		f"Now do this step: {step.title}." + (f" {step.detail}" if step.detail and step.detail != step.part else ""),
 		tool.formText(skip, narrowed),
 	]
+	# What a chosen skill says about this kind of step. Not for the very smallest models, which are asked one
+	# field at a time and would copy it into the field.
+	if getattr(step, "guide", ""):
+		parts.insert(3, step.guide)
 	for form, error in tries[-2:]:
 		parts.append(f"This form was tried: {json.dumps(form)}\nIt failed: {clip(error, 400)}\nCorrect the form.")
 	if hint:

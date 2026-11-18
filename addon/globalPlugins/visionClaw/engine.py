@@ -128,10 +128,12 @@ def prepareImage(image, maxSide):
 	return buf.getvalue()
 
 
-def imageMessages(jpegBytes, prompt):
-	"""The start of a conversation about one image."""
+def imageMessages(jpegBytes, prompt, system=None):
+	"""The start of a conversation about one image. system: what the model is told first, such as who the user
+	is and how to answer (claw/prompts.py), or None."""
 	b64 = base64.b64encode(jpegBytes).decode("ascii")
-	return [{"role": "user", "content": [
+	start = [{"role": "system", "content": system}] if system else []
+	return start + [{"role": "user", "content": [
 		{"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}},
 		{"type": "text", "text": prompt},
 	]}]
@@ -396,10 +398,10 @@ class Engine:
 	def _url(self, path):
 		return f"http://127.0.0.1:{self._port}{path}"
 
-	def describe(self, jpegBytes, prompt, maxTokens, onText=None, cancel=None):
+	def describe(self, jpegBytes, prompt, maxTokens, onText=None, cancel=None, system=None):
 		"""Send one image and prompt. Calls onText(delta) as text streams in.
 		Returns the full text, or None if cancelled."""
-		return self.chat(imageMessages(jpegBytes, prompt), maxTokens, onText, cancel)
+		return self.chat(imageMessages(jpegBytes, prompt, system), maxTokens, onText, cancel)
 
 	def chat(self, messages, maxTokens, onText=None, cancel=None, options=None, raw=False, info=None):
 		"""Like describe, but continues a conversation. Asking again with the same start
