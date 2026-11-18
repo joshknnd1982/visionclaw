@@ -11,7 +11,7 @@ import os
 import re
 import tempfile
 
-from logHandler import log
+from .vclog import log
 
 IMAGE_FILE = re.compile(r"[^\\/:*?\"<>|\r\n]+\.(?:jpe?g|png|webp|gif|bmp|tiff?|heic|heif|avif|jfif)", re.IGNORECASE)
 # Windows keeps a shortcut to each recently opened file here, which says where the file is.

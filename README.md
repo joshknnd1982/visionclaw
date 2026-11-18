@@ -16,10 +16,11 @@ VisionClaw is a fork of [VisionMate](https://github.com/athee06/VisionMate) by A
 everything VisionMate does: image descriptions, the overlay for windows NVDA cannot read, photo descriptions in
 chat apps, and names for unlabelled buttons.
 
-> **Status: pre-release (0.8.2).** The orchestration core has been tested with scripted models and with
+> **Status: pre-release (0.9.0).** The orchestration core has been tested with scripted models and with
 > real models through the bundled engine. Inside NVDA 2026.3.1 the owner has run the models window, a first
 > set of requests, five tests of version 0.4.0 and three of 0.8.2; **most of the test plan has not been run inside NVDA
-> yet**, and scrolling, the arrow keys for dials and the deep query not at all. Expect rough edges and please report them. See
+> yet**, and what 0.9.0 adds (the command fix, the log, the audit, the questions about pictures), scrolling and
+> the arrow keys for dials not at all. Expect rough edges and please report them. See
 > [docs/STATUS.md](docs/STATUS.md) for exactly what was tested.
 
 ## What you can ask
@@ -41,6 +42,10 @@ Press **NVDA+Alt+C**, type a request, and press Enter. For example:
 - *Do a deep inspection of this website.* Then: *Fix all of it*, or *Fix number 2.*
 - *Give this site keys to move between posts.* *Make NVDA+Alt+P press the Play button on this page.*
 - *What does the Clock add-on do? Which keys does it have?*
+- *What time is it?* *What is the date today?* *Tell me the time and the date.*
+- *Tell me everything NVDA knows about this control.* *What is the window class of the focused control?*
+- *What does the function api.getFocusObject do?* *Do a full audit of NVDA.*
+- *Open the VisionClaw log.*
 
 You do not need to know NVDA. VisionClaw finds the right NVDA setting or command from your description.
 
@@ -68,7 +73,7 @@ You do not need to know NVDA. VisionClaw finds the right NVDA setting or command
 
 ## Install
 
-1. Download **[VisionClaw-0.8.2.nvda-addon](https://github.com/joshknnd1982/visionclaw/releases/download/v0.8.2/VisionClaw-0.8.2.nvda-addon)**
+1. Download **[VisionClaw-0.9.0.nvda-addon](https://github.com/joshknnd1982/visionclaw/releases/download/v0.9.0/VisionClaw-0.9.0.nvda-addon)**
    (or pick a version on the [releases page](https://github.com/joshknnd1982/visionclaw/releases)), open the
    file, confirm the installation, and restart NVDA.
 2. If VisionMate is installed, disable it in the Add-on Store: VisionClaw includes it and uses the same keys.
@@ -294,6 +299,49 @@ Sites change, and a fix that no longer finds its control says so instead of doin
 - NVDA commands that can silence or close NVDA (speech mode, sleep mode, quit, restart) are also always asked
   about first, with a word on how to undo them.
 
+### Every NVDA command, also the ones NVDA lists nowhere
+
+VisionClaw finds an NVDA command from your description among all the commands that can be used where you
+are: NVDA's own, those of your add-ons, of the program in front and of the web page. NVDA 2026.3.1 has 509
+commands; 191 of them have no description and are in no list, and VisionClaw finds those too, by their names.
+
+- A command is found by the word that tells it apart. Asked for *the current time*, a dozen commands share
+  the word "current" and one is about the time; that one is found.
+- **Commands that do something else on a second or third press.** One press of NVDA+F12 says the time, two
+  say the date; one press reads the window title, three copy it. NVDA says so in the command's own
+  description. VisionClaw reads it there and presses as often as your words ask for: *what is the date* is
+  two presses, *the time and the date* gives both. Afterwards it tells you the keys and how often to press.
+- *What does NVDA+F12 do?* and *which keys read the status bar?* are answered from the same list.
+- When no command fits, VisionClaw says so. It does not run the nearest thing.
+
+### Everything inside NVDA: functions, classes, objects
+
+For people who write add-ons, and for the models when they write one, VisionClaw can look into the running
+NVDA itself. Nothing is taken from a list written in advance, so it also covers your add-ons and whatever a
+newer NVDA brings.
+
+- *What does the function api.getFocusObject do?* or *which functions does NVDA have for braille?* searches
+  every loaded module of NVDA and your add-ons, by name or by description, and says what the thing is, how it
+  is called, what its own help text says, and what it holds or gives back right now.
+- Only functions that merely report something and need nothing, like getFocusObject, are called to say what
+  they give back. Nothing that changes anything is ever called this way.
+- *Tell me everything NVDA knows about this control* reads every fact of the focused control: name, kind,
+  value, states, shortcut key, position and size, place among its neighbours, program and process, window
+  class, control id and handle, the accessibility interface, what can be done with it, what it is inside of,
+  and NVDA's own class for it. The same for *the navigator object*, *the window*, *what is under the mouse*.
+  Ask for one fact (*what is the window class of this control?*) and only that is said. Any other property
+  can be asked for by its name.
+- *Do a full audit of NVDA* counts and lists everything in the NVDA that is running: every command with its
+  keys, every module, class, function, method, property and value by name, the drivers that are installed but
+  not in use, and how NVDA drives your speech synthesizer and your braille display (the driver's class, its
+  settings, which speech commands it understands, how many cells, how its keys are tied to commands). The list
+  is saved as `nvda-audit.md` in VisionClaw's data folder; say *and show me the list* to have it opened.
+  Nothing is changed by an audit, and nothing is sent anywhere.
+- VisionClaw's notes on how NVDA is built inside (commands, objects, the path from text to the synthesizer,
+  the path from focus to the braille cells, the places where add-ons can listen in) were written from the
+  source of NVDA 2026.3.1 and are read by the models like the user guide. Ask *how does NVDA talk to a braille
+  display?*
+
 ### The add-ons you have installed
 
 VisionClaw knows the add-ons in your NVDA. *Which add-ons do I have?* lists them with their versions and
@@ -470,11 +518,31 @@ add-on. Small models make mistakes; read the code or ask someone you trust if an
 | NVDA+Alt+N | Give your own name to the current button or overlay item |
 
 Press a describe command once for a quick spoken description, twice for a detailed one in a window where you
-can ask questions about the image. Press Control to stop speaking. All commands can be changed in NVDA's Input
+can ask questions. Every question is answered there: what is highlighted or selected, where something is,
+what a thing is for, what a word or symbol means, what could be done next. Earlier versions replied "I can
+only answer questions about this image" to much of that; that reply is gone. What the picture does not show,
+the model is told to say is not shown, and never to invent. Press Control to stop speaking. All commands can be changed in NVDA's Input
 Gestures dialog, under VisionClaw.
 
 By default VisionClaw asks before it changes a setting, clicks, presses keys or types. You can turn that off in
 settings. Anything that could take speech or braille away is always asked about, whatever the setting.
+
+## VisionClaw's own log
+
+VisionClaw keeps a log of its own, so that when something goes wrong it can be found out why. NVDA's own log
+is often switched off; this one does not depend on it.
+
+- It is the file `visionclaw.log` in the folder `logs` of VisionClaw's data folder
+  (`%APPDATA%\nvda\visionClaw\logs`). Ask *open the VisionClaw log*, or use the button in VisionClaw's settings.
+- **Detailed** (the default) records every request, every step, every question put to a model with its
+  answer, every tool with what it was given and what it found, every question you were asked and what you
+  chose, how the engine started, and every error with the place in the code where it happened. **Brief**
+  leaves out the whole questions and answers. **Off** writes nothing. Choose in VisionClaw's settings.
+- The file is kept small: at 2 MB it is put aside and a new one begun, and three old ones are kept.
+- **It stays on your computer.** VisionClaw sends it nowhere. It holds what you asked and what was read from
+  your screen, so look through it before you give it to someone.
+- A fault inside VisionClaw no longer ends the whole request: the step that failed says so, the rest of your
+  request is still done, and where it happened is in the log.
 
 ## Requirements
 
@@ -525,7 +593,8 @@ of models from its own page on GitHub; and when you ask for the latest developer
 download those two guides from NV Access and GitHub. None of these happens by itself. It also reads the list
 of its own versions from GitHub when you ask it to look for a newer version; only if you turn that on in the
 settings does it do so by itself, when NVDA starts and at most once a day. Screens, photos, requests and
-generated code never leave your computer.
+generated code never leave your computer. VisionClaw's own log and the audit of NVDA are files on your
+computer and are sent nowhere.
 When you ask it to open or search the web, it hands the address to your own browser, which goes online as
 usual; a web search sends your search words to the search engine you chose.
 
@@ -549,5 +618,8 @@ checklist for testing inside NVDA.
 - [SmallClaw](https://github.com/XposeMarket/SmallClaw) by XposeMarket: the agent design. MIT.
 - [llama.cpp](https://github.com/ggml-org/llama.cpp): the engine. MIT.
 - Qwen models by the Qwen team, Alibaba Cloud: Apache 2.0. GGUF conversions of Qwen3.5 by Unsloth.
+- [NVDA](https://github.com/nvaccess/nvda) by NV Access and contributors, GPL v2 or later: VisionClaw's notes on
+  how NVDA is built inside were written from its source, and the tests use the descriptions of its commands
+  (`tests/nvda_commands.json`).
 
 VisionClaw's code is licensed under the GNU General Public License, version 2 or later. See [LICENSE](LICENSE).

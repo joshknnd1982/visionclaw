@@ -12,7 +12,7 @@ import wx
 from gui import guiHelper
 
 from . import clawui
-from .claw import backend, policy, updates
+from .claw import backend, debuglog, policy, updates
 
 addonHandler.initTranslation()
 
@@ -97,6 +97,18 @@ class VisionClawPanel(gui.settingsDialogs.SettingsPanel):
 		# Translators: Button in settings that looks for a newer version of VisionClaw now.
 		self.updateBtn = helper.addItem(wx.Button(self, label=_("Look for a newer version no&w...")))
 		self.updateBtn.Bind(wx.EVT_BUTTON, lambda e: self.plugin.updater.check() if self.plugin else None)
+		self.debugLog = helper.addLabeledControl(
+			# Translators: Label of the choice of how much VisionClaw writes into its own log.
+			_("VisionClaw's own log, for finding out why something went wrong (debu&g log):"), wx.Choice, choices=[
+				# Translators: Choices for how much VisionClaw writes into its own log.
+				_("Detailed: every request, step, question to a model, answer and error"),
+				_("Brief: requests, steps, results and errors"),
+				_("Off"),
+			])
+		self.debugLog.SetSelection(debuglog.LEVELS.index(c["debugLog"]) if c["debugLog"] in debuglog.LEVELS else 0)
+		# Translators: Button in settings that opens VisionClaw's own log.
+		self.logBtn = helper.addItem(wx.Button(self, label=_("Open VisionClaw's lo&g...")))
+		self.logBtn.Bind(wx.EVT_BUTTON, lambda e: self.plugin.openLog() if self.plugin else None)
 		# Translators: Button in settings that opens the window for seeing, removing and swapping models.
 		self.manageBtn = helper.addItem(wx.Button(self, label=_("See, remove or swa&p models...")))
 		self.manageBtn.Bind(wx.EVT_BUTTON, lambda e: self.plugin.showManageModels() if self.plugin else None)
@@ -136,6 +148,7 @@ class VisionClawPanel(gui.settingsDialogs.SettingsPanel):
 		c["reasoning"] = policy.REASONING_CHOICES[max(0, self.reasoning.GetSelection())]
 		c["oneAtATime"] = policy.STEPWISE_CHOICES[max(0, self.oneAtATime.GetSelection())]
 		c["updateCheck"] = updates.MODES[max(0, self.updateCheck.GetSelection())]
+		c["debugLog"] = debuglog.LEVELS[max(0, self.debugLog.GetSelection())]
 		c["sideBySide"] = self.sideBySide.GetValue()
 		c["autoFixAddons"] = self.autoFixAddons.GetValue()
 		c["searchEngine"] = SEARCH_IDS[max(0, self.searchEngine.GetSelection())]

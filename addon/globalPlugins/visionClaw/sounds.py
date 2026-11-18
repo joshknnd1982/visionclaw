@@ -7,7 +7,7 @@
 
 import os
 
-from logHandler import log
+from .vclog import log
 
 SOUNDS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "sounds")
 # Used if a sound file cannot be played: (frequency, milliseconds).

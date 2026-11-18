@@ -1,8 +1,9 @@
 # VisionClaw test plan inside NVDA
 
 Tick an item only after doing it in a running NVDA. Write the NVDA version and the models used at the top of
-`docs/STATUS.md` when done. If something fails, copy the lines from NVDA's log (NVDA+F1) that start with
-"VisionClaw".
+`docs/STATUS.md` when done. If something fails, VisionClaw's own log has what happened: ask "open the
+VisionClaw log", or open `%APPDATA%\nvda\visionClaw\logs\visionclaw.log`. It is written whatever NVDA's own
+logging level is.
 
 Before you start: disable VisionMate in the Add-on Store, install the VisionClaw build, restart NVDA.
 
@@ -19,6 +20,44 @@ Before you start: disable VisionMate in the Add-on Store, install the VisionClaw
 - [ ] NVDA+Alt+A, W, F, D once (spoken) and twice (window with a question box).
 - [ ] NVDA+Alt+O opens the overlay; arrows move; Enter clicks; Escape closes.
 - [ ] NVDA+Alt+G, NVDA+Alt+B and NVDA+Alt+N.
+
+## Commands, the time and the date (0.9.0)
+- [ ] "Ask NVDA to give me the current time and then the date": the time is spoken, then the date, and the
+      answer says to press NVDA+F12 once for the time and twice for the date. No error.
+- [ ] "What time is it?" says the time only. "What is the date today?" says the date only.
+- [ ] "Read the status bar" in a program that has one: it is read, with no error. (This is the command whose
+      key could not be made before.)
+- [ ] "Copy the window title to the clipboard", then paste somewhere: the title is there.
+- [ ] A request for which NVDA has no command, such as "say the version of NVDA", says that no command
+      matches and runs nothing.
+- [ ] With an add-on installed that has a command without a description: asking for it by its name runs it.
+
+## VisionClaw's own log (0.9.0)
+- [ ] VisionClaw's settings have "VisionClaw's own log" with Detailed, Brief and Off, and a button that opens it.
+- [ ] "Open the VisionClaw log" opens `visionclaw.log` in a text window. Its first lines name the versions of
+      VisionClaw, NVDA and Windows.
+- [ ] After a request, the log holds the request, every step, each question to the model with its answer, each
+      tool with its result, and the answer you heard.
+- [ ] With NVDA's own logging level Off, the log is still written.
+- [ ] Set to Off: nothing more is written. Set to Brief: no whole questions to the model are written.
+
+## Everything inside NVDA (0.9.0)
+- [ ] "Tell me everything NVDA knows about this control" on a button: name, kind, states, position and size,
+      program, window class and more are said, and they are right.
+- [ ] "What is the window class of this control?" says only the window class.
+- [ ] The same for "the navigator object" after moving it, and for "what is under the mouse".
+- [ ] "What does the function api.getFocusObject do?" says that it is a function, how it is called, its help
+      text, and the control it gives back now. Note how long the first such request takes.
+- [ ] "Do a full audit of NVDA": totals are said, and `nvda-audit.md` in VisionClaw's data folder lists every
+      command with its keys, the synthesizer and braille display in use and how they are driven, and
+      everything by name. With "and show me the list" it opens. NVDA keeps working during and after it.
+- [ ] "How does NVDA talk to a braille display?" is answered from VisionClaw's notes.
+
+## Questions about a picture (0.9.0)
+- [ ] NVDA+Alt+F twice on the desktop, then "what is the currently highlighted item?": it is answered. The
+      reply "I can only answer questions about this image" never comes.
+- [ ] A question about something the picture does not show: the answer says that it is not in the picture.
+- [ ] "What is this program for?" in the window of NVDA+Alt+W twice: it is answered.
 
 ## Settings
 - [ ] NVDA menu, Preferences, Settings, VisionClaw opens and reads every control.

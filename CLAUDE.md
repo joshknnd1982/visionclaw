@@ -153,6 +153,32 @@ keyboard and speech alone.
   by plain code and at most picked among by the model (`orchestrator._quoted`), never rephrased. A very small
   model cannot say "none of these", so never give it that as a choice: let plain code decide whether anything
   fits.
+- **An NVDA command is run with a key press, as often as the user's words ask.** NVDA asks every command's
+  key press a few things before it runs the command, so `scriptHandler.executeScript` is never given None:
+  the key press is made from the way NVDA writes the key (`nvdatools.keyGesture`; NVDA shows "ctrl" and knows
+  "control"), and a command without a key gets a stand-in (`nvdatools.noKeyGesture`). What a second or third
+  press does is read from the command's own description (`commands.byPress`, `commands.presses`), never asked
+  of a model. Commands are ranked by the word that tells them apart (`claw/ranking.py`), and when nothing
+  fits, plain code says so. Check a change against `tests/nvda_commands.json`, every real command of NVDA.
+- **A fault inside a tool ends its step, not the request.** `Registry.call` turns an unexpected error into a
+  failed step with a sentence for the user, and writes where it happened to VisionClaw's log. Stopping, a
+  no from the user and a lost engine are passed on (`tools.PASSED_ON`).
+- **What happened is written to VisionClaw's own log** (`claw/debuglog.py`; from NVDA-side files through
+  `vclog.log`, which also writes to NVDA's log). The owner asked for detailed logs on 2026-11-17, and NVDA's
+  logging level is often Off. Every request, step, form, question to a model with its answer, tool result,
+  question to the user, engine start and error goes there. New code that can fail logs the failure with
+  `debuglog.error`. The log is a file on this computer: nothing may ever send it, the user chooses Detailed,
+  Brief or Off, and Detailed must stay the default. Nothing in `debuglog` may raise.
+- **What is inside NVDA is read from the running NVDA.** `claw/inside.py` lists every loaded module of NVDA
+  and the add-ons with what it has; nothing is taken from a list written in advance, so a newer NVDA and
+  unknown add-ons are covered. Looking never changes anything: only a function that merely reports and needs
+  nothing (`inside.reports`: get, is, has) is called to say what it gives back. The notes in
+  `claw/knowledge/nvda-inside.md` were written from NVDA's source with `tools/audit_nvda_source.py`; when
+  they are brought up to date, read the source again, do not write from memory.
+- **No question about a described picture is refused.** VisionMate asked the model first whether a question
+  was "about the image", and a small model said no to what a blind person most needs to ask. The description
+  window answers everything (`followup.ANSWER`); the one rule is that what is not shown is said to be not
+  shown. Do not bring a gate back.
 - **Measure with the real model.** After any change to a prompt, a recipe or a form, run
   `python tests/live_orchestrator.py` and read every answer. A change that passes the scripted tests can still
   make a small model worse.
@@ -185,7 +211,10 @@ addon/
                              telling what changed, keeping it under a hotkey
     fixruntime.py            the working part of every fixes add-on; copied into the add-on as text
     updater.py               a newer version of VisionClaw: looking, asking, downloading, handing it to NVDA
-    nvdainfo.py              what NVDA has and uses: synthesizer, voices, braille display, drivers, add-ons
+    nvdainfo.py              what NVDA has and uses: synthesizer, voices, braille display, drivers, add-ons;
+                             how NVDA drives the synthesizer and the display in use, for the audit
+    vclog.py                 one "log" for the NVDA-side files: NVDA's log and VisionClaw's own
+    followup.py              questions in the description window: all are answered
     helpers.py               app helpers and generated add-ons: loading them live, their hotkeys
     (the rest)               VisionMate features: overlay, OCR, chat photos, labels ...
     claw/                    SmallClaw-style core. NO NVDA imports.
@@ -196,6 +225,10 @@ addon/
       policy.py              picks context size, token limits, temperature, reasoning per task
       llm.py                 JSON-constrained calls, reasoning levels, prompt trimming
       match.py               forgiving matching of what a model writes against what exists
+      ranking.py             which of many things a request is about: rare words tell, names tell more
+      commands.py            NVDA's commands as data: finding one, and how often its key is pressed
+      inside.py              everything inside the running NVDA, listed from its loaded modules; the audit
+      debuglog.py            VisionClaw's own log file: levels, rotation, errors with their place in the code
       web.py                 web addresses, search addresses, the passages of a page that matter
       drivers.py             rules that keep speech and braille alive; what happened with each driver
       pointer.py             which mouse action is meant, where a drag ends, how pointer mode moves
@@ -339,6 +372,15 @@ A session is done only when its "Done when" line is true.
   the user asked when they differ; loaded once; "what model is installed" answered by plain code.
 - [x] **3.21 A newer version of VisionClaw.** Looking on GitHub when asked or, by the user's choice, when NVDA
   starts; always a question before a download; the file checked; NVDA does the installing.
+- [x] **3.23 NVDA's commands, all of them.** Found by the telling word among every command, also those
+  without a description; run with a real key press or a stand-in; pressed as often as the words ask (the time
+  once, the date twice). The request that failed in real use is replayed in `tests/test_nvda_stub.py`.
+- [x] **3.24 VisionClaw's own log.** Detailed, Brief or Off; a button and a request that open it; a fault
+  inside a tool ends its step only.
+- [x] **3.25 Everything inside NVDA.** `find_nvda` and `inspect_nvda` for any function, class, module or
+  value; `object_info` for every fact of a control; `audit_nvda` for the whole of it, with how speech and
+  braille are driven; notes on NVDA's inside written from its source.
+- [x] **3.26 Every question about a picture is answered.**
 - [ ] **3.5 Test inside NVDA.** Install the build in NVDA (ask the user first) and walk through
   `docs/TESTPLAN.md`. Fix what breaks. *Done when:* every item in the test plan is ticked by a real run.
 
@@ -376,6 +418,8 @@ python tests/live_side_by_side.py        two real engines on two backends; needs
 python tests/live_addon.py               a real model writes four add-ons and debugs one; read every result
 python tests/live_working.py             both real models say how drawn and described controls are worked
 python tools/write_models_list.py        writes models.json from the catalog; run after every change to CATALOG
+python tools/write_command_fixture.py    writes tests/nvda_commands.json from NVDA's globalCommands.py
+python tools/audit_nvda_source.py        counts NVDA's modules, commands, drivers and extension points from its source
 python build.py                          writes dist/VisionClaw-<version>.nvda-addon
 ```
 

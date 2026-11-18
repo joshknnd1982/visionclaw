@@ -12,7 +12,7 @@
 # Everything here must be called on NVDA's main thread, and nothing here may raise.
 
 import api
-from logHandler import log
+from .vclog import log
 
 from .claw import dragcontrol
 

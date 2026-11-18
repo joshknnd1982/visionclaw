@@ -30,13 +30,14 @@ import textInfos
 import ui
 import wx
 from controlTypes import OutputReason
-from logHandler import log
+from .vclog import log
 from scriptHandler import script
 from speech import extensions as speechExtensions
 
 from . import autodescribe, clawui, controlkeys, curtain, dialogs, explorer, followup, hardware, helpers, imaging, labels, localmedia, mousetools, nvdatools, ocr, sounds, updater, viewers, winzapp
 from .claw import catalog, drivers, guides
 from .claw.changes import ChangeLog
+from .claw import debuglog
 from .claw import task as clawTask
 from .claw.catalog import CODER, VISION
 from .claw.knowledge import Knowledge
@@ -101,8 +102,7 @@ ICON_SHEET_PROMPT = (
 )
 ICON_SHEET_LINE = re.compile(r"^\s*(\d+)\s*[:.)-]\s*(.+)$", re.MULTILINE)
 SHEET_SIZE = 512
-# Follow-up questions must be about the image; see followup.py. Refused questions get no reply.
-NOT_IMAGE = followup.NOT_IMAGE
+# Follow-up questions in the description window are all answered; see followup.py.
 # Questions and answers kept in a conversation, so it fits in the engine's memory.
 FOLLOWUP_HISTORY = 3
 # Screen pictures with less text than this are photos. They are sent a little smaller, which is faster.
@@ -158,6 +158,8 @@ confspec = {
 	# When to look for a newer version of VisionClaw: only when asked, or also when NVDA starts.
 	"updateCheck": 'option("manual", "auto", default="manual")',
 	"updateLastCheck": 'string(default="")',
+	# VisionClaw's own log, in its data folder: everything, the main events only, or nothing.
+	"debugLog": 'option("detailed", "brief", "off", default="detailed")',
 	"sideBySide": "boolean(default=True)",
 	"searchEngine": 'option("duckduckgo", "google", "bing", default="duckduckgo")',
 	"autoFixAddons": "boolean(default=True)",
@@ -178,6 +180,20 @@ config.conf.spec[CONF_SECTION] = confspec
 
 def conf():
 	return config.conf[CONF_SECTION]
+
+
+def _safeText(fn):
+	try:
+		return str(fn())
+	except Exception:
+		return "unknown"
+
+
+def _addonVersion():
+	try:
+		return addonHandler.getCodeAddon().manifest["version"]
+	except Exception:
+		return "of an unknown version"
 
 
 def _runtimeSettings():
@@ -396,9 +412,15 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	def __init__(self):
 		super().__init__()
 		os.makedirs(DATA_DIR, exist_ok=True)
-		# The engine log can name internals, so it is only written when NVDA logs at debug level.
-		debug = log.isEnabledFor(logging.DEBUG)
-		logs = {VISION: os.path.join(DATA_DIR, "engine.log"), CODER: os.path.join(DATA_DIR, "coder.log")} if debug else None
+		# VisionClaw's own log, written whatever NVDA's logging level is. It stays on this computer.
+		debuglog.start(os.path.join(DATA_DIR, "logs"), conf()["debugLog"])
+		self._logStart()
+		# What the engines write about themselves is kept when either log is detailed. Each start begins the
+		# file anew, so it stays small.
+		debug = log.isEnabledFor(logging.DEBUG) or debuglog.detailed()
+		logs = {
+			VISION: os.path.join(DATA_DIR, "logs", "engine.log"), CODER: os.path.join(DATA_DIR, "logs", "coder.log"),
+		} if debug else None
 		self.models = catalog.Catalog(MODELS_DIR, VISIONMATE_DATA)
 		# The runtime is given the user's choices as a plain dictionary, so it needs nothing of NVDA's settings object.
 		self.runtime = ModelRuntime(ENGINE_DIR, self.models, _runtimeSettings, hardware.freeMemoryGb, logs)
@@ -491,7 +513,34 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		threading.Thread(target=self._unloadWhenIdle, name="visionClaw-idle", daemon=True).start()
 		threading.Thread(target=self._backgroundLoop, name="visionClaw-background", daemon=True).start()
 
+	def _logStart(self):
+		"""The first entry of a session: what is running, so that a log read later says what it was made with."""
+		try:
+			import sys
+			import buildVersion
+			import winVersion
+			c = conf()
+			settings = {key: c[key] for key in confspec}
+			debuglog.log("start", (
+				f"VisionClaw {_addonVersion()} started in NVDA {_safeText(lambda: buildVersion.version)} on "
+				f"Windows {_safeText(lambda: winVersion.getWinVer())}, Python {sys.version.split()[0]}.\n"
+				f"Settings: {settings}\n"
+				f"Data folder: {DATA_DIR}\n"
+				f"Log level: {debuglog.level()}. This log stays on this computer; VisionClaw sends it nowhere."))
+		except Exception:
+			log.debugWarning("VisionClaw: the first log entry could not be written", exc_info=True)
+
+	def openLog(self):
+		"""Open VisionClaw's log in the program Windows uses for text files."""
+		path = debuglog.path()
+		if not debuglog.on() or not path or not os.path.isfile(path):
+			# Translators: Reported when the log is asked for and there is none.
+			ui.message(_("VisionClaw's log is switched off or still empty."))
+			return
+		os.startfile(path)
+
 	def terminate(self):
+		debuglog.log("start", "VisionClaw is closing with NVDA.")
 		self._stopped.set()
 		self._cancel.set()
 		self._backgroundCancel.set()
@@ -564,6 +613,8 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 					self._engine.stop()
 
 	def onSettingsSaved(self):
+		debuglog.setLevel(conf()["debugLog"])
+		debuglog.log("start", f"Settings saved: { {key: conf()[key] for key in confspec} }")
 		self.runtime.resetFailures()
 		self._hasData = self.runtime.hasModel(VISION)
 		if not self._dataReady():
@@ -700,7 +751,10 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		"""Ask the user to choose. Called from a task's thread. Returns the index, or None."""
 		task = self.clawTask
 		_sound("receive")
-		return clawui.choose(question, choices, task.cancel if task is not None else None)
+		debuglog.log("ask", f"Asking the user: {question} Choices: {choices}")
+		chosen = clawui.choose(question, choices, task.cancel if task is not None else None)
+		debuglog.log("ask", f"The user chose: {choices[chosen] if chosen is not None and 0 <= chosen < len(choices) else chosen}")
+		return chosen
 
 	def onAddonFailed(self, ident):
 		"""An add-on VisionClaw wrote raised an error. It is already paused, and NVDA is unharmed."""
@@ -750,7 +804,10 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	def clawAskText(self, question):
 		task = self.clawTask
 		_sound("receive")
-		return clawui.askText(question, task.cancel if task is not None else None)
+		debuglog.log("ask", f"Asking the user: {question}")
+		answer = clawui.askText(question, task.cancel if task is not None else None)
+		debuglog.log("ask", f"The user answered: {answer!r}")
+		return answer
 
 	def _clawSituation(self):
 		where = nvdatools.onMain(self.clawScreen.situation)
@@ -1018,9 +1075,6 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 
 	def _askFollowUp(self, conversation, question, dialog):
 		sounds.play("send")
-		if followup.clearlyOffTopic(question):
-			self._declineQuestion(question, dialog)
-			return
 		if conversation["start"] is None:
 			wx.CallAfter(dialog.addAnswer, question, None)
 			# Translators: Reported when a question is asked before the description has finished.
@@ -1033,55 +1087,31 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			target=self._answer, args=(conversation, question, dialog, cancel), name="visionClaw-describe", daemon=True,
 		).start()
 
-	@staticmethod
-	def _declineQuestion(question, dialog):
-		"""Say plainly that only questions about the image are answered, so silence is never mistaken for a hang."""
-		# Translators: Reply to a question that is not about the described image.
-		reply = _("I can only answer questions about this image.")
-		_sound("receive")
-		_speak(reply)
-		wx.CallAfter(dialog.addAnswer, question, reply)
-
 	def _answer(self, conversation, question, dialog, cancel):
+		"""Answer a question about the described picture. Every question is answered: none is turned away for
+		not being about the picture. What the picture does not show, the model is told to say so."""
 		messages = list(conversation["start"])
 		for q, a in conversation["history"]:
 			messages += [{"role": "user", "content": q}, {"role": "assistant", "content": a}]
 		speaker = SentenceSpeaker(cancel)
-		refused = threading.Event()
-		state = {"held": "", "open": False}
+		state = {"open": False}
 
 		def onText(delta):
-			if state["open"]:
-				speaker.feed(delta)
-				return
-			# Hold the start back until it is clear the answer is not the refusal word.
-			state["held"] += delta
-			start = state["held"].strip().upper()
-			if start.startswith(NOT_IMAGE):
-				refused.set()
-				cancel.set()
-				return
-			if not start or NOT_IMAGE.startswith(start):
-				return
-			state["open"] = True
-			_sound("receive")
-			speaker.feed(state["held"])
+			if not state["open"]:
+				state["open"] = True
+				_sound("receive")
+			speaker.feed(delta)
 
 		answer = None
-		declined = False
+		debuglog.log("describe", f"Question about the picture: {question!r}")
 		self._speakingCancel = cancel
 		try:
 			with self._inUse():
 				self._ensureEngine()
-				check = self._engine.chat(
-					messages + [{"role": "user", "content": followup.CHECK.format(question=question)}], 2, cancel=cancel,
+				answer = self._engine.chat(
+					messages + [{"role": "user", "content": question + followup.ANSWER + _languageInstruction()}],
+					followup.MAX_TOKENS, onText, cancel,
 				)
-				if check is not None and not check.strip().lower().startswith("yes"):
-					declined = True
-				elif check is not None and not cancel.is_set():
-					answer = self._engine.chat(
-						messages + [{"role": "user", "content": question + followup.ANSWER}], 150, onText, cancel,
-					)
 		except EngineError as e:
 			log.error("VisionClaw: follow-up question failed", exc_info=True)
 			if not cancel.is_set():
@@ -1090,15 +1120,10 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		finally:
 			if self._speakingCancel is cancel:
 				self._speakingCancel = None
-		if declined or refused.is_set() or (answer and answer.strip().upper().startswith(NOT_IMAGE)):
-			self._declineQuestion(question, dialog)
-			return
+		debuglog.log("describe", f"Answer about the picture: {answer!r}")
 		if not answer:
 			answer = None
 		else:
-			if not state["open"]:
-				_sound("receive")
-				speaker.feed(state["held"])
 			speaker.flush()
 			answer = _clean(answer)
 			conversation["history"] = (conversation["history"] + [(question, answer)])[-FOLLOWUP_HISTORY:]

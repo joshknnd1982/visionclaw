@@ -11,11 +11,13 @@ The NVDA tools are replaced by stand-ins, so nothing on the computer is changed.
   python tests/live_orchestrator.py [modelsFolder] [reasoning] [visionModelId] [coderModelId]
 """
 import io
+import json
+import os
 import sys
 import time
 
 import harness
-from visionClaw.claw import audit, catalog, fixes, match, orchestrator, pointer, runtime, scrolling, tools, web
+from visionClaw.claw import audit, catalog, commands, fixes, match, orchestrator, pointer, runtime, scrolling, tools, web
 from visionClaw.claw import task as taskModule
 from visionClaw.claw.catalog import CODER, VISION
 from visionClaw.claw.memory import Memory, score
@@ -110,16 +112,34 @@ def makeRegistry(rt, state):
 				return f"{done} {name}." if done else f"The mouse pointer is on {name}."
 		raise tools.ToolError(f"There is no item called \"{item}\". Use a number or a name from list_items.")
 
-	def findCommand(task, words):
-		return (
-			"title: Reports the title of the current application or foreground window. Keys: NVDA+t.\n"
-			"dateTime: Reports the current time. Keys: NVDA+f12.")
+	# Every command of NVDA 2026.3.1's globalCommands.py, found the way VisionClaw itself finds them.
+	with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "nvda_commands.json"), encoding="utf-8") as f:
+		known = json.load(f)
 
-	def runCommand(task, command):
-		if command not in ("title", "dateTime"):
+	def keysOf(command):
+		keys = [g.split(":", 1)[1] for g in command["gestures"] if g.startswith(("kb:", "kb(desktop):"))]
+		return " or ".join(keys) if keys else "no key assigned"
+
+	def findCommand(task, words):
+		found = commands.find(words, [(c["name"], c["description"], c["category"]) for c in known])
+		if not found:
+			raise tools.ToolError("No NVDA command matches those words. Use the words of the request that say what the command does.")
+		return "\n".join(
+			f"{known[i]['name']}: {known[i]['description'].strip().rstrip('.')}. Keys: {keysOf(known[i])}." for i in found)
+
+	def runCommand(task, command, asked):
+		chosen = next((c for c in known if c["name"] == command), None)
+		if chosen is None:
 			raise tools.ToolError(f"There is no command with the id {command}. Copy an id exactly from find_command.")
-		state["ran"] = command
-		return "Ran the command Reports the title. Its keys are NVDA+t. NVDA said: Space Trader - Main Menu."
+		wanted = commands.presses(asked, chosen["name"], chosen["description"])
+		state.setdefault("ran", []).append((command, wanted))
+		said = {
+			("dateTime", 1): "4:05 PM", ("dateTime", 2): "Tuesday, November 17, 2026", ("title", 1): "Space Trader - Main Menu",
+		}
+		heard = " ".join(said[(command, count)] for count in wanted if (command, count) in said)
+		often = "" if wanted[-1] == 1 else f" {commands.pressText(wanted[-1])}"
+		done = f"NVDA said: {heard}" if heard else f"Done: {chosen['description'].strip().rstrip('.')}"
+		return f"{done}. Next time you can press {keysOf(chosen)}{often} for this."
 
 	def text(description, **extra):
 		return dict({"type": "string", "description": description}, **extra)
@@ -152,9 +172,10 @@ def makeRegistry(rt, state):
 	reg.add(tools.Tool("find_command", "find NVDA commands by describing what they do; gives each command's id and its keys",
 		findCommand, {"words": text("2 to 4 keywords for what the command does", maxLength=80, auto=True)},
 		looks=True, title="Finding the command"))
-	reg.add(tools.Tool("run_command", "run one NVDA command for the user", runCommand,
-		{"command": text("the id of the command, copied from find_command", maxLength=60)},
-		changes=True, before="find_command", title="Running the command"))
+	reg.add(tools.Tool("run_command", "run one NVDA command for the user", runCommand, {
+		"command": text("the id of the command, copied from find_command", maxLength=60),
+		"asked": text("what the user asked for, in their own words", maxLength=300, auto=True),
+	}, changes=True, before="find_command", title="Running the command"))
 	page = (
 		"Example Shop\nWelcome to our shop. We sell garden tools.\n"
 		"Refund policy\nYou can return any product within 30 days for a full refund.\n"
@@ -323,6 +344,38 @@ def makeRegistry(rt, state):
 			"addon": text("the name of the add-on, or all for the list of add-ons", maxLength=60),
 			"about": text("what the user wants to know about it", maxLength=200, auto=True),
 		}, looks=True, tell=V)
+	simple("find_nvda",
+		"find functions, classes, modules, objects and values inside NVDA's own code and its add-ons' code by "
+		"describing them; gives each one's dotted name and what it is",
+		"api.getFocusObject: function. getFocusObject(). Gets the object with focus.\n"
+		"api.setFocusObject: function. setFocusObject(obj). Stores an object as the current focus object.\n"
+		"api.getNavigatorObject: function. getNavigatorObject(). Gets the current navigator object.",
+		"Searching inside NVDA",
+		{"words": text("2 to 4 keywords for what the thing does, or its name", maxLength=120, auto=True)}, looks=True)
+	simple("inspect_nvda",
+		"look closely at one thing inside NVDA's code: what a module, class, function or value is, how to call it, "
+		"and what it holds or gives back now",
+		"{name} is a function.\nCall it as getFocusObject().\nGets the object with focus.\n"
+		"Called now, it gives back: an object NVDA reads: button called \"New Game\".", "Looking inside NVDA",
+		{"name": text("its dotted name, copied from find_nvda", maxLength=120)}, looks=True, before="find_nvda", tell=V)
+	simple("object_info",
+		"say what NVDA knows about one object: the focused control, the navigator object, the window in front, what "
+		"is under the mouse, the desktop, or what the focused control is inside of; every fact, or the ones asked for",
+		"Facts about the object: {object}. Name: New Game. Kind: button. Window class: Button. The user said: {asked}",
+		"Asking NVDA about the object", {
+			"object": text("which object", enum=["focus", "navigator", "window", "mouse", "desktop", "parent"],
+				auto=lambda part: "navigator" if "navigator" in part.lower() else "mouse" if "mouse" in part.lower() else "focus"),
+			"asked": text("what the user asked for, in their own words", maxLength=300, auto=True),
+		}, looks=True, tell=V)
+	simple("audit_nvda",
+		"go through all of the running NVDA and count and list everything in it: every command, module, class, "
+		"function, object and value, and how it drives the speech synthesizer and the braille display; saves the "
+		"list as a file",
+		"VisionClaw went through all of this NVDA. Commands that can be used where you are now: 330. The user said: {asked}",
+		"Going through all of NVDA",
+		{"asked": text("what the user asked for, in their own words", maxLength=300, auto=True)}, looks=True, tell=V)
+	simple("show_log", "open VisionClaw's own debug log, the file that records what VisionClaw did and every error",
+		"VisionClaw's log is open in a window.", "Opening VisionClaw's log", looks=True, tell=V)
 	reg.add(tools.Tool("web_open", "open a web address in the user's browser", webOpen,
 		{"address": text("the web address, like example.com", maxLength=300, auto=web.addressIn)},
 		title="Opening the web page", tell=V))
@@ -350,6 +403,17 @@ def makeRegistry(rt, state):
 
 
 REQUESTS = (
+	"ask nvda to give me the current time and then the date.",
+	"What time is it?",
+	"What is the date today?",
+	"Tell me the time and the date.",
+	"How much battery is left?",
+	"Copy the window title to the clipboard.",
+	"What is the window class of the focused control?",
+	"Tell me everything NVDA knows about this control.",
+	"What does the function api.getFocusObject do?",
+	"Do a full audit of NVDA.",
+	"Open the VisionClaw log.",
 	"Make NVDA speak a little faster.",
 	"What is on my screen?",
 	"Click the New Game button.",
@@ -422,7 +486,11 @@ def main():
 		return 0
 
 	try:
+		# With VC_ONLY set, only the requests that contain one of its parts (separated by |) are run.
+		only = [part.lower() for part in os.environ.get("VC_ONLY", "").split("|") if part]
 		for request in REQUESTS:
+			if only and not any(part in request.lower() for part in only):
+				continue
 			state = {}
 			orch = orchestrator.Orchestrator(rt, makeRegistry(rt, state), askUser, lambda: "Program: spacetrader.", Memory("nul"))
 			# A fifth argument says whether the model is asked one small question at a time: auto, always or never.

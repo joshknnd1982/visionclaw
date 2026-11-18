@@ -8,7 +8,7 @@
 
 import os
 
-from logHandler import log
+from .vclog import log
 
 from . import viewers
 

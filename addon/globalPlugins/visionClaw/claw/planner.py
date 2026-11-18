@@ -190,6 +190,27 @@ RECIPES = {
 		"say where you are",
 		"say which program, window and control the user is in",
 		("focus_info",)),
+	"object_facts": (
+		"say what NVDA knows about a control",
+		"give the technical facts of one control or window on the screen, for the focused control, the navigator "
+		"object, the window in front or what is under the mouse: its kind, states, position and size, window "
+		"class, process",
+		("object_info",)),
+	"inside_nvda": (
+		"look inside NVDA's program code",
+		"say what a function, class, module, object or value inside NVDA's own program code or an add-on's code "
+		"is, how it is called, and what it holds or gives back now; for people who write add-ons",
+		("find_nvda", "inspect_nvda")),
+	"audit_nvda": (
+		"list everything in this NVDA",
+		"make a full audit of this NVDA: count and list every command, module, function, class and object it "
+		"has, and how it works its speech synthesizer and braille display, and save the list as a file",
+		("audit_nvda",)),
+	"visionclaw_log": (
+		"open VisionClaw's log",
+		"open VisionClaw's own debug log, the file that records what VisionClaw did and every error, to find "
+		"out why something went wrong",
+		("show_log",)),
 }
 # Words that point to a recipe. Checked in this order; the first that matches is the hint given to the model,
 # and the choice when the model fails.
@@ -204,6 +225,19 @@ _HINTS = (
 		r"|\barrow keys?\b.*\b(work|turn|move|operate|control)\b.*\b(slider|control|lever)\b"
 		r"|\b(work|turn|operate|move)\b.*\b(slider|control|lever)\b.*\b(arrow keys?|keyboard|keys)\b"
 		r"|\b(used|worked|operated|moved) (only )?by (clicking and )?dragging\b"),
+	# All of NVDA at once. Before the inspection of a page or window, which the word "audit" also means.
+	("audit_nvda", r"^(?!.*\b(page|site|web|window|button|control)\b).*(\b(audit|inventory)\b.*\bnvda\b"
+		r"|\bnvda\b.*\b(audit|inventory)\b"
+		r"|\b(list|count|show)\b.*\b(every|all|everything)\b.*\b(in|inside|of)\b.*\bnvda\b"
+		r"|\beverything (that is )?(in|inside) nvda\b)"),
+	# VisionClaw's own log; NVDA's log viewer is an NVDA command.
+	("visionclaw_log", r"\bvisionclaw('s)? (debug |error )?log\b|\b(debug|error) log\b"
+		r"|\blog\b.*\b(of|from|for) visionclaw\b"),
+	# Something inside NVDA's code, by its kind or by a dotted name like api.getFocusObject. Before the
+	# add-on hints, which the word "code" would otherwise set off.
+	("inside_nvda", r"\b(function|method|class|module|python object)s?\b.*\b(nvda|add-?on)('s)?\b"
+		r"|\b(nvda|add-?on)('s)?\b.*\b(functions?|methods?|class(es)?|modules?|python objects?|source code)\b"
+		r"|\b[a-z_]\w*\.(get|is|has|set)[a-z_]\w+|\binside nvda('s)? (code|program)\b"),
 	("save_addon", r"\b(save|export|package|share)\b.*\badd-?on"),
 	("list_changes", r"\bwhat\b.*\b(did|have|has)\b.*\b(you|visionclaw)\b.*\bchanged?\b|\bwhich settings\b.*\bchanged\b"),
 	("undo_change", r"\b(undo|revert|restore)\b|\b(put|change|set|turn)\b.*\bback\b|\bback to (what|how|the way)\b"
@@ -265,7 +299,14 @@ _HINTS = (
 	("click", r"\b(click|press|push|activate|select|choose|start|open)\b.*\b(button|link|item|menu|tab|icon|game|option)|\bclick\b"),
 	("press_keys", r"\bpress\b.*\b(key|enter|escape|tab|control|alt|shift|f\d+)\b"),
 	("type_text", r"\btype\b|\bwrite\b.*\binto\b"),
-	("do_command", r"\b(read|say|speak|tell me|report)\b.*\b(title|time|date|battery|clipboard|status|focus)\b|say all|start reading"),
+	# The facts NVDA holds about one object. Kept narrow: "report the navigator object" is an NVDA command.
+	("object_facts", r"\b(properties|property|attributes?|facts|details|everything|all)\b.*\b(about|of|on)\b.*"
+		r"\b(control|object|button|element|field|focus)\b"
+		r"|\b(window class|class name|control id|window handle|process id|automation id|role|states|coordinates)\b"
+		r".*\b(of|for)\b.*\b(this|the|focused|current|navigator|control|object|button|window)\b"
+		r"|\bwhat does nvda know about\b"),
+	("do_command", r"\b(read|say|speak|tell me|report)\b.*\b(title|time|date|battery|clipboard|status|focus)\b|say all|start reading"
+		r"|\b(give|get|tell|check|what('s| is| are))\b.*\b(time|date|battery)\b|\bwhat (time|day|date) is it\b"),
 	("read_text", r"\bread\b.*\b(text|everything)\b|\bread (me )?(the |this |all of the )?(whole )?(window|screen)\b"),
 	("web_page", r"\b(this|the|current) (web ?page|page|web ?site|site|article)\b|summari[sz]e"),
 	("describe", r"what('s| is| does)? .*(look|show|screen|window|picture|image|photo)|describe|look at|colou?r|what do you see|on (the|my) screen"),

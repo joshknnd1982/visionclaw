@@ -21,7 +21,7 @@ import config
 import tones
 import ui
 import wx
-from logHandler import log
+from .vclog import log
 
 from . import deepquery, fixruntime, mousetools, ocr
 from .claw import audit, dragcontrol, fixes, match, pointer, scrolling, working

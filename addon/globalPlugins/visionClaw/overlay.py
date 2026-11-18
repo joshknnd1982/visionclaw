@@ -16,7 +16,7 @@ import time
 
 import addonHandler
 from contentRecog import ContentRecognizer, LinesWordsResult, recogUi
-from logHandler import log
+from .vclog import log
 from PIL import ImageStat
 
 from . import imaging, labels, layout, mousetools, ocr, sounds

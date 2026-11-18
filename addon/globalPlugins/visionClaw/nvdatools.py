@@ -12,6 +12,7 @@ import importlib
 import inspect
 import os
 import re
+import sys
 import threading
 import time
 
@@ -23,10 +24,10 @@ import scriptHandler
 import synthDriverHandler
 import ui
 import wx
-from logHandler import log
+from .vclog import log
 
 from . import mousetools, net, nvdainfo, ocr, webtools
-from .claw import changes, drivers, fixes, guides, match, microaddons, pointer, policy, web
+from .claw import changes, commands, debuglog, drivers, fixes, guides, inside, match, microaddons, pointer, policy, web
 from .claw.catalog import CODER, VISION
 from .claw.llm import LLM, clip
 from .claw.memory import score, wordList, words as wordsOf
@@ -38,6 +39,8 @@ addonHandler.initTranslation()
 MAX_ITEMS_SHOWN = 45
 MAX_FOUND = 6
 CLICK_SETTLE_SECONDS = 0.7
+# Some commands speak a moment after they were run; what they say is waited for this long.
+COMMAND_SETTLE_SECONDS = 0.6
 # After an address is given to the browser: the shortest and longest wait for the page to be there.
 WEB_SETTLE_SECONDS = 1.5
 WEB_WAIT_SECONDS = 25
@@ -459,33 +462,98 @@ def _resolveSetting(ident):
 # --- NVDA commands ---
 
 class _Command:
-	def __init__(self, ident, info, keys):
+	"""One NVDA command, as plain facts: its id, the script behind it and the class that has it, what NVDA
+	says it does, its keys as shown to the user, and its keys as NVDA writes them."""
+
+	def __init__(self, ident, scriptName, cls, description, category, keys, gestures, documented=True):
 		self.id = ident
-		self.info = info
+		self.scriptName = scriptName
+		self.cls = cls
+		self.description = " ".join(str(description or "").split())
+		self.category = str(category or "")
 		self.keys = keys
-		self.text = f"{info.displayName} ({info.category})"
+		self.gestures = gestures
+		self.documented = documented
+
+	@property
+	def source(self):
+		"""Where the command comes from, like globalCommands or an add-on's module."""
+		return getattr(self.cls, "__module__", "") or ""
+
+	def line(self):
+		"""The command as shown to a model and to the user: its id, what it does, its keys."""
+		what = self.description or f"A command without a description, in {self.source or 'NVDA'}"
+		keys = " or ".join(self.keys) if self.keys else "no key assigned"
+		return f"{self.id}: {clip(what, 220).rstrip('.')}. Keys: {keys}."
+
+
+def _shownKeys(gestures, layout):
+	"""The keyboard keys among a command's gestures: (as shown to the user, as NVDA writes them)."""
+	shown, raw = [], []
+	for gesture in gestures:
+		if not (gesture.startswith("kb:") or gesture.startswith(f"kb({layout}):")):
+			continue
+		text = _safe(lambda g=gesture: inputCore.getDisplayTextForGestureIdentifier(g)[1])
+		if text and text not in shown:
+			shown.append(text)
+			raw.append(gesture)
+	return shown, raw
+
+
+def _scriptObjects():
+	"""The live objects that have commands where the user is now, in the order NVDA asks them."""
+	import globalCommands
+	import globalPluginHandler
+	focus = api.getFocusObject()
+	found = list(globalPluginHandler.runningPlugins)
+	found += [_safe(lambda: focus.appModule), _safe(lambda: focus.treeInterceptor), focus]
+	found += list(reversed(_safe(api.getFocusAncestors, []) or []))
+	found = [obj for obj in found if obj is not None]
+	# NVDA's own commands are always the last, whatever else is there.
+	return found + [globalCommands.commands]
+
+
+def _undocumented(known, layout):
+	"""Commands that NVDA does not list anywhere, because they were given no description: every script of the
+	objects in use that is not known yet. They can be found and run like the others."""
+	found = []
+	above = {id(ancestor) for ancestor in (_safe(api.getFocusAncestors, []) or [])}
+	for obj in _scriptObjects():
+		byScript = {}
+		for gesture, script in (_safe(lambda o=obj: dict(o._gestureMap), {}) or {}).items():
+			byScript.setdefault(getattr(script, "__func__", script), []).append(gesture)
+		for cls in type(obj).__mro__:
+			for name, script in list(vars(cls).items()):
+				if not name.startswith("script_") or not callable(script) or name[7:] in known:
+					continue
+				if id(obj) in above and not getattr(script, "canPropagate", False):
+					continue  # as in NVDA: what contains the focus only lends the commands made for that
+				known.add(name[7:])
+				keys, raw = _shownKeys(byScript.get(script, []), layout)
+				found.append(_Command(
+					name[7:], name[7:], cls, getattr(script, "__doc__", "") or "", "", keys, raw, documented=False))
+	return found
 
 
 def _commands():
-	"""Every command NVDA has where the user is now, with its keys. Must be called on the main thread."""
+	"""Every command NVDA has where the user is now, with its keys: those NVDA lists, then those it does not
+	list because they have no description. Must be called on the main thread."""
 	focus = api.getFocusObject()
 	mappings = inputCore.manager.getAllGestureMappings(obj=focus, ancestors=api.getFocusAncestors())
 	layout = _safe(lambda: config.conf["keyboard"]["keyboardLayout"], "desktop")
 	found, used = [], {}
-	for _category, scripts in mappings.items():
+	for category, scripts in mappings.items():
 		for _name, info in scripts.items():
-			keys = []
-			for gesture in info.gestures:
-				if not (gesture.startswith("kb:") or gesture.startswith(f"kb({layout}):")):
-					continue
-				shown = _safe(lambda g=gesture: inputCore.getDisplayTextForGestureIdentifier(g)[1])
-				if shown and shown not in keys:
-					keys.append(shown)
+			keys, raw = _shownKeys(info.gestures, layout)
 			ident = info.scriptName
 			used[ident] = used.get(ident, 0) + 1
 			if used[ident] > 1:
 				ident = f"{ident}{used[ident]}"
-			found.append(_Command(ident, info, keys))
+			found.append(_Command(ident, info.scriptName, info.cls, info.displayName, category, keys, raw))
+	try:
+		found += _undocumented(set(used), layout)
+	except Exception:
+		log.debugWarning("VisionClaw: the commands without a description could not be listed", exc_info=True)
 	return found
 
 
@@ -519,31 +587,120 @@ def _setDriver(kind, name):
 
 
 def _commandTarget(cls):
-	"""The live object a command belongs to."""
-	import globalCommands
-	import globalPluginHandler
-	focus = api.getFocusObject()
-	candidates = [globalCommands.commands] + list(globalPluginHandler.runningPlugins)
-	candidates += [_safe(lambda: focus.appModule), _safe(lambda: focus.treeInterceptor), focus]
-	candidates += list(reversed(api.getFocusAncestors()))
-	for candidate in candidates:
-		if candidate is not None and isinstance(candidate, cls):
+	"""The live object a command belongs to: NVDA's own commands first, then the add-ons, the program, the
+	page, the focused control, and what contains it."""
+	objects = _scriptObjects()
+	for candidate in objects[-1:] + objects[:-1]:
+		if isinstance(candidate, cls):
 			return candidate
 	return None
 
 
-def _runCommand(command):
+_MODIFIER_KEYS = frozenset((
+	"nvda", "control", "shift", "alt", "windows", "leftcontrol", "rightcontrol", "leftshift", "rightshift",
+	"leftalt", "rightalt", "leftwindows", "rightwindows",
+))
+
+
+def keyGesture(identifier):
+	"""A key press made from the way NVDA writes a key: kb:NVDA+control+downArrow, or kb(laptop):NVDA+shift+s.
+	NVDA keeps the parts of a key in the order of the alphabet, so the keys that are held are put first again
+	and the key that is pressed last. Raises LookupError or ValueError when NVDA does not know a key."""
 	from keyboardHandler import KeyboardInputGesture
-	target = _commandTarget(command.info.cls)
-	func = getattr(target, "script_" + command.info.scriptName, None) if target is not None else None
-	if func is None:
-		raise ToolError(f"The command {command.id} cannot be used where the user is now.")
+	parts = identifier.split(":", 1)[1].split("+")
+	held = [part for part in parts if part.lower() in _MODIFIER_KEYS]
+	pressed = [part for part in parts if part.lower() not in _MODIFIER_KEYS]
+	return KeyboardInputGesture.fromName("+".join(held + pressed if pressed else parts))
+
+
+def noKeyGesture(name, script):
+	"""What stands in for a key press when a command is run that has no key, or whose key NVDA cannot make.
+	NVDA asks every command's key press a few things before it runs the command; without one it fails."""
+	base = getattr(inputCore, "InputGesture", object)
+
+	class NoKeys(base):
+		wasInSayAll = False
+		isModifier = False
+		bypassInputHelp = True
+		reportInInputHelp = False
+
+		def _get_identifiers(self):
+			return ()
+
+		def _get_normalizedIdentifiers(self):
+			return ()
+
+		def _get_displayName(self):
+			return name
+
+		def _get_script(self):
+			return script
+
+		def send(self):
+			pass
+
+	gesture = NoKeys()
+	if "displayName" not in vars(NoKeys):
+		# NVDA makes properties of the _get_ methods above. Where that did not happen, they are set by hand.
+		gesture.identifiers, gesture.normalizedIdentifiers, gesture.displayName, gesture.script = (), (), name, script
+	return gesture
+
+
+def _commandParts(command):
+	"""What is needed to run a command: (the script, the key press handed to it). The script is None for a
+	command that is nothing but another key."""
 	gesture = None
-	for keys in command.keys:
-		gesture = _safe(lambda k=keys: KeyboardInputGesture.fromName(k.replace(" ", "")))
-		if gesture is not None:
+	for identifier in command.gestures:
+		try:
+			gesture = keyGesture(identifier)
 			break
-	scriptHandler.executeScript(func, gesture)
+		except Exception:
+			debuglog.detail("command", f"NVDA made no key press from {identifier} for {command.id}")
+	if command.scriptName.startswith("kb:"):
+		# A command that only presses another key: that key is pressed.
+		try:
+			return None, keyGesture(command.scriptName)
+		except Exception:
+			raise ToolError(f"The command {command.id} presses a key that NVDA does not know.")
+	target = _commandTarget(command.cls)
+	script = getattr(target, "script_" + command.scriptName, None) if target is not None else None
+	if script is None:
+		raise ToolError(f"The command {command.id} cannot be used where the user is now.")
+	if gesture is None:
+		gesture = noKeyGesture(command.description or command.id, script)
+	return script, gesture
+
+
+def _runCommand(command, wanted, heard):
+	"""Run a command as if its key were pressed: once, or as often as wanted asks for, quickly, the way a
+	person presses twice. wanted: the press counts whose result is wanted, lowest first. Returns the place in
+	heard.texts from which what was said belongs to the answer. Must be called on the main thread."""
+	script, gesture = _commandParts(command)
+	debuglog.log("command", (
+		f"Running {command.id} (script_{command.scriptName} of {command.source}), pressed {wanted[-1]} time(s), "
+		f"wanted presses {wanted}, key press: {type(gesture).__name__} {_safe(lambda: gesture.displayName, '')!r}"))
+	if script is None:
+		gesture.send()
+		return 0
+	# So that the first press counts as a first press, whatever was pressed just before.
+	clear = getattr(scriptHandler, "clearLastScript", None)
+	if clear is not None:
+		_safe(clear)
+	first, start = wanted[0], 0
+	for press in range(1, wanted[-1] + 1):
+		if 1 < press <= first:
+			# What the presses before said was not asked for: it is cut short, as when a person presses on.
+			_safe(_cancelSpeech)
+		if press == first:
+			start = len(heard.texts)
+		scriptHandler.executeScript(script, gesture)
+		debuglog.detail("command", f"Press {press} of {command.id} done; NVDA has said so far: {heard.texts[start:]}")
+	return start
+
+
+def _cancelSpeech():
+	import speech
+	speech.cancelSpeech()
 
 
 class _SpeechCapture:
@@ -694,37 +851,216 @@ def userGuideSections():
 	return found
 
 
+def _kindOf(thing):
+	if inspect.ismodule(thing):
+		return "a module"
+	if inspect.isclass(thing):
+		return "a class"
+	if inspect.ismethod(thing):
+		return "a method"
+	if inspect.isroutine(thing):
+		return "a function"
+	return f"a value of the kind {type(thing).__name__}"
+
+
 def _inspect(name):
-	"""What a module, class or function of NVDA is: its kind, how it is called, its help text and members."""
-	parts = [p for p in re.split(r"[.\s]+", str(name).strip()) if p]
+	"""What a module, class, function or value of NVDA is: its kind, how it is called, its help text, what it
+	has, and what it holds now. A function that only reports something and needs nothing (getFocusObject,
+	isRunning) is called, so that what it gives back now can be said; nothing else is ever called.
+	Must be called on the main thread."""
+	parts = [p for p in re.split(r"[.\s]+", str(name).replace("()", "").strip()) if p]
 	if not parts or not all(p.isidentifier() for p in parts):
 		raise ToolError("Give a dotted name like api.getFocusObject or controlTypes.Role.")
 	if parts[0] in microaddons.FORBIDDEN_MODULES:
 		raise ToolError(f"{parts[0]} is not an NVDA module that add-ons may use.")
-	found = None
+	found, rest = None, []
 	for cut in range(len(parts), 0, -1):
-		try:
-			found = importlib.import_module(".".join(parts[:cut]))
-		except Exception:
-			continue
-		for attr in parts[cut:]:
-			if not hasattr(found, attr):
-				raise ToolError(f"{'.'.join(parts[:cut])} has nothing called {attr}. It has: {_members(found)}")
-			found = getattr(found, attr)
+		module = sys.modules.get(".".join(parts[:cut]))
+		if module is None:
+			try:
+				module = importlib.import_module(".".join(parts[:cut]))
+			except Exception:
+				continue
+		found, rest, path = module, parts[cut:], ".".join(parts[:cut])
 		break
 	if found is None:
 		raise ToolError(f"NVDA has no module called {parts[0]}.")
-	lines = [f"{'.'.join(parts)} is a {type(found).__name__}."]
+	for attr in rest:
+		if not hasattr(found, attr) and inside.reports(path.split(".")[-1], found):
+			# "api.getFocusObject.name": what the function gives back now is looked into.
+			found, path = found(), path + "()"
+		if not hasattr(found, attr):
+			raise ToolError(f"{path} has nothing called {attr}. It has: {_members(found)}")
+		found, path = getattr(found, attr), f"{path}.{attr}"
+	lines = [f"{path} is {_kindOf(found)}."]
 	if callable(found):
-		signature = _safe(lambda: str(inspect.signature(found)))
+		signature = inside.signature(found)
 		if signature:
-			lines.append(f"Call it as {parts[-1]}{signature}.")
-	doc = inspect.getdoc(found)
+			lines.append(f"Call it as {path.split('.')[-1]}{signature}.")
+	doc = inspect.getdoc(found) if (callable(found) or inspect.ismodule(found)) else None
 	if doc:
 		lines.append(clip(doc, 500))
 	if inspect.ismodule(found) or inspect.isclass(found):
 		lines.append("It has: " + _members(found))
+	elif inside.reports(path.split(".")[-1], found):
+		try:
+			lines.append(f"Called now, it gives back: {inside.describe(found())}.")
+		except Exception as e:
+			lines.append(f"Calling it now did not work: {type(e).__name__}: {clip(str(e), 160)}.")
+	elif not callable(found):
+		lines.append(f"Now it holds: {inside.describe(found)}.")
 	return "\n".join(lines)
+
+
+_insideCache = {"count": -1, "entries": []}
+
+
+def insideIndex():
+	"""The list of everything inside the running NVDA and its add-ons. Made when first asked for, and again
+	when modules were loaded since, as when an add-on or a program's module arrived."""
+	loaded = dict(sys.modules)
+	if _insideCache["count"] != len(loaded):
+		started = time.monotonic()
+		_insideCache["entries"] = inside.index(loaded)
+		_insideCache["count"] = len(loaded)
+		debuglog.log("inside", (
+			f"Listed {len(_insideCache['entries'])} things in {len(loaded)} loaded modules "
+			f"in {time.monotonic() - started:.1f} seconds"))
+	return _insideCache["entries"]
+
+
+# --- What NVDA knows about one object ---
+
+FOCUS, NAVIGATOR, WINDOW, MOUSE, DESKTOP, PARENT = "focus", "navigator", "window", "mouse", "desktop", "parent"
+OBJECTS = [FOCUS, NAVIGATOR, WINDOW, MOUSE, DESKTOP, PARENT]
+_OBJECT_NAMES = {
+	FOCUS: "The focused control", NAVIGATOR: "The navigator object", WINDOW: "The window in front",
+	MOUSE: "What is under the mouse pointer", DESKTOP: "The desktop", PARENT: "What the focused control is inside of",
+}
+# Words of a request about an object that name no fact about it.
+_OBJECT_WORDS = wordsOf(
+	"everything all tell about control object focus focused navigator window this that info information fact facts "
+	"detail details property properties nvda know knows have has what give show say report mouse pointer desktop "
+	"parent current under item element button thing")
+
+
+def objectOf(part):
+	"""Which object a request is about, from its words."""
+	said = (part or "").lower()
+	if re.search(r"\bnavigator\b|\breview (cursor|position)\b", said):
+		return NAVIGATOR
+	if re.search(r"\b(mouse|pointer)\b", said):
+		return MOUSE
+	if re.search(r"\bdesktop\b", said):
+		return DESKTOP
+	if re.search(r"\b(parent|container|inside of|contains (it|this))\b", said):
+		return PARENT
+	if re.search(r"\b(window|foreground|dialog)\b", said) and not re.search(r"\bwindow (class|handle|control id)\b", said):
+		return WINDOW
+	return FOCUS
+
+
+def _theObject(which):
+	if which == NAVIGATOR:
+		return api.getNavigatorObject()
+	if which == WINDOW:
+		return api.getForegroundObject()
+	if which == MOUSE:
+		return api.getMouseObject()
+	if which == DESKTOP:
+		return api.getDesktopObject()
+	focus = api.getFocusObject()
+	return _safe(lambda: focus.parent) if which == PARENT else focus
+
+
+def objectFacts(obj):
+	"""Everything NVDA knows about one object, as (what it is called, other words people use for it, the
+	fact). Must be called on the main thread; never raises."""
+	from . import deepquery
+	known = deepquery.facts(obj)
+	found = []
+
+	def fact(label, also, value):
+		value = " ".join(str(value or "").split())
+		if value:
+			found.append((label, also, value))
+
+	fact("Name", "called label", known["name"] or "it has no name")
+	fact("Kind", "role type", f"{known['roleText']} (controlTypes.Role.{known['role']})")
+	fact("Value", "content shows", known["value"])
+	fact("Description", "help", known["description"])
+	fact("States", "state checked selected pressed expanded unavailable", ", ".join(
+		state.lower().replace("_", " ") for state in known["states"]))
+	fact("Keyboard shortcut", "key accelerator hotkey", known["shortcut"])
+	box = known["box"]
+	if box:
+		fact("Position and size", "where location place coordinates big wide high width height pixels", (
+			f"left {box[0]}, top {box[1]}, {box[2] - box[0]} wide, {box[3] - box[1]} high, in pixels"))
+	place = _safe(lambda: obj.positionInfo) or {}
+	if place.get("indexInGroup"):
+		fact("Place among its neighbours", "index group level position number", (
+			f"{place['indexInGroup']} of {place.get('similarItemsInGroup', 'an unknown number')}"
+			+ (f", level {place['level']}" if place.get("level") else "")))
+	fact("Program", "app application process", (
+		f"{known['app']}, process id {_safe(lambda: obj.processID, 'unknown')}"))
+	fact("Window class", "classname", known["windowClass"])
+	fact("Window control id", "identifier", known["controlId"] or "")
+	fact("Window handle", "hwnd", _safe(lambda: obj.windowHandle) or "")
+	fact("Accessibility interface", "api automation uia iaccessible msaa", known["api"])
+	fact("UI Automation id", "automationid identifier", _safe(lambda: obj.UIAAutomationId) or "")
+	fact("UI Automation class", "classname", _safe(lambda: obj.UIAElement.cachedClassName) or "")
+	fact("Toolkit", "framework", known.get("framework", ""))
+	fact("What it can do through UI Automation", "patterns do", ", ".join(known.get("patterns", [])))
+	fact("Actions", "do action press activate", ", ".join(known["actions"]))
+	fact("On a web page it is", "web html tag attributes", ", ".join(f"{k} {v}" for k, v in known.get("web", {}).items()))
+	fact("Text drawn in it", "drawn text shown", known.get("drawn", ""))
+	children = []
+	child = _safe(lambda: obj.firstChild)
+	while child is not None and len(children) < 5:
+		children.append(inside.describe(child, 60).replace("an object NVDA reads: ", "").split(" (")[0])
+		child = _safe(lambda c=child: c.next)
+	if known["children"]:
+		fact("Children", "child contains inside items", (
+			f"{known['children']}" + (f": {'; '.join(children)}" if children else "")
+			+ (" and more" if known["children"] > len(children) and children else "")))
+	parent = _safe(lambda: obj.parent)
+	if parent is not None:
+		fact("It is inside", "parent container", inside.describe(parent, 60).replace("an object NVDA reads: ", "").split(" (")[0])
+	classes = [f"{cls.__module__}.{cls.__qualname__}" for cls in type(obj).__mro__[:4] if cls is not object]
+	if classes:
+		fact("NVDA's class for it", "python class code", classes[0] + (
+			", built on " + ", ".join(classes[1:]) if classes[1:] else ""))
+	fact("Everything else it has", "attributes members list", inside.publicNames(obj, 45))
+	return found
+
+
+def objectAnswer(obj, which, asked):
+	"""What is said about an object: every fact, or, when the request names some, only those. A property the
+	request names that is not among the facts is read from the object itself. Main thread."""
+	facts = objectFacts(obj)
+	said = wordsOf(asked) - _OBJECT_WORDS
+	low = (asked or "").lower()
+	# A fact that is asked for by its full name is the one that is meant: "window class" is not the Python class.
+	chosen = [(label, value) for label, _also, value in facts if label.lower() in low]
+	if not chosen and said:
+		chosen = [(label, value) for label, also, value in facts if said & (wordsOf(label) | wordsOf(also))]
+	# Anything else the object has can be asked for by its name, known to VisionClaw or not.
+	labels = {label.lower() for label, _also, _value in facts}
+	for name in dir(obj):
+		shown = name[5:] if name.startswith("_get_") else name
+		if shown.startswith("_") or len(shown) < 4 or match.label(shown) in labels:
+			continue
+		if re.search(rf"(?<![a-z0-9]){re.escape(shown.lower())}(?![a-z0-9])", low) or (
+				len(shown) > 5 and re.search(rf"(?<![a-z0-9]){re.escape(match.label(shown))}(?![a-z0-9])", low)):
+			try:
+				value = getattr(obj, shown)
+			except Exception as e:
+				value = f"could not be read ({type(e).__name__})"
+			line = (shown, value if isinstance(value, str) and value.startswith("could not") else inside.describe(value, 200))
+			if line not in chosen and not callable(value):
+				chosen.append(line)
+	lines = chosen or [(label, value) for label, _also, value in facts]
+	return f"{_OBJECT_NAMES[which]}. " + " ".join(f"{label}: {value.rstrip('.')}." for label, value in lines)
 
 
 def failingLine(trace):
@@ -1084,42 +1420,52 @@ def build(plugin):
 
 	# Commands.
 	def findCommand(task, words):
-		commands = onMain(_commands)
-		task.commands = commands
-		asked = wordsOf(words)
-		scored = sorted(
-			((len(asked & wordsOf(c.text + " " + match.label(c.id))), c) for c in commands), key=lambda x: -x[0])
-		found = [c for count, c in scored[:MAX_FOUND] if count]
+		known = onMain(_commands)
+		task.commands = known
+		# The commands NVDA lists come first; those without a description are looked at only when none of
+		# the listed ones fits, so that an unnamed script never pushes a described command aside.
+		found = []
+		for documented in (True, False):
+			pool = [c for c in known if c.documented == documented]
+			found = [pool[i] for i in commands.find(words, [(c.scriptName, c.description, c.category) for c in pool], MAX_FOUND)]
+			if found:
+				break
+		debuglog.log("command", f"Looked among {len(known)} commands for \"{words}\": found {[c.id for c in found]}")
 		if not found:
 			raise ToolError("No NVDA command matches those words. Use the words of the request that say what the command does.")
-		return "\n".join(
-			f"{c.id}: {c.info.displayName}. Keys: {' or '.join(c.keys) if c.keys else 'no key assigned'}." for c in found)
+		return "\n".join(c.line() for c in found)
 
 	add("find_command", "find NVDA commands by describing what they do; gives each command's id and its keys",
 		findCommand, {"words": text("2 to 4 keywords for what the command does, like: window title", maxLength=80,
 			auto=True)}, looks=True, title="Finding the command")
 
-	def runCommand(task, command):
-		commands = getattr(task, "commands", None) or onMain(_commands)
-		index = match.best(command, [c.id for c in commands], least=0.85)
+	def runCommand(task, command, asked):
+		known = getattr(task, "commands", None) or onMain(_commands)
+		index = match.best(command, [c.id for c in known], least=0.85)
 		if index is None:
 			raise ToolError(f"There is no command with the id {command}. Copy an id exactly from find_command.")
-		chosen = commands[index]
-		risk = _RISKY_COMMANDS.get(chosen.info.scriptName)
+		chosen = known[index]
+		risk = _RISKY_COMMANDS.get(chosen.scriptName)
 		if risk:
 			# Translators: Asked before an NVDA command that can silence or close NVDA. {command} is the command.
-			mustAgree(f"{risk} " + _("Run the command: {command}?").format(command=chosen.info.displayName))
+			mustAgree(f"{risk} " + _("Run the command: {command}?").format(command=chosen.description or chosen.id))
+		# Many commands do something else on a second or third press: the time once, the date twice. What the
+		# user asked for decides how often, read from the command's own description by plain code.
+		wanted = commands.presses(asked or task.request, chosen.scriptName, chosen.description)
 		with _SpeechCapture() as heard:
-			onMain(_runCommand, chosen)
-			time.sleep(0.6)
-		said = " ".join(heard.texts).strip()
-		keys = f" Next time you can press {' or '.join(chosen.keys)} for this." if chosen.keys else ""
-		done = f"NVDA said: {clip(said, 500)}" if said else f"Done: {chosen.info.displayName}"
+			start = onMain(_runCommand, chosen, wanted, heard)
+			task.cancel.wait(COMMAND_SETTLE_SECONDS)
+		said = " ".join(heard.texts[start:]).strip()
+		debuglog.log("command", f"{chosen.id} ran. NVDA said: {said!r}")
+		often = "" if wanted[-1] == 1 else f" {commands.pressText(wanted[-1])}"
+		keys = f" Next time you can press {' or '.join(chosen.keys)}{often} for this." if chosen.keys else ""
+		done = f"NVDA said: {clip(said, 500)}" if said else f"Done: {chosen.description or chosen.id}"
 		return f"{done.rstrip('.')}.{keys}"
 
-	add("run_command", "run one NVDA command for the user", runCommand,
-		{"command": text("the id of the command, copied from find_command", maxLength=60)},
-		changes=True, before="find_command", title="Running the command")
+	add("run_command", "run one NVDA command for the user", runCommand, {
+		"command": text("the id of the command, copied from find_command", maxLength=60),
+		"asked": text("what the user asked for, in their own words", maxLength=300, auto=True),
+	}, changes=True, before="find_command", title="Running the command")
 
 	# Learning about NVDA.
 	def searchHelp(task, words):
@@ -1152,10 +1498,116 @@ def build(plugin):
 		{"words": text("2 to 4 keywords for what you need to know", maxLength=80, auto=True)}, looks=True,
 		title="Reading up on it")
 
-	add("inspect_nvda", "look inside NVDA's code: what a module, class or function is and how to call it",
-		lambda task, name: _inspect(name),
-		{"name": text("a dotted name like api.getFocusObject or controlTypes.Role", maxLength=80)}, looks=True,
-		title="Looking inside NVDA")
+	def findNvda(task, words):
+		found = inside.search(insideIndex(), words, MAX_FOUND)
+		debuglog.log("inside", f"Looked inside NVDA for \"{words}\": found {[entry.name for entry in found]}")
+		if not found:
+			raise ToolError("Nothing inside NVDA matches those words. Use the words of the request that say what the thing does.")
+		return "\n".join(clip(entry.line(), 230) for entry in found)
+
+	add("find_nvda",
+		"find functions, classes, modules, objects and values inside NVDA's own code and its add-ons' code by "
+		"describing them; gives each one's dotted name and what it is",
+		findNvda, {"words": text("2 to 4 keywords for what the thing does, or its name", maxLength=120, auto=True)},
+		looks=True, title="Searching inside NVDA")
+
+	add("inspect_nvda",
+		"look closely at one thing inside NVDA's code: what a module, class, function or value is, how to call it, "
+		"and what it holds or gives back now",
+		lambda task, name: onMain(_inspect, name),
+		{"name": text("its dotted name, copied from find_nvda", maxLength=120)}, looks=True, before="find_nvda",
+		title="Looking inside NVDA", tell=VERBATIM)
+
+	def objectInfo(task, object, asked):
+		which = object if object in OBJECTS else objectOf(asked)
+
+		def work():
+			found = _theObject(which)
+			if found is None:
+				raise ToolError(f"NVDA has no such object now: {_OBJECT_NAMES[which].lower()}.")
+			return objectAnswer(found, which, asked)
+		result = onMain(work)
+		debuglog.detail("object", result)
+		return result
+
+	add("object_info",
+		"say what NVDA knows about one object: the focused control, the navigator object, the window in front, what "
+		"is under the mouse, the desktop, or what the focused control is inside of; every fact, or the ones asked for",
+		objectInfo, {
+			"object": text("which object", enum=OBJECTS, auto=objectOf),
+			"asked": text("what the user asked for, in their own words", maxLength=300, auto=True),
+		}, looks=True, title="Asking NVDA about the object", tell=VERBATIM)
+
+	def auditNvda(task, asked):
+		# Everything this NVDA has, counted and listed: the commands where the user is, everything inside the
+		# loaded modules, and how the synthesizer and the braille display are driven. Read only.
+		known = onMain(_commands)
+		task.check()
+		entries = insideIndex()
+		task.check()
+		count = inside.counts(entries)
+		described = [c for c in known if c.documented]
+		withKeys = [c for c in known if c.keys]
+		speechLines = onMain(lambda: nvdainfo.speech().splitlines() + nvdainfo.speechInside())
+		brailleLines = onMain(lambda: nvdainfo.brailleInfo().splitlines() + nvdainfo.brailleInside())
+		general = onMain(nvdainfo.general).splitlines()
+		totals = [
+			f"Commands that can be used where you are now: {len(known)}. {len(described)} have a description, "
+			f"{len(known) - len(described)} have none, and {len(withKeys)} have a key.",
+			f"Modules loaded: {count[inside.MODULE] - count['notLoaded']}. Modules that belong to NVDA and are not "
+			f"loaded, such as drivers that are not in use: {count['notLoaded']}.",
+			f"Classes: {count[inside.CLASS]}. Functions: {count[inside.FUNCTION]}. Methods: {count[inside.METHOD]}, "
+			f"of which {count['commands']} are commands. Properties: {count[inside.PROPERTY]}. Values: {count[inside.VALUE]}.",
+		]
+		sections = [
+			("What this is", [
+				"A list of everything in the NVDA that is running on this computer, made by VisionClaw from the "
+				"running program itself. Nothing was changed, and nothing was sent anywhere.",
+				f"Made on {time.strftime('%Y-%m-%d at %H:%M')}."] + general),
+			("Totals", totals),
+			("Speech: how NVDA talks to the synthesizer", speechLines),
+			("Braille: how NVDA talks to the braille display", brailleLines),
+			("Commands with a description, usable where you are now", [c.line() for c in described]),
+			("Commands without a description, usable where you are now", [
+				f"{c.line()} From {c.source}." for c in known if not c.documented]),
+		]
+		path = os.path.join(os.path.dirname(plugin.guidesDir), "nvda-audit.md")
+		try:
+			with open(path, "w", encoding="utf-8", newline="\n") as f:
+				f.write(inside.auditText("Audit of this NVDA by VisionClaw", sections, entries))
+		except OSError as e:
+			raise ToolError(f"The audit could not be saved: {e}")
+		debuglog.log("audit", f"Audit written to {path}: {totals}")
+		opened = ""
+		if re.search(r"\b(open|show|read|see|view)\b", (asked or "").lower()):
+			onMain(os.startfile, path)
+			opened = " It is open in a window now."
+		first = lambda lines: lines[0] if lines else ""  # noqa: E731
+		return (
+			f"VisionClaw went through all of this NVDA. {' '.join(totals)} {first(speechLines)} {first(brailleLines)} "
+			f"The whole list, with every command, module, class, function and value by name, and how speech and "
+			f"braille are driven, is saved as the file {path}.{opened} You can ask about any of it by describing it.")
+
+	add("audit_nvda",
+		"go through all of the running NVDA and count and list everything in it: every command, module, class, "
+		"function, object and value, and how it drives the speech synthesizer and the braille display; saves the "
+		"list as a file",
+		auditNvda, {"asked": text("what the user asked for, in their own words", maxLength=300, auto=True)},
+		looks=True, title="Going through all of NVDA", tell=VERBATIM)
+
+	def showLog(task):
+		path = debuglog.path()
+		if not path or not debuglog.on():
+			return "VisionClaw's log is switched off. It is switched on in VisionClaw's settings, under Debug log."
+		if not os.path.isfile(path):
+			return f"VisionClaw's log is still empty. It will be the file {path}."
+		onMain(os.startfile, path)
+		return (
+			f"VisionClaw's log is open in a window. It is the file {path}. It stays on this computer and holds "
+			"what VisionClaw was asked, what it did and every error.")
+
+	add("show_log", "open VisionClaw's own debug log, the file that records what VisionClaw did and every error",
+		showLog, looks=True, title="Opening VisionClaw's log", tell=VERBATIM)
 
 	def remember(task, note):
 		plugin.memory.add(note, topic=task.request[:120])

@@ -11,6 +11,7 @@ import copy
 import json
 import re
 
+from . import debuglog
 from . import runtime as runtimeModule
 from . import task as taskModule
 from ..engine import EngineError
@@ -93,11 +94,13 @@ class LLM:
 	def _ask(self, role, messages, maxTokens, options, context, onText=None, raw=True):
 		self.task.check()
 		info = {}
+		debuglog.detail("model", f"Asking the {role} model, context {context}, at most {maxTokens} tokens.")
 		answer = self.runtime.chat(
 			role, messages, maxTokens, onText=onText, cancel=self.task.cancel, options=options, raw=raw, info=info,
 			context=context,
 		)
 		if answer is None:
+			debuglog.log("model", f"The question to the {role} model was stopped.")
 			raise taskModule.Cancelled()
 		if info.get("thinking"):
 			self.task.emit(taskModule.THINK, f"{role}: {clip(info['thinking'], 600)}")
@@ -121,6 +124,9 @@ class LLM:
 				if not isinstance(found, dict):
 					raise ValueError("not an object")
 			except ValueError:
+				debuglog.log("model", (
+					f"The {role} model's answer was not a complete form (try {attempt + 1}, it stopped because: "
+					f"{info.get('finish')}): {answer!r}"))
 				if attempt == 0:
 					maxTokens *= 2  # most often it was cut off before the closing brace
 					continue

@@ -18,7 +18,7 @@ import globalVars
 import gui
 import ui
 import wx
-from logHandler import log
+from .vclog import log
 
 from . import net
 from .claw import updates

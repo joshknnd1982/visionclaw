@@ -24,7 +24,10 @@ _HALF_LIFE_DAYS = 60
 
 
 def stem(word):
-	"""A word without its ending, so "faster" matches "fast" and "speaking" matches "speak"."""
+	"""A word without its ending, so "faster" matches "fast", "speaking" matches "speak" and "copies"
+	matches "copy"."""
+	if word.endswith("ies") and len(word) >= 5:
+		return word[:-3] + "y"
 	for suffix in _SUFFIXES:
 		if word.endswith(suffix) and len(word) - len(suffix) >= 3:
 			return word[:-len(suffix)]

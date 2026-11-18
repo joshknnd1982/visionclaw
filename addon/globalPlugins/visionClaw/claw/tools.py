@@ -5,6 +5,9 @@
 # VisionClaw - the tools the models can use. A tool is a small form (its fields) and a Python function that
 # does the work. The models only ever fill in forms. No NVDA dependencies; the NVDA tools are in nvdatools.py.
 
+import time
+
+from . import debuglog
 from .llm import clip
 
 RESULT_CHARS = 1500
@@ -16,6 +19,13 @@ VERBATIM, SUMMARIZE = "verbatim", "summarize"
 
 class ToolError(Exception):
 	"""A tool could not do what was asked. The message is shown to the model so it can correct the form."""
+
+
+# What is not a fault of a tool but ends more than its step: the user stopped the request or said no to all of
+# it, or the engine is gone. These are passed on to whoever runs the request. By name, because the classes
+# live in modules this one must not depend on.
+PASSED_ON = frozenset(("Cancelled", "Declined", "EngineError", "LLMError", "ModelMissing"))
+PASSED_ON_KINDS = (KeyboardInterrupt, SystemExit)
 
 
 class Tool:
@@ -111,12 +121,29 @@ class Registry:
 		"""Run a tool. Returns (worked, result text)."""
 		tool = self._tools.get(name)
 		if tool is None:
+			debuglog.log("tool", f"{name}: there is no such tool. Form: {form}")
 			return False, f"There is no tool called {name}."
 		missing = [f for f in tool.fields if f not in form]
 		if missing:
+			debuglog.log("tool", f"{name}: the form is missing {missing}. Form: {form}")
 			return False, f"The form is missing: {', '.join(missing)}."
+		debuglog.log("tool", f"{name} starts. Form: {form}")
+		started = time.monotonic()
 		try:
 			result = tool.fn(task, **{f: form[f] for f in tool.fields})
 		except ToolError as e:
+			debuglog.log("tool", f"{name} could not do it after {time.monotonic() - started:.2f} s: {e}")
 			return False, clip(str(e), RESULT_CHARS)
+		except Exception as e:
+			if type(e).__name__ in PASSED_ON or isinstance(e, PASSED_ON_KINDS):
+				debuglog.log("tool", f"{name} ended after {time.monotonic() - started:.2f} s with {type(e).__name__}: {e}")
+				raise
+			# A fault inside a tool is VisionClaw's own mistake. It ends this step, not the whole request: the
+			# other parts of the request can still be done. Where it happened is written to the log.
+			debuglog.error("tool", f"{name} failed after {time.monotonic() - started:.2f} s. Form: {form}", e)
+			return False, (
+				f"This did not work because of a fault inside VisionClaw ({type(e).__name__}: {clip(str(e), 200)}). "
+				"Where it happened is written in VisionClaw's log.")
+		debuglog.log("tool", f"{name} worked after {time.monotonic() - started:.2f} s.")
+		debuglog.detail("tool", f"{name} result:\n{result}")
 		return True, clip(result if result else "Done.", RESULT_CHARS)

@@ -1,0 +1,1927 @@
+[
+ {
+  "name": "cycleAudioDuckingMode",
+  "description": "Cycles through audio ducking modes which determine when NVDA lowers the volume of other sounds",
+  "category": "SCRCAT_AUDIO",
+  "gestures": [
+   "kb:NVDA+shift+d"
+  ]
+ },
+ {
+  "name": "toggleInputHelp",
+  "description": "Turns input help on or off. When on, any input such as pressing a key on the keyboard will tell you what script is associated with that input, if any.",
+  "category": "SCRCAT_INPUT",
+  "gestures": [
+   "kb:NVDA+1"
+  ]
+ },
+ {
+  "name": "toggleCurrentAppSleepMode",
+  "description": "Toggles sleep mode on and off for the active application.",
+  "category": "",
+  "gestures": [
+   "kb(desktop):NVDA+shift+s",
+   "kb(laptop):NVDA+shift+z"
+  ]
+ },
+ {
+  "name": "reportCurrentLine",
+  "description": "Reports the current line under the application cursor. Pressing this key twice will spell the current line. Pressing three times will spell the line using character descriptions.",
+  "category": "SCRCAT_SYSTEMCARET",
+  "gestures": [
+   "kb(desktop):NVDA+upArrow",
+   "kb(laptop):NVDA+l"
+  ]
+ },
+ {
+  "name": "leftMouseClick",
+  "description": "Clicks the left mouse button once at the current mouse position",
+  "category": "SCRCAT_MOUSE",
+  "gestures": [
+   "kb:numpadDivide",
+   "kb(laptop):NVDA+["
+  ]
+ },
+ {
+  "name": "rightMouseClick",
+  "description": "Clicks the right mouse button once at the current mouse position",
+  "category": "SCRCAT_MOUSE",
+  "gestures": [
+   "kb:numpadMultiply",
+   "kb(laptop):NVDA+]"
+  ]
+ },
+ {
+  "name": "toggleLeftMouseButton",
+  "description": "Locks or unlocks the left mouse button",
+  "category": "SCRCAT_MOUSE",
+  "gestures": [
+   "kb:shift+numpadDivide",
+   "kb(laptop):NVDA+control+["
+  ]
+ },
+ {
+  "name": "toggleRightMouseButton",
+  "description": "Locks or unlocks the right mouse button",
+  "category": "SCRCAT_MOUSE",
+  "gestures": [
+   "kb:shift+numpadMultiply",
+   "kb(laptop):NVDA+control+]"
+  ]
+ },
+ {
+  "name": "mouseScrollUp",
+  "description": "Scroll up at the mouse position",
+  "category": "SCRCAT_MOUSE",
+  "gestures": []
+ },
+ {
+  "name": "mouseScrollDown",
+  "description": "Scroll down at the mouse position",
+  "category": "SCRCAT_MOUSE",
+  "gestures": []
+ },
+ {
+  "name": "mouseScrollLeft",
+  "description": "Scroll left at the mouse position",
+  "category": "SCRCAT_MOUSE",
+  "gestures": []
+ },
+ {
+  "name": "mouseScrollRight",
+  "description": "Scroll right at the mouse position",
+  "category": "SCRCAT_MOUSE",
+  "gestures": []
+ },
+ {
+  "name": "reportCurrentSelection",
+  "description": "Announces the current selection in edit controls and documents. Pressing twice spells this information. Pressing three times spells it using character descriptions. Pressing four times shows it in a browsable message. ",
+  "category": "SCRCAT_SYSTEMCARET",
+  "gestures": [
+   "kb(desktop):NVDA+shift+upArrow",
+   "kb(laptop):NVDA+shift+s"
+  ]
+ },
+ {
+  "name": "dateTime",
+  "description": "If pressed once, reports the current time. If pressed twice, reports the current date",
+  "category": "SCRCAT_SYSTEM",
+  "gestures": [
+   "kb:NVDA+f12"
+  ]
+ },
+ {
+  "name": "firstValueSynthRing",
+  "description": "Set the first value of the current setting in the synth settings ring",
+  "category": "SCRCAT_SPEECH",
+  "gestures": []
+ },
+ {
+  "name": "lastValueSynthRing",
+  "description": "Set the last value of the current setting in the synth settings ring",
+  "category": "SCRCAT_SPEECH",
+  "gestures": []
+ },
+ {
+  "name": "increaseSynthSetting",
+  "description": "Increases the currently active setting in the synth settings ring",
+  "category": "SCRCAT_SPEECH",
+  "gestures": [
+   "kb(desktop):NVDA+control+upArrow",
+   "kb(laptop):NVDA+shift+control+upArrow"
+  ]
+ },
+ {
+  "name": "increaseLargeSynthSetting",
+  "description": "Increases the currently active setting in the synth settings ring in a larger step",
+  "category": "SCRCAT_SPEECH",
+  "gestures": [
+   "kb(desktop):NVDA+control+pageUp",
+   "kb(laptop):NVDA+shift+control+pageUp"
+  ]
+ },
+ {
+  "name": "decreaseSynthSetting",
+  "description": "Decreases the currently active setting in the synth settings ring",
+  "category": "SCRCAT_SPEECH",
+  "gestures": [
+   "kb(desktop):NVDA+control+downArrow",
+   "kb(laptop):NVDA+control+shift+downArrow"
+  ]
+ },
+ {
+  "name": "decreaseLargeSynthSetting",
+  "description": "Decreases the currently active setting in the synth settings ring in a larger step",
+  "category": "SCRCAT_SPEECH",
+  "gestures": [
+   "kb(desktop):NVDA+control+pageDown",
+   "kb(laptop):NVDA+control+shift+pageDown"
+  ]
+ },
+ {
+  "name": "nextSynthSetting",
+  "description": "Moves to the next available setting in the synth settings ring",
+  "category": "SCRCAT_SPEECH",
+  "gestures": [
+   "kb(desktop):NVDA+control+rightArrow",
+   "kb(laptop):NVDA+shift+control+rightArrow"
+  ]
+ },
+ {
+  "name": "previousSynthSetting",
+  "description": "Moves to the previous available setting in the synth settings ring",
+  "category": "SCRCAT_SPEECH",
+  "gestures": [
+   "kb(desktop):NVDA+control+leftArrow",
+   "kb(laptop):NVDA+shift+control+leftArrow"
+  ]
+ },
+ {
+  "name": "toggleKeyboardLayout",
+  "description": "Toggles between desktop and laptop keyboard layout",
+  "category": "SCRCAT_INPUT",
+  "gestures": []
+ },
+ {
+  "name": "toggleSpeakTypedCharacters",
+  "description": "Cycles through options for when to speak typed characters.",
+  "category": "SCRCAT_SPEECH",
+  "gestures": [
+   "kb:NVDA+2"
+  ]
+ },
+ {
+  "name": "toggleSpeakTypedWords",
+  "description": "Cycles through options for when to speak typed words.",
+  "category": "SCRCAT_SPEECH",
+  "gestures": [
+   "kb:NVDA+3"
+  ]
+ },
+ {
+  "name": "toggleSpeakCommandKeys",
+  "description": "Toggles on and off the speaking of command keys",
+  "category": "SCRCAT_SPEECH",
+  "gestures": [
+   "kb:NVDA+4"
+  ]
+ },
+ {
+  "name": "toggleReportFontName",
+  "description": "Toggles on and off the reporting of font changes",
+  "category": "SCRCAT_DOCUMENTFORMATTING",
+  "gestures": []
+ },
+ {
+  "name": "toggleReportFontSize",
+  "description": "Toggles on and off the reporting of font size changes",
+  "category": "SCRCAT_DOCUMENTFORMATTING",
+  "gestures": []
+ },
+ {
+  "name": "toggleReportFontAttributes",
+  "description": "Cycles font attribute reporting between speech, braille, speech and braille, and off.",
+  "category": "SCRCAT_DOCUMENTFORMATTING",
+  "gestures": []
+ },
+ {
+  "name": "toggleReportSuperscriptsAndSubscripts",
+  "description": "Toggles on and off the reporting of superscripts and subscripts",
+  "category": "SCRCAT_DOCUMENTFORMATTING",
+  "gestures": []
+ },
+ {
+  "name": "toggleReportRevisions",
+  "description": "Toggles on and off the reporting of revisions",
+  "category": "SCRCAT_DOCUMENTFORMATTING",
+  "gestures": []
+ },
+ {
+  "name": "toggleReportEmphasis",
+  "description": "Toggles on and off the reporting of emphasis",
+  "category": "SCRCAT_DOCUMENTFORMATTING",
+  "gestures": []
+ },
+ {
+  "name": "toggleReportHighlightedText",
+  "description": "Toggles on and off the reporting of highlighted text",
+  "category": "SCRCAT_DOCUMENTFORMATTING",
+  "gestures": []
+ },
+ {
+  "name": "toggleReportColor",
+  "description": "Toggles on and off the reporting of colors",
+  "category": "SCRCAT_DOCUMENTFORMATTING",
+  "gestures": []
+ },
+ {
+  "name": "toggleReportAlignment",
+  "description": "Toggles on and off the reporting of text alignment",
+  "category": "SCRCAT_DOCUMENTFORMATTING",
+  "gestures": []
+ },
+ {
+  "name": "toggleReportStyle",
+  "description": "Toggles on and off the reporting of style changes",
+  "category": "SCRCAT_DOCUMENTFORMATTING",
+  "gestures": []
+ },
+ {
+  "name": "toggleReportSpellingErrors",
+  "description": "Cycles through options for how to report spelling or grammar errors",
+  "category": "SCRCAT_DOCUMENTFORMATTING",
+  "gestures": []
+ },
+ {
+  "name": "toggleReportSpellingErrorsInBraille",
+  "description": "Toggles reporting spelling or grammar errors in braille",
+  "category": "SCRCAT_DOCUMENTFORMATTING",
+  "gestures": []
+ },
+ {
+  "name": "toggleBrailleAutoScroll",
+  "description": "Toggles braille automatic scroll",
+  "category": "SCRCAT_BRAILLE",
+  "gestures": [
+   "kb:NVDA+alt+k"
+  ]
+ },
+ {
+  "name": "increaseBrailleAutoScrollRate",
+  "description": "Increases the rate for braille automatic scroll",
+  "category": "SCRCAT_BRAILLE",
+  "gestures": [
+   "kb:NVDA+alt+l"
+  ]
+ },
+ {
+  "name": "decreaseBrailleAutoScrollRate",
+  "description": "Decreases the rate for braille automatic scroll",
+  "category": "SCRCAT_BRAILLE",
+  "gestures": [
+   "kb:NVDA+alt+j"
+  ]
+ },
+ {
+  "name": "toggleReportPage",
+  "description": "Toggles on and off the reporting of pages",
+  "category": "SCRCAT_DOCUMENTFORMATTING",
+  "gestures": []
+ },
+ {
+  "name": "toggleReportLineNumber",
+  "description": "Toggles on and off the reporting of line numbers",
+  "category": "SCRCAT_DOCUMENTFORMATTING",
+  "gestures": []
+ },
+ {
+  "name": "toggleReportLineIndentation",
+  "description": "Cycles through line indentation settings",
+  "category": "SCRCAT_DOCUMENTFORMATTING",
+  "gestures": []
+ },
+ {
+  "name": "toggleignoreBlankLinesForReportLineIndentation",
+  "description": "Toggles on and off the ignoring of blank lines for line indentation reporting",
+  "category": "SCRCAT_DOCUMENTFORMATTING",
+  "gestures": []
+ },
+ {
+  "name": "toggleReportParagraphIndentation",
+  "description": "Toggles on and off the reporting of paragraph indentation",
+  "category": "SCRCAT_DOCUMENTFORMATTING",
+  "gestures": []
+ },
+ {
+  "name": "toggleReportLineSpacing",
+  "description": "Toggles on and off the reporting of line spacing",
+  "category": "SCRCAT_DOCUMENTFORMATTING",
+  "gestures": []
+ },
+ {
+  "name": "toggleReportTables",
+  "description": "Toggles on and off the reporting of tables",
+  "category": "SCRCAT_DOCUMENTFORMATTING",
+  "gestures": []
+ },
+ {
+  "name": "toggleReportTableHeaders",
+  "description": "Cycle through the possible modes to report table row and column headers",
+  "category": "SCRCAT_DOCUMENTFORMATTING",
+  "gestures": []
+ },
+ {
+  "name": "toggleReportTableCellCoords",
+  "description": "Toggles on and off the reporting of table cell coordinates",
+  "category": "SCRCAT_DOCUMENTFORMATTING",
+  "gestures": []
+ },
+ {
+  "name": "toggleReportCellBorders",
+  "description": "Cycles through the cell border reporting settings",
+  "category": "SCRCAT_DOCUMENTFORMATTING",
+  "gestures": []
+ },
+ {
+  "name": "toggleReportLinks",
+  "description": "Toggles on and off the reporting of links",
+  "category": "SCRCAT_DOCUMENTFORMATTING",
+  "gestures": []
+ },
+ {
+  "name": "toggleReportLinkType",
+  "description": "Toggles on and off the reporting of link type",
+  "category": "SCRCAT_DOCUMENTFORMATTING",
+  "gestures": []
+ },
+ {
+  "name": "toggleReportGraphics",
+  "description": "Toggles on and off the reporting of graphics",
+  "category": "SCRCAT_DOCUMENTFORMATTING",
+  "gestures": []
+ },
+ {
+  "name": "toggleReportComments",
+  "description": "Toggles on and off the reporting of comments",
+  "category": "SCRCAT_DOCUMENTFORMATTING",
+  "gestures": []
+ },
+ {
+  "name": "toggleReportLists",
+  "description": "Toggles on and off the reporting of lists",
+  "category": "SCRCAT_DOCUMENTFORMATTING",
+  "gestures": []
+ },
+ {
+  "name": "toggleReportHeadings",
+  "description": "Toggles on and off the reporting of headings",
+  "category": "SCRCAT_DOCUMENTFORMATTING",
+  "gestures": []
+ },
+ {
+  "name": "toggleReportGroupings",
+  "description": "Toggles on and off the reporting of groupings",
+  "category": "SCRCAT_DOCUMENTFORMATTING",
+  "gestures": []
+ },
+ {
+  "name": "toggleReportBlockQuotes",
+  "description": "Toggles on and off the reporting of block quotes",
+  "category": "SCRCAT_DOCUMENTFORMATTING",
+  "gestures": []
+ },
+ {
+  "name": "toggleReportLandmarks",
+  "description": "Toggles on and off the reporting of landmarks",
+  "category": "SCRCAT_DOCUMENTFORMATTING",
+  "gestures": []
+ },
+ {
+  "name": "toggleReportArticles",
+  "description": "Toggles on and off the reporting of articles",
+  "category": "SCRCAT_DOCUMENTFORMATTING",
+  "gestures": []
+ },
+ {
+  "name": "toggleReportFrames",
+  "description": "Toggles on and off the reporting of frames",
+  "category": "SCRCAT_DOCUMENTFORMATTING",
+  "gestures": []
+ },
+ {
+  "name": "toggleReportClickable",
+  "description": "Toggles on and off reporting if clickable",
+  "category": "SCRCAT_DOCUMENTFORMATTING",
+  "gestures": []
+ },
+ {
+  "name": "toggleReportFigures",
+  "description": "Toggles on and off the reporting of figures and captions",
+  "category": "SCRCAT_DOCUMENTFORMATTING",
+  "gestures": []
+ },
+ {
+  "name": "cycleSpeechAutomaticLanguageSwitching",
+  "description": "Cycles through the possible choices for automatic language switching: off, language only and language and dialect.",
+  "category": "SCRCAT_SPEECH",
+  "gestures": []
+ },
+ {
+  "name": "cycleSpeechSymbolLevel",
+  "description": "Cycles through speech symbol levels which determine what symbols are spoken",
+  "category": "SCRCAT_SPEECH",
+  "gestures": [
+   "kb:NVDA+p"
+  ]
+ },
+ {
+  "name": "toggleDelayedCharacterDescriptions",
+  "description": "Toggles on and off delayed descriptions for characters on cursor movement",
+  "category": "SCRCAT_SPEECH",
+  "gestures": []
+ },
+ {
+  "name": "moveMouseToNavigatorObject",
+  "description": "Moves the mouse pointer to the current navigator object",
+  "category": "SCRCAT_MOUSE",
+  "gestures": [
+   "kb:NVDA+numpadDivide",
+   "kb(laptop):NVDA+shift+m"
+  ]
+ },
+ {
+  "name": "moveNavigatorObjectToMouse",
+  "description": "Sets the navigator object to the current object under the mouse pointer and speaks it",
+  "category": "SCRCAT_MOUSE",
+  "gestures": [
+   "kb:NVDA+numpadMultiply",
+   "kb(laptop):NVDA+shift+n"
+  ]
+ },
+ {
+  "name": "reviewMode_next",
+  "description": "Switches to the next review mode (e.g. object, document or screen) and positions the review position at the point of the navigator object",
+  "category": "SCRCAT_TEXTREVIEW",
+  "gestures": [
+   "kb:NVDA+numpad7",
+   "kb(laptop):NVDA+pageUp",
+   "ts(object):2finger_flickUp"
+  ]
+ },
+ {
+  "name": "reviewMode_previous",
+  "description": "Switches to the previous review mode (e.g. object, document or screen) and positions the review position at the point of the navigator object",
+  "category": "SCRCAT_TEXTREVIEW",
+  "gestures": [
+   "kb:NVDA+numpad1",
+   "kb(laptop):NVDA+pageDown",
+   "ts(object):2finger_flickDown"
+  ]
+ },
+ {
+  "name": "toggleSimpleReviewMode",
+  "description": "Toggles simple review mode on and off",
+  "category": "SCRCAT_OBJECTNAVIGATION",
+  "gestures": []
+ },
+ {
+  "name": "navigatorObject_current",
+  "description": "Reports the current navigator object. Pressing twice spells this information, and pressing three times Copies name and value of this object to the clipboard",
+  "category": "SCRCAT_OBJECTNAVIGATION",
+  "gestures": [
+   "kb:NVDA+numpad5",
+   "kb(laptop):NVDA+shift+o"
+  ]
+ },
+ {
+  "name": "reportReviewCursorLocation",
+  "description": "Reports information about the location of the text at the review cursor, or location of the navigator object if there is no text under review cursor.",
+  "category": "SCRCAT_OBJECTNAVIGATION",
+  "gestures": []
+ },
+ {
+  "name": "reportCurrentNavigatorObjectLocation",
+  "description": "Reports information about the location of the current navigator object.",
+  "category": "SCRCAT_OBJECTNAVIGATION",
+  "gestures": []
+ },
+ {
+  "name": "reportCaretLocation",
+  "description": "Reports information about the location of the text at the caret, or location of the currently focused object if there is no caret.",
+  "category": "SCRCAT_SYSTEMCARET",
+  "gestures": []
+ },
+ {
+  "name": "reportFocusObjectLocation",
+  "description": "Reports information about the location of the currently focused object.",
+  "category": "SCRCAT_FOCUS",
+  "gestures": []
+ },
+ {
+  "name": "navigatorObject_currentDimensions",
+  "description": "Reports information about the location of the text or object at the review cursor. Pressing twice may provide further detail.",
+  "category": "SCRCAT_OBJECTNAVIGATION",
+  "gestures": [
+   "kb:NVDA+shift+numpadDelete",
+   "kb(laptop):NVDA+shift+delete"
+  ]
+ },
+ {
+  "name": "caretPos_currentDimensions",
+  "description": "Reports information about the location of the text or object at the position of system caret. Pressing twice may provide further detail.",
+  "category": "SCRCAT_SYSTEMCARET",
+  "gestures": [
+   "kb:NVDA+numpadDelete",
+   "kb(laptop):NVDA+delete"
+  ]
+ },
+ {
+  "name": "navigatorObject_toFocus",
+  "description": "Sets the navigator object to the current focus, and the review cursor to the position of the caret inside it, if possible.",
+  "category": "SCRCAT_OBJECTNAVIGATION",
+  "gestures": [
+   "kb:NVDA+numpadMinus",
+   "kb(laptop):NVDA+backspace"
+  ]
+ },
+ {
+  "name": "navigatorObject_moveFocus",
+  "description": "Pressed once sets the keyboard focus to the navigator object, pressed twice sets the system caret to the position of the review cursor",
+  "category": "SCRCAT_OBJECTNAVIGATION",
+  "gestures": [
+   "kb:NVDA+shift+numpadMinus",
+   "kb(laptop):NVDA+shift+backspace"
+  ]
+ },
+ {
+  "name": "navigatorObject_parent",
+  "description": "Moves the navigator object to the object containing it",
+  "category": "SCRCAT_OBJECTNAVIGATION",
+  "gestures": [
+   "kb:NVDA+numpad8",
+   "kb(laptop):NVDA+shift+upArrow",
+   "ts(object):flickup"
+  ]
+ },
+ {
+  "name": "navigatorObject_next",
+  "description": "Moves the navigator object to the next object",
+  "category": "SCRCAT_OBJECTNAVIGATION",
+  "gestures": [
+   "kb:NVDA+numpad6",
+   "kb(laptop):NVDA+shift+rightArrow",
+   "ts(object):2finger_flickright"
+  ]
+ },
+ {
+  "name": "navigatorObject_previous",
+  "description": "Moves the navigator object to the previous object",
+  "category": "SCRCAT_OBJECTNAVIGATION",
+  "gestures": [
+   "kb:NVDA+numpad4",
+   "kb(laptop):NVDA+shift+leftArrow",
+   "ts(object):2finger_flickleft"
+  ]
+ },
+ {
+  "name": "navigatorObject_firstChild",
+  "description": "Moves the navigator object to the first object inside it",
+  "category": "SCRCAT_OBJECTNAVIGATION",
+  "gestures": [
+   "kb:NVDA+numpad2",
+   "kb(laptop):NVDA+shift+downArrow",
+   "ts(object):flickdown"
+  ]
+ },
+ {
+  "name": "review_activate",
+  "description": "Performs the default action on the current navigator object (example: presses it if it is a button).",
+  "category": "SCRCAT_OBJECTNAVIGATION",
+  "gestures": [
+   "kb:NVDA+numpadEnter",
+   "kb(laptop):NVDA+enter",
+   "ts:double_tap"
+  ]
+ },
+ {
+  "name": "review_top",
+  "description": "Moves the review cursor to the top line of the current navigator object and speaks it",
+  "category": "SCRCAT_TEXTREVIEW",
+  "gestures": [
+   "kb:shift+numpad7",
+   "kb(laptop):NVDA+control+home"
+  ]
+ },
+ {
+  "name": "review_previousLine",
+  "description": "Moves the review cursor to the previous line of the current navigator object and speaks it",
+  "category": "SCRCAT_TEXTREVIEW",
+  "gestures": [
+   "kb:numpad7",
+   "kb(laptop):NVDA+upArrow",
+   "ts(text):flickUp"
+  ]
+ },
+ {
+  "name": "review_currentLine",
+  "description": "Reports the line of the current navigator object where the review cursor is situated. If this key is pressed twice, the current line will be spelled. Pressing three times will spell the line using character descriptions.",
+  "category": "SCRCAT_TEXTREVIEW",
+  "gestures": [
+   "kb:numpad8",
+   "kb(laptop):NVDA+shift+."
+  ]
+ },
+ {
+  "name": "review_nextLine",
+  "description": "Moves the review cursor to the next line of the current navigator object and speaks it",
+  "category": "SCRCAT_TEXTREVIEW",
+  "gestures": [
+   "kb:numpad9",
+   "kb(laptop):NVDA+downArrow",
+   "ts(text):flickDown"
+  ]
+ },
+ {
+  "name": "review_previousPage",
+  "description": "Moves the review cursor to the previous page of the current navigator object and speaks it",
+  "category": "SCRCAT_TEXTREVIEW",
+  "gestures": [
+   "kb:NVDA+pageUp",
+   "kb(laptop):NVDA+shift+pageUp"
+  ]
+ },
+ {
+  "name": "review_nextPage",
+  "description": "Moves the review cursor to the next page of the current navigator object and speaks it",
+  "category": "SCRCAT_TEXTREVIEW",
+  "gestures": [
+   "kb:NVDA+pageDown",
+   "kb(laptop):NVDA+shift+pageDown"
+  ]
+ },
+ {
+  "name": "review_bottom",
+  "description": "Moves the review cursor to the bottom line of the current navigator object and speaks it",
+  "category": "SCRCAT_TEXTREVIEW",
+  "gestures": [
+   "kb:shift+numpad9",
+   "kb(laptop):NVDA+control+end"
+  ]
+ },
+ {
+  "name": "review_previousWord",
+  "description": "Moves the review cursor to the previous word of the current navigator object and speaks it",
+  "category": "SCRCAT_TEXTREVIEW",
+  "gestures": [
+   "kb:numpad4",
+   "kb(laptop):NVDA+control+leftArrow",
+   "ts(text):2finger_flickLeft"
+  ]
+ },
+ {
+  "name": "review_currentWord",
+  "description": "Speaks the word of the current navigator object where the review cursor is situated. Pressing twice spells the word. Pressing three times spells the word using character descriptions",
+  "category": "SCRCAT_TEXTREVIEW",
+  "gestures": [
+   "kb:numpad5",
+   "kb(laptop):NVDA+control+.",
+   "ts(text):hoverUp"
+  ]
+ },
+ {
+  "name": "review_nextWord",
+  "description": "Moves the review cursor to the next word of the current navigator object and speaks it",
+  "category": "SCRCAT_TEXTREVIEW",
+  "gestures": [
+   "kb:numpad6",
+   "kb(laptop):NVDA+control+rightArrow",
+   "ts(text):2finger_flickRight"
+  ]
+ },
+ {
+  "name": "review_startOfLine",
+  "description": "Moves the review cursor to the first character of the line where it is situated in the current navigator object and speaks it",
+  "category": "SCRCAT_TEXTREVIEW",
+  "gestures": [
+   "kb:shift+numpad1",
+   "kb(laptop):NVDA+home"
+  ]
+ },
+ {
+  "name": "review_previousCharacter",
+  "description": "Moves the review cursor to the previous character of the current navigator object and speaks it",
+  "category": "SCRCAT_TEXTREVIEW",
+  "gestures": [
+   "kb:numpad1",
+   "kb(laptop):NVDA+leftArrow",
+   "ts(text):flickLeft"
+  ]
+ },
+ {
+  "name": "review_currentCharacter",
+  "description": "Reports the character of the current navigator object where the review cursor is situated. Pressing twice reports a description or example of that character. Pressing three times reports the numeric value of the character in decimal and hexadecimal",
+  "category": "SCRCAT_TEXTREVIEW",
+  "gestures": [
+   "kb:numpad2",
+   "kb(laptop):NVDA+."
+  ]
+ },
+ {
+  "name": "review_nextCharacter",
+  "description": "Moves the review cursor to the next character of the current navigator object and speaks it",
+  "category": "SCRCAT_TEXTREVIEW",
+  "gestures": [
+   "kb:numpad3",
+   "kb(laptop):NVDA+rightArrow",
+   "ts(text):flickRight"
+  ]
+ },
+ {
+  "name": "review_endOfLine",
+  "description": "Moves the review cursor to the last character of the line where it is situated in the current navigator object and speaks it",
+  "category": "SCRCAT_TEXTREVIEW",
+  "gestures": [
+   "kb:shift+numpad3",
+   "kb(laptop):NVDA+end"
+  ]
+ },
+ {
+  "name": "review_startOfSelection",
+  "description": "Moves the review cursor to the first character of the selection, and speaks it",
+  "category": "SCRCAT_TEXTREVIEW",
+  "gestures": [
+   "kb:NVDA+alt+home"
+  ]
+ },
+ {
+  "name": "review_endOfSelection",
+  "description": "Moves the review cursor to the last character of the selection, and speaks it",
+  "category": "SCRCAT_TEXTREVIEW",
+  "gestures": [
+   "kb:NVDA+alt+end"
+  ]
+ },
+ {
+  "name": "review_currentSymbol",
+  "description": "Reports the symbol where the review cursor is positioned. Pressed twice, shows the symbol and the text used to speak it in browse mode",
+  "category": "SCRCAT_TEXTREVIEW",
+  "gestures": []
+ },
+ {
+  "name": "speechMode",
+  "description": "Cycles between speech modes.",
+  "category": "SCRCAT_SPEECH",
+  "gestures": [
+   "kb:NVDA+s"
+  ]
+ },
+ {
+  "name": "moveToParentTreeInterceptor",
+  "description": "Moves the focus out of the current embedded object and into the document that contains it",
+  "category": "SCRCAT_FOCUS",
+  "gestures": [
+   "kb:NVDA+control+space"
+  ]
+ },
+ {
+  "name": "toggleVirtualBufferPassThrough",
+  "description": "Toggles between browse mode and focus mode. When in focus mode, keys will pass straight through to the application, allowing you to interact directly with a control. When in browse mode, you can navigate the document with the cursor, quick navigation keys, etc.",
+  "category": "",
+  "gestures": [
+   "kb:NVDA+space"
+  ]
+ },
+ {
+  "name": "quit",
+  "description": "Quits NVDA!",
+  "category": "",
+  "gestures": [
+   "kb:NVDA+q"
+  ]
+ },
+ {
+  "name": "restart",
+  "description": "Restarts NVDA!",
+  "category": "",
+  "gestures": []
+ },
+ {
+  "name": "showGui",
+  "description": "Shows the NVDA menu",
+  "category": "",
+  "gestures": [
+   "kb:NVDA+n",
+   "ts:2finger_double_tap"
+  ]
+ },
+ {
+  "name": "review_sayAll",
+  "description": "Reads from the review cursor up to the end of the current text, moving the review cursor as it goes",
+  "category": "SCRCAT_TEXTREVIEW",
+  "gestures": [
+   "kb:numpadPlus",
+   "kb(laptop):NVDA+shift+a",
+   "ts(text):3finger_flickDown"
+  ]
+ },
+ {
+  "name": "sayAll",
+  "description": "Reads from the system caret up to the end of the text, moving the caret as it goes",
+  "category": "SCRCAT_SYSTEMCARET",
+  "gestures": [
+   "kb(desktop):NVDA+downArrow",
+   "kb(laptop):NVDA+a"
+  ]
+ },
+ {
+  "name": "reportFormattingAtReview",
+  "description": "Reports formatting info for the current review cursor position.",
+  "category": "SCRCAT_TEXTREVIEW",
+  "gestures": []
+ },
+ {
+  "name": "showFormattingAtReview",
+  "description": "Presents, in browse mode, formatting info for the current review cursor position.",
+  "category": "SCRCAT_TEXTREVIEW",
+  "gestures": []
+ },
+ {
+  "name": "reportFormatting",
+  "description": "Reports formatting info for the current review cursor position. If pressed twice, presents the information in browse mode",
+  "category": "SCRCAT_TEXTREVIEW",
+  "gestures": [
+   "kb:NVDA+shift+f"
+  ]
+ },
+ {
+  "name": "reportFormattingAtCaret",
+  "description": "Reports formatting info for the text under the caret.",
+  "category": "SCRCAT_SYSTEMCARET",
+  "gestures": []
+ },
+ {
+  "name": "showFormattingAtCaret",
+  "description": "Presents, in browse mode, formatting info for the text under the caret.",
+  "category": "SCRCAT_SYSTEMCARET",
+  "gestures": []
+ },
+ {
+  "name": "reportOrShowFormattingAtCaret",
+  "description": "Reports formatting info for the text under the caret. If pressed twice, presents the information in browse mode",
+  "category": "SCRCAT_SYSTEMCARET",
+  "gestures": [
+   "kb:NVDA+f"
+  ]
+ },
+ {
+  "name": "reportDetailsSummary",
+  "description": "Report summary of any annotation details at the system caret.",
+  "category": "SCRCAT_SYSTEMCARET",
+  "gestures": [
+   "kb:NVDA+d"
+  ]
+ },
+ {
+  "name": "reportCurrentFocus",
+  "description": "Reports the object with focus. If pressed twice, spells the information. Pressing three times spells it using character descriptions.",
+  "category": "SCRCAT_FOCUS",
+  "gestures": [
+   "kb:NVDA+tab"
+  ]
+ },
+ {
+  "name": "readStatusLine",
+  "description": "Reads the current application status bar.",
+  "category": "SCRCAT_FOCUS",
+  "gestures": []
+ },
+ {
+  "name": "spellStatusLine",
+  "description": "Spells the current application status bar.",
+  "category": "SCRCAT_FOCUS",
+  "gestures": []
+ },
+ {
+  "name": "copyStatusLine",
+  "description": "Copies content of the status bar  of current application to the clipboard.",
+  "category": "SCRCAT_FOCUS",
+  "gestures": []
+ },
+ {
+  "name": "reviewCursorToStatusLine",
+  "description": "Reads the current application status bar and moves navigator object into it.",
+  "category": "SCRCAT_OBJECTNAVIGATION",
+  "gestures": []
+ },
+ {
+  "name": "reportStatusLine",
+  "description": "Reads the current application status bar. If pressed twice, spells the information. If pressed three times, copies the status bar to the clipboard",
+  "category": "SCRCAT_FOCUS",
+  "gestures": [
+   "kb(desktop):NVDA+end",
+   "kb(laptop):NVDA+shift+end"
+  ]
+ },
+ {
+  "name": "reportFocusObjectAccelerator",
+  "description": "Reports the shortcut key of the currently focused object",
+  "category": "SCRCAT_FOCUS",
+  "gestures": [
+   "kb:shift+numpad2",
+   "kb(laptop):NVDA+control+shift+."
+  ]
+ },
+ {
+  "name": "toggleMouseTracking",
+  "description": "Toggles the reporting of information as the mouse moves",
+  "category": "SCRCAT_MOUSE",
+  "gestures": [
+   "kb:NVDA+m"
+  ]
+ },
+ {
+  "name": "toggleMouseAudioCoordinates",
+  "description": "Toggles beeps that report mouse coordinates as the mouse moves",
+  "category": "SCRCAT_MOUSE",
+  "gestures": []
+ },
+ {
+  "name": "toggleMouseTextResolution",
+  "description": "Toggles how much text will be spoken when the mouse moves",
+  "category": "SCRCAT_MOUSE",
+  "gestures": []
+ },
+ {
+  "name": "title",
+  "description": "Reports the title of the current application or foreground window. If pressed twice, spells the title. If pressed three times, copies the title to the clipboard",
+  "category": "SCRCAT_FOCUS",
+  "gestures": [
+   "kb:NVDA+t"
+  ]
+ },
+ {
+  "name": "speakForeground",
+  "description": "Reads all controls in the active window",
+  "category": "SCRCAT_FOCUS",
+  "gestures": [
+   "kb:NVDA+b"
+  ]
+ },
+ {
+  "name": "startWxInspectionTool",
+  "description": "Opens the WX GUI inspection tool. Used to get more information about the state of GUI components.",
+  "category": "SCRCAT_TOOLS",
+  "gestures": []
+ },
+ {
+  "name": "navigatorObject_devInfo",
+  "description": "Logs information about the current navigator object which is useful to developers and activates the log viewer so the information can be examined.",
+  "category": "SCRCAT_TOOLS",
+  "gestures": [
+   "kb:NVDA+f1"
+  ]
+ },
+ {
+  "name": "log_markStartThenCopy",
+  "description": "Mark the current end of the log as the start of the fragment to be copied to clipboard by pressing again.",
+  "category": "SCRCAT_TOOLS",
+  "gestures": [
+   "kb:NVDA+control+shift+f1"
+  ]
+ },
+ {
+  "name": "openUserConfigurationDirectory",
+  "description": "Opens NVDA configuration directory for the current user.",
+  "category": "SCRCAT_TOOLS",
+  "gestures": []
+ },
+ {
+  "name": "toggleProgressBarOutput",
+  "description": "Toggles between beeps, speech, beeps and speech, and off, for reporting progress bar updates",
+  "category": "SCRCAT_SPEECH",
+  "gestures": [
+   "kb:NVDA+u"
+  ]
+ },
+ {
+  "name": "toggleReportDynamicContentChanges",
+  "description": "Toggles on and off the reporting of dynamic content changes, such as new text in dos console windows",
+  "category": "SCRCAT_SPEECH",
+  "gestures": [
+   "kb:NVDA+5"
+  ]
+ },
+ {
+  "name": "toggleCaretMovesReviewCursor",
+  "description": "Toggles on and off the movement of the review cursor due to the caret moving.",
+  "category": "SCRCAT_TEXTREVIEW",
+  "gestures": [
+   "kb:NVDA+6"
+  ]
+ },
+ {
+  "name": "toggleFocusMovesNavigatorObject",
+  "description": "Toggles on and off the movement of the navigator object due to focus changes",
+  "category": "SCRCAT_OBJECTNAVIGATION",
+  "gestures": [
+   "kb:NVDA+7"
+  ]
+ },
+ {
+  "name": "say_battery_status",
+  "description": "Reports battery status and time remaining if AC is not plugged in",
+  "category": "SCRCAT_SYSTEM",
+  "gestures": [
+   "kb:NVDA+shift+b"
+  ]
+ },
+ {
+  "name": "passNextKeyThrough",
+  "description": "The next key that is pressed will not be handled at all by NVDA, it will be passed directly through to Windows.",
+  "category": "SCRCAT_INPUT",
+  "gestures": [
+   "kb:NVDA+f2"
+  ]
+ },
+ {
+  "name": "reportAppModuleInfo",
+  "description": "Speaks the filename of the active application along with the name of the currently loaded appModule",
+  "category": "SCRCAT_TOOLS",
+  "gestures": [
+   "kb:NVDA+control+f1"
+  ]
+ },
+ {
+  "name": "activateGeneralSettingsDialog",
+  "description": "Shows NVDA's general settings",
+  "category": "SCRCAT_CONFIG",
+  "gestures": [
+   "kb:NVDA+control+g"
+  ]
+ },
+ {
+  "name": "activateSynthesizerDialog",
+  "description": "Shows the NVDA synthesizer selection dialog",
+  "category": "SCRCAT_CONFIG",
+  "gestures": [
+   "kb:NVDA+control+s"
+  ]
+ },
+ {
+  "name": "activateVoiceDialog",
+  "description": "Shows NVDA's speech settings",
+  "category": "SCRCAT_CONFIG",
+  "gestures": [
+   "kb:NVDA+control+v"
+  ]
+ },
+ {
+  "name": "activateBrailleDisplayDialog",
+  "description": "Shows the NVDA braille display selection dialog",
+  "category": "SCRCAT_CONFIG",
+  "gestures": [
+   "kb:NVDA+control+a"
+  ]
+ },
+ {
+  "name": "activateBrailleSettingsDialog",
+  "description": "Shows NVDA's braille settings",
+  "category": "SCRCAT_CONFIG",
+  "gestures": []
+ },
+ {
+  "name": "activateAudioSettingsDialog",
+  "description": "Shows NVDA's audio settings",
+  "category": "SCRCAT_CONFIG",
+  "gestures": [
+   "kb:NVDA+control+u"
+  ]
+ },
+ {
+  "name": "activatePrivacyAndSecuritySettings",
+  "description": "Shows NVDA's privacy and security settings",
+  "category": "SCRCAT_CONFIG",
+  "gestures": []
+ },
+ {
+  "name": "activateVisionSettingsDialog",
+  "description": "Shows NVDA's vision settings",
+  "category": "SCRCAT_CONFIG",
+  "gestures": []
+ },
+ {
+  "name": "activateKeyboardSettingsDialog",
+  "description": "Shows NVDA's keyboard settings",
+  "category": "SCRCAT_CONFIG",
+  "gestures": [
+   "kb:NVDA+control+k"
+  ]
+ },
+ {
+  "name": "activateMouseSettingsDialog",
+  "description": "Shows NVDA's mouse settings",
+  "category": "SCRCAT_CONFIG",
+  "gestures": [
+   "kb:NVDA+control+m"
+  ]
+ },
+ {
+  "name": "activateReviewCursorDialog",
+  "description": "Shows NVDA's review cursor settings",
+  "category": "SCRCAT_CONFIG",
+  "gestures": []
+ },
+ {
+  "name": "activateInputCompositionDialog",
+  "description": "Shows NVDA's input composition settings",
+  "category": "SCRCAT_CONFIG",
+  "gestures": []
+ },
+ {
+  "name": "activateObjectPresentationDialog",
+  "description": "Shows NVDA's object presentation settings",
+  "category": "SCRCAT_CONFIG",
+  "gestures": [
+   "kb:NVDA+control+o"
+  ]
+ },
+ {
+  "name": "activateBrowseModeDialog",
+  "description": "Shows NVDA's browse mode settings",
+  "category": "SCRCAT_CONFIG",
+  "gestures": [
+   "kb:NVDA+control+b"
+  ]
+ },
+ {
+  "name": "activateDocumentFormattingDialog",
+  "description": "Shows NVDA's document formatting settings",
+  "category": "SCRCAT_CONFIG",
+  "gestures": [
+   "kb:NVDA+control+d"
+  ]
+ },
+ {
+  "name": "activateRemoteAccessSettings",
+  "description": "remote",
+  "category": "SCRCAT_CONFIG",
+  "gestures": []
+ },
+ {
+  "name": "activateAddonStoreSettings",
+  "description": "Shows NVDA's Add-on Store settings",
+  "category": "SCRCAT_CONFIG",
+  "gestures": []
+ },
+ {
+  "name": "activateWindowsOCRSettings",
+  "description": "Shows NVDA's Windows OCR settings",
+  "category": "SCRCAT_CONFIG",
+  "gestures": []
+ },
+ {
+  "name": "activateAdvancedSettings",
+  "description": "Shows NVDA's Advanced settings",
+  "category": "SCRCAT_CONFIG",
+  "gestures": []
+ },
+ {
+  "name": "activateDefaultDictionaryDialog",
+  "description": "Shows the NVDA default dictionary dialog",
+  "category": "SCRCAT_CONFIG",
+  "gestures": []
+ },
+ {
+  "name": "activateVoiceDictionaryDialog",
+  "description": "Shows the NVDA voice-specific dictionary dialog",
+  "category": "SCRCAT_CONFIG",
+  "gestures": []
+ },
+ {
+  "name": "activateTemporaryDictionaryDialog",
+  "description": "Shows the NVDA temporary dictionary dialog",
+  "category": "SCRCAT_CONFIG",
+  "gestures": []
+ },
+ {
+  "name": "activateSpeechSymbolsDialog",
+  "description": "Shows the NVDA symbol pronunciation dialog",
+  "category": "SCRCAT_CONFIG",
+  "gestures": []
+ },
+ {
+  "name": "activateInputGesturesDialog",
+  "description": "Shows the NVDA input gestures dialog",
+  "category": "SCRCAT_CONFIG",
+  "gestures": []
+ },
+ {
+  "name": "activateMagnifierSettingsDialog",
+  "description": "Shows NVDA's magnifier settings",
+  "category": "SCRCAT_CONFIG",
+  "gestures": [
+   "kb:NVDA+control+w"
+  ]
+ },
+ {
+  "name": "reportActiveConfigurationProfile",
+  "description": "Reports the name of the current NVDA configuration profile",
+  "category": "SCRCAT_CONFIG",
+  "gestures": []
+ },
+ {
+  "name": "saveConfiguration",
+  "description": "Saves the current NVDA configuration",
+  "category": "SCRCAT_CONFIG",
+  "gestures": [
+   "kb:NVDA+control+c"
+  ]
+ },
+ {
+  "name": "revertConfiguration",
+  "description": "Pressing once reverts the current configuration to the most recently saved state. Pressing three times resets to factory defaults.",
+  "category": "SCRCAT_CONFIG",
+  "gestures": [
+   "kb:NVDA+control+r"
+  ]
+ },
+ {
+  "name": "activatePythonConsole",
+  "description": "Activates the NVDA Python Console, primarily useful for development",
+  "category": "SCRCAT_TOOLS",
+  "gestures": [
+   "kb:NVDA+control+z"
+  ]
+ },
+ {
+  "name": "activateAddonsManager",
+  "description": "Activates the Add-on Store to browse and manage add-on packages for NVDA",
+  "category": "SCRCAT_TOOLS",
+  "gestures": []
+ },
+ {
+  "name": "toggleSpeechViewer",
+  "description": "Toggles the NVDA Speech viewer, a floating window that allows you to view all the text that NVDA is currently speaking",
+  "category": "SCRCAT_TOOLS",
+  "gestures": []
+ },
+ {
+  "name": "toggleBrailleViewer",
+  "description": "Toggles the NVDA Braille viewer, a floating window that allows you to view braille output, and the text equivalent for each braille character",
+  "category": "SCRCAT_TOOLS",
+  "gestures": []
+ },
+ {
+  "name": "braille_toggleTether",
+  "description": "Toggle tethering of braille between the focus and the review position",
+  "category": "SCRCAT_BRAILLE",
+  "gestures": [
+   "kb:NVDA+control+t"
+  ]
+ },
+ {
+  "name": "toggleBrailleMode",
+  "description": "Toggles braille mode",
+  "category": "SCRCAT_BRAILLE",
+  "gestures": [
+   "kb:NVDA+alt+t"
+  ]
+ },
+ {
+  "name": "braille_cycleReviewRoutingMovesSystemCaret",
+  "description": "Cycle through the braille move system caret when routing review cursor states",
+  "category": "SCRCAT_BRAILLE",
+  "gestures": []
+ },
+ {
+  "name": "braille_toggleFocusContextPresentation",
+  "description": "Toggle the way context information is presented in braille",
+  "category": "SCRCAT_BRAILLE",
+  "gestures": []
+ },
+ {
+  "name": "braille_toggleShowCursor",
+  "description": "Toggle the braille cursor on and off",
+  "category": "SCRCAT_BRAILLE",
+  "gestures": []
+ },
+ {
+  "name": "braille_toggleSpeakOnRouting",
+  "description": "Toggles speaking the character under the cursor when routing cursor in text",
+  "category": "SCRCAT_BRAILLE",
+  "gestures": []
+ },
+ {
+  "name": "toggleSpeakingOnNavigatingByUnit",
+  "description": "Toggles on and off speaking when navigating by lines or paragraph with braille",
+  "category": "SCRCAT_BRAILLE",
+  "gestures": []
+ },
+ {
+  "name": "braille_cycleCursorShape",
+  "description": "Cycle through the braille cursor shapes",
+  "category": "SCRCAT_BRAILLE",
+  "gestures": []
+ },
+ {
+  "name": "braille_cycleShowMessages",
+  "description": "Cycle through the braille show messages modes",
+  "category": "SCRCAT_BRAILLE",
+  "gestures": []
+ },
+ {
+  "name": "braille_cycleShowSelection",
+  "description": "Cycle through the braille show selection states",
+  "category": "SCRCAT_BRAILLE",
+  "gestures": []
+ },
+ {
+  "name": "braille_cycleUnicodeNormalization",
+  "description": "Cycle through the braille Unicode normalization states",
+  "category": "SCRCAT_BRAILLE",
+  "gestures": []
+ },
+ {
+  "name": "reportClipboardText",
+  "description": "Reports the text on the Windows clipboard. Pressing twice spells this information. Pressing three times spells it using character descriptions.",
+  "category": "SCRCAT_SYSTEM",
+  "gestures": [
+   "kb:NVDA+c"
+  ]
+ },
+ {
+  "name": "review_markStartForCopy",
+  "description": "Marks the current position of the review cursor as the start of text to be selected or copied",
+  "category": "SCRCAT_TEXTREVIEW",
+  "gestures": [
+   "kb:NVDA+f9"
+  ]
+ },
+ {
+  "name": "review_moveToStartMarkedForCopy",
+  "description": "Move the review cursor to the position marked as the start of text to be selected or copied",
+  "category": "SCRCAT_TEXTREVIEW",
+  "gestures": [
+   "kb:NVDA+shift+F9"
+  ]
+ },
+ {
+  "name": "review_copy",
+  "description": "If pressed once, the text from the previously set start marker up to and including the current position of the review cursor is selected. If pressed twice, the text is copied to the clipboard",
+  "category": "SCRCAT_TEXTREVIEW",
+  "gestures": [
+   "kb:NVDA+f10"
+  ]
+ },
+ {
+  "name": "braille_scrollBack",
+  "description": "Scrolls the braille display back",
+  "category": "SCRCAT_BRAILLE",
+  "gestures": []
+ },
+ {
+  "name": "braille_scrollForward",
+  "description": "Scrolls the braille display forward",
+  "category": "SCRCAT_BRAILLE",
+  "gestures": []
+ },
+ {
+  "name": "braille_routeTo",
+  "description": "Routes the cursor to or activates the object under this braille cell",
+  "category": "SCRCAT_BRAILLE",
+  "gestures": []
+ },
+ {
+  "name": "braille_reportFormatting",
+  "description": "Reports formatting info for the text under this braille cell",
+  "category": "SCRCAT_BRAILLE",
+  "gestures": []
+ },
+ {
+  "name": "braille_selectRange",
+  "description": "Selects the text from the first up to the last braille cell",
+  "category": "SCRCAT_BRAILLE",
+  "gestures": []
+ },
+ {
+  "name": "braille_previousLine",
+  "description": "Moves the braille display to the previous line",
+  "category": "SCRCAT_BRAILLE",
+  "gestures": []
+ },
+ {
+  "name": "braille_nextLine",
+  "description": "Moves the braille display to the next line",
+  "category": "SCRCAT_BRAILLE",
+  "gestures": []
+ },
+ {
+  "name": "braille_dots",
+  "description": "Inputs braille dots via the braille keyboard",
+  "category": "SCRCAT_BRAILLE",
+  "gestures": [
+   "bk:dots"
+  ]
+ },
+ {
+  "name": "braille_toFocus",
+  "description": "Moves the braille display to the current focus",
+  "category": "SCRCAT_BRAILLE",
+  "gestures": []
+ },
+ {
+  "name": "braille_eraseLastCell",
+  "description": "Erases the last entered braille cell or character",
+  "category": "SCRCAT_BRAILLE",
+  "gestures": [
+   "bk:dot7"
+  ]
+ },
+ {
+  "name": "braille_enter",
+  "description": "Translates any braille input and presses the enter key",
+  "category": "SCRCAT_BRAILLE",
+  "gestures": [
+   "bk:dot8"
+  ]
+ },
+ {
+  "name": "braille_translate",
+  "description": "Translates any braille input",
+  "category": "SCRCAT_BRAILLE",
+  "gestures": [
+   "bk:dot7+dot8"
+  ]
+ },
+ {
+  "name": "braille_toggleShift",
+  "description": "Virtually toggles the shift key to emulate a keyboard shortcut with braille input",
+  "category": "",
+  "gestures": []
+ },
+ {
+  "name": "braille_toggleControl",
+  "description": "Virtually toggles the control key to emulate a keyboard shortcut with braille input",
+  "category": "",
+  "gestures": []
+ },
+ {
+  "name": "braille_toggleAlt",
+  "description": "Virtually toggles the alt key to emulate a keyboard shortcut with braille input",
+  "category": "",
+  "gestures": []
+ },
+ {
+  "name": "braille_toggleWindows",
+  "description": "Virtually toggles the left windows key to emulate a keyboard shortcut with braille input",
+  "category": "",
+  "gestures": []
+ },
+ {
+  "name": "braille_toggleNVDAKey",
+  "description": "Virtually toggles the NVDA key to emulate a keyboard shortcut with braille input",
+  "category": "",
+  "gestures": []
+ },
+ {
+  "name": "braille_toggleControlShift",
+  "description": "Virtually toggles the control and shift keys to emulate a keyboard shortcut with braille input",
+  "category": "",
+  "gestures": []
+ },
+ {
+  "name": "braille_toggleAltShift",
+  "description": "Virtually toggles the alt and shift keys to emulate a keyboard shortcut with braille input",
+  "category": "",
+  "gestures": []
+ },
+ {
+  "name": "braille_toggleWindowsShift",
+  "description": "Virtually toggles the left windows and shift keys to emulate a keyboard shortcut with braille input",
+  "category": "",
+  "gestures": []
+ },
+ {
+  "name": "braille_toggleNVDAKeyShift",
+  "description": "Virtually toggles the NVDA and shift keys to emulate a keyboard shortcut with braille input",
+  "category": "",
+  "gestures": []
+ },
+ {
+  "name": "braille_toggleControlAlt",
+  "description": "Virtually toggles the control and alt keys to emulate a keyboard shortcut with braille input",
+  "category": "",
+  "gestures": []
+ },
+ {
+  "name": "braille_toggleControlAltShift",
+  "description": "Virtually toggles the control, alt, and shift keys to emulate a keyboard shortcut with braille input",
+  "category": "",
+  "gestures": []
+ },
+ {
+  "name": "reloadPlugins",
+  "description": "Reloads app modules and global plugins without restarting NVDA, which can be Useful for developers",
+  "category": "SCRCAT_TOOLS",
+  "gestures": [
+   "kb:NVDA+control+f3"
+  ]
+ },
+ {
+  "name": "reportLinkDestination",
+  "description": "Report the destination URL of the link at the position of caret or focus. If pressed twice, shows the URL in a window for easier review.",
+  "category": "SCRCAT_TOOLS",
+  "gestures": [
+   "kb:NVDA+k"
+  ]
+ },
+ {
+  "name": "reportLinkDestinationInWindow",
+  "description": "Displays the destination URL of the link at the position of caret or focus in a window, instead of just speaking it. May be preferred by braille users.",
+  "category": "SCRCAT_TOOLS",
+  "gestures": []
+ },
+ {
+  "name": "navigatorObject_nextInFlow",
+  "description": "Moves to the next object in a flattened view of the object navigation hierarchy",
+  "category": "SCRCAT_OBJECTNAVIGATION",
+  "gestures": [
+   "ts(object):flickright",
+   "kb:NVDA+numpad3",
+   "kb(laptop):shift+NVDA+]"
+  ]
+ },
+ {
+  "name": "navigatorObject_previousInFlow",
+  "description": "Moves to the previous object in a flattened view of the object navigation hierarchy",
+  "category": "SCRCAT_OBJECTNAVIGATION",
+  "gestures": [
+   "ts(object):flickleft",
+   "kb:NVDA+numpad9",
+   "kb(laptop):shift+NVDA+["
+  ]
+ },
+ {
+  "name": "toggleTouchSupport",
+  "description": "Toggles the support of touch interaction",
+  "category": "SCRCAT_TOUCH",
+  "gestures": [
+   "kb:NVDA+control+alt+t"
+  ]
+ },
+ {
+  "name": "touch_changeMode",
+  "description": "Cycles between available touch modes",
+  "category": "SCRCAT_TOUCH",
+  "gestures": [
+   "ts:3finger_tap"
+  ]
+ },
+ {
+  "name": "touch_newExplore",
+  "description": "Reports the object and content directly under your finger",
+  "category": "SCRCAT_TOUCH",
+  "gestures": [
+   "ts:tap",
+   "ts:hoverDown"
+  ]
+ },
+ {
+  "name": "touch_explore",
+  "description": "Reports the new object or content under your finger if different to where your finger was last",
+  "category": "SCRCAT_TOUCH",
+  "gestures": [
+   "ts:hover"
+  ]
+ },
+ {
+  "name": "touch_rightClick",
+  "description": "Clicks the right mouse button at the current touch position. This is generally used to activate a context menu.",
+  "category": "SCRCAT_TOUCH",
+  "gestures": [
+   "ts:tapAndHold"
+  ]
+ },
+ {
+  "name": "activateConfigProfilesDialog",
+  "description": "Shows the NVDA Configuration Profiles dialog",
+  "category": "SCRCAT_CONFIG_PROFILES",
+  "gestures": [
+   "kb:NVDA+control+p"
+  ]
+ },
+ {
+  "name": "toggleConfigProfileTriggers",
+  "description": "Toggles disabling of all configuration profile triggers. Disabling remains in effect until NVDA is restarted",
+  "category": "SCRCAT_CONFIG",
+  "gestures": []
+ },
+ {
+  "name": "interactWithMath",
+  "description": "Begins interaction with math content",
+  "category": "SCRCAT_MATH_NAV",
+  "gestures": [
+   "kb:NVDA+alt+m"
+  ]
+ },
+ {
+  "name": "recognizeWithUwpOcr",
+  "description": "Recognizes the content of the current navigator object with Windows OCR",
+  "category": "",
+  "gestures": [
+   "kb:NVDA+r"
+  ]
+ },
+ {
+  "name": "cycleOcrLanguage",
+  "description": "Cycles through the available languages for Windows OCR",
+  "category": "",
+  "gestures": []
+ },
+ {
+  "name": "toggleAutomaticRefreshOfRecogResult",
+  "description": "Toggle periodical refresh of a Windows OCR result",
+  "category": "",
+  "gestures": []
+ },
+ {
+  "name": "toggleReportCLDR",
+  "description": "Toggles on and off the reporting of CLDR characters, such as emojis",
+  "category": "SCRCAT_SPEECH",
+  "gestures": []
+ },
+ {
+  "name": "speech_cycleUnicodeNormalization",
+  "description": "Cycle through the speech Unicode normalization states",
+  "category": "SCRCAT_SPEECH",
+  "gestures": []
+ },
+ {
+  "name": "toggleScreenCurtain",
+  "description": "Toggles the state of the screen curtain, enable to make the screen black or disable to show the contents of the screen. Pressed once, screen curtain is enabled until you restart NVDA. Pressed twice, screen curtain is enabled until you disable it",
+  "category": "",
+  "gestures": [
+   "kb:NVDA+control+escape"
+  ]
+ },
+ {
+  "name": "reportScreenCurtainState",
+  "description": "Reports the state of the screen curtain.",
+  "category": "",
+  "gestures": []
+ },
+ {
+  "name": "toggleMagnifier",
+  "description": "Toggle the magnifier on and off",
+  "category": "SCRCAT_MAGNIFIER",
+  "gestures": [
+   "kb:NVDA+shift+w"
+  ]
+ },
+ {
+  "name": "zoomIn",
+  "description": "Increase the magnification level",
+  "category": "SCRCAT_MAGNIFIER",
+  "gestures": [
+   "kb:NVDA+shift+="
+  ]
+ },
+ {
+  "name": "zoomOut",
+  "description": "Decrease the magnification level",
+  "category": "SCRCAT_MAGNIFIER",
+  "gestures": [
+   "kb:NVDA+shift+-"
+  ]
+ },
+ {
+  "name": "panLeft",
+  "description": "Pan the magnified view left",
+  "category": "SCRCAT_MAGNIFIER",
+  "gestures": [
+   "kb:nvda+alt+leftArrow"
+  ]
+ },
+ {
+  "name": "panRight",
+  "description": "Pan the magnified view right",
+  "category": "SCRCAT_MAGNIFIER",
+  "gestures": [
+   "kb:nvda+alt+rightArrow"
+  ]
+ },
+ {
+  "name": "panUp",
+  "description": "Pan the magnified view up",
+  "category": "SCRCAT_MAGNIFIER",
+  "gestures": [
+   "kb:nvda+alt+upArrow"
+  ]
+ },
+ {
+  "name": "panDown",
+  "description": "Pan the magnified view down",
+  "category": "SCRCAT_MAGNIFIER",
+  "gestures": [
+   "kb:nvda+alt+downArrow"
+  ]
+ },
+ {
+  "name": "panToLeftEdge",
+  "description": "Pan the magnified view to left edge",
+  "category": "SCRCAT_MAGNIFIER",
+  "gestures": [
+   "kb:nvda+shift+alt+leftArrow"
+  ]
+ },
+ {
+  "name": "panToRightEdge",
+  "description": "Pan the magnified view to right edge",
+  "category": "SCRCAT_MAGNIFIER",
+  "gestures": [
+   "kb:nvda+shift+alt+rightArrow"
+  ]
+ },
+ {
+  "name": "panToTopEdge",
+  "description": "Pan the magnified view to top edge",
+  "category": "SCRCAT_MAGNIFIER",
+  "gestures": [
+   "kb:nvda+shift+alt+upArrow"
+  ]
+ },
+ {
+  "name": "panToBottomEdge",
+  "description": "Pan the magnified view to bottom edge",
+  "category": "SCRCAT_MAGNIFIER",
+  "gestures": [
+   "kb:nvda+shift+alt+downArrow"
+  ]
+ },
+ {
+  "name": "moveMouseToView",
+  "description": "Moves the mouse cursor to the center of the magnified view",
+  "category": "SCRCAT_MAGNIFIER",
+  "gestures": []
+ },
+ {
+  "name": "cycleFilters",
+  "description": "Cycle through the color filters",
+  "category": "SCRCAT_MAGNIFIER",
+  "gestures": [
+   "kb:NVDA+shift+i"
+  ]
+ },
+ {
+  "name": "toggleFollowMouse",
+  "description": "Toggle magnifier mouse tracking",
+  "category": "SCRCAT_MAGNIFIER",
+  "gestures": []
+ },
+ {
+  "name": "toggleFollowSystemFocus",
+  "description": "Toggle magnifier system focus tracking",
+  "category": "SCRCAT_MAGNIFIER",
+  "gestures": []
+ },
+ {
+  "name": "toggleFollowReview",
+  "description": "Toggle magnifier review cursor tracking",
+  "category": "SCRCAT_MAGNIFIER",
+  "gestures": []
+ },
+ {
+  "name": "toggleFollowNavigatorObject",
+  "description": "Toggle magnifier navigator object tracking",
+  "category": "SCRCAT_MAGNIFIER",
+  "gestures": []
+ },
+ {
+  "name": "toggleAllFollow",
+  "description": "Toggle all magnifier tracking settings",
+  "category": "SCRCAT_MAGNIFIER",
+  "gestures": []
+ },
+ {
+  "name": "cycleTrackingModes",
+  "description": "Cycle through tracking modes",
+  "category": "SCRCAT_MAGNIFIER",
+  "gestures": []
+ },
+ {
+  "name": "showEntireScreenOverview",
+  "description": "Temporarily show an overview of the entire screen",
+  "category": "SCRCAT_MAGNIFIER",
+  "gestures": [
+   "kb:NVDA+shift+l"
+  ]
+ },
+ {
+  "name": "cycleParagraphStyle",
+  "description": "Cycles through paragraph navigation styles",
+  "category": "SCRCAT_SYSTEMCARET",
+  "gestures": []
+ },
+ {
+  "name": "cycleSoundSplit",
+  "description": "Cycles through sound split modes",
+  "category": "SCRCAT_AUDIO",
+  "gestures": [
+   "kb:NVDA+alt+s"
+  ]
+ },
+ {
+  "name": "reportCaretLanguage",
+  "description": "reportLanguage",
+  "category": "SCRCAT_SYSTEMCARET",
+  "gestures": []
+ },
+ {
+  "name": "toggleRemoteMute",
+  "description": "remote",
+  "category": "SCRCAT_REMOTE",
+  "gestures": []
+ },
+ {
+  "name": "pushClipboard",
+  "description": "remote",
+  "category": "SCRCAT_REMOTE",
+  "gestures": []
+ },
+ {
+  "name": "copyRemoteLink",
+  "description": "remote",
+  "category": "SCRCAT_REMOTE",
+  "gestures": []
+ },
+ {
+  "name": "disconnectFromRemote",
+  "description": "remote",
+  "category": "SCRCAT_REMOTE",
+  "gestures": []
+ },
+ {
+  "name": "connectToRemote",
+  "description": "remote",
+  "category": "SCRCAT_REMOTE",
+  "gestures": []
+ },
+ {
+  "name": "toggleRemoteConnection",
+  "description": "remote",
+  "category": "SCRCAT_REMOTE",
+  "gestures": [
+   "kb:NVDA+alt+r"
+  ]
+ },
+ {
+  "name": "sendKeys",
+  "description": "remote",
+  "category": "SCRCAT_REMOTE",
+  "gestures": [
+   "kb:NVDA+alt+tab"
+  ]
+ },
+ {
+  "name": "sendSAS",
+  "description": "remote",
+  "category": "SCRCAT_REMOTE",
+  "gestures": []
+ },
+ {
+  "name": "repeatLastSpokenInformation",
+  "description": "Repeat the last spoken information. Pressing twice shows it in a browsable message.",
+  "category": "SCRCAT_SPEECH",
+  "gestures": [
+   "kb:NVDA+x"
+  ]
+ },
+ {
+  "name": "copyLastSpokenInformation",
+  "description": "Copies the last spoken information to the clipboard.",
+  "category": "SCRCAT_SPEECH",
+  "gestures": [
+   "kb:NVDA+control+x"
+  ]
+ }
+]

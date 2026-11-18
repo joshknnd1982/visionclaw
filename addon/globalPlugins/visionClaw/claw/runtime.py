@@ -13,6 +13,7 @@ import time
 
 from . import backend
 from .catalog import CODER, VISION
+from . import debuglog
 from ..engine import Engine, EngineError, imageMessages
 
 try:
@@ -140,6 +141,7 @@ class ModelRuntime:
 				# There is no room beside the other model anywhere, so the two take turns.
 				if not self._busy[other]:
 					log.debug(f"VisionClaw: unloading the {other} model to make room for the {slot} model")
+					debuglog.log("runtime", f"Unloading the {other} model to make room for the {slot} model.")
 					self.engines[other].stop()
 					self.backends[other] = None
 			last = None
@@ -150,6 +152,7 @@ class ModelRuntime:
 					engine.ensure(model, mmproj, backend.engineArgs(choice, bool(mmproj)), want)
 				except EngineError as e:
 					log.warning(f"VisionClaw: the {slot} model did not start on {backend.key(choice)}: {e}")
+					debuglog.error("runtime", f"The {slot} model did not start on {backend.key(choice)}; trying the next choice", e)
 					if choice.kind != backend.CPU:
 						self._failed.add(backend.key(choice))
 					last = e
@@ -184,6 +187,7 @@ class ModelRuntime:
 			except EngineError as e:
 				# Most likely it did not fit after all. The backend itself is not marked as broken.
 				log.warning(f"VisionClaw: the {slot} model did not start beside the other on {backend.key(choice)}: {e}")
+				debuglog.error("runtime", f"The {slot} model did not start beside the other on {backend.key(choice)}", e)
 				continue
 			self.backends[slot] = choice
 			return True

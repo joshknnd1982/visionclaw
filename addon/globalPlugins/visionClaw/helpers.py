@@ -18,7 +18,7 @@ import globalPluginHandler
 import inputCore
 import ui
 import wx
-from logHandler import log
+from .vclog import log
 
 import addonHandler
 

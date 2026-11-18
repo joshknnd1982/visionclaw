@@ -9,7 +9,7 @@
 import ctypes
 from ctypes import wintypes
 
-from logHandler import log
+from .vclog import log
 
 
 class CurtainBlocked(Exception):

@@ -18,7 +18,7 @@ import api
 import tones
 import ui
 import wx
-from logHandler import log
+from .vclog import log
 
 from . import ocr
 from .claw import pointer, scrolling

@@ -11,7 +11,7 @@ import glob
 import os
 import threading
 
-from logHandler import log
+from .vclog import log
 
 # App name in NVDA: folders with the app's downloaded photos. Unigram keeps one folder per account.
 _APP_FOLDERS = {

@@ -27,7 +27,7 @@ import addonHandler
 import api
 import config
 import inputCore
-from logHandler import log
+from .vclog import log
 
 from . import controlkeys, deepquery, fixruntime, mousetools, nvdainfo, ocr
 from .claw import audit, dragcontrol, fixes, match, microaddons, policy, scrolling, web, working

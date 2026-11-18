@@ -22,6 +22,8 @@ import urllib.error
 import urllib.request
 from ctypes import wintypes
 
+from .claw import debuglog
+
 try:
 	from logHandler import log
 except ImportError:
@@ -30,6 +32,32 @@ except ImportError:
 	log.debugWarning = log.warning
 
 CREATE_NO_WINDOW = 0x08000000
+
+
+def _shown(messages):
+	"""A conversation as written to VisionClaw's log: the text whole, a picture as its size only."""
+	lines = []
+	for message in messages:
+		content = message.get("content")
+		if isinstance(content, list):
+			parts = []
+			for part in content:
+				if part.get("type") == "text":
+					parts.append(part.get("text", ""))
+				else:
+					parts.append(f"[a picture, {len(str(part.get('image_url', {}).get('url', ''))) * 3 // 4} bytes]")
+			content = " ".join(parts)
+		lines.append(f"{message.get('role')}: {content}")
+	return "\n".join(lines)
+
+
+def _logTail(path, lines=25):
+	"""The last lines the engine wrote about itself, for the log entry of a failed start."""
+	try:
+		with open(path, encoding="utf-8", errors="replace") as f:
+			return "".join(f.readlines()[-lines:]).rstrip()
+	except (OSError, TypeError):
+		return ""
 
 
 class EngineError(Exception):
@@ -301,6 +329,8 @@ class Engine:
 			args += ["--mmproj", mmprojPath]
 		args += list(backendArgs)
 		log.debug(f"VisionClaw: starting {args}")
+		debuglog.log("engine", f"Starting the engine: {args}")
+		started = time.monotonic()
 		logFile = open(self._logPath, "w", encoding="utf-8", errors="replace") if self._logPath else subprocess.DEVNULL
 		try:
 			self._proc = subprocess.Popen(
@@ -313,8 +343,16 @@ class Engine:
 		if self._job:
 			self._k32.AssignProcessToJobObject(self._job, int(self._proc._handle))
 		self._config = config
-		self._waitHealthy(timeout=180)
+		try:
+			self._waitHealthy(timeout=180)
+		except EngineError as e:
+			debuglog.error("engine", (
+				f"The engine did not get ready after {time.monotonic() - started:.1f} s: {e}\n"
+				f"What the engine wrote last:\n{_logTail(self._logPath)}"), e)
+			raise
+		debuglog.log("engine", f"The engine is ready on port {self._port} after {time.monotonic() - started:.1f} s.")
 		self._warmUp(bool(mmprojPath))
+		debuglog.log("engine", f"The engine is warmed up after {time.monotonic() - started:.1f} s.")
 
 	def _waitHealthy(self, timeout):
 		deadline = time.monotonic() + timeout
@@ -346,6 +384,7 @@ class Engine:
 	def stop(self):
 		with self._lock:
 			if self._proc is not None:
+				debuglog.log("engine", f"Stopping the engine on port {self._port}.")
 				try:
 					self._proc.kill()
 					self._proc.wait(timeout=5)
@@ -386,6 +425,11 @@ class Engine:
 			body.update(options)
 		guard = CodeGuard(onText) if raw == "code" else _PassThrough(onText) if raw else RepeatGuard(onText)
 		thinking = []
+		asked = time.monotonic()
+		if debuglog.detailed():
+			debuglog.detail("engine", (
+				f"Question to the model on port {self._port} (at most {maxTokens} tokens, options {options}):\n"
+				f"{_shown(messages)}"))
 		conn = http.client.HTTPConnection("127.0.0.1", self._port, timeout=600)
 		finished = threading.Event()
 		if cancel is not None:
@@ -421,16 +465,28 @@ class Engine:
 					break  # closing the connection below stops the engine
 		except (http.client.HTTPException, OSError) as e:
 			if cancel is not None and cancel.is_set():
+				debuglog.log("engine", f"The question was stopped after {time.monotonic() - asked:.2f} s.")
 				return None
+			debuglog.error("engine", f"The connection to the engine was lost after {time.monotonic() - asked:.2f} s", e)
 			raise EngineError(f"Lost connection to the description engine: {e}")
+		except EngineError as e:
+			debuglog.error("engine", f"The engine reported an error after {time.monotonic() - asked:.2f} s", e)
+			raise
 		finally:
 			finished.set()
 			conn.close()
 			if info is not None:
 				info["thinking"] = "".join(thinking)
 		if cancel is not None and cancel.is_set():
+			debuglog.log("engine", f"The question was stopped after {time.monotonic() - asked:.2f} s.")
 			return None
-		return guard.finish().strip()
+		answer = guard.finish().strip()
+		if debuglog.detailed():
+			debuglog.detail("engine", (
+				f"Answer after {time.monotonic() - asked:.2f} s"
+				+ (f" (stopped because: {info.get('finish')})" if info and info.get("finish") else "") + f":\n{answer}"
+				+ (f"\nIts thinking:\n{''.join(thinking)}" if thinking else "")))
+		return answer
 
 	@staticmethod
 	def _abortOnCancel(conn, cancel, finished):

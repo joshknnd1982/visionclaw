@@ -22,6 +22,7 @@ SOURCES = {
 	("set_setting", "setting"): ("find_setting", IDS),
 	("set_setting", "value"): ("find_setting", VALUE, "setting"),
 	("run_command", "command"): ("find_command", IDS),
+	("inspect_nvda", "name"): ("find_nvda", IDS),
 	("click_item", "item"): ("list_items", NAMES),
 	("drag_item", "item"): ("list_items", NAMES),
 	("go_to_item", "item"): ("list_items", NAMES),
@@ -227,6 +228,12 @@ def said(toolName, name, part, steps, index, form=None):
 		names = namesSaid(part, choices)
 		wanted = 2 if (toolName, "to") in _SECOND else 1
 		return names[0] if len(names) == wanted else None
+	if source[1] == IDS:
+		# A dotted name the user wrote out in full, like api.getFocusObject, is the one that is meant.
+		low = (part or "").lower()
+		written = [choice for choice in choices if "." in choice and re.search(
+			rf"(?<![\w.]){re.escape(choice.lower())}(?![\w])", low)]
+		return written[0] if len(written) == 1 else None
 	return None
 
 
@@ -259,7 +266,7 @@ def quote(question, text):
 	"""The lines of a looked-up text that mention what a question asks about, best first, each with the line
 	after a heading joined to it. Returns (lines, the words of the question that were looked for)."""
 	lines = _lines(text)
-	if len(lines) == 1:
+	if len(lines) == 1 and not _ID.match(lines[0]):
 		# One paragraph: its sentences. Several lines are kept whole, so that the keys at the end of a line
 		# that names a command stay with it.
 		lines = [part.strip() for part in re.split(r"(?<=[.!?])\s+", lines[0]) if part.strip()]

@@ -11,7 +11,7 @@ import json
 import os
 import threading
 
-from logHandler import log
+from .vclog import log
 
 # Guessed names kept per app. Older ones are dropped first.
 MAX_GUESSES_PER_APP = 2000

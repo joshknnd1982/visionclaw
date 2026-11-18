@@ -9,7 +9,7 @@ import ctypes
 import threading
 
 import wx
-from logHandler import log
+from .vclog import log
 
 # Windows OCR reads small screen text better when the picture is enlarged.
 UPSCALE_BELOW_PIXELS = 1500000

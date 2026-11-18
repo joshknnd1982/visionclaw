@@ -8,6 +8,8 @@
 import threading
 import time
 
+from . import debuglog
+
 # States of a task.
 UNDERSTANDING, PLANNING, AGREEING, WAITING, WORKING, CHECKING = (
 	"understanding", "planning", "agreeing", "waiting", "working", "checking")
@@ -67,6 +69,8 @@ class Task:
 
 	def emit(self, kind, text):
 		self.log.append((time.monotonic() - self.started, kind, text))
+		# Everything the user could have heard or read of a request is in VisionClaw's log too, whole.
+		debuglog.log(f"task {kind}", text)
 		if kind in (STATE, STEP):
 			self.activity = text
 		if self._onEvent is not None:

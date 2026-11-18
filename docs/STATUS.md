@@ -1,12 +1,12 @@
 # VisionClaw status
 
-Updated 2026-11-17, version 0.8.2.
+Updated 2026-11-17, version 0.9.0.
 
 ## What exists
 
 Everything in phases 1 to 3.4 and 4.1 of `CLAUDE.md`: the fork, the model catalog and models window, the
 graphics choice with fallback, the two-model runtime, the planner with recipes, agreement between the models,
-the step runner, 45 NVDA tools and 39 recipes, the Ask VisionClaw window, app helpers, generated add-ons, the
+the step runner, 49 NVDA tools and 43 recipes, the Ask VisionClaw window, app helpers, generated add-ons, the
 knowledge base and the lessons memory. New in 0.2.0: the web through NVDA's browse mode, reporting on speech,
 braille, drivers and add-ons, safe switching of the synthesizer and braille display, and saving a generated
 add-on as a file. New in 0.3.0: a guard around generated add-ons with automatic debugging and correction,
@@ -510,6 +510,109 @@ how long each took.
   what to do" and nothing of two models was not asked and not reported. The question that is put when the
   model and the words differ has not come up in NVDA.
 
+## A command that failed in real use, and what 0.9.0 does about it (2026-11-17)
+
+In NVDA the owner asked "ask nvda to give me the current time and then the date", with Qwen3.5 9B for both
+jobs and "one small question at a time" set to Always. He pasted what the Last task box showed. It ended with
+"VisionClaw ran into a problem: AttributeError: 'NoneType' object has no attribute 'wasInSayAll'".
+
+**The cause, found by reading the pasted run and NVDA 2026.3.1's source** (`scriptHandler.py`,
+`keyboardHandler.py`, `inputCore.py`, `globalCommands.py`, downloaded from NV Access's repository at the tag
+`release-2026.3.1`):
+
+1. The search for the command counted shared words. "Current" is in dozens of command descriptions, and
+   "pressed three times" was read as the word "time". So the status bar command scored as high as the clock,
+   came first, and the model took it.
+2. VisionClaw made the key press for a command from the key as NVDA shows it to the user. NVDA shows
+   "NVDA+ctrl+down arrow" and only knows the key by the name "control", so no key press could be made.
+3. It then called `scriptHandler.executeScript(script, None)`. NVDA's first line there asks the key press
+   whether it came during say all (`willSayAllResume`), and None cannot answer.
+4. The error was not a tool's "could not do it" but a fault, and a fault ended the whole request. The date was
+   never tried. Nothing was written anywhere, because NVDA's log was off.
+
+**What was changed:**
+
+- Commands are ranked by the word that tells them apart (`claw/ranking.py`, `claw/commands.py`): a word counts
+  for more the fewer commands have it, and more again in a command's own name; words that only say how often
+  to press are taken out first; what is far from the best is not offered. When nothing fits, plain code says so.
+- The key press is made from the way NVDA writes the key; a command without a key, or whose key cannot be
+  made, gets a stand-in built on NVDA's own `InputGesture` (`nvdatools.keyGesture`, `noKeyGesture`).
+- A second or third press: what it does is read from the command's own description, and the user's words
+  decide how often the key is pressed (`commands.presses`). The date is two presses of NVDA+F12.
+- Commands without a description, which NVDA lists nowhere, are found and run after the described ones.
+- A fault inside a tool ends its step with a sentence and the rest of the request goes on (`Registry.call`).
+- VisionClaw has its own log, `%APPDATA%\nvda\visionClaw\logs\visionclaw.log`, written whatever NVDA's logging
+  level is, with a setting (Detailed, Brief, Off; Detailed by default), a button and the request "open the
+  VisionClaw log". It is kept under 2 MB, with three older files beside it, and is sent nowhere.
+
+**Also in 0.9.0, asked for by the owner in the same sitting:**
+
+- *"VisionClaw must be able to query and give info from every single NVDA command, function and object, known
+  or unknown."* `find_nvda` and `inspect_nvda` search and look at everything in the loaded modules of the
+  running NVDA and its add-ons (`claw/inside.py`); a function that only reports and needs nothing is called
+  to say what it gives back now, nothing else is called. `object_info` reads every fact of the focused
+  control, the navigator object, the window, what is under the mouse, the desktop or the focus's parent, and
+  any other property by its name.
+- *"Do a full audit of all NVDA commands, objects, functions, including how it interacts with TTS engines and
+  braille displays."* Done twice over. (1) NVDA 2026.3.1's source was audited without running it
+  (`tools/audit_nvda_source.py`): 609 modules, 1,815 classes, 1,573 functions outside classes, 6,907 methods,
+  509 commands of which 318 have a description (267 in globalCommands, 242 elsewhere), 6 speech synthesizer
+  drivers, 24 braille display drivers, 38 extension points. From that and from reading `synthDriverHandler`,
+  `speech`, `braille`, `driverHandler`, `bdDetect` and `brailleTables`, the notes
+  `claw/knowledge/nvda-inside.md` were written, 15 short sections the models search like the user guide.
+  (2) The tool `audit_nvda` does the same on the user's running NVDA, with their add-ons and drivers, and
+  saves `nvda-audit.md`.
+- *"Remove this restriction if possible"*, about the reply "I can only answer questions about this image" in
+  the description window. Removed: every question goes to the vision model with the picture
+  (`followup.ANSWER`), and one model call is made instead of two.
+
+**Tested, and how:**
+
+- `tests/test_commands.py`, plain Python, against `tests/nvda_commands.json`, the 265 described commands of
+  NVDA 2026.3.1's `globalCommands.py` taken from its source: both parts of the failed request find the clock
+  and nothing else; the time is one press, the date two, both together one and two; 16 other requests find
+  their command first or among the first three; a request with no command finds nothing; the log's levels,
+  rotation, errors with the place in the code, and that it never raises; the list of what is inside, from
+  stand-in modules; a fault inside a tool.
+- `tests/test_nvda_stub.py`: **the failed request replayed whole**, through the real orchestrator and the
+  real tools, against stand-ins that behave like NVDA 2026.3.1 in the three places that mattered (the command
+  list, a key press that cannot be made from "ctrl", and `executeScript` asking the key press first). The
+  answer is "NVDA said: 10:42. Next time you can press NVDA+f12 for this. NVDA said: Tuesday, November 17,
+  2026. Next time you can press NVDA+f12 twice for this." Also: the status bar command now runs; a command
+  without a key runs; a command without a description is found and run; a fault becomes a failed step and is
+  in the log with the file and line; `inspect_nvda` never calls a function that changes something;
+  `object_info` with all facts, one fact, and a property it has no name for; the audit file; the log opened
+  only when asked; three questions about a picture, each answered with one model call.
+- `tests/live_orchestrator.py` with the owner's own setup: Qwen3.5 9B for both jobs on the GeForce RTX 5060,
+  one small question at a time set to Always, 60 requests of which 11 are new, run twice, every answer read.
+  All 60 were carried out, in 0.4 to 11.5 seconds, 112 seconds in all. The failed request took 11.4 seconds
+  and gave the time and the date. The first run showed two things, both fixed before the second: the wording
+  of the new "facts about a control" choice drew "how many cells does it have" away from the braille report,
+  so the user was asked; and "how do I read the title" lost its keys when only one command was found. In the
+  second run the user was asked once, for "do a deep query of this control and tell me how a sighted person
+  works it", the same request as in 0.8.2. The command stand-ins of the live test now search the same 265
+  real commands.
+
+**Not tested, and what that means:**
+
+- **None of 0.9.0 has run inside NVDA.** The stand-ins were written from NVDA's source, which shows what NVDA
+  should do. Open: whether the two quick presses are counted as a double press on a slow computer (NVDA's
+  limit is the keyboard setting "multi press timeout", 500 ms by default, and the presses follow each other
+  at once); whether the first press's speech is cut cleanly before the date is spoken; whether the stand-in
+  for a key press is accepted by every command (it is built the way NVDA's own classes are, and has not been
+  made by a real NVDA yet).
+- **Commands without a description** are often plain key handlers of the focused control (the arrow keys in
+  an edit field). They are only offered when no described command fits, but running one has not been tried.
+- **`find_nvda` in a real NVDA**: how long the first listing takes (several hundred modules), how much memory
+  it holds, and whether every module can be gone through from a background thread without trouble, are
+  unknown. It is made once and again only when modules were loaded since.
+- **`inspect_nvda` calls reporting functions on NVDA's main thread.** A function named get..., is... or has...
+  that is slow would hold NVDA up for that long; none is known.
+- **Questions about pictures** were tested with a stand-in for the engine. How well a small vision model keeps
+  to "say that it is not in the picture" is not measured; the owner's 9B model is the one to try it with.
+- **The notes on speech and braille** describe NVDA's own code. Synthesizers and displays that add-ons bring
+  follow the same base classes; nothing was tried with a real braille display.
+
 ## What was not tested
 
 - **Model management (0.3.2)**, apart from the owner's report above, was tested against stand-ins only: listing what is stored, removing some or all
@@ -569,8 +672,11 @@ how long each took.
 
 - The models window, settings and tool results are in English; translations are phase 6.4.
 - Settings that are a free text in NVDA, such as the braille tables, are reported but cannot be changed yet.
-- `run_command` runs NVDA's script directly; a few scripts that depend on how they were triggered may behave
-  differently than when pressed.
+- `run_command` runs NVDA's script directly, with a key press made for it; a few scripts that depend on how
+  they were triggered may behave differently than when pressed. How often to press is only read from English
+  descriptions ("twice", "three times"); with NVDA in another language a command is pressed once.
+- VisionClaw's log holds what was asked and what was read from the screen, in plain text, until it is
+  overwritten. It can be switched off.
 - App helpers find their item by text, so an item that is only an unnamed icon cannot be a helper's target yet.
 - The check on generated code is not a sandbox.
 

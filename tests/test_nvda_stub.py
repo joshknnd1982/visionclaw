@@ -15,6 +15,7 @@ import json
 import os
 import sys
 import tempfile
+import threading
 import time
 import types
 
@@ -237,7 +238,7 @@ with open(os.path.join(CONFIG_DIR, "visionClaw", "lessons.json"), "w", encoding=
 	], f)
 instance = plugin.GlobalPlugin()
 registry = instance.orchestrator.registry
-assert len(registry.names()) == 45, registry.names()
+assert len(registry.names()) == 49, registry.names()
 # Lessons from searches that happened to find something misled; they are dropped when VisionClaw starts.
 assert instance.memory.all() == ["Tool set_setting: this form failed: {} (x). This form worked: {}."], instance.memory.all()
 assert set(planner.available(registry)) == set(planner.RECIPES), set(planner.RECIPES) - set(planner.available(registry))
@@ -1676,6 +1677,377 @@ assert os.path.isfile(os.path.join(instance.guidesDir, "nvda-developer-guide.md"
 worked, result = registry.call(taskModule.Task("test"), "search_help", {"words": "quokkabinding gesture script"})
 assert worked and "A quokkabinding ties a gesture to a script" in result, result
 assert registry.get("update_guides").tell == "verbatim" and "update_guides" in planner.RECIPES
+
+# --- NVDA's commands: the request that failed in real use, replayed ---
+# "ask nvda to give me the current time and then the date" ended with
+# "AttributeError: 'NoneType' object has no attribute 'wasInSayAll'". VisionClaw had chosen the status bar
+# command, could not make a key press for its key (NVDA shows it as "ctrl", and knows it as "control"), and ran
+# the command with no key press at all, which NVDA cannot do. The stand-ins below behave like NVDA 2026.3.1 in
+# all three places.
+from visionClaw.claw import debuglog  # noqa: E402
+
+nvdatools.COMMAND_SETTLE_SECONDS = 0
+spoken, ran = [], []
+listeners = []
+sys.modules["speech.extensions"].filter_speechSequence = types.SimpleNamespace(
+	register=listeners.append, unregister=listeners.remove)
+
+
+def say(text):
+	spoken.append(text)
+	for listener in list(listeners):
+		listener([text])
+
+
+presses = {"script": None, "count": 0}
+
+
+class Commands:
+	"""NVDA's global commands."""
+
+	def script_dateTime(self, gesture):
+		say("10:42" if presses["count"] == 0 else "Tuesday, November 17, 2026")
+
+	def script_reportStatusLine(self, gesture):
+		say("Line 1, column 1")
+
+	def script_noKey(self, gesture):
+		say("done without a key")
+
+	def script_hidden(self, gesture):
+		say("a command NVDA lists nowhere")
+
+	_gestureMap = {}
+
+
+Commands._gestureMap = {"kb:alt+f12+nvda": Commands.script_hidden}
+theCommands = Commands()
+sys.modules["globalCommands"].commands = theCommands
+
+
+def executeScript(script, gesture):
+	# As in NVDA's scriptHandler: the key press is asked before anything else, and a quick second press counts.
+	gesture.wasInSayAll
+	function = getattr(script, "__func__", script)
+	presses["count"] = presses["count"] + 1 if presses["script"] is function else 0
+	presses["script"] = function
+	ran.append((function.__name__, type(gesture).__name__))
+	script(gesture)
+
+
+def clearLastScript():
+	presses["script"], presses["count"] = None, 0
+
+
+sys.modules["scriptHandler"].executeScript = executeScript
+sys.modules["scriptHandler"].clearLastScript = clearLastScript
+made = []
+
+
+class KeyPress:
+	wasInSayAll = False
+
+	def __init__(self, name):
+		self.displayName = name
+
+	@classmethod
+	def fromName(cls, name):
+		# NVDA knows "control", not "ctrl", and no key called "bogus".
+		if any(part in ("ctrl", "bogus") or " " in part for part in name.split("+")):
+			raise LookupError(name)
+		made.append(name)
+		return cls(name)
+
+
+sys.modules["keyboardHandler"].KeyboardInputGesture = KeyPress
+
+
+def info(scriptName, description, gestures):
+	return types.SimpleNamespace(cls=Commands, scriptName=scriptName, displayName=description, gestures=gestures)
+
+
+MAPPINGS = {"System status": {
+	"time": info("dateTime", "If pressed once, reports the current time. If pressed twice, reports the current date", ["kb:f12+nvda"]),
+	"status": info("reportStatusLine", (
+		"Reads the current application status bar. If pressed twice, spells the information. If pressed three "
+		"times, copies the status bar to the clipboard"), ["kb:control+downarrow+nvda"]),
+	"focus": info("reportCurrentFocus", (
+		"Reports the object with focus. If pressed twice, spells the information. Pressing three times spells it "
+		"using character descriptions."), ["kb:nvda+tab"]),
+	"nokey": info("noKey", "Announces the quokka without any key", []),
+	"badkey": info("noKey", "Announces the wombat with a key NVDA cannot make", ["kb:bogus+nvda"]),
+}}
+SHOWN = {"kb:f12+nvda": "NVDA+f12", "kb:control+downarrow+nvda": "NVDA+ctrl+down arrow", "kb:nvda+tab": "NVDA+tab",
+	"kb:bogus+nvda": "NVDA+bogus", "kb:alt+f12+nvda": "NVDA+alt+f12"}
+sys.modules["inputCore"].manager = types.SimpleNamespace(getAllGestureMappings=lambda obj=None, ancestors=None: MAPPINGS)
+sys.modules["inputCore"].getDisplayTextForGestureIdentifier = lambda gesture: ("keyboard", SHOWN[gesture])
+sys.modules["api"].getFocusObject = lambda: types.SimpleNamespace(appModule=None, treeInterceptor=None)
+sys.modules["api"].getFocusAncestors = lambda: []
+running.clear()
+conf["visionClaw"]["confirmChanges"] = False
+
+# The whole request, through the orchestrator, with a model that chooses what the model in real use chose.
+from visionClaw.claw import policy  # noqa: E402
+
+
+class OneModel:
+	"""One model for both jobs, as in the real run. It answers each question the way it was seen to."""
+	oneModel = True
+
+	def __init__(self):
+		self.asked = []
+
+	def hasModel(self, role):
+		return True
+
+	def entry(self, role):
+		return {"id": "tiny", "name": "Qwen3.5 0.8B", "small": True, "thinking": False, "tiny": True}
+
+	def whereText(self):
+		return ""
+
+	def chat(self, role, messages, maxTokens, onText=None, cancel=None, options=None, raw=False, info=None, context=None):
+		user = messages[-1]["content"]
+		self.asked.append(user)
+		schema = options["response_format"]["json_schema"]["schema"]["properties"]
+		if "parts" in schema:
+			return json.dumps({"parts": ["ask nvda to give me the current time", "ask nvda to give me the date"]})
+		if "choice" in schema:
+			return json.dumps({"choice": "do_command"})
+		if "command" in schema:
+			# A small model takes the first id it is offered.
+			return json.dumps({"command": schema["command"]["enum"][0]})
+		raise AssertionError(f"an unexpected question to the model: {user}")
+
+
+model = OneModel()
+runner = orchestrator.Orchestrator(model, registry, lambda question, choices: 0)
+runner.stepwise = lambda: policy.NEVER
+del spoken[:], ran[:], made[:]
+task = runner.run(taskModule.Task("ask nvda to give me the current time and then the date"))
+assert task.state == taskModule.DONE, (task.state, task.log[-4:])
+assert [step.tool for step in task.steps] == ["find_command", "run_command", "find_command", "run_command", "answer"]
+assert all(step.status == taskModule.STEP_DONE for step in task.steps), task.steps
+# The clock was found for both parts, and nothing else was offered to the model.
+assert task.steps[0].result == (
+	"dateTime: If pressed once, reports the current time. If pressed twice, reports the current date. Keys: NVDA+f12."
+), task.steps[0].result
+assert task.steps[2].result == task.steps[0].result
+# The time is one press; the date is two quick presses, as NVDA's own description of the command says.
+assert ran == [("script_dateTime", "KeyPress")] * 3, ran
+assert made == ["nvda+f12", "nvda+f12"], made  # the keys that are held come first again, the key that is pressed last
+assert task.answer == (
+	"NVDA said: 10:42. Next time you can press NVDA+f12 for this. NVDA said: Tuesday, November 17, 2026. "
+	"Next time you can press NVDA+f12 twice for this."), task.answer
+assert spoken == ["10:42", "10:42", "Tuesday, November 17, 2026"], spoken
+# The same in one part: both are said, in order.
+del spoken[:], ran[:]
+worked, result = registry.call(taskModule.Task("t"), "run_command", {"command": "dateTime", "asked": "the time and the date"})
+assert worked and result == "NVDA said: 10:42 Tuesday, November 17, 2026. Next time you can press NVDA+f12 twice for this.", result
+
+# The command that failed: its key is shown as "NVDA+ctrl+down arrow". The key press is made from the way NVDA
+# writes the key, not from how it is shown, so the command runs.
+del spoken[:], ran[:], made[:]
+worked, result = registry.call(taskModule.Task("t"), "find_command", {"words": "read the status bar"})
+assert worked and result.startswith("reportStatusLine: Reads the current application status bar"), result
+assert "Keys: NVDA+ctrl+down arrow." in result
+worked, result = registry.call(taskModule.Task("t"), "run_command", {"command": "reportStatusLine", "asked": "read the status bar"})
+assert worked and result == "NVDA said: Line 1, column 1. Next time you can press NVDA+ctrl+down arrow for this.", result
+assert made == ["control+nvda+downarrow"] and ran == [("script_reportStatusLine", "KeyPress")], (made, ran)
+# A command without a key, and one whose key NVDA cannot make, are given a stand-in for the key press: NVDA
+# asks the key press whether it came during say all, and "nothing" cannot answer that.
+for words, expected in (("announce the quokka", "done without a key"), ("announce the wombat", "done without a key")):
+	del ran[:]
+	task = taskModule.Task(words)
+	worked, result = registry.call(task, "find_command", {"words": words})
+	ident = result.split(":")[0]
+	assert worked and ident.startswith("noKey"), result
+	worked, result = registry.call(task, "run_command", {"command": ident, "asked": words})
+	assert worked and result.startswith(f"NVDA said: {expected}."), result
+	assert ran == [("script_noKey", "NoKeys")], ran
+gesture = nvdatools.noKeyGesture("Announces the quokka", theCommands.script_noKey)
+assert gesture.wasInSayAll is False and gesture.send() is None and gesture.displayName == "Announces the quokka"
+assert nvdatools.keyGesture("kb(laptop):shift+nvda+s").displayName == "shift+nvda+s"
+# A command NVDA lists nowhere, because it has no description, is found by its name and run all the same.
+del ran[:]
+task = taskModule.Task("run the hidden command")
+worked, result = registry.call(task, "find_command", {"words": "run the hidden command"})
+assert worked and result == "hidden: A command without a description, in __main__. Keys: NVDA+alt+f12.", result
+worked, result = registry.call(task, "run_command", {"command": "hidden", "asked": "run the hidden command"})
+assert worked and result.startswith("NVDA said: a command NVDA lists nowhere."), result
+# A described command is never pushed aside by one without a description.
+worked, result = registry.call(taskModule.Task("t"), "find_command", {"words": "report the focus"})
+assert worked and result.startswith("reportCurrentFocus: ") and "hidden" not in result, result
+# What has no command says so, instead of offering whatever shares a word.
+worked, result = registry.call(taskModule.Task("t"), "find_command", {"words": "say the version of the zebra"})
+assert not worked and result.startswith("No NVDA command matches those words."), result
+# A fault inside a tool ends the step with a sentence, and the whole of it is in VisionClaw's log.
+sys.modules["scriptHandler"].executeScript = lambda script, gesture: None.wasInSayAll
+task = taskModule.Task("the time")
+registry.call(task, "find_command", {"words": "the current time"})
+worked, result = registry.call(task, "run_command", {"command": "dateTime", "asked": "the current time"})
+assert not worked and "a fault inside VisionClaw (AttributeError" in result, result
+sys.modules["scriptHandler"].executeScript = executeScript
+written = debuglog.tail(200)
+assert debuglog.path() == os.path.join(CONFIG_DIR, "visionClaw", "logs", "visionclaw.log") and debuglog.detailed()
+assert "tool: ERROR: run_command failed" in written and "wasInSayAll" in written and "nvdatools.py" in written
+assert "command: Running dateTime (script_dateTime of __main__), pressed 1 time(s)" in written
+with open(debuglog.path(), encoding="utf-8") as f:
+	everything = f.read()
+assert "start: VisionClaw" in everything and "This log stays on this computer" in everything
+assert "task: New request: 'ask nvda to give me the current time and then the date'" in everything
+assert "task answer: NVDA said: 10:42." in everything and "tool: find_command starts." in everything
+assert "command: dateTime ran. NVDA said: 'Tuesday, November 17, 2026'" in everything
+
+# --- Everything inside NVDA: found by describing it, looked at closely, and what it holds now ---
+fakeApi = sys.modules["quokkaApi"] = types.ModuleType("quokkaApi")  # a real module: a stand-in has every name
+fakeApi.__doc__ = "Functions about quokkas."
+
+
+def getQuokkaObject():
+	"""Gets the quokka that has the focus."""
+	return types.SimpleNamespace(name="Quokka OK", role=types.SimpleNamespace(displayString="button", name="BUTTON"))
+
+
+def setQuokka(value):
+	"""Changes the quokka."""
+	raise AssertionError("a function that changes something must never be called by looking at it")
+
+
+getQuokkaObject.__module__ = setQuokka.__module__ = "quokkaApi"
+fakeApi.getQuokkaObject, fakeApi.setQuokka, fakeApi.quokkaCount = getQuokkaObject, setQuokka, 3
+task = taskModule.Task("what does getQuokkaObject give back")
+worked, result = registry.call(task, "find_nvda", {"words": "the quokka that has the focus"})
+assert worked and result.splitlines()[0] == (
+	"quokkaApi.getQuokkaObject: function. getQuokkaObject(). Gets the quokka that has the focus."), result
+worked, result = registry.call(task, "inspect_nvda", {"name": "quokkaApi.getQuokkaObject"})
+assert worked and result == (
+	"quokkaApi.getQuokkaObject is a function.\nCall it as getQuokkaObject().\nGets the quokka that has the focus.\n"
+	"Called now, it gives back: an object NVDA reads: button called \"Quokka OK\" (types.SimpleNamespace)."), result
+# What a function gives back can be looked into; a value says what it holds; nothing that changes is called.
+worked, result = registry.call(task, "inspect_nvda", {"name": "quokkaApi.getQuokkaObject.name"})
+assert worked and result == "quokkaApi.getQuokkaObject().name is a value of the kind str.\nNow it holds: 'Quokka OK'.", result
+worked, result = registry.call(task, "inspect_nvda", {"name": "quokkaApi.quokkaCount"})
+assert worked and result.endswith("Now it holds: 3."), result
+worked, result = registry.call(task, "inspect_nvda", {"name": "quokkaApi.setQuokka"})
+assert worked and "Call it as setQuokka(value)." in result and "Called now" not in result, result
+worked, result = registry.call(task, "inspect_nvda", {"name": "quokkaApi.nothingHere"})
+assert not worked and "has nothing called nothingHere" in result, result
+worked, result = registry.call(task, "inspect_nvda", {"name": "subprocess.Popen"})
+assert not worked and "not an NVDA module" in result, result
+worked, result = registry.call(task, "find_nvda", {"words": "zzyzx plugh xyzzy"})
+assert not worked and result.startswith("Nothing inside NVDA matches those words."), result
+assert registry.get("inspect_nvda").before == "find_nvda" and registry.get("inspect_nvda").tell == "verbatim"
+
+# --- What NVDA knows about one object ---
+Role = types.SimpleNamespace
+button = types.SimpleNamespace(
+	name="Send", role=Role(name="BUTTON", displayString="button"), value=None, description="Sends the message",
+	states=[Role(name="FOCUSABLE"), Role(name="FOCUSED")], keyboardShortcut="alt+s",
+	location=types.SimpleNamespace(left=100, top=200, width=80, height=30), windowClassName="Button",
+	windowControlID=1001, windowHandle=3344, childCount=0, processID=4242, quokkaLevel=7,
+	appModule=types.SimpleNamespace(appName="mailer"), positionInfo={"indexInGroup": 2, "similarItemsInGroup": 5},
+	parent=types.SimpleNamespace(name="Compose", role=Role(name="DIALOG", displayString="dialog")),
+	firstChild=None, UIAElement=None, IAccessibleObject=None, IA2Attributes=None, actionCount=0,
+	getActionName=lambda index=0: "press",
+)
+sys.modules["api"].getFocusObject = lambda: button
+sys.modules["api"].getNavigatorObject = lambda: button.parent
+sys.modules["api"].getDesktopObject = lambda: types.SimpleNamespace(objectFromPoint=lambda x, y: None)
+worked, result = registry.call(taskModule.Task("t"), "object_info", {"object": "focus", "asked": "tell me everything about this control"})
+assert worked and result.startswith("The focused control. Name: Send. Kind: button (controlTypes.Role.BUTTON)."), result
+for fact in (
+	"Description: Sends the message.", "States: focusable, focused.", "Keyboard shortcut: alt+s.",
+	"Position and size: left 100, top 200, 80 wide, 30 high, in pixels.", "Place among its neighbours: 2 of 5.",
+	"Program: mailer, process id 4242.", "Window class: Button.", "Window control id: 1001.", "Window handle: 3344.",
+	"Actions: press.", "It is inside: dialog called \"Compose\".", "Everything else it has:",
+):
+	assert fact in result, (fact, result)
+# Asked for one fact, only that is said; and a property VisionClaw has no name for is read from the object.
+worked, result = registry.call(taskModule.Task("t"), "object_info", {"object": "focus", "asked": "what is the window class of this control"})
+assert worked and result == "The focused control. Window class: Button.", result
+worked, result = registry.call(taskModule.Task("t"), "object_info", {"object": "focus", "asked": "where is this button on the screen"})
+assert worked and result == "The focused control. Position and size: left 100, top 200, 80 wide, 30 high, in pixels.", result
+worked, result = registry.call(taskModule.Task("t"), "object_info", {"object": "focus", "asked": "what is the quokkaLevel of this control"})
+assert worked and result == "The focused control. quokkaLevel: 7.", result
+worked, result = registry.call(taskModule.Task("t"), "object_info", {"object": "navigator", "asked": "the name of the navigator object"})
+assert worked and result == "The navigator object. Name: Compose.", result
+assert nvdatools.objectOf("what is under the mouse") == "mouse" and nvdatools.objectOf("this button") == "focus"
+assert nvdatools.objectOf("the window class of this control") == "focus" and nvdatools.objectOf("facts about this window") == "window"
+assert registry.get("object_info").autoForm("the role of the navigator object")["object"] == "navigator"
+
+# --- The audit of the whole NVDA, and VisionClaw's log, opened only when asked ---
+started = []
+realStartfile = getattr(os, "startfile", None)
+os.startfile = started.append
+try:
+	sys.modules["api"].getFocusObject = lambda: types.SimpleNamespace(appModule=None, treeInterceptor=None)
+	worked, result = registry.call(taskModule.Task("t"), "audit_nvda", {"asked": "do a full audit of nvda"})
+	auditPath = os.path.join(CONFIG_DIR, "visionClaw", "nvda-audit.md")
+	assert worked and result.startswith("VisionClaw went through all of this NVDA. Commands that can be used where you are now: 6. "
+		"5 have a description, 1 have none, and 5 have a key."), result
+	assert f"is saved as the file {auditPath}." in result and started == [], (result, started)
+	with open(auditPath, encoding="utf-8") as f:
+		audit = f.read()
+	for part in (
+		"# Audit of this NVDA by VisionClaw", "## Totals", "## Speech: how NVDA talks to the synthesizer",
+		"## Braille: how NVDA talks to the braille display", "The driver in use is the class",
+		"reached as synthDriverHandler.getSynth().", "reached as braille.handler.",
+		"## Commands with a description, usable where you are now", "dateTime: If pressed once, reports the current time",
+		"## Commands without a description, usable where you are now", "hidden: A command without a description",
+		"## Everything inside, by name", "quokkaApi.getQuokkaObject: function.",
+	):
+		assert part in audit, part
+	worked, result = registry.call(taskModule.Task("t"), "audit_nvda", {"asked": "audit nvda and show me the list"})
+	assert worked and "It is open in a window now." in result and started == [auditPath], (result, started)
+	worked, result = registry.call(taskModule.Task("t"), "show_log", {})
+	assert worked and result.startswith("VisionClaw's log is open in a window.") and started[-1] == debuglog.path(), result
+	debuglog.setLevel(debuglog.OFF)
+	worked, result = registry.call(taskModule.Task("t"), "show_log", {})
+	assert worked and result.startswith("VisionClaw's log is switched off.") and len(started) == 2, result
+	debuglog.setLevel(debuglog.DETAILED)
+	# The setting is one of three, and what the user chose is what is used.
+	assert conf["visionClaw"]["debugLog"] == "detailed"
+	conf["visionClaw"]["debugLog"] = "brief"
+	instance.onSettingsSaved()
+	assert debuglog.level() == "brief" and not debuglog.detailed()
+	conf["visionClaw"]["debugLog"] = "detailed"
+	instance.onSettingsSaved()
+finally:
+	if realStartfile is not None:
+		os.startfile = realStartfile
+
+# --- Questions in the description window: none is turned away any more ---
+# VisionMate asked the model first whether a question was "about the image", and a small model said no to
+# "what is highlighted on my desktop". Now every question goes to the vision model with the picture.
+from visionClaw import followup  # noqa: E402
+
+assert not hasattr(followup, "CHECK") and not hasattr(followup, "NOT_IMAGE") and not hasattr(followup, "clearlyOffTopic")
+assert not hasattr(instance, "_declineQuestion")
+for phrase in ("blind person", "highlighted or selected", "not in the picture", "Never make up"):
+	assert phrase in followup.ANSWER, phrase
+chats, answers = [], []
+
+
+def fakeChat(messages, maxTokens, onText=None, cancel=None, *args, **kwargs):
+	chats.append((messages, maxTokens))
+	if onText is not None:
+		onText("The Recycle Bin icon is highlighted.")
+	return "The Recycle Bin icon is highlighted."
+
+
+instance._engine = types.SimpleNamespace(chat=fakeChat, usingGpu=False)
+instance._ensureEngine = lambda: None
+dialog = types.SimpleNamespace(addAnswer=lambda question, answer: answers.append((question, answer)))
+for question in ("what is the currently highlighted item on my desktop?", "what is a recycle bin for?", "hello"):
+	conversation = {"start": [{"role": "user", "content": "describe"}, {"role": "assistant", "content": "A desktop."}], "history": []}
+	del chats[:], answers[:]
+	instance._answer(conversation, question, dialog, threading.Event())
+	assert len(chats) == 1, chats  # asked once: no question about the question comes first
+	assert chats[0][0][-1]["content"].startswith(question) and followup.ANSWER in chats[0][0][-1]["content"]
+	assert answers == [(question, "The Recycle Bin icon is highlighted.")], answers
+	assert conversation["history"] == [(question, "The Recycle Bin icon is highlighted.")]
+assert "Question about the picture: 'hello'" in debuglog.tail(30)
 
 instance.terminate()
 print("OK")

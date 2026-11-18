@@ -13,7 +13,7 @@ import api
 import gui
 import ui
 import wx
-from logHandler import log
+from .vclog import log
 
 from . import net, sounds
 from .claw import catalog

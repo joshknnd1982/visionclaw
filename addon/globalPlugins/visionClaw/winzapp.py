@@ -20,7 +20,7 @@ import threading
 import time
 from ctypes import wintypes
 
-from logHandler import log
+from .vclog import log
 
 APP_NAME = "winzapp"
 # WinZapp's translation key for the button; its text is read from WinZapp's own translations.

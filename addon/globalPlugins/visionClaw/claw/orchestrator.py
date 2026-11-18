@@ -7,7 +7,7 @@
 # time, check the result, tell the user what really happened, and remember what was learned.
 # No NVDA dependencies.
 
-from . import agent, consensus, planner, policy, shapes
+from . import agent, consensus, debuglog, planner, policy, shapes
 from . import task as taskModule
 from .catalog import CODER, VISION
 from .llm import LLM, LLMError, clip, plainSpeech
@@ -65,6 +65,7 @@ class Orchestrator:
 
 	def run(self, task):
 		"""Carry out a task. Never raises: the outcome is in task.state and task.answer."""
+		debuglog.log("task", f"New request: {task.request!r}. Reasoning setting: {task.reasoning}.")
 		try:
 			self._run(task)
 		except taskModule.Cancelled:
@@ -79,12 +80,20 @@ class Orchestrator:
 			if task.cancel.is_set():
 				task.setState(taskModule.CANCELLED, "Stopped.")
 			else:
+				debuglog.error("task", "The engine failed during the request", e)
 				task.emit(taskModule.ERROR, f"The task could not be finished: {e}")
 				task.setState(taskModule.FAILED, "The task failed.")
 		except Exception as e:  # a bug must be reported to the user, not left as silence
-			task.emit(taskModule.ERROR, f"VisionClaw ran into a problem: {type(e).__name__}: {e}")
+			debuglog.error("task", "A fault inside VisionClaw ended the request", e)
+			task.emit(taskModule.ERROR, (
+				f"VisionClaw ran into a problem: {type(e).__name__}: {e}"
+				+ (" Where it happened is written in VisionClaw's log." if debuglog.on() else "")))
 			task.setState(taskModule.FAILED, "The task failed.")
 			raise
+		finally:
+			debuglog.log("task", (
+				f"Request ended as {task.state} after {task.seconds()} seconds. "
+				f"Steps: {[(step.tool, step.status) for step in task.steps]}. Answer: {task.answer!r}"))
 		return task
 
 	# --- The stages ---

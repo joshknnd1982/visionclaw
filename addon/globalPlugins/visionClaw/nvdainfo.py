@@ -123,6 +123,83 @@ def brailleInfo():
 	return "\n".join(lines)
 
 
+def _classOf(thing):
+	return f"{type(thing).__module__}.{type(thing).__qualname__}"
+
+
+def _classNames(things):
+	return ", ".join(sorted({getattr(thing, "__name__", str(thing)) for thing in things or ()}))
+
+
+def speechInside():
+	"""How NVDA drives the speech synthesizer in use, in the names of NVDA's own code. For the audit and for
+	people who write add-ons."""
+	import synthDriverHandler
+	synth = synthDriverHandler.getSynth()
+	if synth is None:
+		return ["No speech synthesizer is running, so there is no driver to describe."]
+	lines = [
+		f"The driver in use is the class {_classOf(synth)}, reached as synthDriverHandler.getSynth().",
+		"NVDA hands it what to say with speak(speechSequence), silences it with cancel() and pauses it with pause(switch).",
+	]
+	settings = [_try(lambda s=setting: s.id) for setting in _try(lambda: list(synth.supportedSettings), []) or []]
+	if settings:
+		lines.append(f"Its settings, each an attribute of the driver: {', '.join(s for s in settings if s)}.")
+	commands = _classNames(_try(lambda: synth.supportedCommands))
+	lines.append(
+		f"Speech commands it understands: {commands}." if commands
+		else "It lists no speech commands, so it speaks plain text only.")
+	notifications = _try(lambda: len(synth.supportedNotifications), 0) or 0
+	lines.append(
+		f"It reports back to NVDA in {notifications} ways (synthIndexReached, synthDoneSpeaking), which say all and "
+		"speech callbacks depend on." if notifications
+		else "It does not report back how far it has spoken, so say all cannot follow it exactly.")
+	voices = _try(lambda: len(synth.availableVoices), 0) or 0
+	languages = _try(lambda: len(synth.availableLanguages), 0) or 0
+	lines.append(f"It offers {voices} voices in {languages} languages.")
+	mode = _try(lambda: __import__("speech").getState().speechMode)
+	if mode is not None:
+		lines.append(f"NVDA's speech mode now: {_try(lambda: mode.displayString) or _try(lambda: mode.name) or mode}.")
+	installed = _try(synthDriverHandler.getSynthList, []) or []
+	lines.append(f"Installed synthesizer drivers ({len(installed)}): {_names(f'{d} ({n})' for n, d in installed)}.")
+	return lines
+
+
+def brailleInside():
+	"""How NVDA drives the braille display in use, in the names of NVDA's own code."""
+	import braille
+	handler = _try(lambda: braille.handler)
+	if handler is None:
+		return ["Braille is not running in this NVDA."]
+	display = _try(lambda: handler.display)
+	lines = [f"The braille handler is the class {_classOf(handler)}, reached as braille.handler."]
+	if display is None:
+		lines.append("It has no display driver now.")
+	else:
+		lines.append(f"The display driver in use is the class {_classOf(display)}, reached as braille.handler.display.")
+		lines.append(
+			f"It has {_try(lambda: display.numCells, 0)} cells in {_try(lambda: display.numRows, 1)} row or rows; NVDA "
+			"writes to it with display(cells), one number of dots for each cell.")
+		keys = _try(lambda: len(list(display.gestureMap.getScriptsForAllGestures())), None)
+		if keys is not None:
+			lines.append(f"Its own keys are tied to {keys} NVDA commands through its gestureMap.")
+		settings = [_try(lambda s=setting: s.id) for setting in _try(lambda: list(display.supportedSettings), []) or []]
+		if settings:
+			lines.append(f"Its settings, each an attribute of the driver: {', '.join(s for s in settings if s)}.")
+		lines.append(
+			f"Found by itself when plugged in: {'yes' if _try(lambda: display.supportsAutomaticDetection) else 'no'}. "
+			f"Safe to write to from a background thread: {'yes' if _try(lambda: display.isThreadSafe) else 'no'}.")
+	lines.append(
+		f"Braille is {'on' if _try(lambda: handler.enabled) else 'off'}; NVDA counts {_try(lambda: handler.displaySize, 0)} "
+		f"cells; braille follows: {_try(lambda: handler.getTether()) or 'unknown'}.")
+	tables = _try(lambda: len(__import__("brailleTables").listTables()), 0) or 0
+	if tables:
+		lines.append(f"Braille tables that can be chosen: {tables}.")
+	installed = _try(lambda: braille.getDisplayList(excludeNegativeChecks=False), None) or _try(lambda: braille.getDisplayList(), []) or []
+	lines.append(f"Installed braille display drivers ({len(installed)}): {_names((f'{d} ({n})' for n, d in installed), 60)}.")
+	return lines
+
+
 def addons():
 	import addonHandler
 	found = []
