@@ -30,7 +30,7 @@ import inputCore
 from .vclog import log
 
 from . import controlkeys, deepquery, fixruntime, mousetools, nvdainfo, ocr
-from .claw import audit, dragcontrol, fixes, match, microaddons, pointer, policy, scrolling, web, working
+from .claw import audit, direct, dragcontrol, fixes, match, microaddons, pointer, policy, scrolling, web, working
 from .claw.catalog import CODER, VISION
 from .claw.fixmatch import hostOf, labelOf, matches, nodeFromObject, plainText
 from .claw.llm import LLM, clip
@@ -317,6 +317,9 @@ _SPECIAL_WORDS = {
 	working.GESTURE: "by swiping across it or drawing on it",
 	working.TIMED: "by clicking it at the right moment",
 	working.PAD: "by dragging it in any direction",
+	working.TOUCH: "by touching it with two or more fingers",
+	working.PRESSURE: "by pressing on it harder or lighter",
+	working.AIM: "by moving the mouse itself, with no pointer to put on anything",
 }
 
 
@@ -398,7 +401,8 @@ def _specialFindings(controls, told):
 		findings.append(audit.Finding("gestured",
 			f"{audit._plural(len(told), 'control')} here {'is' if len(told) == 1 else 'are'} worked with the mouse in a "
 			f"way the keyboard does not do: {names}.",
-			"swipe swiped gesture gestures draw drawn drawing timing timed moment rhythm pad joystick mouse",
+			"swipe swiped gesture gestures draw drawn drawing timing timed moment rhythm pad joystick mouse touch "
+			"finger fingers pinch pressure pen aim look turn view",
 			advice=" ".join(working.adviceFor(way) for way in ways)))
 	return findings
 
@@ -558,6 +562,26 @@ def controlDeep(plugin, task, found):
 	return " ".join(lines)
 
 
+def _inputFacts(plugin):
+	"""What Windows says about its own mouse pointer in the window in front, and whether a game controller is
+	connected: plain facts that say how else the window can be worked. No model is asked."""
+	lines = []
+	try:
+		state = mousetools.pointerState(onMain(plugin.controlKeys._box))
+		said = direct.stateText(state)
+		if said:
+			lines.append(said)
+			if direct.reads(state):
+				lines.append(direct.ADVICE)
+	except Exception:
+		log.debugWarning("VisionClaw: Windows' facts about the mouse pointer could not be read for the inspection", exc_info=True)
+	if plugin.controller.device is not None:
+		lines.append(
+			"A game controller is connected: in controller mode (NVDA+Alt+J) its left stick moves the mouse pointer "
+			"over anything here, its buttons click, and its triggers hold and press.")
+	return " ".join(lines)
+
+
 def inspect(plugin, task, target="auto", depth="deep"):
 	"""Inspect where the user is. Raises ToolError when the target is not there."""
 	focus, window, document, app, title = onMain(_situation)
@@ -593,6 +617,7 @@ def inspect(plugin, task, target="auto", depth="deep"):
 		_wait(task, CHANGE_WAIT_SECONDS)
 		later = _windowNodes(task, window)
 	ways, more = _worked(plugin, task, types.SimpleNamespace(kind="window", nodes=nodes, where=window), deep)
+	ways = " ".join(part for part in (ways, _inputFacts(plugin)) if part)
 	report = audit.auditWindow(nodes, title=title, app=app, later=later, drawn=drawn, bars=bars, seen=seen, ways=ways, more=more)
 	return Inspection("window", fixes.scopeOf(app=app), nodes, window, report, title, focus)
 

@@ -7,6 +7,9 @@
 # that let the models use them on an item found in a window's picture; and pointer mode, in which the arrow
 # keys move the pointer inside the window, so that any control at all can be worked without a mouse.
 # The mouse is moved through Windows itself, so nothing here depends on a part of NVDA that may change.
+# A game that reads the mouse directly takes no notice of where Windows' pointer is put. For such a program
+# the mouse itself is moved, by a number of its own steps (claw/direct.py): to turn the view, or to bring the
+# program's own pointer to a place by counting from the corner of its window.
 
 import contextlib
 import ctypes
@@ -22,7 +25,7 @@ import wx
 from .vclog import log
 
 from . import ocr
-from .claw import dragcontrol, pointer, scrolling
+from .claw import direct, dragcontrol, pointer, scrolling
 from .claw.tools import VERBATIM, ToolError
 from .engine import EngineError, prepareImage
 
@@ -30,6 +33,8 @@ addonHandler.initTranslation()
 
 _LEFTDOWN, _LEFTUP, _RIGHTDOWN, _RIGHTUP = 0x0002, 0x0004, 0x0008, 0x0010
 _MIDDLEDOWN, _MIDDLEUP = 0x0020, 0x0040
+# Moving the mouse itself by a number of its own steps, as a hand moves it; and the pause between the pieces.
+_MOVE, _NUDGE_STEP = 0x0001, 0.002
 # Windows' numbers for the keys that can be held down during a click or a turn of the wheel.
 _KEY_CODES = {"control": 0x11, "shift": 0x10, "alt": 0x12}
 _WHEEL, _HWHEEL = 0x0800, 0x1000
@@ -39,18 +44,137 @@ _SETTLE, _DRAG_STEP, _HOLD = 0.04, 0.012, 0.08
 _WHEEL_STEP, _SCROLL_SETTLE = 0.012, 0.35
 # The size of the area around the pointer that is read or described, on a plain screen at 100 percent.
 _READ_AREA, _LOOK_AREA = (320, 70), (420, 260)
+# The tools that point at a place: while one of them works, the mouse is moved the way the program in front
+# is known to need (directScope).
+DIRECT_TOOLS = frozenset(("click_item", "drag_item", "draw_gesture", "timed_click", "fill_field"))
 # Kinds of control whose value the wheel changes when the pointer is over them. Never scrolled by accident.
 _WHEEL_CHANGES = ("SLIDER", "COMBOBOX", "SPINBUTTON", "TAB", "TABCONTROL", "DROPDOWNBUTTON")
 
 
-def position():
+class _Direct:
+	"""How the mouse is moved just now: Windows' pointer is put somewhere, as almost everywhere; or, while a
+	tool or pointer mode works in a program that reads the mouse directly, the program's own pointer is
+	brought there by a tracker; or nothing can be pointed at, because the mouse turns the view."""
+
+	def __init__(self):
+		self.way, self.tracker = direct.PLAIN, None
+
+
+_direct = _Direct()
+_VIEW_REFUSAL = (
+	"In this program the mouse turns the view, so nothing can be pointed at or clicked by its place. Ask to turn "
+	"left or right or to look up or down; or use pointer mode (NVDA+Alt+K) or controller mode (NVDA+Alt+J), where "
+	"Enter or the A button clicks where the game aims. If the program does show a pointer of its own, say: this "
+	"game has its own pointer.")
+
+
+def _cursorPosition():
 	point = wintypes.POINT()
 	ctypes.windll.user32.GetCursorPos(ctypes.byref(point))
 	return point.x, point.y
 
 
-def moveTo(x, y):
+def _setCursor(x, y):
 	ctypes.windll.user32.SetCursorPos(int(x), int(y))
+
+
+def _relative(dx, dy):
+	"""Move the mouse itself by a number of its own steps, to the right and down. A program that reads the
+	mouse directly sees this as it sees a hand moving the mouse."""
+	ctypes.windll.user32.mouse_event(_MOVE, int(dx), int(dy), 0, 0)
+
+
+def position():
+	if _direct.way == direct.POINTER and _direct.tracker is not None:
+		return _direct.tracker.x, _direct.tracker.y
+	return _cursorPosition()
+
+
+def moveTo(x, y):
+	if _direct.way == direct.POINTER and _direct.tracker is not None:
+		_direct.tracker.goTo(x, y)
+		return
+	if _direct.way == direct.VIEW:
+		raise ToolError(_VIEW_REFUSAL)
+	_setCursor(x, y)
+
+
+def nudge(dx, dy, cancel=None):
+	"""Move the mouse itself by a number of steps, in small pieces as a hand does. Returns False when stopped."""
+	for stepX, stepY in direct.chunks(dx, dy):
+		if cancel is not None and cancel.is_set():
+			return False
+		_relative(stepX, stepY)
+		time.sleep(_NUDGE_STEP)
+	return True
+
+
+class _CURSORINFO(ctypes.Structure):
+	_fields_ = [("cbSize", wintypes.DWORD), ("flags", wintypes.DWORD), ("hCursor", wintypes.HANDLE), ("ptScreenPos", wintypes.POINT)]
+
+
+def pointerState(box=None):
+	"""What Windows says about its own mouse pointer: whether it is drawn, whether a program keeps it inside
+	a part of the screen, and whether that part lies inside the window (left, top, right, bottom). A game
+	that reads the mouse directly hides it and keeps it in. After a touch Windows itself puts the pointer
+	away for a while; that is not counted as hidden."""
+	state = {"showing": True, "confined": False, "inside": False}
+	try:
+		user32 = ctypes.windll.user32
+		info = _CURSORINFO()
+		info.cbSize = ctypes.sizeof(_CURSORINFO)
+		if user32.GetCursorInfo(ctypes.byref(info)):
+			state["showing"] = info.flags != 0
+		clip = wintypes.RECT()
+		if user32.GetClipCursor(ctypes.byref(clip)):
+			width, height = user32.GetSystemMetrics(78), user32.GetSystemMetrics(79)
+			state["confined"] = clip.right - clip.left < width - 2 or clip.bottom - clip.top < height - 2
+			if state["confined"] and box is not None:
+				state["inside"] = (
+					clip.left >= box[0] - 2 and clip.top >= box[1] - 2 and clip.right <= box[2] + 2 and clip.bottom <= box[3] + 2)
+	except Exception:
+		log.debugWarning("VisionClaw: Windows' facts about the mouse pointer could not be read", exc_info=True)
+	return state
+
+
+def appNow():
+	"""The name of the program in front, or "". Main thread."""
+	try:
+		return api.getForegroundObject().appModule.appName or ""
+	except Exception:
+		return ""
+
+
+@contextlib.contextmanager
+def directScope(plugin):
+	"""While a tool works the mouse: move it the way the program in front is known to need. Where the user
+	said that the program draws a pointer of its own, and Windows' pointer is hidden there, the program's
+	pointer is brought to each place by counting from the window's corner; where the mouse turns the view,
+	pointing at a place is refused with a sentence that says what to ask for instead. Everywhere else, and
+	whenever Windows' own pointer shows, nothing is different."""
+	way, app, box = direct.PLAIN, "", None
+	try:
+		app, box = _onMain(lambda: (appNow(), plugin.pointerMode._box()))
+		way = plugin.appWays.mouse(app)
+		if way != direct.PLAIN and pointerState(box)["showing"]:
+			way = direct.PLAIN
+	except Exception:
+		way = direct.PLAIN
+	if way == direct.PLAIN:
+		yield
+		return
+	old = (_direct.way, _direct.tracker)
+	tracker = None
+	if way == direct.POINTER:
+		tracker = direct.Tracker(
+			_relative, box, plugin.appWays.speed(app), plugin._grab, measure=plugin.appWays.get(app, "speed") is None)
+	_direct.way, _direct.tracker = way, tracker
+	try:
+		yield
+	finally:
+		_direct.way, _direct.tracker = old
+		if tracker is not None and tracker.measured:
+			plugin.appWays.set(app, "speed", round(tracker.speed, 3))
 
 
 def _button(flag):
@@ -172,10 +296,12 @@ def _barFor(picture, scale, direction):
 		return None
 
 
-def click(x, y, action=pointer.CLICK):
-	"""Do one mouse action at a point of the screen. Leaves the pointer there."""
-	moveTo(x, y)
-	time.sleep(_SETTLE)
+def click(x, y, action=pointer.CLICK, move=True):
+	"""Do one mouse action at a point of the screen. Leaves the pointer there.
+	move: False where the mouse turns the view; then the buttons are pressed where the game aims."""
+	if move:
+		moveTo(x, y)
+		time.sleep(_SETTLE)
 	if action == pointer.HOVER:
 		return
 	if action == pointer.RIGHT:
@@ -376,6 +502,10 @@ class PointerMode:
 		self.kept = None
 		self._keptOld = self._keptTimer = None
 		self._watching = None
+		# How the mouse is moved here: Windows' pointer, the program's own pointer, or the view (claw/direct.py).
+		self.direct = direct.PLAIN
+		# Called with a short word when the pointer comes to the window's edge; controller mode buzzes then.
+		self.onEdge = None
 
 	# --- A button a hotkey keeps down ---
 
@@ -420,8 +550,70 @@ class PointerMode:
 		loc = self._plugin.windowBox(api.getForegroundObject())
 		return (loc.left, loc.top, loc.left + loc.width, loc.top + loc.height)
 
+	# --- A program that reads the mouse directly ---
+
+	def wayHere(self, box):
+		"""How the mouse is moved in the program in front: as it was kept for the program, where Windows' own
+		pointer is hidden there; else as everywhere. Main thread."""
+		way = self._plugin.appWays.mouse(appNow())
+		return way if way != direct.PLAIN and not pointerState(box)["showing"] else direct.PLAIN
+
+	def useWay(self, way, box):
+		"""Move the mouse this way from now on. For a program's own pointer, the pointer is pushed into the
+		window's corner, measured where that has not been done, and brought to the middle. Main thread."""
+		self.leaveWay()
+		self.direct = way
+		if way != direct.POINTER:
+			return
+		app = appNow()
+		tracker = direct.Tracker(
+			_relative, box, self._plugin.appWays.speed(app), self._plugin._grab,
+			measure=self._plugin.appWays.get(app, "speed") is None)
+		_direct.way, _direct.tracker = direct.POINTER, tracker
+		try:
+			tracker.goTo(*pointer.centre(box))
+		except Exception:
+			log.debugWarning("VisionClaw: the program's own pointer could not be brought to the middle", exc_info=True)
+		if tracker.measured:
+			self._plugin.appWays.set(app, "speed", round(tracker.speed, 3))
+		self.x, self.y = tracker.x, tracker.y
+
+	def leaveWay(self):
+		if self.direct == direct.POINTER:
+			_direct.way, _direct.tracker = direct.PLAIN, None
+		self.direct = direct.PLAIN
+
+	def nextWay(self, box):
+		"""Change to the next of the three ways the mouse can be moved, keep it for the program in front, and
+		say which it is. Main thread."""
+		way = direct.WAYS[(direct.WAYS.index(self.direct) + 1) % len(direct.WAYS)]
+		self.useWay(way, box)
+		app = appNow()
+		self._plugin.appWays.set(app, "mouse", None if way == direct.PLAIN else way)
+		text = {
+			# Translators: Spoken in pointer mode when the mouse is moved as in every other program again.
+			direct.PLAIN: _("Windows' own mouse pointer is moved, as in other programs."),
+			# Translators: Spoken in pointer mode when a game's own pointer is moved by moving the mouse itself.
+			direct.POINTER: _(
+				"The program's own pointer is moved: VisionClaw pushed it into the corner of the window, counted from "
+				"there and brought it to the middle. Kept for this program."),
+			# Translators: Spoken in pointer mode when the arrow keys turn a game's view by moving the mouse itself.
+			direct.VIEW: _(
+				"The mouse turns the view: the arrow keys move the mouse itself, and Enter clicks where the game aims. "
+				"Kept for this program."),
+		}[way]
+		ui.message(text)
+		return text
+
 	def start(self):
 		"""Turn pointer mode on. Returns what was said, so a tool can pass it on. Main thread."""
+		self.place()
+		self.active, self.holding = True, False
+		return self.help()
+
+	def place(self):
+		"""Put the pointer where pointer mode begins, in the window in front, and move the mouse the way this
+		program needs. Without the keys of pointer mode: controller mode uses this too. Main thread."""
 		box = self._box()
 		self.x, self.y = pointer.centre(box)
 		try:
@@ -431,10 +623,18 @@ class PointerMode:
 				self.x, self.y = pointer.clamp(loc.left + loc.width // 2, loc.top + loc.height // 2, box)
 		except Exception:
 			pass
-		moveTo(self.x, self.y)
-		self.active, self.holding = True, False
+		way = self.wayHere(box)
+		if way == direct.PLAIN:
+			self.leaveWay()
+			moveTo(self.x, self.y)
+		else:
+			self.x, self.y = pointer.centre(box)
+			self.useWay(way, box)
 		# Steps and areas follow the scaling of the monitor the window is on.
 		self.scale = scaleAt(self.x, self.y)
+
+	def help(self):
+		"""Say what the keys of pointer mode do. Returns what was said."""
 		# Translators: Spoken when pointer mode is turned on.
 		text = _(
 			"Pointer mode is on. The arrow keys move the mouse pointer in this window; with Shift in small steps, "
@@ -445,8 +645,16 @@ class PointerMode:
 			"it a little, and then the arrow keys work it. T rests the pointer here and says what appears, as for a "
 			"tip or a menu that opens by itself. C clicks here the moment what is here changes, and Shift+C only "
 			"sounds a tone then. W says what is at the pointer, R reads the text there, "
-			"P says where the pointer is, H repeats this help. Escape turns pointer mode off."
+			"P says where the pointer is, H repeats this help. M changes how the mouse is moved, for a game that reads "
+			"the mouse directly: Windows' pointer, the game's own pointer, or the view that the mouse turns. "
+			"Escape turns pointer mode off."
 		)
+		if self.direct == direct.POINTER:
+			# Translators: Added to the help of pointer mode in a program that draws its own mouse pointer.
+			text += " " + _("In this program its own pointer is moved, as you told VisionClaw.")
+		elif self.direct == direct.VIEW:
+			# Translators: Added to the help of pointer mode in a program where the mouse turns the view.
+			text += " " + _("In this program the mouse turns the view: the arrow keys move the mouse itself, as you told VisionClaw.")
 		ui.message(text)
 		return text
 
@@ -455,6 +663,7 @@ class PointerMode:
 			release()
 		self.letGo(say=False)
 		self._stopWatching()
+		self.leaveWay()
 		wasOn, self.active, self.holding = self.active, False, False
 		if say and wasOn:
 			# Translators: Spoken when pointer mode is turned off.
@@ -497,25 +706,39 @@ class PointerMode:
 			self.stop()
 			return
 		name = command[0]
-		if name == "move":
+		view = self.direct == direct.VIEW
+		if name == "way":
+			self.nextWay(box)
+		elif name == "move" and view:
+			# The mouse itself is moved; there is no place, so the tone only says that it moved.
+			dx, dy = pointer.DIRECTIONS[command[1]]
+			steps = round(pointer.stepFor(command[2], box, self.scale) * self._plugin.appWays.speed(appNow()))
+			nudge(dx * steps, dy * steps)
+			tones.beep(660, 20)
+		elif name in ("centre", "where") and view:
+			# Translators: Spoken in pointer mode when the user asks where the pointer is in a game whose view the mouse turns.
+			ui.message(_("The mouse turns the view here, so there is no pointer with a place."))
+		elif name == "move":
 			x, y = pointer.move(self.x, self.y, command[1], pointer.stepFor(command[2], box, self.scale), box)
 			atEdge = (x, y) == (self.x, self.y)
 			self.x, self.y = x, y
 			moveTo(x, y)
 			# A short tone says how high the pointer is; a low one that it is at the edge.
 			tones.beep(180 if atEdge else pointer.pitch(y, box), 25)
+			if atEdge and self.onEdge is not None:
+				self.onEdge()
 		elif name == "centre":
 			self.x, self.y = pointer.centre(box)
 			moveTo(self.x, self.y)
 			ui.message(pointer.where(self.x, self.y, box))
-		elif name in ("click", "double", "right"):
+		elif name in ("click", "double", "right", "middle"):
 			if self.holding:
 				release()
 				self.holding = False
-			action = {"click": pointer.CLICK, "double": pointer.DOUBLE, "right": pointer.RIGHT}[name]
-			threading.Thread(target=click, args=(self.x, self.y, action), daemon=True).start()
-			# Translators: Spoken in pointer mode after a mouse action. One of: click, double click, right click.
-			ui.message({"click": _("click"), "double": _("double click"), "right": _("right click")}[name])
+			action = {"click": pointer.CLICK, "double": pointer.DOUBLE, "right": pointer.RIGHT, "middle": pointer.MIDDLE}[name]
+			threading.Thread(target=click, args=(self.x, self.y, action, not view), daemon=True).start()
+			# Translators: Spoken in pointer mode after a mouse action. One of: click, double click, right click, middle click.
+			ui.message({"click": _("click"), "double": _("double click"), "right": _("right click"), "middle": _("middle click")}[name])
 		elif name == "grab":
 			if self.holding:
 				release()
@@ -523,7 +746,8 @@ class PointerMode:
 				# Translators: Spoken in pointer mode when the mouse button is let go after dragging.
 				ui.message(_("Let go."))
 			else:
-				moveTo(self.x, self.y)
+				if not view:
+					moveTo(self.x, self.y)
 				press()
 				self.holding = True
 				# Translators: Spoken in pointer mode when the mouse button is held down for dragging.
@@ -549,7 +773,7 @@ class PointerMode:
 		elif name == "bars":
 			threading.Thread(target=self._bars, args=(box,), daemon=True).start()
 		elif name == "help":
-			self.start()
+			self.help()
 		elif name == "exit":
 			self.stop()
 
@@ -978,6 +1202,123 @@ def register(add, plugin, text, confirm, screen, pickItem, mentioned):
 			"asked": text("what the user asked for, in their own words, with when or how often to click", maxLength=300, auto=True),
 		}, changes=True, title="Clicking at the right moment")
 
+	def turnView(task, asked):
+		words = asked or task.request
+		app, box = _onMain(lambda: (appNow(), plugin.pointerMode._box()))
+		turn = direct.turnOf(words, plugin.appWays.speed(app))
+		if turn is None:
+			raise ToolError(
+				"The request does not say which way to turn or look: left, right, up or down, or around. How far may "
+				"be said as a little, a lot, or a number of steps.")
+		# Translators: Asked before VisionClaw moves the mouse itself to turn a game's view. {how} is how far and which way.
+		confirm(_("Move the mouse itself {how}, to turn or look in {app}?").format(
+			# Translators: Stands for a program's name where the name is not known.
+			how=turn["text"], app=app or _("this program")))
+		before = look(box)
+		whole = nudge(turn["dx"], turn["dy"], task.cancel)
+		task.check()
+		time.sleep(_SCROLL_SETTLE)
+		after = look(box) if before is not None else None
+		task.items = None
+		said = f"Moved the mouse itself {turn['text']}."
+		if not whole:
+			said = "Stopped while moving the mouse itself."
+		if before is None or after is None:
+			changed = " The window could not be looked at, so whether the view changed is not known."
+		elif scrolling.moved(before, after) >= scrolling.MOVED_SHARE or pointer.appeared(before, after) is not None:
+			changed = " What the window shows changed."
+		else:
+			changed = (
+				" Nothing VisionClaw can see changed in the window. The program may not turn with the mouse just now, or "
+				"it refuses movements made by a program.")
+		guess = (
+			" How far a program turns for one step of the mouse differs from program to program: if that was too far "
+			"or not far enough, say that direct mouse movement is too fast or too slow here, and VisionClaw keeps it "
+			"for this program.") if turn["guess"] else ""
+		return said + changed + guess
+
+	add("turn_view",
+		"turn the view, look or aim in a game that reads the mouse directly, by moving the mouse itself left, right, "
+		"up or down, a little, a lot or around; says whether the view changed",
+		turnView, {
+			"asked": text("what the user asked for, in their own words, with the direction", maxLength=300, auto=True),
+		}, changes=True, title="Moving the mouse itself")
+
+	def mouseWay(task, asked):
+		words = asked or task.request
+		app, box = _onMain(lambda: (appNow(), plugin.pointerMode._box()))
+		ways = plugin.appWays
+		state = pointerState(box)
+		wanted = direct.wayOf(words)
+		if not app:
+			raise ToolError("Which program is in front could not be found out.")
+		if wanted is None:
+			# Only asked about: what is kept and what Windows says, in plain code's own words.
+			kept = ways.mouse(app)
+			lines = [f"In {app}, {direct.wayText(kept)}."]
+			if kept != direct.PLAIN:
+				lines.append(f"One step of the mouse counts as {ways.speed(app):g} there.")
+			facts = direct.stateText(state)
+			if facts:
+				lines.append(facts)
+				if kept == direct.PLAIN:
+					lines.append(direct.ADVICE)
+			elif kept == direct.PLAIN:
+				lines.append("Windows' own mouse pointer shows here, so the usual way should work.")
+			return " ".join(lines)
+		kind, value = wanted
+		if kind == "speed":
+			speed = max(direct.SPEED_LEAST, min(direct.SPEED_MOST, ways.speed(app) * value))
+			# Translators: Asked before VisionClaw keeps a different speed of the mouse for one program.
+			confirm(_("Make direct mouse movement in {app} {how}, and keep that for this program?").format(
+				# Translators: How direct mouse movement is changed for a program: slower, or faster.
+				app=app, how=_("slower") if value < 1 else _("faster")))
+			ways.set(app, "speed", round(speed, 3))
+			return (
+				f"Direct mouse movement in {app} is now {'slower' if value < 1 else 'faster'}: one step counts as "
+				f"{speed:g}. This is kept for the program.")
+		if kind == "measure":
+			if ways.mouse(app) != direct.POINTER:
+				raise ToolError(
+					f"Measuring is for a program that draws a pointer of its own, and {app} is not kept as one. Say "
+					"first that the program has its own pointer.")
+			# Translators: Asked before VisionClaw measures how fast a game moves its own mouse pointer.
+			confirm(_("Push the pointer of {app} into the corner of its window and move it three times, to measure it?").format(app=app))
+			tracker = direct.Tracker(_relative, box, ways.speed(app), plugin._grab)
+			tracker.home()
+			if not tracker.measure():
+				return (
+					f"The pointer of {app} could not be measured: its picture did not show one small thing moving. "
+					f"One step of the mouse still counts as {ways.speed(app):g} there. If clicks land beside what you "
+					"name, say that it is too fast or too slow.")
+			ways.set(app, "speed", round(tracker.speed, 3))
+			return f"Measured: {app} moves its pointer {tracker.speed:.2f} pixels for one step of the mouse. Kept for the program."
+		if value == ways.mouse(app):
+			return f"That is how it is already kept: in {app}, {direct.wayText(value)}."
+		# Translators: Asked before VisionClaw keeps how the mouse is moved in one program. {way} says how.
+		confirm(_("Keep this for {app}: {way}?").format(app=app, way=direct.wayText(value)))
+		ways.set(app, "mouse", None if value == direct.PLAIN else value)
+		if value == direct.PLAIN:
+			ways.set(app, "speed", None)
+			return f"In {app}, {direct.wayText(value)} again. What was kept about its mouse is forgotten."
+		more = (
+			" Clicking, holding, dragging and gestures on things you name now move the program's own pointer. Its "
+			"speed is measured the first time; if clicks land beside what you name, say that it is too fast or too slow."
+			if value == direct.POINTER else
+			" Ask to turn left or right, to look up or down, or to turn around. In pointer mode the arrow keys now "
+			"move the mouse itself.")
+		hidden = "" if not state["showing"] else (
+			" Windows' own pointer shows here just now; this way is used whenever the program hides it.")
+		return f"Kept for {app}: {direct.wayText(value)}.{more}{hidden}"
+
+	add("mouse_way",
+		"say or keep how the mouse is moved in the program in front: Windows' own pointer, a pointer the game draws "
+		"itself, or a view that the mouse turns; also make direct mouse movement faster or slower there, or measure "
+		"the game's own pointer",
+		mouseWay, {
+			"asked": text("what the user said about how this program uses the mouse, in their own words", maxLength=300, auto=True),
+		}, changes=True, title="How the mouse is moved here")
+
 	def pointerMode(task):
 		done = threading.Event()
 		box = {}
@@ -995,3 +1336,6 @@ def register(add, plugin, text, confirm, screen, pickItem, mentioned):
 		"turn on pointer mode, so the user can work any control with the keyboard: the arrow keys move the mouse "
 		"pointer, and keys click, right-click, double-click and drag",
 		pointerMode, title="Turning on pointer mode", tell=VERBATIM)
+	# What the tools for fingers and pressure share with these: where a request is meant, and whether it changed.
+	import types
+	return types.SimpleNamespace(placeFor=placeFor, changedText=changedText, look=look)

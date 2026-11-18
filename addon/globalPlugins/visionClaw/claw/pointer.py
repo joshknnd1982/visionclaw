@@ -60,6 +60,8 @@ KEYS = {
 	"kb:s": ("bars",), "kb:d": ("take",),
 	# Rest on what is here and say what appears; click as soon as what is here changes; only a tone when it does.
 	"kb:t": ("rest",), "kb:c": ("when", True), "kb:shift+c": ("when", False),
+	# How the mouse is moved: Windows' pointer, a game's own pointer, or a view the mouse turns (claw/direct.py).
+	"kb:m": ("way",),
 }
 
 

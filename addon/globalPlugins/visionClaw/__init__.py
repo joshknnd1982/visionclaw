@@ -35,8 +35,8 @@ from scriptHandler import script
 from speech import extensions as speechExtensions
 
 from . import autodescribe, clawui, controlkeys, curtain, dialogs, explorer, followup, hardware, helpers, imaging, labels, localmedia, mousetools, nvdatools, ocr, sounds, updater, viewers, winzapp
-from . import asktools, memorytools
-from .claw import catalog, drivers, guides, learn, prompts
+from . import asktools, memorytools, padtools, touchinput
+from .claw import catalog, direct, drivers, guides, learn, prompts
 from .claw.changes import ChangeLog
 from .claw import debuglog
 from .claw import task as clawTask
@@ -151,6 +151,8 @@ confspec = {
 	"debugLog": 'option("detailed", "brief", "off", default="detailed")',
 	# When VisionClaw keeps a memory: when asked or when the user says something lasting, only when asked, never.
 	"remember": 'option("auto", "asked", "off", default="auto")',
+	# A game controller: noticed and announced, noticed without a word, or not looked for at all.
+	"controller": 'option("announce", "quiet", "off", default="announce")',
 	"sideBySide": "boolean(default=True)",
 	"searchEngine": 'option("duckduckgo", "google", "bing", default="duckduckgo")',
 	"autoFixAddons": "boolean(default=True)",
@@ -481,11 +483,17 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		# How and when VisionClaw does a kind of job: its own skills, and the user's in a folder of their own.
 		self.skills = Skills(os.path.join(DATA_DIR, "skills"), recipes=set(RECIPES))
 		self.helpers = helpers.Helpers(self, DATA_DIR)
+		# What VisionClaw found out about how one program is worked: how its mouse is moved, and whether it
+		# takes touch. Plain data, kept between sessions.
+		self.appWays = direct.AppWays(os.path.join(DATA_DIR, "appways.json"))
 		self.pointerMode = mousetools.PointerMode(self)
+		# A game controller, noticed when it is connected; in controller mode it works the mouse pointer.
+		self.controller = padtools.Controller(self, lambda: conf()["controller"])
 		# Newer versions of VisionClaw itself. Looks by itself only if the user chose that in the settings.
 		self.updater = updater.Updater(self, DATA_DIR, conf)
 		self.updater.startLater()
 		self.controlKeys = controlkeys.ControlKeys(self)
+		self.controller.start()
 		self.clawTask = None
 		self._askDialog = None
 		registry = nvdatools.build(self)
@@ -599,7 +607,9 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			self.clawTask.stop()
 		if getattr(self, "_debugTask", None) is not None:
 			self._debugTask.stop()
+		self.controller.stop()
 		self.pointerMode.stop(say=False)
+		touchinput.close()
 		self.updater.stop()
 		self.controlKeys.stop(say=False)
 		self.helpers.terminate()
@@ -978,6 +988,17 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	)
 	def script_pointerMode(self, gesture):
 		self.pointerMode.toggle()
+
+	@script(
+		# Translators: Description of a command in the Input Gestures dialog.
+		description=_(
+			"Turns controller mode on or off: a connected game controller works the mouse pointer in the current "
+			"window, with its sticks, buttons and triggers."
+		),
+		gesture="kb:NVDA+alt+j",
+	)
+	def script_controllerMode(self, gesture):
+		self.controller.toggle()
 
 	@script(
 		# Translators: Description of a command in the Input Gestures dialog.

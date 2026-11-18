@@ -46,6 +46,11 @@ _BROWSERS = re.compile(
 _OFFICE = re.compile(
 	r"\b(microsoft word|ms word|in word|word (document|processor|file)s?|winword|excel|spreadsheets?|"
 	r"work ?books?|work ?sheets?|cells?|outlook|e-?mails?|inbox|ribbon|office)\b", re.IGNORECASE)
+# VisionClaw's own notes on a game controller, fingers, pressure and games that read the mouse directly.
+_INPUTS = re.compile(
+	r"\b(controllers?|game ?pads?|joy ?pads?|joysticks?|xbox|playstation|triggers?|thumb ?sticks?|bumpers?|d-?pad|"
+	r"pinch\w*|fingers?|touch\w*|pressure|stylus|mouse ?look|own (mouse )?(pointer|cursor)|reads? the mouse|"
+	r"direct mouse|turns? the view|first[- ]person)\b", re.IGNORECASE)
 # Where each knowledge file belongs, and what it is called when an answer is taken from it, and, for some,
 # what a question or the program in front must name for the file to be asked. A file that is not listed is
 # NVDA's.
@@ -64,6 +69,7 @@ NOTES = {
 	"api-java-access-bridge": (SYSTEM, "VisionClaw's notes on the Java Access Bridge", _API),
 	"app-browsers": (APP, "VisionClaw's notes on web browsers", _BROWSERS),
 	"app-office": (APP, "VisionClaw's notes on Word, Excel and Outlook", _OFFICE),
+	"visionclaw-inputs": (NVDA, "VisionClaw's notes on game controllers, touch, pressure and games", _INPUTS),
 }
 # Written for people who write add-ons. Left out unless the question is about that.
 DEVELOPER_NOTES = frozenset(("addon-development", "objects-and-events", "nvda-inside", "guides"))

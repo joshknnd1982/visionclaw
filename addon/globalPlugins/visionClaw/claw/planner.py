@@ -11,7 +11,7 @@
 
 import re
 
-from . import pointer, policy
+from . import direct, gamepad, pointer, policy, touch
 from .llm import LLMError, clip
 from .task import Step
 from .tools import ANSWER
@@ -198,6 +198,37 @@ RECIPES = {
 		"watch an item and click it as soon as it changes or appears, or click it many times in a row in a steady "
 		"rhythm; for games and controls where the moment of the click matters",
 		("timed_click",)),
+	# What no mouse pointer does (claw/touch.py, claw/direct.py): fingers, pressure, and a game that reads the
+	# mouse directly. And a game controller as a way to work any window (claw/gamepad.py).
+	"touch": (
+		"touch the screen as fingers would",
+		"touch the screen as fingers would: pinch or spread with two fingers, swipe with two or more fingers, turn "
+		"with two fingers, double tap, or touch and hold, on an item or in the window, for a program worked by touch",
+		("touch_gesture",)),
+	"pressure": (
+		"press as hard as you say, like a pen",
+		"press on something lightly, firmly or with a pressure the user names, or draw a line with pressure, as a "
+		"pen does, for a drawing program or a control that feels how hard it is pressed",
+		("pen_stroke",)),
+	"turn_view": (
+		"turn or look in a game by moving the mouse itself",
+		"turn left or right, look up or down, turn around or aim in a game whose view follows the mouse, by moving "
+		"the mouse itself",
+		("turn_view",)),
+	"mouse_way": (
+		"say or keep how this program uses the mouse",
+		"say or keep how the mouse is moved in the program or game in front: that it draws a pointer of its own, "
+		"that the mouse turns the view, that direct mouse movement is too fast or too slow, or the usual way again",
+		("mouse_way",)),
+	"controller_info": (
+		"tell you about the game controller",
+		"say whether a game controller, gamepad or joystick is connected, and what its buttons, sticks and "
+		"triggers do",
+		("controller_info",)),
+	"controller_mode": (
+		"turn controller mode on or off",
+		"turn controller mode on or off, so that a connected game controller works the mouse pointer in any window",
+		("controller_mode",)),
 	"keyboard_mouse": (
 		"let you work the mouse pointer with the keyboard",
 		"turn on pointer mode, so the user can work a control, canvas or game that has nothing to list: the arrow "
@@ -316,6 +347,46 @@ _HINTS = (
 	("app_notes", r"\b(which|what|list|show|open|read)\b.*\bnotes\b"),
 	("learn_app", r"\b(learn|study|research|read up)\b.*\b(app|application|program|game|utility|software|tool|this|it)\b"
 		r"|\b(make|take|write|create)\b.*\bnotes\b|\blearn (about|how to use)\b"),
+	# A game controller. A button of it as a hotkey first; then the mode; then anything asked about it. Before
+	# the hints that "turn on", "how do I" and "click" would otherwise set off.
+	("make_hotkey", r"\b(make|let|have|set|bind|assign|map|give)\b.*\b(button|trigger|bumper|shoulder|d-?pad)\b.*"
+		r"\b(controller|game ?pad|joy ?pad|joystick)\b"
+		r"|\b(make|let|have|set|bind|assign|map)\b.*\b(controller|game ?pad|joy ?pad|joystick)('s)?\b.*"
+		r"\b(button|trigger|bumper|shoulder|d-?pad)\b.*\b(click|press|read|say|hover|hold)\b"),
+	("controller_mode", r"\b(controller|game ?pad|joy ?pad|joystick) mode\b"
+		r"|\b(turn|switch)\b.{0,12}\b(on|off)\b.*\b(controller|game ?pad|joy ?pad|joystick)\b"
+		r"|\b(use|work|move|control|operate|drive|steer)\b.*\b(mouse|pointer|cursor|computer|pc|windows?|screen|nvda|program|app)\b.*"
+		r"\bwith (my |the |a |an |this )?(xbox |game |playstation )?(controller|game ?pad|joy ?pad|joystick)\b"
+		r"|\b(controller|game ?pad|joy ?pad|joystick)\b.*\b(as|like|instead of) (a |the |my )?mouse\b"
+		r"|\b(start|stop) using (my |the |a )?(xbox |game )?(controller|game ?pad|joy ?pad|joystick)\b"),
+	("controller_info", r"\b(is|are|do i have|have i|which|what|any|can you (see|find|detect)|detect\w*|check|find|how)\b.*"
+		r"\b(controller|game ?pad|joy ?pad|joystick)s?\b"
+		r"|\b(controller|game ?pad|joy ?pad|joystick)s?\b.*\b(connected|plugged|detected|found|there|buttons?|triggers?|sticks?)\b"),
+	# How a game uses the mouse: kept for the program. Before the hints that "mouse" and "pointer" set off.
+	("mouse_way", r"\bown (mouse )?(pointer|cursor)\b|\b(pointer|cursor) of its own\b|\breads? the mouse (directly|itself)\b"
+		r"|\bdirect(ly)? mouse\b|\bmouse\b.{0,20}\bdirectly\b|\braw (mouse|input)\b|\bmouse ?look\b|\bcaptures? the mouse\b"
+		r"|\bmouse (turns?|moves?|rotates?|steers?|controls?) the (view|camera|character|player|aim|crosshairs?)\b"
+		r"|\b(normal|usual|ordinary|windows'?s?) (mouse )?(pointer|cursor) again\b"
+		r"|\bhow (does|is) (this|the) (game|program|app)\b.*\b(mouse|pointer)\b"),
+	# Fingers: a pinch, a spread, a number of fingers, a touch that is held. Before the mouse's own gestures,
+	# the click that holds, and the wheel that zooms.
+	("touch", r"\bpinch(es|ed|ing)?\b|\b(one|two|three|four|five|[1-5])[- ]finger(s|ed)?\b"
+		r"|\bwith (a|one|two|three|four|five|both|my|[1-5]) fingers?\b|\bmulti-?touch\b|\btouch gestures?\b"
+		r"|\btouch(es)? and holds?\b|\b(double|triple)[- ]tap\b|\btouch ?screen\b"
+		r"|\bspread(s|ing)? (it |them |the \w+ )?(out|apart|with)\b"),
+	# How hard: a pen's pressure. Before the mouse's gestures and clicks.
+	("pressure", r"\bpressure\b|\b(pen|stylus)\b.*\b(press|draw|stroke|line|write|sign|tap|touch|eras\w+)\b"
+		r"|\b(press|push|draw|tap|touch|stroke)\w*\b.{0,60}\b(harder|hard|lightly|softly|firmly|gently|lighter|softer)\b"
+		r"|\b(hard|firm|light|soft|gentle) (press|touch|stroke)\b|\bforce (touch|click|press)\b"),
+	# A view that follows the mouse. "Turn up the volume" and "look up the weather" are not meant.
+	("turn_view", r"^(?!.*\b(volume|speed|rate|pitch|sound|music|voice|brightness|heating|lights?)\b).*("
+		r"\bturn (the (view|camera|character|player) )?(to the |a little |slightly |sharply |all the way |a bit |a lot |far |right )?"
+		r"(left|right|around|round)\b"
+		r"|\blook (a little |slightly |a bit |a lot |far |straight |further )?(left|right|around|behind|up|down)\b"
+		r"(?! (the|a(?! (little|bit|lot)\b)|an|my|this|that|what|how|for|on|in|at|it|its|their|where|who|which|whether|if)\b)"
+		r"|\b(aim|face|steer) (a little |slightly |a bit |a lot |further )?(to the )?(left|right|up|down|higher|lower)\b"
+		r"|\bmove the (mouse|camera|view|crosshairs?|aim) (itself |directly )?(a little |a lot |a bit )?(to the )?(left|right|up|down)\b"
+		r"|\bturn (the |my )?(view|camera)\b)"),
 	# A control that is dragged or turned: the arrow keys take over. Before the hotkey, mouse and drag hints.
 	("work_control", r"\b(dial|knob|fader)s?\b"
 		r"|\barrow keys?\b.*\b(work|turn|move|operate|control)\b.*\b(slider|control|lever)\b"
@@ -552,7 +623,9 @@ def classify(llm, role, part, context, registry, note=""):
 
 # Recipes whose tool reads everything it needs from the user's own words. Plain code can tell that such a
 # recipe cannot be meant: the words name no moment and no count, or no direction and no shape.
-_NEEDS = {"timed_click": pointer.timingOf, "gesture": pointer.gestureOf}
+_NEEDS = {
+	"timed_click": pointer.timingOf, "gesture": pointer.gestureOf, "touch": touch.touchOf, "pressure": touch.penOf,
+	"turn_view": direct.turnOf}
 
 
 def fitted(choice, part, guess):
@@ -561,6 +634,11 @@ def fitted(choice, part, guess):
 	New Game button for 2 seconds" was sent to the click at the right moment by both, twice."""
 	needs = _NEEDS.get(choice)
 	if needs is not None and needs(part) is None and guess != choice:
+		return guess
+	# A button of a game controller that is to be made to do something is a hotkey, and nothing to do now:
+	# "Make the X button on my controller click the New Game button" must never click that button. With the
+	# hotkey among their choices both real models chose it (2026-11-18); this holds when one does not.
+	if guess == "make_hotkey" and choice != guess and gamepad.buttonOf(part) is not None:
 		return guess
 	return choice
 
@@ -581,7 +659,7 @@ def quickTriage(request):
 	return {
 		"kind": recipes[0],
 		"complexity": complexity(recipes),
-		"needs_vision": any(r in ("describe", "click", "make_hotkey", "read_text", "fix_access", "check_access") for r in recipes),
+		"needs_vision": any(r in ("describe", "click", "make_hotkey", "read_text", "fix_access", "check_access", "touch", "pressure") for r in recipes),
 		"needs_code": "write_addon" in recipes,
 	}
 

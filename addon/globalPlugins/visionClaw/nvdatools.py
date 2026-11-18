@@ -27,7 +27,7 @@ import wx
 from .vclog import log
 
 from . import mousetools, net, nvdainfo, ocr, webtools
-from .claw import changes, commands, debuglog, drivers, fixes, guides, inside, lookup, match, microaddons, pointer, policy, prompts, web
+from .claw import changes, commands, debuglog, drivers, fixes, gamepad, guides, inside, lookup, match, microaddons, pointer, policy, prompts, web
 from .claw.catalog import CODER, VISION
 from .claw.llm import LLM, clip
 from .claw.memory import score, wordList, words as wordsOf
@@ -1225,10 +1225,15 @@ def build(plugin):
 		if plugin.clawAsk(question, [_("Yes, do it"), _("No, leave it")]) != 0:
 			raise UserSaidNo()
 
-	def guarded(fn):
-		"""A tool function where the user saying no ends the step quietly instead of as an error."""
+	def guarded(fn, pointing=False):
+		"""A tool function where the user saying no ends the step quietly instead of as an error.
+		pointing: the tool puts the mouse on a place; while it works, the mouse is moved the way the program in
+		front is known to need, as for a game that reads the mouse directly."""
 		def run(task, **form):
 			try:
+				if pointing:
+					with mousetools.directScope(plugin):
+						return fn(task, **form)
 				return fn(task, **form)
 			except UserSaidNo:
 				return "You said no, so nothing was changed."
@@ -1239,7 +1244,7 @@ def build(plugin):
 		return run
 
 	def add(name, description, fn, fields=None, **options):
-		registry.add(Tool(name, description, guarded(fn), fields, **options))
+		registry.add(Tool(name, description, guarded(fn, name in mousetools.DIRECT_TOOLS), fields, **options))
 
 	def text(description, **extra):
 		spec = {"type": "string", "description": description}
@@ -1738,16 +1743,24 @@ def build(plugin):
 		{"question": text("the question, in plain words", maxLength=200)}, looks=True, title="Asking you")
 
 	# App helpers and add-ons.
-	def createHelper(task, key, action, item):
+	def createHelper(task, key, action, item, asked=""):
 		result = getattr(task, "items", None) or screen.items()
 		index = match.itemIndex(item, Screen.names(result))
 		if index is None:
 			raise ToolError(f"There is no item called \"{item}\" in the window. Use a name from list_items.")
 		name = Screen.names(result)[index]
 		app = onMain(screen.where)[0]
-		keyId = onMain(plugin.helpers.keyId, key)
+		# A button of a game controller can be the hotkey: the user's own words say which.
+		button = gamepad.buttonOf(asked or task.request) or gamepad.buttonOf(key)
+		if button is not None:
+			key = f"{gamepad.buttonText(button)} of the game controller"
+			keyId = gamepad.identifier(button)
+		else:
+			keyId = onMain(plugin.helpers.keyId, key)
 		if keyId is None:
-			raise ToolError(f"\"{key}\" is not a key. Use something like NVDA+alt+1 or NVDA+shift+p.")
+			raise ToolError(
+				f"\"{key}\" is not a key. Use something like NVDA+alt+1 or NVDA+shift+p, or name a button of the game "
+				"controller, such as the X button or the left shoulder button.")
 		# Translators: Asked before VisionClaw saves a hotkey for a program.
 		confirm(_("In {app}, make {key} {action} \"{item}\"?").format(app=app, key=key, action=action, item=name))
 		plugin.helpers.add(app, key, keyId, action, name)
@@ -1755,19 +1768,25 @@ def build(plugin):
 			pointer.HOVER: " It rests the mouse pointer on it and says what appears.",
 			pointer.HOLD: " The mouse button stays down on it until you press the hotkey again, or Escape.",
 		}.get(action, "")
+		if button is not None:
+			more += (
+				" It works whenever the controller is connected, in this program only, in controller mode or out of it."
+				if onMain(lambda: plugin.controller.device) is not None else
+				" No game controller is connected just now; it works as soon as one is.")
 		return f"In {app}, pressing {key} now does this: {action} \"{name}\".{more}"
 
 	add("create_helper",
-		"give the program in front its own hotkey that clicks an item, hovers over it, holds it down, or reads the "
-		"text at it, found by name each time",
+		"give the program in front its own hotkey, a key or a button of a game controller, that clicks an item, "
+		"hovers over it, holds it down, or reads the text at it, found by name each time",
 		createHelper, {
-			"key": text("the hotkey, like NVDA+alt+1", maxLength=30),
+			"key": text("the hotkey, like NVDA+alt+1, or the button of the game controller", maxLength=40),
 			"action": text(
 				"click, double click, triple click, right click or middle click the item; hover rests the mouse pointer "
 				"on it and says what appears; press and hold keeps the mouse button down on it until the hotkey is "
 				"pressed again; read speaks the item and the text after it",
 				enum=pointer.ACTIONS + ["read"], auto=helperAction),
 			"item": text("the name of the item, from list_items", maxLength=80),
+			"asked": text("what the user asked for, in their own words", maxLength=300, auto=True),
 		}, changes=True, before="list_items", title="Making the hotkey")
 
 	def createAddon(task, name, purpose):
@@ -1847,7 +1866,8 @@ def build(plugin):
 		}, changes=True, title="Writing the add-on")
 
 	add("list_helpers", "list the app helpers and add-ons VisionClaw has made on this computer",
-		lambda task: plugin.helpers.listText() or "VisionClaw has not made any helpers or add-ons yet.", looks=True,
+		lambda task: "\n".join(part for part in (plugin.helpers.listText(), "\n".join(plugin.appWays.lines())) if part)
+		or "VisionClaw has not made any helpers or add-ons yet.", looks=True,
 		title="Listing what VisionClaw made", tell=VERBATIM)
 
 	def removeHelper(task, name):
@@ -2097,7 +2117,7 @@ def build(plugin):
 
 	registry.add(Tool(
 		"fill_field", "type text into one field from list_items, such as a search box or a field of a form",
-		guarded(lambda task, field, text, enter, asked: fillField(task, field, text, enter, asked)), {
+		guarded(lambda task, field, text, enter, asked: fillField(task, field, text, enter, asked), True), {
 			"field": text("the number or the name of the field, from list_items", maxLength=80),
 			"text": text("the text to type into it", maxLength=400),
 			"enter": text("yes to press Enter afterwards, to search or send", enum=["yes", "no"],
@@ -2106,7 +2126,13 @@ def build(plugin):
 		}, changes=True, before="list_items", title="Typing into the field"))
 
 	# The mouse from the keyboard: dragging, and pointer mode.
-	mousetools.register(add, plugin, text, confirm, screen, pickItem, mentioned)
+	shared = mousetools.register(add, plugin, text, confirm, screen, pickItem, mentioned)
+	# Fingers and pressure: touching the screen as a hand would, and pressing as a pen would.
+	from . import touchtools
+	touchtools.register(add, plugin, text, confirm, mustAgree, shared)
+	# A game controller: whether one is connected, and controller mode.
+	from . import padtools
+	padtools.register(add, plugin, text)
 	from . import controlkeys
 	controlkeys.register(add, plugin, text, confirm, screen, pickItem, mentioned)
 	# Deep inspection, lasting fixes for a website or program, and questions about installed add-ons.

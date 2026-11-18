@@ -143,7 +143,9 @@ assert pointer.dragOffset("the Trash icon", BOX) is None and pointer.dragOffset(
 commands = {command[0] for command in pointer.KEYS.values()}
 assert commands == {
 	"move", "click", "double", "right", "grab", "look", "read", "where", "help", "centre", "exit", "scroll", "bars", "take",
-	"rest", "when"}
+	"rest", "when", "way"}
+# M changes how the mouse is moved, for a game that reads the mouse directly (claw/direct.py).
+assert pointer.KEYS["kb:m"] == ("way",)
 # T rests the pointer and says what appears; C clicks the moment what is there changes, Shift+C only sounds a tone.
 assert pointer.KEYS["kb:t"] == ("rest",) and pointer.KEYS["kb:c"] == ("when", True) and pointer.KEYS["kb:shift+c"] == ("when", False)
 assert pointer.KEYS["kb:pagedown"] == ("scroll", "down", pointer.PAGE) and pointer.KEYS["kb:shift+pageup"] == ("scroll", "up", pointer.NOTCH)

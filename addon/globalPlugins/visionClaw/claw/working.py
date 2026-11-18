@@ -19,10 +19,14 @@ WHEEL, SHOWS, UNSURE = "mouse wheel", "only shows something", "cannot tell"
 HOVER, HOLD, GESTURE, TIMED = "hover", "press and hold", "swipe or draw", "click at the right moment"
 # A pad, a colour field, a joystick or a map: dragged across and up and down at once.
 PAD = "drag in any direction"
+# Ways that no mouse pointer does (the owner, 2026-11-18: "visionclaw must be able to make these controls
+# accessible as well"): fingers on a touch screen, how hard a pen or finger presses, and a game's view that
+# follows the mouse's own movement, with no pointer to put anywhere.
+TOUCH, PRESSURE, AIM = "touch with fingers", "press with pressure", "move the mouse to look"
 WAYS = [
 	CLICK, DOUBLE, RIGHT, TYPE, CHOOSE, UPDOWN, SIDEWAYS, AROUND, PAD, DRAG_TO, WHEEL, HOVER, HOLD, GESTURE, TIMED,
-	SHOWS, UNSURE]
-SPECIAL = (HOVER, HOLD, GESTURE, TIMED, PAD)
+	TOUCH, PRESSURE, AIM, SHOWS, UNSURE]
+SPECIAL = (HOVER, HOLD, GESTURE, TIMED, PAD, TOUCH, PRESSURE, AIM)
 # Ways that change a value by moving the mouse: arrow keys can stand in for them.
 TURNED = (UPDOWN, SIDEWAYS, AROUND, WHEEL)
 PRESSED = (CLICK, DOUBLE, RIGHT)
@@ -101,6 +105,10 @@ VISION_SYSTEM = (
 	"press and hold: a button that works only while it is held down, or only after it is held for a while.\n"
 	"swipe or draw: an area that is swiped across, or where a line, a shape or a signature is drawn.\n"
 	"click at the right moment: a moving mark, a filling bar or a target that must be clicked at one moment.\n"
+	"touch with fingers: something that is pinched, spread or turned with two fingers, as on a touch screen.\n"
+	"press with pressure: a drawing surface or a pad where pressing harder with a pen or a finger gives a stronger line or sound.\n"
+	"move the mouse to look: the view of a game seen through the player's eyes, with a mark in the middle to aim with, "
+	"that turns when the mouse moves.\n"
 	"only shows something: text, a picture or a meter that cannot be worked.\n"
 	"cannot tell: the picture does not show what it is."
 )
@@ -112,7 +120,9 @@ CODER_SYSTEM = (
 	"something with an invoke, press, click or toggle action is clicked; something that takes text is typed "
 	"into; a plain text, image or progress bar only shows something; something whose name or description says "
 	"to hold it down is press and hold, to point at it is hover, to swipe, slide, sign or draw is swipe or draw, "
-	"and to press at one moment is click at the right moment. If the facts do not say, choose cannot tell."
+	"and to press at one moment is click at the right moment; to pinch, spread or use two fingers is touch with "
+	"fingers, to press harder or lighter is press with pressure, and to look around or aim with the mouse is move "
+	"the mouse to look. If the facts do not say, choose cannot tell."
 )
 
 
@@ -156,6 +166,16 @@ _PRESS_ACTIONS = ("click", "press", "invoke", "activate", "toggle", "check", "un
 # What a control's own name or description says about how it is worked. Kept narrow: a button called Hold,
 # as on a telephone, is clicked.
 _SAID = (
+	# Fingers and pressure come first: "swipe with two fingers" is a touch, and no mouse gesture.
+	(TOUCH, re.compile(
+		r"\bpinch(ing)?\b|\b(two|three|four|five|[2-5])[- ]fingers?\b|\bmulti-?touch\b|\btouch gestures?\b"
+		r"|\bspread (your |two )?fingers\b|\bwith (two|three|both) fingers\b", re.IGNORECASE)),
+	(PRESSURE, re.compile(
+		r"\bpressure[- ]sensitiv\w+|\bpress(ing)? (down )?(harder|more firmly|more lightly|lighter)\b|\bpen pressure\b"
+		r"|\bforce (touch|click|press)\b|\bhow hard you press\b|\bharder you press\b", re.IGNORECASE)),
+	(AIM, re.compile(
+		r"\bmouse ?look\b|\blook around with the mouse\b|\bmove the mouse to (look|aim|turn|steer)\b"
+		r"|\b(aim|steer|look) with the mouse\b", re.IGNORECASE)),
 	(HOLD, re.compile(
 		r"\b(press|click|tap|touch|push) (and|&) hold\b|\bhold (down )?to \w+|\bhold (it )?(down|for \d)|\blong[- ]press\b"
 		r"|\bpush[- ]to[- ]talk\b|\bkeep (it )?(pressed|held)\b|\bwhile (it is )?(held|pressed)\b"
@@ -303,6 +323,8 @@ def waysText(ways):
 		UPDOWN: "dragged up and down", SIDEWAYS: "dragged sideways", AROUND: "turned in a circle",
 		HOVER: "pointed at without a click", HOLD: "pressed and held down", GESTURE: "swiped or drawn on",
 		TIMED: "clicked at the right moment", PAD: "dragged in any direction",
+		TOUCH: "touched with two or more fingers", PRESSURE: "pressed harder or lighter",
+		AIM: "worked by moving the mouse itself, with no pointer",
 	}
 	parts = [f"{count} {'is' if count == 1 else 'are'} {words[way]}"
 		for way, count in sorted(ways.items(), key=lambda pair: (-pair[1], WAYS.index(pair[0]))) if way in words]
@@ -376,6 +398,22 @@ def adviceFor(way):
 		PAD: (
 			"In pointer mode (NVDA+Alt+K), put the pointer on it, press G to hold the mouse button, move it in any "
 			"direction with the arrow keys, and press G to let go. Or ask VisionClaw to drag it in a direction by name."),
+		TOUCH: (
+			"Ask VisionClaw to pinch it or spread it with two fingers, to swipe it with two or three fingers, to turn it "
+			"with two fingers, or to tap it: it touches the screen for you as fingers would, and says whether anything "
+			"changed. Where the program takes no touch, it uses the mouse wheel instead for a pinch, a spread and a swipe "
+			"with two fingers, and says which of the two worked. Nothing stands in for a turn with two fingers."),
+		PRESSURE: (
+			"Ask VisionClaw to press it lightly, firmly or at a number of percent of full pressure, or to draw a line on "
+			"it with the pressure rising or falling: it presses as a pen would. With a game controller in controller mode "
+			"(NVDA+Alt+J), the left trigger presses as hard as you pull it. A program that reads a drawing tablet through "
+			"the tablet's own driver, and not through Windows, feels no pressure from this."),
+		AIM: (
+			"Ask VisionClaw to turn left or right, to look up or down, or to turn around: it moves the mouse itself by a "
+			"number of steps and says whether the view changed. In pointer mode (NVDA+Alt+K), M changes how the mouse is "
+			"moved until the arrow keys turn the view; in controller mode (NVDA+Alt+J), pressing the right stick in makes "
+			"the right stick look around. How far a game turns for one step differs: say that it is too fast or too slow, "
+			"and that is kept for the program. A game that refuses movements made by a program cannot be worked this way."),
 	}.get(way, "Pointer mode (NVDA+Alt+K) lets you put the mouse pointer on it and try it.")
 
 

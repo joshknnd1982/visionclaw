@@ -76,6 +76,7 @@ _COMPUTER = re.compile(
 	r"\b(nvda|screen ?reader|narrator|jaws|speech|speak\w*|spoken|voice|voices|synth\w*|rate|pitch|volume|"
 	r"punctuation|verbos\w*|beep\w*|sound\w*|braille|display|keys?|keyboard|shortcuts?|hot ?keys?|commands?|"
 	r"press\w*|type|typing|mouse|click\w*|focus|read\w*|say|said|tell|announc\w*|answers?|describ\w*|"
+	r"controllers?|game ?pads?|joysticks?|touch ?screens?|touch|pen|stylus|triggers?|"
 	r"descriptions?|colou?rs?|picture\w*|screen|window|programs?|apps?|applications?|games?|browser|web|page|"
 	r"site|email|mail|document|file|folder|add-?ons?|settings?|ask\w*|confirm\w*|delet\w*|chang\w*|"
 	r"blind|deaf\w*|sight\w*|vision|low vision|magnif\w*|new to|beginner|learning|left[- ]handed|"

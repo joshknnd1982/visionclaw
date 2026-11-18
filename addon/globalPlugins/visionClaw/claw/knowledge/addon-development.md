@@ -72,6 +72,12 @@ mouseHandler.doPrimaryClick()
 x and y are screen pixels. obj.location gives left, top, width, height of a control; click its middle
 with x = left + width // 2 and y = top + height // 2.
 
+## Controllers, touch, pressure and moving the mouse itself are not for an add-on
+An add-on VisionClaw writes cannot use a controller's buttons, touch the screen as fingers do, press with a
+pen's pressure or move the mouse itself: all of these need ctypes, which the check of generated code refuses.
+VisionClaw does them itself. A controller's button that should click or say something is made as a hotkey of
+the program, not as an add-on. An add-on only speaks, with ui.message, about what such input changed.
+
 ## Reading and changing NVDA settings from code, config
 import config. Settings are read as config.conf["section"]["key"], for example
 config.conf["keyboard"]["speakTypedCharacters"]. Speech rate, pitch and volume belong to the synthesizer:

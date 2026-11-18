@@ -130,6 +130,55 @@ def pad():
 	return image
 
 
+def pinchArea():
+	image, draw = canvas()
+	draw.rectangle((10, 10, 210, 120), fill=(214, 232, 200), outline=(90, 90, 90), width=2)
+	draw.line((10, 80, 210, 50), fill=(250, 250, 250), width=6)
+	draw.line((90, 10, 120, 120), fill=(250, 250, 250), width=6)
+	for x, y in ((80, 50), (140, 86)):
+		draw.ellipse((x - 9, y - 9, x + 9, y + 9), outline=(30, 30, 30), width=2)
+	draw.line((89, 55, 104, 64), fill=(30, 30, 30), width=2)
+	draw.line((131, 81, 116, 72), fill=(30, 30, 30), width=2)
+	draw.text((40, 132), "Pinch with two fingers to zoom", fill=(20, 20, 20))
+	return image
+
+
+def turnPhoto():
+	image, draw = canvas()
+	draw.rectangle((60, 14, 160, 104), fill=(250, 250, 250), outline=(60, 60, 60), width=2)
+	draw.ellipse((90, 34, 130, 74), fill=(240, 190, 60))
+	draw.rectangle((70, 80, 150, 96), fill=(90, 150, 90))
+	for x, y in ((48, 40), (172, 80)):
+		draw.ellipse((x - 9, y - 9, x + 9, y + 9), outline=(30, 30, 30), width=2)
+	draw.arc((30, 6, 190, 112), 200, 250, fill=(30, 30, 30), width=2)
+	draw.arc((30, 6, 190, 112), 20, 70, fill=(30, 30, 30), width=2)
+	draw.text((22, 124), "Turn the photo with two fingers", fill=(20, 20, 20))
+	return image
+
+
+def pressurePad():
+	image, draw = canvas()
+	draw.rounded_rectangle((40, 14, 180, 104), radius=10, fill=(60, 60, 70), outline=(20, 20, 20), width=3)
+	for width, y in ((1, 34), (3, 52), (6, 72), (10, 92)):
+		draw.line((60, y, 160, y), fill=(255, 200, 40), width=width)
+	draw.text((14, 114), "Pressure pad: press harder", fill=(20, 20, 20))
+	draw.text((14, 132), "for a thicker line", fill=(20, 20, 20))
+	return image
+
+
+def gameView():
+	image, draw = canvas()
+	draw.rectangle((0, 0, 220, 70), fill=(120, 170, 230))
+	draw.rectangle((0, 70, 220, 140), fill=(80, 110, 70))
+	draw.polygon(((0, 140), (90, 70), (130, 70), (220, 140)), fill=(120, 120, 120))
+	draw.rectangle((150, 40, 180, 70), fill=(150, 90, 60))
+	draw.line((100, 70, 120, 70), fill=(255, 255, 255), width=2)
+	draw.line((110, 60, 110, 80), fill=(255, 255, 255), width=2)
+	draw.rectangle((0, 140, 220, 160), fill=(20, 20, 20))
+	draw.text((8, 144), "Move the mouse to look around", fill=(240, 240, 240))
+	return image
+
+
 PICTURES = (
 	("a round dial", dial, (working.AROUND, working.UPDOWN)),
 	("a slider lying flat", flatSlider, (working.SIDEWAYS,)),
@@ -144,6 +193,12 @@ PICTURES = (
 	("a box to sign in", signature, (working.GESTURE,)),
 	("a bar with a moving marker and a green part", timingBar, (working.TIMED,)),
 	("a square pad with a point in it", pad, (working.PAD,)),
+	# What no mouse pointer does: fingers, pressure, and a view that follows the mouse itself.
+	# A map is also dragged in any direction, to move it; both are how a sighted person works one.
+	("a map that says to pinch with two fingers", pinchArea, (working.TOUCH, working.PAD)),
+	("a photo that says to turn it with two fingers", turnPhoto, (working.TOUCH,)),
+	("a pad that says to press harder", pressurePad, (working.PRESSURE,)),
+	("a game's view with a mark in the middle, that says to move the mouse to look", gameView, (working.AIM,)),
 )
 FACTS = (
 	("a slider that offers its value", {
@@ -189,6 +244,19 @@ FACTS = (
 		"description": "Sketch with the mouse; your strokes are sent when you finish",
 		"api": "IAccessible2, as browsers use", "web": {"tag": "canvas", "id": "sketch"},
 		"windowClass": "Chrome_RenderWidgetHostHWND"}, (working.GESTURE,)),
+	# Fingers, pressure and a view that follows the mouse, where the control's own words say so.
+	("a canvas whose name says to pinch", {
+		"role": "CANVAS", "roleText": "canvas", "name": "Map, pinch to zoom", "states": ["CLICKABLE"], "focusable": False,
+		"api": "IAccessible2, as browsers use", "web": {"tag": "canvas", "id": "map"},
+		"windowClass": "Chrome_RenderWidgetHostHWND"}, (working.TOUCH,)),
+	("a pane described as pressure-sensitive", {
+		"role": "PANE", "roleText": "pane", "name": "Drum 1", "states": [], "focusable": False,
+		"description": "Pressure-sensitive pad: the harder you press, the louder it plays",
+		"api": "Windows UI Automation", "windowClass": "JUCE_18f2a"}, (working.PRESSURE,)),
+	("a game's window described as mouse look", {
+		"role": "PANE", "roleText": "pane", "name": "Game view", "states": ["FOCUSABLE"], "focusable": True,
+		"description": "Move the mouse to look around, click to fire",
+		"api": "its window alone, which reports no accessibility interface", "windowClass": "UnityWndClass"}, (working.AIM,)),
 )
 
 

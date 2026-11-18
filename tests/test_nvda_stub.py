@@ -210,9 +210,17 @@ sys.modules["contentRecog"].recogUi = sys.modules["contentRecog.recogUi"]
 # The real add-on package this time, with its own __init__.
 sys.path.insert(0, os.path.join(ROOT, "addon", "globalPlugins"))
 plugin = importlib.import_module("visionClaw")
-from visionClaw import mousetools, nvdatools, webtools  # noqa: E402
+from visionClaw import mousetools, nvdatools, padtools, webtools  # noqa: E402
 # Nothing really moves the mouse during the tests: every move and button is only written down.
 moves, buttons = [], []
+# The real functions are kept: where the mouse itself is moved for a game, they are tested with what is below
+# them stood in for.
+realMoveTo, realPosition = mousetools.moveTo, mousetools.position
+# No game controller is read during the tests, whatever is plugged into this computer, and Windows' facts
+# about its mouse pointer are the usual ones.
+padtools._find = lambda joysticks=True: None
+padtools._vibrate = lambda device, left, right: None
+mousetools.pointerState = lambda box=None: {"showing": True, "confined": False, "inside": False}
 mousetools.moveTo = lambda x, y: moves.append((x, y))
 mousetools._button = buttons.append
 mousetools.position = lambda: (7, 7)
@@ -241,8 +249,11 @@ with open(os.path.join(CONFIG_DIR, "visionClaw", "lessons.json"), "w", encoding=
 		{"text": "Tool set_setting: this form failed: {} (x). This form worked: {}.", "topic": "x", "time": 2.0},
 	], f)
 instance = plugin.GlobalPlugin()
+# The controller is looked for by a thread of its own; here every look is made by the test.
+instance.controller._stopped.set()
+instance.controller._thread.join(5)
 registry = instance.orchestrator.registry
-assert len(registry.names()) == 63, registry.names()
+assert len(registry.names()) == 69, registry.names()
 # Lessons from searches that happened to find something misled; they are dropped when VisionClaw starts.
 assert instance.memory.all() == ["Tool set_setting: this form failed: {} (x). This form worked: {}."], instance.memory.all()
 assert set(planner.available(registry)) == set(planner.RECIPES), set(planner.RECIPES) - set(planner.available(registry))
@@ -1188,7 +1199,7 @@ assert "moves to the next post" in questions[0] and "Play or pause" not in quest
 instance.clawAsk = lambda question, choices: 0
 
 # A nameless button the code cannot name is named from its picture, and the user is told it is a guess.
-instance.runtime = types.SimpleNamespace(describe=lambda image, prompt, maxTokens, cancel=None: "Settings")
+instance.runtime = types.SimpleNamespace(describe=lambda image, prompt, maxTokens, cancel=None: "Settings", unloadIdle=lambda *args: None)
 lonely = documentClass(sys.modules["virtualBuffers"].VirtualBuffer)(
 	__import__("pagestandin").El("DOCUMENT", __import__("pagestandin").El("BUTTON", ident="btn-primary")), "https://lonely.example/", "Lonely")
 focus.treeInterceptor = lonely
@@ -1418,12 +1429,635 @@ sys.modules["ui"].message = lambda text: None
 pictures = [shot(0, 0.5)] * 3
 instance._grab = lambda box: pictures[0]
 realRuntime, instance.runtime = instance.runtime, types.SimpleNamespace(
-	describe=lambda image, prompt, maxTokens, cancel=None: "A volume slider at the top right.")
+	describe=lambda image, prompt, maxTokens, cancel=None: "A volume slider at the top right.", unloadIdle=lambda *args: None)
 worked, result = registry.call(taskModule.Task("test"), "check_access", {"target": "window", "depth": "deep"})
 assert worked and "Its picture shows a scrollbar at the right, 50 percent down" in result, result
 assert "The vision model, which can be wrong, sees these things that are worked with the mouse: A volume slider at the top right." in result
 assert "Page Down and Page Up turn the mouse wheel" in result, result
 instance.runtime = realRuntime
+
+# --- Fingers and pressure, a game that reads the mouse directly, and a game controller ---
+
+from visionClaw import touchinput, touchtools  # noqa: E402
+from visionClaw.claw import direct, gamepad  # noqa: E402
+
+# Nothing really touches the screen or presses on it during the tests, and the mouse itself is not moved:
+# every report of a finger, of the pen and of a movement is only written down.
+touches, pens, nudges = [], [], []
+
+
+def writeTouch(points, flags, pressure):
+	touches.append((list(points), flags, round(pressure, 2)))
+
+
+touchinput._touchFrame = writeTouch
+touchinput._penFrame = lambda x, y, flags, pressure, eraser=False: pens.append((x, y, flags, round(pressure, 2), eraser))
+touchinput.penSupported = lambda: True
+mousetools._relative = lambda dx, dy: nudges.append((dx, dy))
+mousetools._NUDGE_STEP = 0
+touchtools._SETTLE = 0
+FINGERS_DOWN, FINGERS_MOVE, FINGERS_UP = touchinput.DOWN, touchinput.MOVE, touchinput.UP
+conf["visionClaw"]["confirmChanges"] = True
+questions = []
+instance.clawAsk = lambda question, choices: questions.append(question) or 0
+sys.modules["api"].getForegroundObject = lambda: types.SimpleNamespace(
+	name="Star Map", appModule=types.SimpleNamespace(appName="starmap"),
+	location=types.SimpleNamespace(left=100, top=100, width=800, height=600))
+instance.clawScreen.items = lambda: window
+# NVDA is on nothing that has a place in the window: a request that names no thing is meant for its middle.
+sys.modules["api"].getNavigatorObject = lambda: types.SimpleNamespace(location=None, name="")
+task = taskModule.Task("test")
+plainShot = Image.new("RGB", (800, 600), "white")
+tipShot = plainShot.copy()
+ImageDraw.Draw(tipShot).rectangle((400, 320, 560, 350), fill="black")
+
+
+def clear():
+	del moves[:], buttons[:], wheels[:], keysPressed[:], touches[:], pens[:], nudges[:]
+	task.items = window
+
+
+# A pinch on a named thing: two fingers go down, come together in small steps and are lifted where they last
+# were. The user is asked first, the mouse is not used, and what happened is said.
+pictures = [plainShot, tipShot]
+instance._grab = lambda box: pictures.pop(0)
+clear()
+worked, result = registry.call(task, "touch_gesture", {"asked": "pinch the Trash icon with two fingers"})
+assert worked and result == (
+	"Touched the screen as fingers would: a pinch with two fingers, as for zooming out, on Trash icon. What the "
+	"window shows changed."), result
+assert questions[-1] == "Touch the screen for you: a pinch with two fingers, as for zooming out, on Trash icon?", questions[-1]
+assert touches[0][1] == FINGERS_DOWN and touches[-1][1] == FINGERS_UP and {flag for _p, flag, _s in touches[1:-1]} == {FINGERS_MOVE}
+assert all(len(points) == 2 for points, _flag, _share in touches) and touches[-1][0] == touches[-2][0]
+assert abs(touches[0][0][0][0] - touches[0][0][1][0]) > 3 * abs(touches[-1][0][0][0] - touches[-1][0][1][0]), touches[0]
+assert (touches[0][0][0][0] + touches[0][0][1][0]) // 2 == 500 and touches[0][0][0][1] == 400  # around the thing that was named
+assert buttons == [] and moves == [] and wheels == []
+assert instance.appWays.get("starmap", "touch") == {"pinch": "fingers on the screen"}
+# A program that takes no touch: nothing changed, so the wheel does it with Control held, the user is told
+# which of the two worked, and that is kept for the program.
+pictures = [plainShot, plainShot.copy(), shot(0), shot(90)]
+clear()
+worked, result = registry.call(task, "touch_gesture", {"asked": "spread two fingers on the Trash icon"})
+assert worked and result == (
+	"Touched the screen as fingers would: a spread with two fingers, as for zooming in, on Trash icon. Nothing "
+	"VisionClaw can see changed, so the program seems to take no touch. VisionClaw then used the Control key and "
+	"the mouse wheel, which make most views larger, and what the window shows changed. That is kept for this "
+	"program, and used at once the next time."), result
+assert touches and wheels == [(WHEEL, 120)] * 2 and keysPressed == [(0x11, False), (0x11, True)], (wheels, keysPressed)
+assert moves[0] == (500, 400) and moves[-1] == (7, 7), moves
+assert instance.appWays.get("starmap", "touch") == {"pinch": "fingers on the screen", "spread": "the mouse wheel"}
+# The next time the wheel is used at once, and nothing is touched.
+pictures = [plainShot, shot(0), shot(90)]
+clear()
+worked, result = registry.call(task, "touch_gesture", {"asked": "spread two fingers on the Trash icon"})
+assert worked and result.startswith(
+	"Used the Control key and the mouse wheel, which make most views larger, in place of a spread with two fingers"), result
+assert touches == [] and wheels == [(WHEEL, 120)] * 2
+# A swipe with two fingers upwards stands for scrolling down.
+instance.appWays.set("starmap", "touch", None)
+pictures = [plainShot, plainShot.copy(), shot(0), shot(240)]
+clear()
+worked, result = registry.call(task, "touch_gesture", {"asked": "swipe up with two fingers on the File icon"})
+assert worked and "VisionClaw then used the mouse wheel, turned down" in result and wheels == [(WHEEL, -120)] * 8, (result, wheels)
+assert len(touches[0][0]) == 2 and touches[0][0][0][1] > touches[-1][0][0][1]  # the fingers went up
+# A turn with two fingers has nothing that stands in for it: that nothing changed is said, and nothing else is tried.
+pictures = [plainShot, plainShot.copy()]
+clear()
+worked, result = registry.call(task, "touch_gesture", {"asked": "rotate the File icon 90 degrees clockwise with two fingers"})
+assert worked and result == (
+	"Touched the screen as fingers would: a turn of 90 degrees clockwise with two fingers, on File icon. Nothing "
+	"VisionClaw can see changed in the window. The program may take no touch, or the gesture was not on the thing "
+	"that takes it."), result
+assert wheels == [] and len(touches) > 20
+# Three fingers, and a double tap: two short touches.
+pictures = [plainShot, tipShot]
+clear()
+worked, result = registry.call(task, "touch_gesture", {"asked": "swipe left with three fingers"})
+assert worked and all(len(points) == 3 for points, _flag, _share in touches) and "on the middle of the window" in questions[-1], questions[-1]
+pictures = [plainShot, tipShot]
+clear()
+worked, result = registry.call(task, "touch_gesture", {"asked": "double tap the File icon"})
+assert worked and [flag for _p, flag, _s in touches].count(FINGERS_DOWN) == 2 and [flag for _p, flag, _s in touches].count(FINGERS_UP) == 2
+assert touches[0][0] == [(200, 200)]
+# Windows refuses the touch, and nothing stands in: that is said, with what Windows gave as the reason.
+
+
+def refuse(points, flags, pressure):
+	raise touchinput.Refused("Windows refused it (error 87).")
+
+
+touchinput._touchFrame = refuse
+pictures = [plainShot, plainShot]
+clear()
+worked, result = registry.call(task, "touch_gesture", {"asked": "double tap the File icon"})
+assert not worked and "The screen could not be touched for you. Windows refused it (error 87)." in result, result
+# Refused, and the wheel stands in: the wheel is used, and why is said.
+pictures = [plainShot, plainShot, shot(0), shot(90)]
+clear()
+worked, result = registry.call(task, "touch_gesture", {"asked": "pinch the Trash icon"})
+assert worked and result.startswith("Windows did not take the touch. Windows refused it (error 87). VisionClaw then used the Control key"), result
+assert wheels == [(WHEEL, -120)] * 2
+touchinput._touchFrame = writeTouch
+instance.appWays.set("starmap", "touch", None)
+# Words that name no touch: nothing is touched.
+clear()
+worked, result = registry.call(task, "touch_gesture", {"asked": "do the thing on the File icon"})
+assert not worked and "does not say which touch gesture" in result and touches == [], result
+# Stopped while the fingers are down: they are lifted at once, and never stay on the screen.
+stopping = taskModule.Task("test")
+stopping.items = window
+pictures = [plainShot] * 4
+clear()
+threading.Timer(0.3, stopping.stop).start()
+began = time.time()
+try:
+	registry.call(stopping, "touch_gesture", {"asked": "touch and hold the File icon for 20 seconds"})
+	raise AssertionError("a stopped request must not go on")
+except taskModule.Cancelled:
+	pass
+assert time.time() - began < 5 and touches[0][1] == FINGERS_DOWN and touches[-1][1] == FINGERS_UP, touches[-1]
+# On a computer with a touch screen NVDA takes every touch for itself. Its own touch handling is put aside for
+# the gesture with NVDA's own function and put back afterwards; this is always asked about, whatever the settings say.
+paused = []
+stub("touchHandler", handler=object(), setTouchSupport=paused.append)
+conf["visionClaw"]["confirmChanges"] = False
+pictures = [plainShot, tipShot]
+clear()
+worked, result = registry.call(task, "touch_gesture", {"asked": "pinch the Trash icon"})
+assert worked and paused == [False, True] and questions[-1].endswith(
+	"NVDA's own touch gestures are put aside for that moment and put back right after."), (paused, questions[-1])
+# Also when the touch fails, NVDA's touch handling is put back.
+touchinput._touchFrame = refuse
+pictures = [plainShot, plainShot]
+del paused[:]
+worked, result = registry.call(task, "touch_gesture", {"asked": "double tap the File icon"})
+assert not worked and paused == [False, True], paused
+touchinput._touchFrame = writeTouch
+sys.modules["touchHandler"].handler = None
+conf["visionClaw"]["confirmChanges"] = True
+instance.appWays.set("starmap", "touch", None)
+
+# Pressure: the pen goes down on the named thing as hard as the words say, stays, and comes up.
+pictures = [plainShot, tipShot]
+clear()
+worked, result = registry.call(task, "pen_stroke", {"asked": "press hard on the Trash icon for half a second"})
+assert worked and result == (
+	"Pressed as a pen would: a press for half a second with the pen, at 80 percent of full pressure, on Trash icon. "
+	"What the window shows changed. Whether the program felt how hard it was pressed, VisionClaw cannot see."), result
+assert questions[-1] == "Press on Trash icon for you: a press for half a second with the pen, at 80 percent of full pressure?"
+assert pens[0] == (500, 400, FINGERS_DOWN, 0.8, False) and pens[-1][2] == FINGERS_UP and {pen[:2] for pen in pens} == {(500, 400)}
+assert buttons == [] and moves == [] and touches == []
+# A line with the pressure rising: it rises evenly from the first place to the last. Nothing changed: said so,
+# with what cannot be reached this way.
+pictures = [plainShot, plainShot.copy()]
+clear()
+worked, result = registry.call(task, "pen_stroke", {"asked": "draw a line to the right on the File icon with the pressure rising"})
+assert worked and "at pressure rising from 15 to 100 percent, on File icon." in result, result
+assert result.endswith("the tablet's own driver, and not through Windows, takes no notice of this."), result
+shares = [pen[3] for pen in pens[:-1]]
+assert shares[0] == 0.15 and shares[-1] == 1.0 and shares == sorted(shares) and len(set(shares)) > 10, shares
+assert pens[0][:2] == (200, 200) and pens[-2][0] > 300 and pens[-2][1] == 200, pens[-2]
+# The eraser end of the pen.
+pictures = [plainShot, tipShot]
+clear()
+worked, result = registry.call(task, "pen_stroke", {"asked": "erase with the pen on the Trash icon, firmly, a zigzag"})
+assert worked and all(pen[4] for pen in pens) and "the eraser end of the pen" in result, result
+# A Windows without a pen for programs: one finger presses instead, which also says how hard; that is told.
+touchinput.penSupported = lambda: False
+pictures = [plainShot, tipShot]
+clear()
+worked, result = registry.call(task, "pen_stroke", {"asked": "press lightly on the File icon"})
+assert worked and "gives a program no pen, so one finger pressed instead" in result and pens == [], result
+assert touches[0] == ([(200, 200)], FINGERS_DOWN, 0.25) and touches[-1][1] == FINGERS_UP, touches[0]
+touchinput.penSupported = lambda: True
+# Words that say nothing of how hard: nothing is pressed.
+clear()
+worked, result = registry.call(task, "pen_stroke", {"asked": "press the File icon"})
+assert not worked and "does not say how hard to press" in result and pens == [], result
+# Stopped while the pen is down: it is lifted.
+stopping = taskModule.Task("test")
+stopping.items = window
+pictures = [plainShot] * 4
+clear()
+threading.Timer(0.3, stopping.stop).start()
+try:
+	registry.call(stopping, "pen_stroke", {"asked": "press hard on the File icon for 20 seconds"})
+	raise AssertionError("a stopped request must not go on")
+except taskModule.Cancelled:
+	pass
+assert pens[0][2] == FINGERS_DOWN and pens[-1][2] == FINGERS_UP
+
+# A game whose view the mouse turns: the mouse itself is moved by a number of steps, in small pieces, and
+# whether the view changed is said. Windows' pointer is put nowhere, and no button is pressed.
+pointerFacts = {"showing": True, "confined": False, "inside": False}
+mousetools.pointerState = lambda box=None: dict(pointerFacts)
+pictures = [shot(0), shot(90)]
+clear()
+worked, result = registry.call(task, "turn_view", {"asked": "turn left"})
+assert worked and result.startswith("Moved the mouse itself 300 steps to the left. What the window shows changed."), result
+assert "too fast or too slow" in result and questions[-1] == "Move the mouse itself 300 steps to the left, to turn or look in starmap?"
+assert sum(dx for dx, _dy in nudges) == -300 and all(dy == 0 for _dx, dy in nudges) and max(abs(dx) for dx, _dy in nudges) <= direct.CHUNK
+assert moves == [] and buttons == []
+pictures = [shot(0), shot(0)]
+clear()
+worked, result = registry.call(task, "turn_view", {"asked": "look up 120 steps"})
+assert worked and result == (
+	"Moved the mouse itself 120 steps up. Nothing VisionClaw can see changed in the window. The program may not "
+	"turn with the mouse just now, or it refuses movements made by a program."), result
+assert sum(dy for _dx, dy in nudges) == -120
+clear()
+worked, result = registry.call(task, "turn_view", {"asked": "turn the thing"})
+assert not worked and "does not say which way to turn or look" in result and nudges == [], result
+
+# How the mouse is moved in a program is said from what is kept and from Windows' own facts, by plain code.
+worked, result = registry.call(task, "mouse_way", {"asked": "how does this game use the mouse?"})
+assert worked and result == (
+	"In starmap, Windows' own mouse pointer is put where it is wanted, as in other programs. Windows' own mouse "
+	"pointer shows here, so the usual way should work."), result
+pointerFacts.update(showing=False, confined=True, inside=True)
+worked, result = registry.call(task, "mouse_way", {"asked": "how does this game use the mouse?"})
+assert worked and "This program hides Windows' mouse pointer and keeps it inside its own window" in result and direct.ADVICE in result, result
+# Told once that the game draws its own pointer, VisionClaw keeps that; clicks by name then move the game's
+# pointer: into the corner of the window, measured, and counted from there. Windows' pointer is put nowhere.
+worked, result = registry.call(task, "mouse_way", {"asked": "this game has its own mouse pointer"})
+assert worked and result.startswith("Kept for starmap: the program draws a pointer of its own"), result
+assert questions[-1].startswith("Keep this for starmap: the program draws a pointer of its own") and instance.appWays.mouse("starmap") == direct.POINTER
+stoodInMove, stoodInPosition = mousetools.moveTo, mousetools.position
+mousetools.moveTo, mousetools.position = realMoveTo, realPosition
+mousetools._setCursor = lambda x, y: moves.append((x, y))
+mousetools._cursorPosition = lambda: (7, 7)
+instance._grab = lambda box: plainShot  # no pointer to be seen: its speed cannot be measured and stays as it was
+clear()
+worked, result = registry.call(task, "click_item", {"item": "File", "action": "click", "asked": ""})
+assert worked and result == "Clicked File icon." and buttons == [LEFT_DOWN, LEFT_UP], (result, buttons)
+assert moves == [], moves  # Windows' own pointer was never put anywhere
+# Into the corner (further than the window is large), three moves to measure, then from there to the icon.
+home = round(800 / direct.MEASURED_LEAST) + 200
+assert sum(dx for dx, _dy in nudges) == -home + 3 * direct.MEASURE_STEP + (200 - (100 + 3 * direct.MEASURE_STEP)), sum(dx for dx, _dy in nudges)
+assert sum(dy for _dx, dy in nudges) == sum(dx for dx, _dy in nudges) and nudges[0] == (-direct.HOME_CHUNK, -direct.HOME_CHUNK)
+assert mousetools._direct.way == direct.PLAIN and mousetools._direct.tracker is None  # only while the tool worked
+# A hold and a gesture go the same way.
+clear()
+worked, result = registry.call(task, "draw_gesture", {"asked": "swipe left on the Trash icon"})
+assert worked and moves == [] and buttons == [LEFT_DOWN, LEFT_UP] and sum(dx for dx, _dy in nudges) < -3000, (result, moves)
+# When Windows' own pointer shows again, as in the game's menus, it is used as everywhere.
+pointerFacts.update(showing=True)
+clear()
+worked, result = registry.call(task, "click_item", {"item": "File", "action": "click", "asked": ""})
+assert worked and moves[0] == (200, 200) and nudges == [] and buttons == [LEFT_DOWN, LEFT_UP], (moves, nudges)
+pointerFacts.update(showing=False)
+# Too fast: kept for the program, and a turn is then that much shorter.
+worked, result = registry.call(task, "mouse_way", {"asked": "direct mouse movement is too fast here"})
+assert worked and result == (
+	"Direct mouse movement in starmap is now slower: one step counts as 0.7. This is kept for the program."), result
+pictures = [shot(0), shot(90)]
+instance._grab = lambda box: pictures.pop(0)
+clear()
+worked, result = registry.call(task, "turn_view", {"asked": "turn right"})
+assert worked and sum(dx for dx, _dy in nudges) == 210, nudges
+# Told that the mouse turns the view: pointing at a thing by name is refused, with what to ask for instead.
+worked, result = registry.call(task, "mouse_way", {"asked": "the mouse turns the view here"})
+assert worked and instance.appWays.mouse("starmap") == direct.VIEW and "Ask to turn left or right" in result, result
+clear()
+worked, result = registry.call(task, "click_item", {"item": "File", "action": "click", "asked": ""})
+assert not worked and "In this program the mouse turns the view" in result and buttons == [] and moves == [] and nudges == [], result
+worked, result = registry.call(task, "mouse_way", {"asked": "how does this game use the mouse?"})
+assert worked and result.startswith("In starmap, the mouse turns the view and nothing points at anything") and "counts as 0.7" in result, result
+# What is kept about programs is listed with what VisionClaw has made.
+worked, result = registry.call(task, "list_helpers", {})
+assert worked and "In starmap, the mouse turns the view" in result, result
+
+# Pointer mode in such a game: the arrow keys move the mouse itself, Enter clicks where the game aims, and M
+# changes between the three ways and keeps the choice for the program.
+said = []
+sys.modules["ui"].message = said.append
+clear()
+text = instance.pointerMode.start()
+assert instance.pointerMode.direct == direct.VIEW and "the mouse turns the view" in text and "M changes how the mouse is moved" in text, text
+assert moves == [] and nudges == []
+press("rightarrow")
+press("shift+uparrow")
+assert nudges == [(14, 0), (0, -3)] and moves == [], nudges  # a step of 20 and one of 4, at the speed kept for the game
+press("enter")
+for _wait in range(100):
+	if buttons == [LEFT_DOWN, LEFT_UP]:
+		break
+	time.sleep(0.01)
+assert buttons == [LEFT_DOWN, LEFT_UP] and moves == [], (buttons, moves)
+press("p")
+assert said[-1] == "The mouse turns the view here, so there is no pointer with a place.", said[-1]
+press("m")
+assert said[-1] == "Windows' own mouse pointer is moved, as in other programs." and instance.appWays.mouse("starmap") == direct.PLAIN
+press("rightarrow")
+assert moves[-1][0] == instance.pointerMode.x and len(nudges) == 2
+instance._grab = lambda box: plainShot
+clear()
+press("m")
+assert said[-1].startswith("The program's own pointer is moved") and instance.appWays.mouse("starmap") == direct.POINTER
+assert nudges and moves == [] and mousetools._direct.way == direct.POINTER
+was = (instance.pointerMode.x, instance.pointerMode.y)
+assert abs(was[0] - 500) <= 1 and abs(was[1] - 400) <= 1, was  # brought to the middle of the window
+del nudges[:]
+press("rightarrow")
+assert moves == [] and sum(dx for dx, _dy in nudges) == round(20 / 0.7) and instance.pointerMode.x == was[0] + 20, (nudges, instance.pointerMode.x)
+press("escape")
+assert not instance.pointerMode.active and mousetools._direct.way == direct.PLAIN and instance.pointerMode.direct == direct.PLAIN
+# Back to the usual way: what was kept about the program's mouse is forgotten.
+worked, result = registry.call(task, "mouse_way", {"asked": "use the normal mouse pointer again"})
+assert worked and result == (
+	"In starmap, Windows' own mouse pointer is put where it is wanted, as in other programs again. What was kept "
+	"about its mouse is forgotten."), result
+assert instance.appWays.lines() == []
+pointerFacts.update(showing=True, confined=False, inside=False)
+mousetools.moveTo, mousetools.position = stoodInMove, stoodInPosition
+
+# A game controller. The states are made here; no controller is read.
+controller = instance.controller
+found = [None]
+reported = [gamepad.NOTHING]
+buzzes = []
+padtools._find = lambda joysticks=True: found[0]
+padtools._read = lambda device: reported[0]
+padtools._vibrate = lambda device, left, right: buzzes.append((left, right))
+
+
+def pad(held=(), lx=0.0, ly=0.0, rx=0.0, ry=0.0, lt=0.0, rt=0.0):
+	return gamepad.State(frozenset(held), lx, ly, rx, ry, lt, rt)
+
+
+def waitFor(test, what=""):
+	for _wait in range(300):
+		if test():
+			return
+		time.sleep(0.01)
+	raise AssertionError(what or said[-3:])
+
+
+del said[:]
+# None is connected: nothing is said by itself; asked, plain code says so.
+assert controller.look(0.0) == gamepad.SEARCH_EVERY and controller.device is None and said == []
+worked, result = registry.call(taskModule.Task("is a controller connected"), "controller_info", {})
+assert worked and result.startswith("No game controller is connected, as far as Windows reports."), result
+instance.script_controllerMode(None)
+assert said[-1] == "No game controller is connected, as far as Windows reports." and not controller.active
+# One is connected: it is noticed and announced, once, with how to use it.
+found[0] = (gamepad.XBOX, 0, "")
+assert controller.look(1.0) == gamepad.LOOK_EVERY and controller.device == found[0]
+assert said[-1].startswith("A game controller is connected: an Xbox controller, or one that Windows reads the same way.")
+assert "hold its View and Menu buttons together for a second, or press NVDA+Alt+J" in said[-1] and len(said) == 2
+worked, result = registry.call(taskModule.Task("is a controller connected"), "controller_info", {})
+assert worked and "A game controller is connected" in result and "Controller mode is off." in result and result.endswith(
+	"Ask what the buttons do, and VisionClaw says all of them."), result
+worked, result = registry.call(taskModule.Task("what do the buttons of my controller do"), "controller_info", {})
+assert worked and "In controller mode: The left stick moves the mouse pointer" in result and "A clicks, B right-clicks" in result, result
+# Out of controller mode its sticks and buttons are left alone: the user may be playing with it.
+clear()
+reported[0] = pad([gamepad.A], lx=1.0, rt=1.0, lt=1.0)
+controller.look(1.1)
+controller.look(1.2)
+reported[0] = gamepad.NOTHING
+controller.look(1.3)
+assert buttons == [] and moves == [] and pens == [] and wheels == [] and len(said) == 2
+# View and Menu held together for a second turn controller mode on, and all it does is said.
+reported[0] = pad([gamepad.BACK, gamepad.START])
+controller.look(2.0)
+controller.look(2.5)
+assert not controller.active
+controller.look(3.1)
+assert controller.active and said[-1] == gamepad.HELP and moves[-1] == (500, 400), moves
+assert not instance.pointerMode.active and instance.getScript(key("rightarrow")) is None  # the keyboard's keys stay the user's
+reported[0] = gamepad.NOTHING
+controller.look(3.2)
+assert controller.active
+# The left stick moves the pointer: a full push fast, with the left shoulder button slow, a small push slowly.
+clear()
+reported[0] = pad(lx=1.0)
+controller.look(3.3)
+assert moves[-1] == (570, 400), moves  # 700 pixels a second for a tenth of a second
+reported[0] = pad([gamepad.LB], lx=1.0)
+controller.look(3.4)
+assert moves[-1] == (587, 400), moves
+reported[0] = pad(lx=0.4, ly=-0.4)
+controller.look(3.5)
+x, y = moves[-1]
+assert 587 < x <= 600 and 388 <= y < 400, moves[-1]  # about 13 pixels, where a full push made 70
+# Inside its resting place the stick does nothing; when it comes to rest, what is under the pointer is said,
+# once, and felt as a short buzz.
+under.name, under.role.displayString = "Play", "button"
+reported[0] = pad(lx=0.1, ly=0.1)
+count = len(moves)
+controller.look(3.6)
+assert len(moves) == count
+del buzzes[:]
+controller.look(4.0)
+assert said[-1] == "Play, button" and buzzes[-1] == gamepad.BUZZ_OTHER[:2], (said[-1], buzzes)
+heard = len(said)
+reported[0] = pad(lx=1.0)
+controller.look(4.1)
+reported[0] = gamepad.NOTHING
+controller.look(4.2)
+controller.look(4.6)
+assert len(said) == heard  # still the same thing: not said again
+controller.look(4.7)
+assert buzzes[-1] == (0, 0)  # the buzz ends by itself
+# At the window's edge the pointer stops, and that is felt and heard.
+reported[0] = pad([gamepad.RB], lx=1.0)
+for tick in range(8):
+	controller.look(5.0 + tick / 10)
+assert moves[-1][0] == 898 and gamepad.BUZZ_EDGE[:2] in buzzes, (moves[-1], buzzes)
+reported[0] = gamepad.NOTHING
+controller.look(6.0)
+controller.look(6.5)
+# The buttons: A clicks where the pointer is, B right-clicks, X double-clicks, Y says what is here.
+at = (instance.pointerMode.x, instance.pointerMode.y)
+for button, expected, word in ((gamepad.A, [LEFT_DOWN, LEFT_UP], "click"), (gamepad.B, [RIGHT_DOWN, RIGHT_UP], "right click"),
+		(gamepad.X, [LEFT_DOWN, LEFT_UP] * 2, "double click")):
+	clear()
+	reported[0] = pad([button])
+	controller.look(7.0)
+	waitFor(lambda: buttons == expected, button)
+	assert said[-1] == word and moves[0] == at, (said[-1], moves)
+	reported[0] = gamepad.NOTHING
+	controller.look(7.1)
+reported[0] = pad([gamepad.Y])
+controller.look(7.2)
+assert said[-1] == "Play, button"
+reported[0] = pad([gamepad.LS])
+controller.look(7.3)
+assert said[-1].endswith("percent down"), said[-1]
+reported[0] = gamepad.NOTHING
+controller.look(7.4)
+# The direction pad moves one step, as an arrow key does in pointer mode.
+instance.pointerMode.x = 500
+reported[0] = pad([gamepad.LEFT])
+controller.look(7.5)
+assert instance.pointerMode.x == 480 and moves[-1] == (480, at[1]), moves[-1]
+reported[0] = gamepad.NOTHING
+controller.look(7.6)
+# The right trigger is the mouse button for as long as it is pulled: pull, move, let go is a drag.
+clear()
+reported[0] = pad(rt=0.9)
+controller.look(8.0)
+assert buttons == [LEFT_DOWN] and said[-1] == "Holding." and instance.pointerMode.holding
+reported[0] = pad(rt=0.9, lx=1.0)
+controller.look(8.1)
+assert moves[-1] == (550, at[1]) and buttons == [LEFT_DOWN]
+reported[0] = pad(rt=0.1)
+controller.look(8.2)
+assert buttons == [LEFT_DOWN, LEFT_UP] and said[-1] == "Let go." and not instance.pointerMode.holding
+# The left trigger presses like a pen, as hard as it is pulled, follows the pointer, and is lifted when let go.
+clear()
+reported[0] = pad(lt=1.0)
+controller.look(8.5)
+assert pens == [(550, at[1], FINGERS_DOWN, 1.0, False)] and said[-1] == "Pen down.", pens
+reported[0] = pad(lt=0.625, lx=1.0)
+controller.look(8.6)
+assert pens[-1] == (620, at[1], FINGERS_MOVE, 0.5, False), pens[-1]
+reported[0] = pad(lt=0.3)
+controller.look(8.7)
+assert pens[-1][2] == FINGERS_MOVE and pens[-1][3] < 0.1  # nearly let go: still down, pressing lightly
+reported[0] = gamepad.NOTHING
+controller.look(8.8)
+assert pens[-1][2] == FINGERS_UP and said[-1] == "Pen up." and buttons == []
+# The right stick turns the wheel; pressed in, it moves the mouse itself instead, for a game, and back.
+clear()
+reported[0] = pad(ry=1.0)
+controller.look(9.0)
+assert wheels == [(WHEEL, -120)], wheels  # ten notches a second for a tenth of a second
+reported[0] = pad(rx=-1.0)
+controller.look(9.1)
+assert wheels[-1][0] == HWHEEL and len(wheels) == 2, wheels
+reported[0] = pad([gamepad.RS])
+controller.look(9.2)
+assert said[-1] == "The right stick now moves the mouse itself, for a game that reads the mouse directly." and controller.looking
+reported[0] = pad(ry=-1.0)
+controller.look(9.3)
+assert nudges == [(0, -90)] and len(wheels) == 2, nudges  # 900 steps a second
+reported[0] = pad([gamepad.RS])
+controller.look(9.4)
+assert said[-1] == "The right stick now turns the mouse wheel." and not controller.looking
+reported[0] = gamepad.NOTHING
+controller.look(9.5)
+# With the right shoulder button, the direction pad jumps from one thing found in the window to the next, by name.
+clear()
+reported[0] = pad([gamepad.RB, gamepad.RIGHT])
+controller.look(10.0)
+waitFor(lambda: said[-1] == "File icon, 1 of 3")
+assert "Looking at the window." in said[-3:] and moves[-1] == (200, 200) and (instance.pointerMode.x, instance.pointerMode.y) == (200, 200)
+reported[0] = pad([gamepad.RB])
+controller.look(10.1)
+reported[0] = pad([gamepad.RB, gamepad.RIGHT])
+controller.look(10.2)
+assert said[-1] == "Trash icon, 2 of 3" and moves[-1] == (500, 400)
+reported[0] = pad([gamepad.RB])
+controller.look(10.3)
+reported[0] = pad([gamepad.RB, gamepad.LEFT])
+controller.look(10.4)
+assert said[-1] == "File icon, 1 of 3"
+reported[0] = gamepad.NOTHING
+controller.look(10.5)
+# A button of the controller as a hotkey of the program in front: the user's own words say which button.
+clicked = []
+instance.clawScreen.click = lambda result, item, action="click": clicked.append((item["text"], action))
+task.items = window
+worked, result = registry.call(task, "create_helper", {
+	"key": "?", "action": "click", "item": "Trash", "asked": "make the X button on my controller click the Trash icon"})
+assert worked and result == (
+	"In starmap, pressing the X button of the game controller now does this: click \"Trash\". It works whenever "
+	"the controller is connected, in this program only, in controller mode or out of it."), result
+assert questions[-1] == "In starmap, make the X button of the game controller click \"Trash\"?", questions[-1]
+assert instance.helpers.binding("starmap", "pad:x")["item"] == "Trash"
+clear()
+reported[0] = pad([gamepad.X])
+controller.look(11.0)
+waitFor(lambda: clicked == [("Trash icon", "click")], "the button's hotkey")
+assert buttons == []  # the button did what it was made for, and not its double click
+reported[0] = gamepad.NOTHING
+controller.look(11.1)
+worked, result = registry.call(taskModule.Task("is my controller connected"), "controller_info", {})
+assert worked and "Controller mode is on" in result and "Buttons that are hotkeys: App helper in starmap: the X button of the game controller does click" in result, result
+# In another program the button is the controller mode's own again.
+sys.modules["api"].getForegroundObject = lambda: types.SimpleNamespace(
+	name="Notes", appModule=types.SimpleNamespace(appName="notes"),
+	location=types.SimpleNamespace(left=100, top=100, width=800, height=600))
+clear()
+reported[0] = pad([gamepad.X])
+controller.look(11.2)
+waitFor(lambda: buttons == [LEFT_DOWN, LEFT_UP] * 2, "the double click")
+assert len(clicked) == 1
+reported[0] = gamepad.NOTHING
+controller.look(11.3)
+assert instance.helpers.remove("the X button on my controller") and instance.helpers.binding("starmap", "pad:x") == {}
+# The Menu button repeats the help; the View button turns the mode off.
+reported[0] = pad([gamepad.START])
+controller.look(12.0)
+assert said[-1] == gamepad.HELP
+reported[0] = pad([gamepad.BACK])
+controller.look(12.1)
+assert not controller.active and said[-1] == "Controller mode is off."
+reported[0] = gamepad.NOTHING
+controller.look(12.2)
+# Asked for in words, on and off.
+worked, result = registry.call(task, "controller_mode", {"turn": "on"})
+assert worked and controller.active and result == gamepad.HELP
+worked, result = registry.call(task, "controller_mode", {"turn": "on"})
+assert worked and result.startswith("Controller mode is already on.")
+worked, result = registry.call(task, "controller_mode", {"turn": "off"})
+assert worked and not controller.active and result == "Controller mode is off."
+# The controller goes away while its trigger holds the mouse button and the pen is down: both come up at
+# once, the mode is off, and the user is told.
+instance.script_controllerMode(None)
+assert controller.active
+clear()
+reported[0] = pad(rt=1.0, lt=1.0)
+controller.look(13.0)
+assert buttons == [LEFT_DOWN] and pens[-1][2] == FINGERS_DOWN
+padtools._read = lambda device: None
+assert controller.look(13.1) == gamepad.SEARCH_EVERY
+assert buttons == [LEFT_DOWN, LEFT_UP] and pens[-1][2] == FINGERS_UP and not controller.active and controller.device is None
+assert said[-1] == "The game controller is gone. Controller mode is off." and not instance.pointerMode.holding
+padtools._read = lambda device: reported[0]
+# Quiet: it is noticed without a word, and its buttons still work. Off: it is not looked for at all, and
+# asking says why.
+conf["visionClaw"]["controller"] = "quiet"
+reported[0] = gamepad.NOTHING
+heard = len(said)
+controller.look(14.0)
+assert controller.device is not None and len(said) == heard
+conf["visionClaw"]["controller"] = "off"
+assert controller.look(14.1) == gamepad.SEARCH_EVERY and controller.device is None and len(said) == heard
+instance.script_controllerMode(None)
+assert said[-1] == "Game controllers are switched off in VisionClaw's settings." and not controller.active
+worked, result = registry.call(taskModule.Task("is a controller connected"), "controller_info", {})
+assert worked and result.startswith("Game controllers are switched off in VisionClaw's settings"), result
+conf["visionClaw"]["controller"] = "announce"
+# A controller of another make is told apart, and what is not known about it is said.
+found[0] = (gamepad.OTHER, 3, "")
+controller.look(15.0)
+assert "a game controller of another make" in said[-1] and "may not fit this one" in said[-1], said[-1]
+# The inspection of a window says what Windows reports of its mouse pointer, and that a controller is there.
+pointerFacts.update(showing=False, confined=True, inside=True)
+pictures = [shot(0, 0.5)] * 3
+instance._grab = lambda box: pictures[0]
+realRuntime, instance.runtime = instance.runtime, types.SimpleNamespace(
+	describe=lambda image, prompt, maxTokens, cancel=None: "Nothing that is worked with the mouse.", unloadIdle=lambda *args: None)
+worked, result = registry.call(taskModule.Task("test"), "check_access", {"target": "window", "depth": "deep"})
+assert worked and "This program hides Windows' mouse pointer and keeps it inside its own window" in result, result
+assert "this game has its own pointer" in result and "A game controller is connected: in controller mode (NVDA+Alt+J)" in result, result
+instance.runtime = realRuntime
+pointerFacts.update(showing=True, confined=False, inside=False)
+# When NVDA closes, everything is let go.
+found[0] = None
+padtools._read = lambda device: None
+controller.look(16.0)
+controller.stop()
+assert controller.device is None and not controller.active
+sys.modules["ui"].message = lambda text: None
+sys.modules["api"].getForegroundObject = lambda: types.SimpleNamespace(
+	name="Notes", appModule=types.SimpleNamespace(appName="notes"),
+	location=types.SimpleNamespace(left=0, top=0, width=800, height=600))
+under.name, under.role.displayString = "", ""
+conf["visionClaw"]["confirmChanges"] = False
 
 # --- A newer version of VisionClaw itself ---
 
@@ -2639,7 +3273,8 @@ assert instance._answersDialog._values["user"] == "" and instance._answersDialog
 # Every description gets them, as the first message to the model.
 systems = []
 instance.runtime = types.SimpleNamespace(
-	describe=lambda image, prompt, maxTokens, cancel=None, system=None: systems.append(system) or "A menu.")
+	describe=lambda image, prompt, maxTokens, cancel=None, system=None: systems.append(system) or "A menu.",
+	unloadIdle=lambda *args: None)
 instance._grab = lambda box: Image.new("RGB", (64, 64), "white")
 worked, result = registry.call(taskModule.Task("t"), "look", {"target": "screen", "question": "What is shown?"})
 assert worked and result == "A menu." and "Call me Sam" in systems[0] and "Say the colours of everything." in systems[0]

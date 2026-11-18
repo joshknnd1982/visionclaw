@@ -22,7 +22,7 @@ from .vclog import log
 
 import addonHandler
 
-from .claw import dragcontrol, match, microaddons, pointer
+from .claw import dragcontrol, gamepad, match, microaddons, pointer
 
 addonHandler.initTranslation()
 
@@ -57,7 +57,11 @@ class Helpers:
 
 	@staticmethod
 	def keyId(key):
-		"""NVDA's own spelling of a key, like "kb:alt+nvda+1", or None if it is not a key."""
+		"""NVDA's own spelling of a key, like "kb:alt+nvda+1", or None if it is not a key. A button of a game
+		controller, named in words, is kept as "pad:" and its name."""
+		button = gamepad.buttonOf(key)
+		if button is not None:
+			return gamepad.identifier(button)
 		from keyboardHandler import KeyboardInputGesture
 		try:
 			KeyboardInputGesture.fromName(key.strip().replace(" ", ""))
@@ -133,6 +137,17 @@ class Helpers:
 						target=self._run, args=(binding, app, identifier), name="visionClaw-helper", daemon=True).start()
 				return script_appHelper
 		return None
+
+	def runPad(self, button):
+		"""Run the helper that a button of the game controller has in the program in front. Returns whether it
+		has one. Main thread."""
+		class Press:
+			normalizedIdentifiers = [gamepad.identifier(button)]
+		found = self.scriptFor(Press())
+		if found is None:
+			return False
+		found(None)
+		return True
 
 	def _place(self, binding, app, keyId):
 		"""Where a hotkey's thing is on the screen now, as (point, name), for a hotkey that rests the pointer on

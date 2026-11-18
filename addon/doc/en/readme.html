@@ -161,7 +161,9 @@ and scaling. Enter clicks, Shift+Enter double-clicks, the Applications key right
 button down and G again lets go, for dragging. Page Down and Page Up turn the mouse wheel about a page, with
 Shift one notch, with Control sideways. S finds the scrollbars and puts the pointer on one. W says what is
 at the pointer, R reads the text there, P says where the pointer is, Home goes to the middle, H repeats the
-keys, D tries what is under the pointer as a dial or slider, and Escape turns pointer mode off.</p>
+keys, D tries what is under the pointer as a dial or slider, T rests the pointer and says what appears, C
+clicks the moment what is under the pointer changes, M changes how the mouse is moved for a game that reads
+the mouse directly, and Escape turns pointer mode off.</p>
 
 <h2>Dials, knobs and sliders that are only worked by dragging</h2>
 <p>Some programs, music tools and games have a dial, a knob or a slider of their own that takes no keys. Ask
@@ -177,8 +179,68 @@ and puts it back. From then on, until you press Escape:</p>
 <li>K keeps it under a hotkey for this program.</li>
 </ul>
 <p>Where nothing can be named, as in many games: press NVDA+Alt+K for pointer mode, move the pointer onto the
-control, and press D. This is new and has only been tested with a stand-in program. A game that reads the mouse
-directly, as most 3D action games do, will not follow.</p>
+control, and press D. This has only been tested with a stand-in program. A game that reads the mouse
+directly, as most 3D action games do, will not follow unless you tell VisionClaw so; see "Games that read the
+mouse directly".</p>
+
+<h2>Controls that need more than a click</h2>
+<p>Ask "hover over the Help icon" and you hear what appeared; "press and hold the Record button for 3 seconds";
+"swipe left on the card" or "draw a circle"; "click the Go button as soon as it changes" or "click it 20
+times"; "middle-click", "control-click", "click the seek bar 30 percent across"; "zoom in". An inspection of a
+window or page says which controls are worked in such a way.</p>
+
+<h2>Fingers and pressure, without a touch screen and without a pen</h2>
+<p>For a program made for a touch screen or a pen. Ask "pinch the map", "spread two fingers on the photo",
+"swipe left with three fingers", "turn the picture 90 degrees clockwise with two fingers", "double tap the
+Start icon" or "touch and hold the Record button for 2 seconds". VisionClaw asks first, touches the screen as
+one to five fingers would, and tells you whether anything changed. Where a program takes no touch, it uses the
+mouse wheel instead for a pinch, a spread and a swipe with two fingers, tells you which worked, and keeps
+that for the program. Nothing stands in for a turn with two fingers.</p>
+<p>Ask "press hard on the drum pad", "press the pad at 70 percent pressure for 2 seconds" or "draw a line to
+the right with the pressure rising", and VisionClaw presses as a pen would. Pressing as a pen needs Windows
+10, version 1809, or later; a program that reads a drawing tablet through the tablet's own driver takes no
+notice. On a computer with a touch screen, NVDA's own touch gestures are put aside for the moment of a
+gesture and put back right after; VisionClaw always asks before that.</p>
+
+<h2>Games that read the mouse directly</h2>
+<p>Many games take no notice of where the mouse pointer is put. Tell VisionClaw once which kind it is: "the
+mouse turns the view in this game", or "this game has its own mouse pointer". It asks and keeps that for the
+game.</p>
+<ul>
+<li>A view the mouse turns: "turn left", "look up a little", "turn around". VisionClaw moves the mouse itself
+and says whether the view changed. "Direct mouse movement is too fast" or "too slow" changes how far, and is
+kept for the game.</li>
+<li>A pointer the game draws itself: clicking, holding and dragging things by name work again. VisionClaw
+pushes the game's pointer into the corner of the window, measures how fast it moves, and counts from there.</li>
+<li>In pointer mode, M changes between Windows' pointer, the game's own pointer and a view that the mouse
+turns. For a view the arrow keys move the mouse itself and Enter clicks where the game aims.</li>
+</ul>
+<p>A game that refuses movements made by a program cannot be worked this way. This has been tested with a game
+drawn by the test, not in a real game.</p>
+
+<h2>A game controller</h2>
+<p>VisionClaw notices a connected game controller and says so. Hold the controller's View and Menu buttons
+together for a second, or press NVDA+Alt+J, for controller mode; the View button turns it off. Out of
+controller mode the controller is left alone.</p>
+<ul>
+<li>The left stick moves the mouse pointer: a small push slowly, a full push fast. When it comes to rest you
+hear what is under the pointer. The direction pad moves it one step.</li>
+<li>A clicks, B right-clicks, X double-clicks, Y says what is under the pointer.</li>
+<li>The right trigger is the mouse button for as long as you pull it: for dragging, and for holding something
+down. The left trigger presses like a pen, as hard as you pull it.</li>
+<li>The right stick turns the mouse wheel. Pressed in, it moves the mouse itself instead, for a game that reads
+the mouse directly.</li>
+<li>With the left shoulder button held, the stick is slow and exact; A clicks the moment what is under the
+pointer changes, B rests the pointer and says what appears, X tries what is there as a dial or slider, Y reads
+the text there.</li>
+<li>With the right shoulder button held, the stick is fast; right and left on the direction pad jump between
+the things found in the window and say their names; Y has the picture at the pointer described.</li>
+<li>The Menu button says all of this.</li>
+</ul>
+<p>A button can also be a hotkey of a program: "make the X button on my controller click Play". Ask "is a
+controller connected?" or "what do the buttons on my controller do?" at any time. VisionClaw cannot press a
+controller's buttons for you. Controller mode has been tested with made-up controller states, not with a real
+controller.</p>
 
 <h2>How a sighted person works each control</h2>
 <p>An inspection now also says how a sighted person works what is there. Where NVDA can tell the kind of a
@@ -234,6 +296,8 @@ very small models only. They are then asked for one thing at a time, can only pi
 found, and answer a question about something looked up with a line of it, word for word.</li>
 <li>Ask before changes, and say each step while working.</li>
 <li>The search engine used when you ask to search the web.</li>
+<li>Game controller: tell me when one is connected and listen for its View and Menu buttons held together;
+listen, but say nothing when one is connected; or do not look for a game controller.</li>
 <li>Whether add-ons that fail are debugged and corrected by the models by themselves.</li>
 <li>The models on this computer, with their sizes and what each is in use for.</li>
 <li>See, remove or swap models: remove some or all, and choose smaller or bigger ones. NVDA+Alt+M opens the

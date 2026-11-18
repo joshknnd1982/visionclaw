@@ -313,6 +313,11 @@ def makeRegistry(rt, state):
 			"name": text("the name of the synthesizer or braille display to switch to, from nvda_info", maxLength=80),
 		}, changes=True, before="nvda_info", title="Switching the driver"))
 	def simple(name, description, result, title, fields=None, **options):
+		# With VC_WITHOUT set, the stand-ins named in it (separated by |) are left out, and with them the jobs
+		# that need them: to see whether a choice went wrong because of a job that was added.
+		if name in os.environ.get("VC_WITHOUT", "").split("|"):
+			return
+
 		def run(task, **form):
 			state[name] = form or True
 			return result.format(**form) if form else result
@@ -380,6 +385,59 @@ def makeRegistry(rt, state):
 		"Clicked at the right moment. The user said: {asked}", "Clicking at the right moment", {
 			"asked": text("what the user asked for, in their own words, with when or how often to click", maxLength=300, auto=True),
 		}, changes=True)
+	# A hotkey of the program in front. It was missing here until 2026-11-18, so the models could not choose it.
+	simple("create_helper",
+		"give the program in front its own hotkey, a key or a button of a game controller, that clicks an item, "
+		"hovers over it, holds it down, or reads the text at it, found by name each time",
+		"In spacetrader, pressing {key} now does this: {action} \"{item}\". The user said: {asked}", "Making the hotkey", {
+			"key": text("the hotkey, like NVDA+alt+1, or the button of the game controller", maxLength=40),
+			"action": text("click the item, hover over it, hold it down, or read it", enum=pointer.ACTIONS + ["read"],
+				auto=lambda part: "read" if " read" in part.lower() else pointer.actionOf(part)),
+			"item": text("the name of the item, from list_items", maxLength=80),
+			"asked": text("what the user asked for, in their own words", maxLength=300, auto=True),
+		}, changes=True, before="list_items")
+	simple("touch_gesture",
+		"touch the screen as fingers would, on an item the user names, at the mouse pointer or in the middle of the "
+		"window: pinch or spread with two fingers, swipe with one to five fingers, turn with two fingers, tap, double "
+		"tap, or touch and hold; where a program takes no touch the mouse wheel is used instead; says whether "
+		"anything changed",
+		"Touched the screen as fingers would. What the window shows changed. The user said: {asked}",
+		"Touching the screen", {
+			"asked": text("what the user asked for, in their own words, with the gesture and the number of fingers",
+				maxLength=300, auto=True),
+		}, changes=True)
+	simple("pen_stroke",
+		"press on the screen as a pen or a finger would, with a pressure the user names: lightly, firmly, a number "
+		"of percent, rising or falling; in one place for a time, or along a line or a shape; for drawing programs "
+		"and controls that feel how hard they are pressed",
+		"Pressed as a pen would. What the window shows changed. The user said: {asked}", "Pressing with pressure", {
+			"asked": text("what the user asked for, in their own words, with how hard to press", maxLength=300, auto=True),
+		}, changes=True)
+	simple("turn_view",
+		"turn the view, look or aim in a game that reads the mouse directly, by moving the mouse itself left, right, "
+		"up or down, a little, a lot or around; says whether the view changed",
+		"Moved the mouse itself. What the window shows changed. The user said: {asked}", "Moving the mouse itself", {
+			"asked": text("what the user asked for, in their own words, with the direction", maxLength=300, auto=True),
+		}, changes=True)
+	simple("mouse_way",
+		"say or keep how the mouse is moved in the program in front: Windows' own pointer, a pointer the game draws "
+		"itself, or a view that the mouse turns; also make direct mouse movement faster or slower there, or measure "
+		"the game's own pointer",
+		"Kept for spacetrader how its mouse is moved. The user said: {asked}", "How the mouse is moved here", {
+			"asked": text("what the user said about how this program uses the mouse, in their own words", maxLength=300, auto=True),
+		}, changes=True)
+	simple("controller_info",
+		"say whether a game controller, gamepad or joystick is connected, whether controller mode is on, and what "
+		"its sticks, buttons and triggers do in controller mode",
+		"A game controller is connected: an Xbox controller, or one that Windows reads the same way. Controller mode "
+		"is off. Hold the controller's View and Menu buttons together for a second, or press NVDA+Alt+J, to work the "
+		"mouse pointer with it.", "Checking the game controller", looks=True, tell=V)
+	simple("controller_mode",
+		"turn controller mode on or off: with it on, a connected game controller works the mouse pointer in any "
+		"window, with its sticks, buttons and triggers",
+		"Controller mode is {turn}.", "Controller mode", {
+			"turn": text("on or off", enum=["on", "off"], auto=lambda part: "off" if " off" in part.lower() else "on"),
+		}, tell=V)
 	simple("check_update",
 		"look on VisionClaw's own page on GitHub for a newer version of VisionClaw itself, and get it if the "
 		"user wants it",
@@ -610,6 +668,20 @@ REQUESTS = (
 	"Click the Quit button as soon as it changes.",
 	"Click the New Game button 5 times.",
 	"Zoom in.",
+	# What no mouse pointer does: fingers, pressure, a game that reads the mouse directly; and a game controller.
+	"Pinch the Options button with two fingers.",
+	"Swipe left with three fingers.",
+	"Press hard on the New Game button for 2 seconds.",
+	"Draw a line to the right with the pressure rising.",
+	"Turn left.",
+	"Look up a little.",
+	"This game has its own mouse pointer.",
+	"The mouse turns the view in this game.",
+	"Is a game controller connected?",
+	"What do the buttons on my controller do?",
+	"Turn on controller mode.",
+	"Make the X button on my controller click the New Game button.",
+	"Give this program a hotkey, NVDA+alt+1, that clicks the Options button.",
 	"Do a deep inspection of this website.",
 	"Fix the accessibility problems on this page.",
 	"Make this website accessible.",

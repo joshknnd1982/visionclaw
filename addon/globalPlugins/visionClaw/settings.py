@@ -13,7 +13,7 @@ import gui
 import wx
 from gui import guiHelper
 
-from . import clawui
+from . import clawui, padtools
 from .claw import backend, debuglog, memories, policy, updates
 
 addonHandler.initTranslation()
@@ -88,6 +88,15 @@ class VisionClawPanel(gui.settingsDialogs.SettingsPanel):
 		self.searchEngine = helper.addLabeledControl(_("Search the &web with:"), wx.Choice, choices=SEARCH_ENGINES)
 		self.searchEngine.SetSelection(
 			SEARCH_IDS.index(c["searchEngine"]) if c["searchEngine"] in SEARCH_IDS else 0)
+		self.controller = helper.addLabeledControl(
+			# Translators: Label of the choice of what VisionClaw does with a game controller.
+			_("Game controller (NVDA+Alt+&J turns controller mode on and off):"), wx.Choice, choices=[
+				# Translators: Choices for what VisionClaw does with a game controller.
+				_("Tell me when one is connected, and listen for its View and Menu buttons held together"),
+				_("Listen for its buttons, but say nothing when one is connected"),
+				_("Do not look for a game controller"),
+			])
+		self.controller.SetSelection(padtools.CHOICES.index(c["controller"]) if c["controller"] in padtools.CHOICES else 0)
 		self.autoFixAddons = checkbox(
 			# Translators: Checkbox in settings.
 			_("When an add-on VisionClaw wrote fails, have the models debug and correct it b&y themselves"),
@@ -202,6 +211,7 @@ class VisionClawPanel(gui.settingsDialogs.SettingsPanel):
 		c["updateCheck"] = updates.MODES[max(0, self.updateCheck.GetSelection())]
 		c["debugLog"] = debuglog.LEVELS[max(0, self.debugLog.GetSelection())]
 		c["remember"] = memories.WHEN[max(0, self.remember.GetSelection())]
+		c["controller"] = padtools.CHOICES[max(0, self.controller.GetSelection())]
 		c["sideBySide"] = self.sideBySide.GetValue()
 		c["autoFixAddons"] = self.autoFixAddons.GetValue()
 		c["searchEngine"] = SEARCH_IDS[max(0, self.searchEngine.GetSelection())]

@@ -173,14 +173,20 @@ keyboard and speech alone.
   tool that picks an item the `asked` auto field.
 - **Tests never move the real mouse or type into the real computer.** `tests/test_nvda_stub.py` replaces
   `mousetools.moveTo`, `mousetools._button`, `mousetools._key` and `nvdatools.typeUnicode` with functions that
-  write down what would have happened.
+  write down what would have happened. The same holds for fingers, the pen, the mouse's own movement and a
+  game controller: `touchinput._touchFrame`, `touchinput._penFrame`, `mousetools._relative`,
+  `mousetools.pointerState`, `padtools._find`, `padtools._read` and `padtools._vibrate` are stood in for, so
+  that no test depends on what is plugged into the computer. One file does touch the real computer,
+  `tests/live_touch.py`, only with `--yes`, only inside a small window of its own that never takes the
+  focus; never run it for the owner without asking, and never add it to `run_all.py`.
 - **Every way a sighted person works a control has a keyboard way, and every kind of control is known.** The
   owner said on 2026-11-18, of controls worked by hovering, holding the button down, gestures and timing: "I
   want those to be on the list of visionclaw controls which visionclaw must be able to make accessible too",
   then "if you can think of any other controls to add ... add those", and "both controls and control types".
   The list is `working.WAYS`: click, double click, right click, type, open and choose, drag up and down,
   sideways, in a circle, in any direction, to another place, the mouse wheel, hover, press and hold, swipe or
-  draw, click at the right moment. Each has a means that really does it (`claw/pointer.py`, `mousetools.py`):
+  draw, click at the right moment, touch with fingers, press with pressure, move the mouse to look. Each has a
+  means that really does it (`claw/pointer.py`, `mousetools.py`; for the last three see the next rule):
   `click_item` (also the middle button, three clicks, a key held down, a place on the item, hovering with what
   appeared read out, holding for a time), `draw_gesture`, `timed_click`, `scroll_view` (also zoom), a hotkey
   that holds or hovers (`helpers._pointed`), and the keys of pointer mode. A new way needs all of: a line in
@@ -191,6 +197,54 @@ keyboard and speech alone.
   says ("Hold to record") is decided by plain code (`working.bySaid`), kept narrow. A mouse button or a key
   that VisionClaw presses down always comes up again: in a `finally`, when the request is stopped, and after
   `pointer.HOLD_LIMIT` for a hotkey; never add a way to leave one down.
+- **Fingers, pressure, a game that reads the mouse directly, and a game controller.** The owner said on
+  2026-11-18, of what 1.1.0 had named as not covered: "visionclaw must be able to make these controls
+  accessible as well. Find a way or multiple ways to do this, using visionclaw and its offline local models,
+  skills, memory, rag, and system prompts"; and of a controller: "support the detection of this, if detected,
+  visionclaw must add accessibility for various movement and button presses and clicks and pressure across all
+  possible windows, app and game controls". What follows from it:
+  - **Fingers and pressure** (`claw/touch.py`, `touchinput.py`, `touchtools.py`): `touch_gesture` touches the
+    screen as one to five fingers would, `pen_stroke` presses as a pen would. Which gesture, how many fingers
+    and how hard is read from the user's own words by plain code. A pinch, a spread and a turn always mean
+    fingers; a swipe, a tap and a hold only where the words speak of fingers or touching, since the mouse does
+    them too.
+  - **More than one way, and the least that works.** A touch is tried, the window is compared before and
+    after, and where nothing changed the mouse wheel stands in (`touch.instead`): for a pinch, a spread and a
+    swipe with two fingers. The user is told which worked, and that is kept for the program
+    (`direct.AppWays`, the file `appways.json`), so the working way comes first the next time. It is data,
+    never code. Where nothing stands in, as for a turn with two fingers, that is said.
+  - **What is put down is lifted.** Fingers and the pen come up in a `finally`, when the request is stopped,
+    and when Windows refuses a report. In controller mode what a trigger holds comes up when the trigger is
+    let go, when the mode is turned off, when the controller goes away and when NVDA closes
+    (`padtools.Controller._release`).
+  - **NVDA's own touch handling** is put aside only with NVDA's own `touchHandler.setTouchSupport`, only for
+    the moment of a gesture, always after a question (`mustAgree`), and always put back in a `finally`.
+    NVDA's setting is not changed. Read `touchHandler.py` in NVDA's source again before changing this.
+  - **A game that reads the mouse directly** (`claw/direct.py`): the mouse itself is moved by a number of its
+    own steps (`mousetools._relative`, `nudge`). Which kind a program is, a view the mouse turns or a pointer
+    of its own, is told by the user in words (`mouse_way`) or with M in pointer mode, kept as data, and used
+    only while Windows' own pointer is hidden there (`mousetools.pointerState`, `directScope`). For a view,
+    `turn_view` moves the mouse and says whether the picture changed, and a tool that points at a place
+    refuses with a sentence that says what to ask for. For a pointer of the game's own, `direct.Tracker`
+    pushes it into the corner of the window and counts from there; its speed is measured from three pictures
+    and never guessed in silence. How far a game turns is a guess until the user says too fast or too slow;
+    say that it is a guess.
+  - **A game controller** (`claw/gamepad.py`, `padtools.py`) is only ever read. Out of controller mode its
+    sticks and buttons are the user's: only View and Menu held together, and buttons the user made hotkeys,
+    do anything. Never add a virtual controller or a driver, and never press a controller's buttons for a
+    game. Whether a connected controller is announced is the user's choice (announce, quiet, off); the
+    announcement is one sentence. Everything controller mode does is spoken; the buzz is never the only
+    sign, because Windows may not give the motors to a program that is not in front. A button as a hotkey is
+    a helper like any other (`helpers.runPad`, kept as `pad:` and the button's name).
+  - **Windows' own structures** for touch, the pen and controllers were read from Microsoft's pages on
+    2026-11-18, named at the top of `touchinput.py` and `padtools.py`. When they are changed, read the pages
+    again; do not write a structure from memory.
+  - **The notes** that answer questions about all this (`claw/knowledge/visionclaw-inputs.md`) were written
+    from VisionClaw's own code and are asked only when a question names a controller, fingers, pressure or a
+    game's mouse (`lookup._INPUTS`). When a button's meaning changes in `gamepad.py`, change the notes, the
+    skill, the README's table and the help page with it.
+  - **A tool's answer is cut at `tools.RESULT_CHARS`.** A help text that a tool gives back word for word
+    (`gamepad.HELP`, the help of pointer mode) must fit with what is said before it.
 - **A recipe that reads everything from the user's words is checked against them.** When a model chooses
   `timed_click` or `gesture` and the words name no moment and no count, or no direction and no shape, plain
   code takes what the words point to instead (`planner.fitted`). Both real models sent "press and hold ... for
@@ -366,7 +420,13 @@ addon/
     mousetools.py            the mouse from the keyboard: click, right-click, double-click, drag, the wheel,
                              the screen's scaling, pointer mode; holding the button, resting the pointer and
                              what appeared, gestures, a click when something changes or in a rhythm, keys held
-                             down during a click or a turn of the wheel
+                             down during a click or a turn of the wheel; the mouse's own movement for a game
+                             that reads the mouse directly, Windows' facts about its pointer, and how the
+                             mouse is moved while a tool works in such a game
+    touchinput.py            fingers and a pen through Windows itself: a gesture as the places every finger
+                             passes through, a pen stroke with a pressure at each place, a pen held down
+    touchtools.py            the tools for fingers and pressure: touch, compare, the wheel instead, what worked
+    padtools.py              a game controller: noticing it, reading it, controller mode, its buzz, the tools
     accesstools.py           deep inspection, lasting fixes for a website or program, installed add-ons;
                              both models judging how a control is worked
     deepquery.py             a deep query of one control: NVDA, UI Automation, the window, the off-screen model
@@ -418,6 +478,13 @@ addon/
                              how often to click, where a picture changed
       scrolling.py           how far to scroll, steps that follow the screen, whether a scroll moved anything,
                              scrollbars found in a picture
+      touch.py               which touch gesture the words mean, with how many fingers; where each finger
+                             goes; how hard to press and along which line; what the wheel does instead
+      direct.py              a game that reads the mouse directly: what a turn means in the mouse's own
+                             steps, a program's own pointer brought to a place from the window's corner and
+                             measured from pictures, what Windows' facts say, what is kept about a program
+      gamepad.py             a game controller as one plain state, what changed since the last look, which
+                             button does what, how far a stick moves the pointer, a button named in words
       changes.py             every setting VisionClaw changed, so that it can be listed and put back
       prompts.py             what every answer and description is told about the blind user, the user's own
                              instructions and wording
@@ -584,6 +651,16 @@ A session is done only when its "Done when" line is true.
   out, press and hold, gestures, a click at the right moment or in a rhythm, the middle button, a key held
   down, a place on a thing, zoom; found by the inspection from a control's own name or by the models; hotkeys
   that hold or hover; all 156 kinds of control NVDA has sorted.
+- [x] **3.32 Fingers and pressure.** `touch_gesture`: a pinch, a spread, a swipe with one to five fingers, a
+  turn with two, a tap, a double tap, a touch that is held; the wheel instead where a program takes no touch,
+  and what worked kept for the program. `pen_stroke`: a press or a line with a pressure in words, in percent,
+  rising or falling. Tested with a stand-in for Windows; see `tests/live_touch.py`.
+- [x] **3.33 Games that read the mouse directly.** `turn_view` and `mouse_way`; the mouse's own movement; a
+  game's own pointer brought to a place from the corner of its window and measured; M in pointer mode; the
+  inspection saying what Windows reports of its pointer. Tested with a game drawn by the test.
+- [x] **3.34 A game controller.** Noticed when it is connected; controller mode (NVDA+Alt+J, or View and Menu
+  held together) with sticks, buttons, triggers, the buzz and jumping between the things in a window; a button
+  as a hotkey of a program; a setting with three choices. Tested with made-up controller states.
 - [ ] **3.5 Test inside NVDA.** Install the build in NVDA (ask the user first) and walk through
   `docs/TESTPLAN.md`. Fix what breaks. *Done when:* every item in the test plan is ticked by a real run.
 
@@ -596,7 +673,7 @@ A session is done only when its "Done when" line is true.
   examples; add a `learn` command that studies a topic and stores notes. *Done when:* a question about an NVDA
   feature is answered with a quote from the user guide.
 - [x] **4.3 Skills.** SmallClaw-style `SKILL.md` files (starting words, the jobs they are for, plain sentences,
-  and optional fixed steps), 39 built in for what blind people do at a computer, six of them for the add-ons
+  and optional fixed steps), 42 built in for what blind people do at a computer, six of them for the add-ons
   the models write (`claw/skills/`), chosen by
   plain code from the request's words, their sentences given to the forms, the vision model, the coder and the
   answer of their jobs; a skill with steps runs them as its plan. The user makes, changes, turns off, deletes and
@@ -627,6 +704,11 @@ python tests/test_skills.py              every built-in skill checked; choosing,
 python tests/test_skills_window.py       the skills window with the real wxPython and stand-ins for NVDA's gui
 python tests/test_learn.py               learning about a program against a stand-in internet; every request listed
 python tests/test_memories.py            memories as files, kept, recalled, forgotten; the library; gated notes
+python tests/test_touch.py               fingers, pressure, a turn in the mouse's own steps, a drawn game with a
+                                         pointer of its own brought to a place and measured; plain Python
+python tests/test_gamepad.py             a game controller's states, buttons and sticks; its skills and notes
+python tests/live_touch.py               says what it would do; with --yes really touches and presses, inside
+                                         its own window only; never run it without asking the owner
 python tests/live_learn.py               a real model and the real internet learn about a program; read every note
 python tests/live_orchestrator.py        needs the engine and a model on this computer
 python tests/live_side_by_side.py        two real engines on two backends; needs VisionMate's vision data

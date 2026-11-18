@@ -402,5 +402,78 @@ Settings, Display, Scale).
 - [ ] NVDA+Alt+D on a dialog: the description starts with what is shown, says which button has the focus,
       and has no stars, hashes or list marks.
 
+## Fingers and pressure (after 1.2.0)
+- [ ] First, outside the Ask window: `python tests/live_touch.py --yes`. It opens a small window of its own,
+      touches and presses only inside it, and prints what Windows told that window. It must say that two
+      fingers began further apart than they ended, that the pen's pressure rose, and "Windows took the
+      fingers and the pen as VisionClaw makes them."
+- [ ] In a program that takes touch (the Maps or Photos app, or a map on a web page in Edge): "pinch the map
+      with two fingers" asks first, then says that what the window shows changed, and the map is smaller.
+      "Spread two fingers" makes it larger. "Swipe left with two fingers" moves it.
+- [ ] In a program that takes no touch but zooms with the wheel (a document in a browser): "zoom in with two
+      fingers" says that the program seems to take no touch, that the Control key and the mouse wheel were
+      used, and that this is kept. The same request again uses the wheel at once and says so.
+- [ ] "Turn the picture 90 degrees clockwise with two fingers" in a program that cannot turn: says that nothing
+      changed, and tries nothing else.
+- [ ] "Double tap the Start icon", "touch and hold" an item for 2 seconds: what happens is what a finger does
+      there. Stopping the request (NVDA+Alt+X) during a long hold lifts the finger at once.
+- [ ] In a drawing program that uses Windows Ink (Paint, OneNote, Whiteboard), with a pen or brush chosen whose
+      width follows pressure: "draw a line to the right with the pressure rising" draws a line that gets
+      thicker. "Press hard" and "press lightly" leave a larger and a smaller dot. Have someone sighted look,
+      or ask VisionClaw to describe the window.
+- [ ] On a computer with a touch screen, with NVDA's touch interaction on: the question before a gesture says
+      that NVDA's own touch gestures are put aside for that moment; after the gesture NVDA's touch gestures
+      work again (a tap reads what is under the finger).
+- [ ] In a program started as administrator: the answer says that Windows did not allow it, and why.
+
+## Games that read the mouse directly (after 1.2.0)
+- [ ] In a game whose view the mouse turns: "how does this game use the mouse?" says that the program hides
+      Windows' mouse pointer and keeps it inside its window. "The mouse turns the view in this game" asks and
+      keeps it. "Turn left" asks, then says that the view changed, and it did. "Turn around" turns much
+      further. "Direct mouse movement is too fast" makes the next "turn left" shorter.
+- [ ] In the same game, pointer mode (NVDA+Alt+K) says that the mouse turns the view here; the arrow keys turn
+      and look, Enter fires or clicks where the game aims, P says that there is no pointer with a place.
+- [ ] In a game that draws its own pointer in its menus: "this game has its own mouse pointer", then "click
+      Options" (or another thing in the menu): the game's pointer goes to it and it is pressed. If it lands
+      beside it: "measure the game's pointer", then again.
+- [ ] In such a game, pointer mode: M says each of the three ways in turn; with the game's own pointer the
+      arrow keys move that pointer.
+- [ ] When the game shows Windows' own pointer again, as in a settings window, clicks by name work the usual way.
+- [ ] "Use the normal mouse pointer again" forgets it; "list what you have made" no longer names the game.
+- [ ] "Inspect this window" in such a game: the report says what Windows reports of its pointer, and what to
+      tell VisionClaw.
+- [ ] A game with cheat protection: note whether it takes the movements at all.
+
+## A game controller (after 1.2.0)
+- [ ] Plug in or switch on an Xbox controller: within a few seconds VisionClaw says once that a game controller
+      is connected and how to turn controller mode on. Unplug it: it says that it is gone.
+- [ ] "Is a controller connected?" and "what do the buttons on my controller do?" are answered at once, with
+      no model's wording.
+- [ ] Hold View and Menu together for a second: the help is spoken. NVDA+Alt+J turns the mode off and on.
+- [ ] Left stick: a small push moves the pointer slowly, a full push fast; with the left shoulder button held,
+      slowly and exactly. When the stick comes to rest, what is under the pointer is said, once. At the
+      window's edge there is a low tone, and perhaps a buzz; note whether the buzz is felt.
+- [ ] A clicks, B right-clicks, X double-clicks, Y says what is under the pointer; the direction pad moves one step.
+- [ ] Right trigger: pull it on a window's title bar, move the stick, let go: the window moved. "Holding." and
+      "Let go." are spoken.
+- [ ] Left trigger in a drawing program that follows pressure: pulling it further draws a thicker line while
+      the stick moves; "Pen down." and "Pen up." are spoken.
+- [ ] Right stick scrolls a long page up, down and sideways. Pressed in, in a game whose view the mouse turns,
+      it looks around; pressed in again, it scrolls.
+- [ ] Right shoulder button with right and left on the direction pad: the pointer jumps from one thing found in
+      the window to the next, and its name and number are said; A then clicks it.
+- [ ] Left shoulder button with B on something that has a tip: the tip is read. With X on a dial: the direction
+      pad then turns the dial, and the View button gives it back.
+- [ ] "Make the X button on my controller click" something by name: it asks, and X then does that in this
+      program, in controller mode and out of it, and not in other programs. "Remove the X button on my
+      controller" removes it.
+- [ ] With controller mode off, play a game with the controller for a few minutes: VisionClaw does nothing.
+- [ ] Unplug the controller while the right trigger is pulled: the mouse button comes up, the mode is off, and
+      that is said.
+- [ ] Settings, Game controller: with "say nothing when one is connected" nothing is said on plugging in, and
+      View and Menu still work; with "do not look for a game controller" neither works, and asking says why.
+- [ ] A controller of another make (PlayStation, or a plain USB gamepad): it is announced as of another make;
+      note which of its buttons do what the help says, and which do not.
+
 ## Stopping NVDA
 - [ ] NVDA exits without an error, and no `vcengine.exe` is left running (Task Manager).

@@ -16,13 +16,14 @@ VisionClaw is a fork of [VisionMate](https://github.com/athee06/VisionMate) by A
 everything VisionMate does: image descriptions, the overlay for windows NVDA cannot read, photo descriptions in
 chat apps, and names for unlabelled buttons.
 
-> **Status: version 1.1.0.** The orchestration core has been tested with scripted models and with
+> **Status: version 1.2.0.** The orchestration core has been tested with scripted models and with
 > real models through the bundled engine. Inside NVDA 2026.3.1 the owner has run the models window, a first
 > set of requests, five tests of version 0.4.0 and three of 0.8.2; **most of the test plan has not been run inside NVDA
 > yet**, and what 0.9.0 to 0.11.0 add (the command fix, the log, the audit, the questions about pictures, questions
 > answered from NVDA, the program, the window and Windows, the window that says what is new, learning about a
 > program from the internet), what 1.1.0 adds (controls that are hovered over, held down, swiped or clicked at
-> the right moment, and the choice of quant), scrolling and
+> the right moment, and the choice of quant), what 1.2.0 adds (fingers and pressure, games that read the mouse
+> directly, and a game controller), scrolling and
 > the arrow keys for dials not at all. Expect rough edges and please report them. See
 > [docs/STATUS.md](docs/STATUS.md) for exactly what was tested.
 
@@ -40,6 +41,9 @@ Press **NVDA+Alt+C**, type a request, and press Enter. For example:
 - *What is on my screen?*
 - *Press the Play button in this window.* (Works in windows and games NVDA cannot read.)
 - *Give this program a hotkey that clicks Send.*
+- *Pinch the map with two fingers.* *Swipe left with three fingers.* *Press hard on the drum pad.*
+- *Turn left.* *Look up a little.* *This game has its own mouse pointer.* (For games that read the mouse directly.)
+- *Is a controller connected?* *Turn on controller mode.* *Make the X button on my controller click Play.*
 - *Write an add-on that beeps when a link gets the focus.*
 - *Open bbc.co.uk*, *Search the web for the weather in Boston*, *What does this page say about refunds?*
 - *Type garden gloves into the search box and search.*
@@ -553,10 +557,124 @@ reports about a control (that it can be dragged, moved freely, scrolled or selec
 says (its role, that it can be dragged, that it opens a menu), and NVDA's states (checkable, editable,
 draggable, has a pop-up).
 
-What VisionClaw cannot do, stated plainly: gestures with two fingers such as a pinch or a turn (the wheel with
-Control stands in for a pinch); pressure; dragging between two different windows; and anything in a game that
-reads the mouse directly. None of this has been tried in real programs yet, only with stand-ins for the mouse
-and drawn pictures.
+What VisionClaw cannot do here, stated plainly: dragging between two different windows. Fingers, pressure
+and games that read the mouse directly have their own sections below. None of this has been tried in real
+programs yet, only with stand-ins for the mouse and drawn pictures.
+
+## Fingers and pressure, without a touch screen and without a pen
+
+Some programs are made for a touch screen or a pen: a map that is pinched, a photo that is turned with two
+fingers, a list that is swiped with three, a drawing program where pressing harder gives a thicker line.
+Windows lets a program touch the screen as fingers would and press as a pen would, and VisionClaw uses that
+for you. No touch screen and no pen is needed.
+
+- **Fingers.** "Pinch the map", "spread two fingers on the photo", "zoom in with two fingers", "swipe left with
+  three fingers", "turn the picture 90 degrees clockwise with two fingers", "double tap the Start icon", "touch
+  and hold the Record button for 2 seconds". One to five fingers. Say a little, a lot or a percentage for how
+  far, slowly or flick for how fast. You name the thing; without a name it is done at the mouse pointer or in
+  the middle of the window.
+- **More than one way.** VisionClaw looks at the window before and after. If the touch changed nothing, the
+  program probably takes no touch, and then the mouse wheel is used instead: with Control for a pinch or a
+  spread, plain for a swipe with two fingers. You are told which of the two worked, and that is kept for the
+  program, so the next time the working way is used at once. Nothing stands in for a turn with two fingers;
+  if that changes nothing, you are told so.
+- **Pressure.** "Press hard on the drum pad", "press the pad at 70 percent pressure for 2 seconds", "draw a
+  line to the right with the pressure rising", "draw a circle with the pen, lightly", "erase a zigzag with
+  the pen, firmly". The words lightly, firmly, hard, as hard as it goes, a number of percent, rising, falling,
+  or "from light to hard" say how hard. VisionClaw presses as a pen would; with "with a finger" it presses as
+  a finger, which also reports how hard.
+- **You are asked first**, and whatever is put down is lifted again: when the gesture is done, when you stop
+  the request, and when something fails.
+- **On a computer with a touch screen**, NVDA takes every touch for itself, to read what is under your finger.
+  For the moment of a gesture VisionClaw puts NVDA's own touch gestures aside, with NVDA's own function, and
+  puts them back right after. It always asks before it does that, and it does not change NVDA's setting.
+
+Limits, stated plainly. Pressing as a pen needs Windows 10, version 1809, or later; on an older Windows one
+finger presses instead. A program that reads a drawing tablet through the tablet's own driver, and not through
+Windows, takes no notice. VisionClaw can see whether the window changed, not whether the program felt how hard
+it was pressed. A program that runs with more rights than NVDA, such as one started as administrator, cannot
+be touched. None of this has been tried against a real program yet: it was tested with a stand-in for
+Windows, and `python tests/live_touch.py --yes` shows on your own computer whether Windows takes the fingers
+and the pen.
+
+## Games that read the mouse directly
+
+Many games take no notice of where Windows' mouse pointer is. They listen to how far the mouse itself moves.
+Some turn the view with it and show no pointer at all; others draw a pointer of their own. Putting Windows'
+pointer on a thing does nothing in either. VisionClaw can move the mouse itself, by a number of its own steps,
+which such a game sees as it sees a hand moving the mouse.
+
+- **Tell VisionClaw which it is**, once: "the mouse turns the view in this game", or "this game has its own
+  mouse pointer". It asks, keeps that for the program, and uses it whenever the game hides Windows' pointer.
+  When Windows' own pointer shows again, as in many menus, the usual way is used. "How does this game use the
+  mouse?" says what is kept and what Windows reports: that the pointer is hidden, and kept inside the window.
+  "Use the normal mouse pointer again" forgets it.
+- **A view the mouse turns.** "Turn left", "turn right a lot", "look up a little", "turn around", "turn right
+  500 steps". VisionClaw moves the mouse itself and tells you whether the view changed. How far a game turns
+  for one step differs from game to game: "direct mouse movement is too fast" or "too slow" changes it, and
+  that is kept for the game.
+- **A pointer the game draws itself.** Clicking, holding, dragging and gestures on things you name work again:
+  VisionClaw pushes the game's pointer into the corner of the window, where it must be whatever its speed,
+  and counts from there. The first time it also measures how fast the game moves its pointer, by moving it
+  three times and comparing the pictures. If clicks land beside what you name, say that it is too fast or too
+  slow, or "measure the game's pointer".
+- **Pointer mode** (NVDA+Alt+K): **M changes how the mouse is moved**, between Windows' pointer, the game's
+  own pointer, and a view that the mouse turns, and keeps your choice for the program. For a view, the arrow
+  keys move the mouse itself and Enter clicks where the game aims.
+- **The inspection says so.** "Inspect this window" reports when a program hides Windows' pointer and keeps it
+  inside its window, and what to tell VisionClaw then.
+
+Limits, stated plainly. A game that refuses movements made by a program, as some games with cheat protection
+do, cannot be worked this way. VisionClaw does not know how far a game turns for a step until you tell it
+that it is too fast or too slow. Measuring a game's pointer needs the pointer to be the only small thing that
+moves in the picture. All of this was tested with a game drawn by the test, which has a pointer of its own
+with a speed of its own; it has not been tried in a real game.
+
+## A game controller
+
+When a game controller is connected, VisionClaw notices it and says so in one sentence. An Xbox controller,
+and any controller Windows reads the same way, is fully known. A controller of another make is read through
+Windows' older joystick interface, with its buttons taken to lie where they lie on most controllers; that may
+not fit yours, and VisionClaw says so.
+
+**Controller mode** makes the controller a way to work any window, whatever its controls are: standard, drawn,
+moving or entirely custom. Turn it on by holding the controller's View and Menu buttons together for a second,
+or with NVDA+Alt+J, or by asking "turn on controller mode". The View button turns it off. Out of controller
+mode VisionClaw leaves the sticks and buttons alone, so you can play with the controller as always.
+
+| On the controller | What it does |
+|---|---|
+| Left stick | Moves the mouse pointer in the window: a small push slowly, a full push fast. When it comes to rest you hear what NVDA finds under the pointer, and feel a short buzz when that is something else than before. At the window's edge the pointer stops, with a buzz and a low tone |
+| Direction pad | Moves the pointer one step |
+| A, B, X | Click, right-click, double-click |
+| Y | Says what is under the pointer |
+| Right trigger | The mouse button, for as long as you pull it: pull, move the stick and let go to drag, or keep it pulled to hold something down |
+| Left trigger | Presses like a pen, as hard as you pull it, for drawing and for controls that feel pressure |
+| Right stick | Turns the mouse wheel, up, down and sideways. Pressed in, it moves the mouse itself instead, for a game that reads the mouse directly; pressed in again, the wheel |
+| Left stick pressed in | Says where the pointer is in the window |
+| Left shoulder button, held | Makes the stick slow and exact. With it: A clicks the moment what is under the pointer changes, B rests the pointer and says what appears, X tries what is there as a dial or slider (the direction pad then works it), Y reads the text there |
+| Right shoulder button, held | Makes the stick fast. With it: right and left on the direction pad jump to the next and the previous thing found in the window's picture and say its name, up looks at the window again, down finds the scrollbars, A holds the mouse button until you press it again, B clicks with the middle button, X changes how the mouse is moved, Y has the picture at the pointer described |
+| Menu | Says all of this |
+| View | Turns controller mode off |
+
+**A button as a hotkey.** "Make the X button on my controller click Play", "let the left shoulder button of my
+controller read the score", "make up on the d-pad of my gamepad hold down the Talk button". The button then
+does that in this program, in controller mode or out of it, whenever the controller is connected, and finds
+its thing by name each time. "Remove the X button on my controller" removes it.
+
+**Asking.** "Is a controller connected?", "What do the buttons on my controller do?", "How do I drag with the
+controller?" are answered by plain code and from VisionClaw's own notes, never made up by a model.
+
+**Your choice.** In NVDA's settings, under VisionClaw, Game controller: tell me when one is connected and
+listen for View and Menu held together (the default); listen, but say nothing when one is connected; or do
+not look for a game controller at all.
+
+Limits, stated plainly. VisionClaw cannot press a controller's buttons for you: a game that is only worked
+with a controller needs your hands on it, and VisionClaw then describes the screen. The buzz may not come at
+all, because Windows gives a controller's motors to the program in front; nothing depends on it, and every
+buzz has a sound or a spoken word beside it. Whatever the triggers hold, the mouse button or the pen, comes up
+when you let go, when the mode is turned off, when the controller is unplugged, and when NVDA closes.
+Controller mode was tested with made-up controller states, not with a real controller in a real hand.
 
 ## Dials, knobs and sliders that are only worked by dragging
 
@@ -581,7 +699,8 @@ control with the arrow keys (W says what is under it), and press D. The same the
 
 What is kept is data, not code: the control's name or its place as a share of the window, and how it is
 worked. Limits, stated plainly: this has been tested with a stand-in program, not with real programs yet.
-A game that reads the mouse directly, as most 3D action games do, will not follow a pointer moved this way.
+A game that reads the mouse directly, as most 3D action games do, will not follow a pointer moved this way
+unless you tell VisionClaw so: see "Games that read the mouse directly".
 A control whose change shows nowhere near it cannot be told to have moved.
 
 ## How a sighted person works each control, and a deep query
@@ -663,6 +782,7 @@ add-on. Small models make mistakes; read the code or ask someone you trust if an
 | NVDA+Alt+M | See, remove or swap the models on this computer |
 | NVDA+Alt+U | Look for a newer version of VisionClaw, and get it if you want it |
 | NVDA+Alt+K | Pointer mode: work the mouse pointer with the arrow keys |
+| NVDA+Alt+J | Controller mode: work the mouse pointer with a connected game controller |
 | NVDA+Alt+A | Describe the current element |
 | NVDA+Alt+W | Describe the current window |
 | NVDA+Alt+F | Describe the whole screen |
@@ -753,7 +873,8 @@ and nothing about you. None of these happens by itself. It also reads the list
 of its own versions from GitHub when you ask it to look for a newer version; only if you turn that on in the
 settings does it do so by itself, when NVDA starts and at most once a day. Screens, photos, requests and
 generated code never leave your computer. VisionClaw's own log, the audit of NVDA and the notes on programs
-are files on your computer and are sent nowhere.
+are files on your computer and are sent nowhere. A game controller is read on your computer; nothing about
+it is sent anywhere.
 When you ask it to open or search the web, it hands the address to your own browser, which goes online as
 usual; a web search sends your search words to the search engine you chose.
 

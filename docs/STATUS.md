@@ -1,6 +1,6 @@
 # VisionClaw status
 
-Updated 2026-11-17, version 0.11.0.
+Updated 2026-11-18, version 1.2.0.
 
 ## What exists
 
@@ -1045,7 +1045,105 @@ was read, no real button was held, no real gesture was drawn, and no real key wa
 `keyboardHandler.ignoreInjection` is used so that NVDA takes no notice of the held key; that it exists in
 every NVDA from 2024.1 on was not checked, and without it the key is pressed all the same.
 
+## Fingers, pressure, games that read the mouse directly, and a game controller (1.2.0, 2026-11-18)
+
+The owner's words, of what 1.1.0 had named as not covered ("Gestures with two fingers, pressure, and games
+that read the mouse directly are not covered"): "visionclaw must be able to make these controls accessible as
+well. Find a way or multiple ways to do this, using visionclaw and its offline local models, skills, memory,
+rag, and system prompts." And: "when the user has a gamepad or controller such as an xbox controller
+connected, support the detection of this, if detected, visionclaw must add accessibility for various movement
+and button presses and clicks and pressure across all possible windows, app and game controls which can be
+made to work with accessibility fixes. whether the controls are standard, nonstandard, drawn, moving,
+floating, extremely custom, etcetera."
+
+What was done:
+- **Fingers** (`claw/touch.py`, `touchinput.py`, `touchtools.py`, the tool `touch_gesture`). Windows lets a
+  program touch the screen as fingers would (`InjectTouchInput`). A pinch, a spread, a swipe with one to five
+  fingers, a turn with two fingers, a tap, a double tap and a touch that is held are read from the user's own
+  words by plain code; where every finger goes, in small steps and inside the window, is worked out by plain
+  code too. The user is asked first, and the fingers are lifted in a `finally`.
+- **More than one way.** The window is compared before and after. Where a touch changed nothing, the mouse
+  wheel stands in: with Control for a pinch or a spread, plain for a swipe with two fingers. The user is told
+  which of the two worked, and that is kept for the program (`direct.AppWays`, `appways.json`), so the working
+  way is used at once the next time. Nothing stands in for a turn with two fingers, and that is said.
+- **Pressure** (the tool `pen_stroke`). Windows gives a program a pen to hold
+  (`CreateSyntheticPointerDevice`, Windows 10 version 1809 and later). "Lightly", "firmly", "as hard as it
+  goes", a number of percent, "rising", "falling" and "from light to hard" say how hard; a press lasts a time,
+  a line or a shape is drawn with the pressure changing evenly along it. On a Windows without a pen for
+  programs one finger presses instead, and that is said.
+- **NVDA's own touch handling.** On a computer with a touch screen NVDA takes every touch for itself. NVDA's
+  source (`touchHandler.py`, read from NV Access's repository on 2026-11-18) shows that it registers as the
+  target of all touch input and offers `setTouchSupport` to turn that off and on, which its own command
+  NVDA+Control+Alt+T uses. VisionClaw calls that function for the moment of a gesture, always after a
+  question, and puts it back in a `finally`. NVDA's setting is not changed.
+- **Games that read the mouse directly** (`claw/direct.py`, the tools `turn_view` and `mouse_way`). The mouse
+  itself is moved by a number of its own steps (`mouse_event` with a relative movement), which such a game
+  sees as it sees a hand. The user tells VisionClaw once which kind the game is; that is kept as data and used
+  only while Windows' own pointer is hidden there, which plain code reads from Windows (`GetCursorInfo`,
+  `GetClipCursor`). For a view the mouse turns, "turn left", "look up a little" and "turn around" move the
+  mouse and say whether the picture changed; how far is a guess that the user corrects in words ("too fast",
+  "too slow"), kept for the program. For a game that draws its own pointer, the pointer is pushed into the
+  corner of the window, where it must be whatever its speed, and counted from there (`direct.Tracker`); its
+  speed and place are measured from three pictures, by where the picture changed. Clicking, holding, dragging,
+  gestures and timed clicks by name then go there (`mousetools.directScope`). Pointer mode has the key M for
+  the three ways.
+- **A game controller** (`claw/gamepad.py`, `padtools.py`). A thread of its own asks Windows every two and a
+  half seconds whether a controller is there (XInput; the older joystick interface every fourth time, for
+  controllers of another make) and, once one is, looks at it sixty times a second. Out of controller mode only
+  View and Menu held together for a second, and buttons the user made hotkeys, do anything. In controller mode
+  the left stick moves the pointer by how far it is pushed, what NVDA finds under the pointer is said when the
+  stick comes to rest, A, B and X click, Y says what is there, the right trigger is the mouse button while it
+  is pulled, the left trigger presses like a pen as hard as it is pulled, the right stick turns the wheel or
+  moves the mouse itself, and with the right shoulder button the direction pad jumps between the things found
+  in the window's picture. The other commands are those of pointer mode, so nothing was written twice. A
+  button can be a hotkey of a program (`create_helper`, kept as `pad:` and the button). A setting with three
+  choices, and NVDA+Alt+J.
+- **Three more ways of working a control** in `working.WAYS`: touch with fingers, press with pressure, move
+  the mouse to look; each with a line in both questions to the models, a remedy, a means, a case in
+  `tests/live_working.py` and what it cannot do. A control's own words decide by plain code ("Pinch to zoom",
+  "Pressure-sensitive pad", "Move the mouse to look around"). The inspection of a window says what Windows
+  reports of its pointer, and that a controller is connected.
+- **Skills, notes, memories, instructions.** Three built-in skills (42 now). Notes written from VisionClaw's
+  own code (`claw/knowledge/visionclaw-inputs.md`), asked only when a question names a controller, fingers,
+  pressure or a game's mouse. A section in the notes for the coder: an add-on cannot read a controller or
+  touch the screen, so such a thing is a hotkey and not an add-on. What the user says about a controller, a
+  joystick, a pen or a touch screen counts as how they work the computer and may be kept as a memory. Every
+  answer is told to name a controller's buttons as the controller names them.
+- **Six new tools (69 now) and six new recipes**, with the words that point to them, and a model's choice
+  corrected where the words cannot mean it (`planner.fitted`): no touch without a touch in the words, no turn
+  for "turn up the volume", and never a click for "make the X button on my controller click ...".
+
+| Test | What it covers | Result |
+| --- | --- | --- |
+| `tests/test_touch.py` (new) | Which touch gesture the words mean and with how many fingers, with what stays the mouse's; where the fingers go for a pinch, a spread, a swipe, a turn, a tap and a hold, in small steps, inside the window, twice as far apart on a screen scaled to twice; what stands in; pressure in words, percent, rising and falling, and that no pressure is made up; a pen's line with the pressure changing evenly over two strokes; a turn as steps of the mouse, with "turn up the volume" not meant; what the words say about a program's mouse; a game drawn by the test with a pointer of its own at four speeds, brought to places from the corner within three pixels, landing beside the place with the wrong speed, and measured to within 0.06 from three pictures; a picture that measures nothing; what is kept as data, with a broken file; 29 requests whose words point to the right job; the new ways in the survey, the remedy and both questions | passes |
+| `tests/test_gamepad.py` (new) | What XInput and the older joystick interface report as one state; a stick at rest, gentle at first, strong at the rim; a slow push not lost; buttons down and up, a trigger that does not flutter, the chord once and again only after both were let go; which button does what, alone and with each shoulder button; the help naming every button; 17 ways of naming a button in words, and none where no controller is spoken of; the words that point to the controller's jobs; the three skills chosen by their words and not by others; the notes answering six questions and not answering three others; a section of the notes being one short answer; what is kept as a memory | passes |
+| `tests/test_nvda_stub.py` (fingers, the pen, the mouse's own movement, Windows' facts about its pointer and the controller only written down or made up) | A pinch around the named thing, asked first, lifted where the fingers last were; the wheel with Control used where the touch changed nothing, said and kept, and used at once the next time; a swipe with two fingers as scrolling; a turn that changed nothing with nothing else tried; three fingers; a double tap; Windows refusing, with and without something that stands in; no gesture named; a stopped request lifting the fingers; NVDA's touch handling put aside and put back, also when the touch fails, and asked about with confirmations off; a press at 80 percent, a line with the pressure rising, the eraser, a finger where there is no pen, nothing pressed without words for how hard, a stopped request lifting the pen; a turn of 300 steps in small pieces, a turn that changed nothing, no direction; what is said and kept about a program's mouse; a click, a gesture and pointer mode moving a game's own pointer and never Windows'; the usual way when Windows' pointer shows; too fast kept; pointing refused where the mouse turns the view; pointer mode's arrow keys and Enter there, and M through the three ways; a controller noticed and announced once, left alone out of controller mode, the chord, the stick fast, slow and gentle, what is under the pointer said once with a buzz, the edge, A, B, X, Y, the direction pad, a drag with the right trigger, the pen with the left trigger, the wheel and the mouse itself with the right stick, jumping between things by name, a button as a hotkey in its program only, Menu and View, the tool in words, the controller going away while both triggers hold something, quiet and off, a controller of another make, and the inspection naming the hidden pointer and the controller | passes |
+| `python tests/run_all.py` | All 24 plain-Python tests | passes |
+| `tests/live_working.py`, Qwen3.5 9B looking, Qwen2.5 Coder 1.5B reading the facts | 16 drawn controls, 4 of them new (a map that says to pinch with two fingers, a photo that says to turn it with two fingers, a pad that says to press harder, a game's view with a mark in its middle that says to move the mouse to look), and 14 fact sets, 3 of them new | First run, with 15 drawings: 28 of 29. The 12 older drawings were all still named rightly with the three new lines in the question, so the order of the lines was kept. The pad was called "press with pressure" and the game's view "move the mouse to look". The map that says to pinch was called "drag in any direction", which is also how a sighted person works a map, and the line for that way names a map; so both answers are now counted for the map, the word "map" was taken out of the new line, and a photo that is turned with two fingers was added, which the model called "touch with fingers". Second run: 30 of 30, of which 16 by the vision model and 14 by plain code |
+| `tests/live_orchestrator.py`, Qwen3.5 9B and Qwen2.5 Coder 1.5B, stand-in tools, 109 requests of which 13 are new ("Pinch the Options button with two fingers", "Swipe left with three fingers", "Press hard on the New Game button for 2 seconds", "Draw a line to the right with the pressure rising", "Turn left", "Look up a little", "This game has its own mouse pointer", "The mouse turns the view in this game", "Is a game controller connected?", "What do the buttons on my controller do?", "Turn on controller mode", "Make the X button on my controller click the New Game button", "Give this program a hotkey, NVDA+alt+1, that clicks the Options button") | Which job both models choose, and the forms | 106 of 109 got the fitting job from both models, four of them after looking again; all 13 new ones did, and every older mouse request (click, hold, hover, the gestures, the timed clicks, scroll, zoom, drag, pointer mode, the dials). For "Swipe left with three fingers" the coder model first chose the mouse's gesture and took the touch on looking again. One fault of the test itself was found first: it had no stand-in for making a hotkey, so the models could not choose that job at all and both clicked the button; with the stand-in added both chose the hotkey, also for a key. The three that did not get a fitting job: "Name the focused button Share on this website" and the second half of "Do a deep query of this control and tell me how a sighted person works it", as in 1.1.0; and "How do I bake a cake?", which both models chose to plan themselves, so that it took 79 seconds and one question to the user before the right answer came, that nothing was found. That request was run again without the new jobs and went the same way, so it does not come from this change |
+
+What the measurement shows, and what it does not. The models send requests in words to the right job, and
+tell a drawn control that says how it is worked. Nothing here touched a real screen: `InjectTouchInput` and
+`InjectSyntheticPointerInput` were never called with a finger or a pen down, so whether Windows takes the
+structures as VisionClaw fills them in is not known. What is known: the structures have the sizes of
+Microsoft's own on this computer (96, 144, 120 and 152 bytes in a 64-bit Python), and Windows 11 here gives a
+program a pen (`CreateSyntheticPointerDevice` gave one, which was given back unused). The window of
+`tests/live_touch.py` was opened and closed without a touch. No game was run: that a game sees a movement made
+by `mouse_event` as it sees a hand is how Windows is documented to hand on such input, and it is not tried
+here. No controller was plugged in: `XInputGetState` and the joystick interface were never read with one
+there, the buzz was never felt, and how the pointer feels under a real stick is not known. In NVDA 2024.1 to
+2025, which are 32-bit, the structures are smaller by Windows' own rules; that was not run.
+
 ## What was not tested
+
+- **Fingers, pressure, games that read the mouse directly and a game controller (1.2.0)** were tested with
+  stand-ins for Windows, the mouse and the controller, with a game drawn by the test, and with the real models
+  on drawn pictures and on requests in words. Not tried at all: a real touch or pen stroke taken by Windows
+  (`python tests/live_touch.py --yes` shows it, inside its own window); a real program that takes touch, and
+  one that does not; a drawing program that follows a pen's pressure; NVDA's own touch handling put aside on
+  a computer with a touch screen; a real game whose view the mouse turns, and one that draws its own pointer,
+  with its pointer measured; a real controller, of Xbox's kind and of another make, in a real hand, with its
+  buzz; and all of it in a 32-bit NVDA.
 
 - **Controls that need more than a click (1.1.0)** were tested with a stand-in for the mouse, the keyboard
   and the screen, and with the real models on drawn pictures. In a real program: hovering and reading a tip,
@@ -1127,8 +1225,20 @@ every NVDA from 2024.1 on was not checked, and without it the key is pressed all
   does not mean. Every note names its page, and the file says it may be wrong.
 - The check on generated code is not a sandbox.
 - A click at the right moment follows a change VisionClaw sees, about 25 looks a second; it cannot hit a moving
-  mark at a place, and something that changes all the time has no moment it can tell. Gestures with two
-  fingers, pressure, a drag between two windows and a game that reads the mouse directly are not covered.
+  mark at a place, and something that changes all the time has no moment it can tell. A drag between two
+  windows is not covered.
+- A touch or a press with pressure is seen to have changed the window or not; whether a program felt how hard
+  it was pressed cannot be seen. A program that reads a drawing tablet through the tablet's own driver takes
+  no notice. Pressing as a pen needs Windows 10, version 1809, or later. A program that runs with more rights
+  than NVDA cannot be touched.
+- A game that refuses movements made by a program cannot be worked. How far a game turns for a step of the
+  mouse is a guess until the user says too fast or too slow. A game's own pointer is measured only where it is
+  the one small thing that moves in the picture; where the game's menu lights up under it, measuring fails and
+  says so.
+- VisionClaw cannot press a controller's buttons: a game that is only worked with a controller needs the
+  user's hands. A controller of another make than Xbox's is read with its buttons taken to lie as on most; the
+  triggers of such a controller are on or off, not pressed harder or lighter. The buzz may not come.
+- The words for all of this are understood in English only.
 - What appeared after hovering is the text that is new where the window's picture changed; a tip drawn outside
   the window, or one that shows no text, is not read.
 - A control's own name is understood in English only ("Hold to record"); in another language the models are
@@ -1136,7 +1246,9 @@ every NVDA from 2024.1 on was not checked, and without it the key is pressed all
 
 ## Next session
 
-Phase 3.5: install the build in NVDA (ask the owner first), walk through `docs/TESTPLAN.md`, fix what breaks.
+First, with the owner's yes: `python tests/live_touch.py --yes`, which shows in a minute whether Windows takes
+the fingers and the pen as VisionClaw makes them. If it does not, fix `touchinput.py` before anything else.
+Then phase 3.5: install the build in NVDA (ask the owner first), walk through `docs/TESTPLAN.md`, fix what breaks.
 Then download the two suggested models and repeat `tests/live_orchestrator.py` with them.
 
 Found on 2026-11-18 and left open: with Qwen3.5 9B and Qwen2.5 Coder 1.5B, "Name the focused button Share on
