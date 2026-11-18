@@ -524,5 +524,31 @@ Settings, Display, Scale).
 - [ ] A controller of another make (PlayStation, or a plain USB gamepad): it is announced as of another make;
       note which of its buttons do what the help says, and which do not.
 
+## Working the computer itself (after 1.4.0)
+- [ ] "Check and see if my recycle bin needs to be emptied": answers at once, with the number of items and their
+      size as File Explorer shows them.
+- [ ] Delete a test file, then "empty the recycle bin": a question names the number of items; No leaves them;
+      Yes empties it, and the answer says how many were deleted.
+- [ ] "Open the Recycle Bin", "open Notepad", "open my downloads folder", "go into my Windows settings", "open
+      Bluetooth settings": each opens after a question, and the answer names the window in front.
+- [ ] "Open" with a word that several programs have: the question lists them, and the chosen one opens.
+- [ ] "First, look at my screen. If you see recycle bin, open it." with the desktop in front: the screen is
+      described, the Recycle Bin is found by its name, and it opens. With a window covering the desktop: it
+      says that it is not on the screen and that it was not opened.
+- [ ] "Turn down my system volume": 10 points lower, and NVDA is still heard. Repeated near 10 percent: it stops
+      at 10 and says why. "Mute my computer" without a braille display: refused, with the reason.
+- [ ] "Switch to" a program that is open; "close Notepad" with unsaved text: it says the window is still open.
+- [ ] "Minimize all windows": the desktop is in front. Windows+D brings the windows back.
+- [ ] "What is in my downloads folder" and "find the file named" a word of a file you have.
+- [ ] "How much disk space do I have left", "how long has my computer been on", "which programs are running".
+- [ ] "Lock my computer": asked, then locked. "Restart my computer", then within 30 seconds "cancel the restart".
+- [ ] "Go into my Windows settings, turn down my system volume, close Windows settings, then go to gmail.com in
+      my Google Chrome and tell me how many emails I have": five things, each announced as a step, in order.
+- [ ] In a program with a settings dialog that has tabs: "in this dialog, turn on" an option that is on another
+      page: the page is named, and the option is on afterwards. Then a slider "up a bit".
+- [ ] In a program NVDA cannot read: "find the settings button in this app, then turn the volume up a bit".
+- [ ] In NVDA's log viewer or VisionClaw's log: "Offered for this: N of M kinds of request" appears, with N
+      far smaller than M, and a request about a web page is still understood with no browser in front.
+
 ## Stopping NVDA
 - [ ] NVDA exits without an error, and no `vcengine.exe` is left running (Task Manager).

@@ -20,6 +20,9 @@ FINISHED = (DONE, FAILED, CANCELLED)
 STATE, STEP, DETAIL, TALK, THINK, ANSWER, ERROR = "state", "step", "detail", "talk", "think", "answer", "error"
 
 PENDING, RUNNING, STEP_DONE, STEP_FAILED, SKIPPED = "pending", "running", "done", "failed", "skipped"
+# A step that was not done because what it depends on did not hold: "if you see the Recycle Bin, open it", and
+# the Recycle Bin is not there. That is no failure.
+NOT_NEEDED = "not needed"
 
 
 class Cancelled(Exception):
@@ -41,6 +44,13 @@ class Step:
 		self.result = ""
 		# What was learned if the step first failed and then worked; kept in memory after the task.
 		self.lesson = ""
+		# A step that checks what others depend on has `test`, which says from its result whether that holds, and
+		# `said`, which makes the sentence the user is told; `holds` is what the test said once the step is done.
+		# A step that depends on one has it as `onlyIf` (planner.conditional).
+		self.test = None
+		self.said = None
+		self.holds = None
+		self.onlyIf = None
 
 	def asDict(self):
 		return {"title": self.title, "tool": self.tool, "detail": self.detail}

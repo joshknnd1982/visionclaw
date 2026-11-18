@@ -212,11 +212,12 @@ assert task.answer == "Speech rate was 50 and is now 70. The screen shows a game
 formPrompt = next(u for _r, s, u in rt.calls if s.startswith("You are VisionClaw, an assistant inside the NVDA screen reader, helping"))
 assert "Make NVDA talk faster\"" in formPrompt and "what is on my screen" not in formPrompt
 
-# 10. A split that invents something the user never said is thrown away.
+# 10. A split that invents something the user never said is thrown away. (A request that plain rules can
+#     split for certain is not put to a model at all: see tests/test_computer.py.)
 task, state, asked, rt = run(
-	"Make NVDA talk faster, then tell me the time", forms=[GOOD],
+	"Make NVDA talk faster, and the pitch a little lower too", forms=[GOOD],
 	parts=["Make NVDA talk faster", "Delete all my documents"])
-assert [s.part for s in task.steps[:-1]] == ["Make NVDA talk faster, then tell me the time"] * 2
+assert [s.part for s in task.steps[:-1]] == ["Make NVDA talk faster, and the pitch a little lower too"] * 2
 
 # 11. Information that was looked up is put into words by the model; here, the keys of a command.
 task, state, asked, rt = run("How do I read the window title?", choices=["explain_keys"])

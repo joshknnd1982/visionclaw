@@ -11,7 +11,7 @@
 
 import re
 
-from . import direct, gamepad, pointer, policy, touch
+from . import computer, controls, debuglog, direct, gamepad, memories, pointer, policy, router, touch
 from .llm import LLMError, clip
 from .task import Step
 from .tools import ANSWER
@@ -349,7 +349,56 @@ RECIPES = {
 		"say what is in your library of documents",
 		"say which documents are in VisionClaw's library, or open the library's folder so the user can add some",
 		("library",)),
+	# The computer itself, worked for the user (claw/computer.py): things opened by their name, the Recycle Bin,
+	# the computer's volume, the windows that are open, the user's files, facts about the computer, its power.
+	"open_thing": (
+		"open a program, folder or settings page by its name",
+		"open or start something on the computer by its name, wherever the user is: a program or app, a folder such "
+		"as Documents or Downloads, a file, the Recycle Bin, Control Panel, or Windows Settings and its pages; not "
+		"a button or item in the window in front, and not a website",
+		("find_thing", "open_thing")),
+	"recycle_bin": (
+		"check the Recycle Bin",
+		"say how full the Recycle Bin is, how much it holds, and whether it needs to be emptied",
+		("recycle_bin",)),
+	"empty_bin": (
+		"empty the Recycle Bin",
+		"empty the Recycle Bin now, which deletes what is in it for good",
+		("empty_recycle_bin",)),
+	"system_volume": (
+		"change or say the computer's volume",
+		"turn the volume of the computer itself, the system volume, up or down, set it, mute or unmute it, or say "
+		"how loud it is; not the volume of NVDA's voice",
+		("system_volume",)),
+	"window": (
+		"switch to, close or resize a window",
+		"switch to another open window or program, or close, minimize, maximize or restore a window, or minimize "
+		"every window",
+		("list_windows", "window_action")),
+	"files": (
+		"look through your folders and files",
+		"say what is in the user's Desktop, Documents, Downloads, Pictures, Music or Videos folder, which file is "
+		"the newest or how many there are, or find a file of theirs by its name or kind",
+		("find_files",)),
+	"computer_info": (
+		"tell you about the computer",
+		"say a fact about the computer itself: free disk space, memory, processor, how long it has been on, whether "
+		"it is connected to a network, which programs are running, its name",
+		("computer_info",)),
+	"set_control": (
+		"set a named control of this program",
+		"in the program or dialog in front, turn a named option, check box or switch on or off, or turn a named slider "
+		"or value up or down or to a number; looks through the pages of the dialog for it; not a setting of NVDA",
+		("set_control",)),
+	"power": (
+		"lock, restart or shut down the computer",
+		"lock the computer, put it to sleep, restart it, shut it down or sign out of Windows, or call off a restart "
+		"or shutdown that is waiting",
+		("power",)),
 }
+# The step that checks what a request depends on ("if you see the Recycle Bin, open it") is no recipe: plain
+# code puts it before the steps of what is to be done (`conditional`).
+IF = "if"
 # Words that point to a recipe. Checked in this order; the first that matches is the hint given to the model,
 # and the choice when the model fails.
 _HINTS = (
@@ -400,6 +449,16 @@ _HINTS = (
 		# about the user is kept after it is answered (orchestrator._keep).
 		r"|^\s*(please )?(call me|my name is|i am new to|i'm new to)\b[^?.!;]*[.!]?\s*$"),
 	("library", r"\b(my|your|visionclaw'?s|the) library\b|\blibrary (folder|of documents)\b"),
+	# The computer itself. Each of these is decided by plain code from words that can hardly mean anything else
+	# (claw/computer.py), and none of them is meant by a question about how something is done. Locking and
+	# shutting down first; emptying the Recycle Bin before opening it and before asking about it; the computer's
+	# own volume before NVDA's, which is a setting.
+	("power", lambda part: computer.powerOf(part) is not None),
+	("empty_bin", computer.emptiesBin),
+	("system_volume", lambda part: computer.volumeOf(part) is not None),
+	("window", lambda part: computer.allWindows(part) and computer.aboutWindow(part)),
+	("open_thing", computer.opensPlace),
+	("recycle_bin", computer.asksAboutBin),
 	("note_page", r"\b(add|put|save|keep)\b.*\b(page|site|article)\b.*\bnotes?\b"
 		r"|\bnotes?\b.*\bfrom (this|the) (web ?page|page|web ?site|site|article)\b"),
 	("app_notes", r"\b(which|what|list|show|open|read)\b.*\bnotes\b"),
@@ -528,6 +587,9 @@ _HINTS = (
 		r"\b(which|what|list|show|tell me|do i have|do you have|how many|how big|how large|is|are|name)\b.*\b(models?|qwen|llms?)\b"
 		r"|\b(models?|qwen|llms?)\b.*\b(installed|downloaded|stored|loaded|running|in use|being used|chosen|selected)\b"
 		r"|\bwhat (ai|a\.i\.) (is|are)\b|\bwhich (ai|a\.i\.)\b))"),
+	("files", computer.aboutFiles),
+	("computer_info", computer.aboutComputer),
+	("window", computer.aboutWindow),
 	("explain_keys", r"how (do|can|would|to) |what (key|keys|command|shortcut)|which (key|keys|command)|shortcut for"),
 	("keyboard_mouse", r"\bpointer mode\b|\bmouse (mode|keys)\b|\b(keyboard|arrow keys?)\b.*\b(mouse|pointer)\b"
 		r"|\b(mouse|pointer)\b.*\b(keyboard|arrow keys?)\b|\bkeyboard[- ](navigable|accessible)\b"),
@@ -540,9 +602,19 @@ _HINTS = (
 		r"|\bmiddle[- ](click|button)\b|\btriple[- ]click\b|\b(ctrl|control|shift|alt)\s*[-+ ]\s*click\b"),
 	("drag", r"\bdrag\b|\bslider\b|\bdrop\b.*\b(on|onto|into)\b"),
 	("scroll", r"\bscroll(s|ed|ing)?\b|\bmouse wheel\b|\bzoom(s|ed|ing)? (in|out)\b"),
+	# A button, link, tab or icon that is named and is to be clicked or found, whatever it is called: "click the
+	# Settings button" is a click, though the word setting is in it. Finding one points the mouse at it.
+	("click", r"\b(click|double[- ]click|press|push|activate|find and click)\b (on )?(the |a |an |my |that |this )?[\w' -]{1,40}?\b(button|link|tab|icon)\b"
+		r"|^\s*(please )?(can you )?(find|locate|where is|where's|point (at|to))\b (me )?(the |a |an |my )?[\w' -]{1,40}?\b(button|link|tab|icon)\b"),
 	("change_setting", r"speed|rate\b|faster|slower|louder|quieter|volume|pitch|voice|punctuation|echo|braille|setting|turn (on|off)|switch (on|off)|enable|disable|stop (saying|reading|announcing|speaking)"),
 	("click", r"\bright[- ]click\b|\bdouble[- ]click\b|\bhover\b|\bpoint (at|to)\b"),
 	("click", r"\b(click|press|push|activate|select|choose|start|open)\b.*\b(button|link|item|menu|tab|icon|game|option)|\bclick\b"),
+	# A program, folder or file opened by its name. After everything above that the word open also starts, and
+	# never for "it" or "this", which is the thing that has the focus.
+	("open_thing", r"^\s*(please )?(can you |could you )?(open|launch|fire up)\b( up)? (?!(it|this|that|them|these|those|"
+		r"the (selected|focused|current|highlighted|first|next|last))\b)"
+		r"|^\s*(please )?(can you |could you )?(start|run)\b( up)? (?!\w+ing\b|(it|this|that|over|again|now|a new|the new)\b)"
+		r"(the |my )?[\w.+'-]+( [\w.+'-]+){0,2}\s*[.!]?\s*$"),
 	("press_keys", r"\bpress\b.*\b(key|enter|escape|tab|control|alt|shift|f\d+)\b"),
 	("type_text", r"\btype\b|\bwrite\b.*\binto\b"),
 	# The facts NVDA holds about one object. Kept narrow: "report the navigator object" is an NVDA command.
@@ -563,7 +635,7 @@ _HINTS = (
 	("nvda_question", r"^(what|which|who|where|when|how)\b|^(can|could|does|do|is|are|should|will)\b.*\?\s*$"),
 )
 _CONNECTORS = re.compile(r"\b(and|then|also|after that|afterwards|plus)\b|[;]|,\s*(and|then)?", re.IGNORECASE)
-MAX_PARTS = 4
+MAX_PARTS = 8
 # A part that speaks of "it" cannot be understood without the part before it.
 _REFERS_BACK = re.compile(r"\b(it|its|they|them|their|that one|this one)\b", re.IGNORECASE)
 
@@ -591,13 +663,33 @@ _SPLIT_SYSTEM = (
 )
 
 
-def hint(part):
-	"""The recipe a part's words point to, or OTHER."""
+# After one of these, a part that only asks something asks it of the web page that is then open: "go to
+# example.com and tell me how many messages I have".
+_ON_THE_WEB = ("open_website", "search_web", "page_navigate", "go_to", "fill_field", "web_page")
+# After one of these the user is inside something of the program in front, and "turn the volume up a bit" means
+# the control there, not NVDA's own setting.
+_INSIDE = ("click", "set_control")
+_ONLY_ASKS = re.compile(
+	r"^\s*(please\s+)?(tell me|say|read|what|which|who|how many|how much|is there|are there|do i have|does it|"
+	r"summari[sz]e|count|list|check)\b", re.IGNORECASE)
+
+
+def hint(part, before=None):
+	"""The recipe a part's words point to, or OTHER. before: the recipe of the part before it, or None."""
 	text = part.lower()
+	found = OTHER
 	for name, pattern in _HINTS:
-		if re.search(pattern, text):
-			return name
-	return OTHER
+		if pattern(part) if callable(pattern) else re.search(pattern, text):
+			found = name
+			break
+	if before in _ON_THE_WEB and found in (OTHER, "nvda_question") and _ONLY_ASKS.match(computer.own(part)):
+		return "web_page"
+	# A named control of the program in front: where the words say "in this program", or right after a click or
+	# another control there. What can hardly mean anything else, as the computer's own volume, stays what it is.
+	if (found in (OTHER, "change_setting", "click", "drag", "work_control", "nvda_question", "scroll")
+			and (controls.inApp(part) or before in _INSIDE) and controls.wish(part) is not None):
+		return "set_control"
+	return found
 
 
 def label(recipe):
@@ -615,10 +707,179 @@ def available(registry):
 	return {name: recipe for name, recipe in RECIPES.items() if registry.has(recipe[2])}
 
 
+# Where one thing to do ends and the next begins, by plain rules. A small model splits a long request badly,
+# and a request of five things is five chances to. So what plain code can tell is not asked of a model: an end
+# of a sentence, "then", a comma and "and" before a word that begins a thing to do.
+_SENTENCE = re.compile(r"(?<=[.!?;])\s+")
+_THEN = re.compile(r"\s*[,;]?\s*\b(?:and then|then|after that|afterwards|finally|lastly)\b,?\s*", re.IGNORECASE)
+_COMMA = re.compile(r"\s*,\s*(?:and\s+)?")
+_AND_ACT = re.compile(rf"\s+and\s+(?=(?:please\s+)?{computer.ACT}\b)", re.IGNORECASE)
+_LEADING = re.compile(
+	r"^\s*(?:(?:first(?: of all)?|firstly|secondly|next|finally|lastly|then|and|also|now|ok|okay)\b[, ]+)+", re.IGNORECASE)
+# "In this dialog, turn on ...": where something is, said before what to do. It belongs to what follows it.
+_PLACE_LEAD = re.compile(r"^\s*(?:in|on|inside|within|at|under|from) (?:this|the|that|my|its) [\w' -]{1,50}$", re.IGNORECASE)
+_PLACE_START = re.compile(r"^\s*(?:in|on|inside|within|at|under|from) (?:this|the|that|my|its) [\w' -]{1,50}?,\s*", re.IGNORECASE)
+# Verbs that only point at a thing: "adjust the volume and turn it up" is one thing to do, with the volume.
+_POINTS = re.compile(r"^\s*(?:please\s+)?(adjust|find|locate|select|pick|choose|take|change|look for|go to)\s+", re.IGNORECASE)
+# Verbs that are done to a thing that is named right after them: "open notepad", "adjust the volume". Only
+# after one of these is "it" in the next part taken to be that thing. "Do a deep query of this control and tell
+# me how a sighted person works it" names no thing this way, and is left to the model.
+_VERB_LEAD = re.compile(
+	r"^\s*(?:please\s+)?(?:open|launch|start|run|find|locate|adjust|select|pick|choose|click|press|close|minimi[sz]e|"
+	r"maximi[sz]e|restore|switch to|go to|go into|bring up|show|take|change|turn on|turn off|mute|unmute|play|pause|stop|"
+	r"copy|rename|install|focus|expand|collapse)\s+(?:on\s+)?", re.IGNORECASE)
+_IT = re.compile(r"\b(it|them)\b", re.IGNORECASE)
+# "Find the settings button" before more things to do: it is found to be used.
+_FIND_IT = re.compile(r"^(\s*(?:please\s+)?)find\b(?=.*\b(button|link|tab|icon|menu|option|item)\b)", re.IGNORECASE)
+_SUBORDINATE = re.compile(
+	r"^\s*(if|when|whenever|while|after|before|once|as|since|because|unless|although|in|on|at|for|with)\b", re.IGNORECASE)
+_QUESTION = re.compile(r"^\s*(what|which|who|where|when|how|is|are|do|does|can|could|will|should)\b", re.IGNORECASE)
+_REPORTS = re.compile(r"^\s*(?:please\s+)?(tell|say|read|describe|report|list|summari[sz]e|count)\b", re.IGNORECASE)
+# What only looks: a report joined to it by "and" is about what was looked at, and stays with it.
+_LOOKS = ("describe", "read_text", "where_am_i", "check_access", "page_outline", "web_page", "nvda_question", "explain_keys")
+# Recipes whose words are the user's own text, which may hold commas and "and" of its own.
+_FREE_TEXT = (
+	"write_addon", "add_skill", "remember", "fix_addon", "add_fix", "make_hotkey", "type_text", "fill_field", "search_web",
+	"learn_app", "name_button")
+
+
+# "Check and see", "go and look", "try and find": one thing said with two words, not two things to do.
+_ONE_THING = re.compile(
+	r"\b(check|look|go|try|go ahead|have a look|take a look)\s+and\s+(?=(?:see|check|look|find out|tell me)\b)", re.IGNORECASE)
+_JOINED = " \u2060and\u2060 "
+
+
+def _isCondition(text):
+	return computer.condition(_LEADING.sub("", text)) is not None
+
+
+def plainSplit(request):
+	"""The separate things a request asks for, where plain rules can tell them apart for certain; else None,
+	and the request is split as before. Every thing after the first must begin with a word that begins a
+	thing to do, or be a question in a sentence of its own, and must not say "it": a part that needs the part
+	before it to be understood is left to the model. A thing that depends on something ("if you see the
+	Recycle Bin, open it") is kept whole."""
+	pieces = []
+	# The "and" of "check and see" is put aside, so that nothing is split there, and put back afterwards.
+	for sentence in _SENTENCE.split(_ONE_THING.sub(lambda hit: hit.group(1) + _JOINED, " ".join(request.split()))):
+		sentence = sentence.strip().rstrip(".!;").strip()
+		if not sentence:
+			continue
+		if _isCondition(sentence):
+			pieces.append((_LEADING.sub("", sentence), "sentence"))
+			continue
+		how = "sentence"
+		for chunk in _THEN.split(sentence):
+			chunk = _LEADING.sub("", chunk or "").strip()
+			if not chunk:
+				continue
+			fragments, lead = [], ""
+			for fragment in _COMMA.split(chunk):
+				# A place said first belongs to what follows it.
+				if _PLACE_LEAD.match(fragment or "") and not computer.STARTS_ACT.match(fragment):
+					lead = fragment.strip() + ", "
+					continue
+				fragments.append(lead + (fragment or ""))
+				lead = ""
+			for fragment in fragments:
+				for last in _AND_ACT.split(fragment or ""):
+					last = _LEADING.sub("", last).strip().rstrip(".!;").strip()
+					if last:
+						pieces.append((last, how))
+						how = "and"
+				how = "comma"
+			how = "then"
+	if len(pieces) < 2:
+		return None
+	pieces = _resolved([(text.replace(_JOINED, " and "), how) for text, how in pieces])
+	if len(pieces) < 2:
+		return None
+	for index, (text, how) in enumerate(pieces):
+		if _isCondition(text):
+			continue
+		if len(text.split()) < 2:
+			return None
+		# Where something is, said first, is no part of what begins the thing to do.
+		start = _PLACE_START.sub("", text)
+		if index == 0:
+			if not computer.STARTS_ACT.match(start) or (_SUBORDINATE.match(text) and start == text):
+				return None
+			continue
+		if _REFERS_BACK.search(text):
+			return None
+		if not computer.STARTS_ACT.match(start) and not (how == "sentence" and _QUESTION.match(text)):
+			return None
+		before = hint(pieces[index - 1][0])
+		if how != "sentence" and before in _FREE_TEXT:
+			return None
+		if how == "and" and _REPORTS.match(text) and before in _LOOKS:
+			return None
+	# Something that is found before more is done is found to be used: its button is clicked.
+	texts = [text if index == len(pieces) - 1 else _FIND_IT.sub(r"\1find and click", text, count=1)
+		for index, (text, _how) in enumerate(pieces)]
+	return [(text[:1].upper() + text[1:]).replace(_JOINED, " and ") for text in texts]
+
+
+def _resolved(pieces):
+	"""Pieces in which "it" is said as the thing the piece before names, where plain code can tell which thing:
+	"open notepad and maximize it" becomes two things to do with notepad, and "adjust the volume and turn it up"
+	one, because adjusting only points at the volume. A piece whose "it" cannot be told is left as it is, and
+	then the whole request is left to the model."""
+	found = []
+	for text, how in pieces:
+		if found and how != "sentence" and _IT.search(text) and not _isCondition(text) and not _isCondition(found[-1][0]):
+			before = found[-1][0]
+			thing = _VERB_LEAD.sub("", _PLACE_START.sub("", before), count=1).strip()
+			if thing and thing != before and len(thing.split()) <= 6 and not _IT.search(thing):
+				said = _IT.sub(thing, text, count=1)
+				if _POINTS.match(before):
+					found[-1] = (said, found[-1][1])
+				else:
+					found.append((said, how))
+				continue
+		found.append((text, how))
+	return found
+
+
+def conditional(part, registry):
+	"""For a part that depends on something plain code can find out: (the step that checks it, the things to
+	do if it holds, in the user's words); None for any other part. The step carries `test`, which says from the
+	step's result whether the condition holds, and `said`, which makes the sentence the user is told."""
+	found = computer.condition(_LEADING.sub("", computer.own(part)))
+	if found is None:
+		return None
+	kind, what, state = found["kind"], found["what"], found["state"]
+	if kind == computer.SEEN:
+		tool, title = "check_seen", f"Checking whether {what} is on the screen"
+		test, said = computer.says, (lambda result, holds: result)
+	elif kind == computer.BIN_IS:
+		tool, title = "recycle_bin", "Checking the Recycle Bin"
+		wanted = {"empty": ("empty",), "some": ("some", "worth"), "worth": ("worth",)}[state]
+		test, said = (lambda result: computer.binState(result) in wanted), (lambda result, holds: result)
+	else:
+		tool, title = "list_windows", f"Checking whether {what} is open"
+		test = lambda result: computer.listed(what, result) == state
+		said = lambda result, holds: (
+			f"A window of {what} is open." if computer.listed(what, result) else f"No window of {what} is open.")
+	if registry.get(tool) is None:
+		return None
+	step = Step(title, tool, found["asked"], found["asked"], recipe=IF)
+	step.test, step.said = test, said
+	then = found["then"]
+	if computer.onlyTells(then):
+		return step, []
+	return step, plainSplit(then) or [then[:1].upper() + then[1:]]
+
+
 def split(llm, role, request, note=""):
 	"""The separate things a request asks for, in order."""
 	request = " ".join(request.split())
-	if len(request) < 200 and not _CONNECTORS.search(request):
+	plain = plainSplit(request)
+	if plain:
+		return plain[:MAX_PARTS]
+	if _isCondition(request):
+		return [request]  # one thing that depends on something: kept whole
+	if len(request) < 200 and not _CONNECTORS.search(_ONE_THING.sub(r"\1 ", request)):
 		return [request]  # clearly one thing: no model needed
 	user = f"Request: {clip(request, 800)}"
 	if note:
@@ -655,13 +916,56 @@ def settle(parts):
 	return settled
 
 
-def classify(llm, role, part, context, registry, note=""):
-	"""The recipe that fits a part of the request, or OTHER."""
+def hinted(part, before=None):
+	"""Every recipe that some pattern finds in a part's words, not only the first. The router offers them all."""
+	text = part.lower()
+	found = {name for name, pattern in _HINTS if (pattern(part) if callable(pattern) else re.search(pattern, text))}
+	found.add(hint(part, before))
+	found.discard(OTHER)
+	return found
+
+
+def decided(part, registry, before=None):
+	"""The recipe for a part whose words can hardly mean anything else, or None: then no model is asked."""
+	guess = hint(part, before)
+	if guess in available(registry) and (guess in _SURE or (guess == "open_thing" and computer.opensPlace(part))):
+		return guess
+	# Right after a web page was opened, a part that only asks something asks it of that page. Measured with
+	# Qwen3.5 9B on 2026-11-18: asked to choose for "tell me how many emails I have" after "go to gmail.com", it
+	# chose to describe the screen, twice, and the user had to decide.
+	if guess == "web_page" and guess in available(registry) and before in _ON_THE_WEB and hint(part) in (OTHER, "nvda_question"):
+		return guess
+	# A named control of the program in front, where the words say "this program" or right after a click or
+	# another control there, and nothing in the words is NVDA's own. Measured the same day: after "find and
+	# click the settings button", the model sent "turn the volume up a bit" to NVDA's settings, twice.
+	if guess == "set_control" and guess in available(registry) and not _NVDAS_OWN.search(part):
+		return guess
+	return None
+
+
+# Words for what is NVDA's own to set. With one of them, a model chooses and the user is asked when in doubt.
+_NVDAS_OWN = re.compile(
+	r"\b(nvda|screen ?reader|speech|speak\w*|voice|synth\w*|punctuation|echo|typing|typed|braille|pitch|rate|speed|"
+	r"say\w*|announc\w*|read\w*|beep\w*|add-?ons?)\b", re.IGNORECASE)
+
+
+def offered(part, registry, facts=None, before=None):
+	"""The recipes a model is given to choose from for a part: those that fit where the user is and what they
+	said (claw/router.py)."""
 	recipes = available(registry)
-	guess = hint(part)
-	if guess not in recipes:
-		guess = OTHER
-	lines = "\n".join(f"- {name}: {text}" for name, (_label, text, _tools) in recipes.items())
+	return router.route(part, list(recipes), facts, before, hinted(part, before), needsFor(part, before))
+
+
+def needsFor(part, before=None):
+	"""What the router asks of the recipes whose tools read everything from the user's words. A named control
+	of the program in front is offered where the words say so, or right after a click there: "turn off the
+	typing echo" alone is NVDA's own setting, and is not offered as a control of the program."""
+	inside = controls.inApp(part) or before in _INSIDE
+	return dict(_NEEDS, set_control=lambda part: controls.wish(part) if inside else None)
+
+
+def _choose(llm, role, part, context, recipes, names, guess, note):
+	lines = "\n".join(f"- {name}: {recipes[name][1]}" for name in names)
 	system = (
 		"You choose how VisionClaw, an assistant inside the NVDA screen reader for a blind person, should handle "
 		"one thing the user asked for. Choose the one that fits best:\n" + lines
@@ -669,7 +973,7 @@ def classify(llm, role, part, context, registry, note=""):
 	)
 	schema = {
 		"type": "object",
-		"properties": {"choice": {"type": "string", "enum": list(recipes) + [OTHER]}},
+		"properties": {"choice": {"type": "string", "enum": list(names) + [OTHER]}},
 		"required": ["choice"],
 	}
 	user = f"The user asked: \"{clip(part, 400)}\"\n"
@@ -680,8 +984,29 @@ def classify(llm, role, part, context, registry, note=""):
 	if note:
 		user += f"{note}\n"
 	user += "Which one fits?"
+	return llm.json(role, system, user, schema, maxTokens=40)["choice"]
+
+
+def classify(llm, role, part, context, registry, note="", before=None, facts=None):
+	"""The recipe that fits a part of the request, or OTHER. before: the recipe of the part before it.
+	facts: where the user is, for the router. The model is given only what fits there and what the words name;
+	when it finds nothing among that, it is given everything, once."""
+	recipes = available(registry)
+	guess = hint(part, before)
+	if guess not in recipes:
+		guess = OTHER
+	sure = decided(part, registry, before)
+	if sure is not None:
+		return sure
+	names = offered(part, registry, facts, before)
+	if guess != OTHER and guess not in names:
+		names.append(guess)
 	try:
-		return fitted(llm.json(role, system, user, schema, maxTokens=40)["choice"], part, guess)
+		choice = _choose(llm, role, part, context, recipes, names, guess, note)
+		if choice == OTHER and len(names) < len(recipes):
+			debuglog.log("router", f"Nothing among {len(names)} offered kinds fit {part!r}; all {len(recipes)} are offered once.")
+			choice = _choose(llm, role, part, context, recipes, list(recipes), guess, note)
+		return fitted(choice, part, guess)
 	except (LLMError, KeyError):
 		return guess
 
@@ -690,7 +1015,17 @@ def classify(llm, role, part, context, registry, note=""):
 # recipe cannot be meant: the words name no moment and no count, or no direction and no shape.
 _NEEDS = {
 	"timed_click": pointer.timingOf, "gesture": pointer.gestureOf, "touch": touch.touchOf, "pressure": touch.penOf,
-	"turn_view": direct.turnOf}
+	"turn_view": direct.turnOf, "power": computer.powerOf, "system_volume": computer.volumeOf,
+	"set_control": controls.wish,
+	"empty_bin": lambda part: computer.emptiesBin(part) or None,
+	"recycle_bin": lambda part: computer.asksAboutBin(part) or None,
+	# Remembering is only meant where the words ask for it or say something lasting about the user. A real
+	# model sent "see if it needs to be emptied or not" there, and the request was kept as a memory.
+	"remember": lambda part: (memories.asksToRemember(part) or memories.lasting(part)) or None}
+# Recipes the words point to that can hardly mean anything else: locking and shutting down, the Recycle Bin, the
+# computer's own volume. Where the words point to one of them, it is taken, whatever a model chose. Each of
+# their tools asks the user before it changes anything.
+_SURE = ("power", "empty_bin", "recycle_bin", "system_volume")
 
 
 def fitted(choice, part, guess):
@@ -704,6 +1039,8 @@ def fitted(choice, part, guess):
 	# "Make the X button on my controller click the New Game button" must never click that button. With the
 	# hotkey among their choices both real models chose it (2026-11-18); this holds when one does not.
 	if guess == "make_hotkey" and choice != guess and gamepad.buttonOf(part) is not None:
+		return guess
+	if choice != guess and (guess in _SURE or (guess == "open_thing" and computer.opensPlace(part))):
 		return guess
 	return choice
 
@@ -751,7 +1088,9 @@ def _freeSchema(toolNames, maxSteps):
 	}
 
 
-def _freeSystem(registry, maxSteps):
+def _freeSystem(registry, maxSteps, names=None):
+	listed = registry.listText() if names is None else "\n".join(
+		f"- {name}: {registry.get(name).description}" for name in names)
 	return (
 		"You plan the work of VisionClaw, an assistant inside the NVDA screen reader for a blind person.\n"
 		"Break what the user asked for into small steps. Rules:\n"
@@ -761,13 +1100,16 @@ def _freeSystem(registry, maxSteps):
 		"- Do only what was asked. Use as few steps as possible.\n"
 		"- Prefer the simplest tool that does the job. Write an add-on only when no other tool can do it.\n"
 		f"- Use at most {maxSteps} steps. detail says exactly what to do in that step, in plain words.\n\n"
-		"Tools:\n" + registry.listText()
+		"Tools:\n" + listed
 	)
 
 
-def freeSteps(llm, role, part, context, registry, params, note=""):
-	"""A plan written by the model, for a part that fits no recipe. Repaired by plain rules."""
+def freeSteps(llm, role, part, context, registry, params, note="", facts=None, before=None):
+	"""A plan written by the model, for a part that fits no recipe. Repaired by plain rules. With facts, the
+	model is given only the tools that fit where the user is and what they said (claw/router.py)."""
 	names = [n for n in registry.names() if n != ANSWER]
+	if facts is not None:
+		names = router.tools(names, available(registry), set(offered(part, registry, facts, before)))
 	user = f"The user asked: \"{clip(part, 600)}\"\n"
 	if context:
 		user += f"What is known:\n{clip(context, 700)}\n"
@@ -775,7 +1117,7 @@ def freeSteps(llm, role, part, context, registry, params, note=""):
 		user += f"{note}\n"
 	user += "Write the steps."
 	found = llm.json(
-		role, _freeSystem(registry, params.maxSteps), user, _freeSchema(names, params.maxSteps),
+		role, _freeSystem(registry, params.maxSteps, names), user, _freeSchema(names, params.maxSteps),
 		maxTokens=params.planTokens, reasoning=params.reasoning,
 	)
 	return normalize(found.get("steps") or [], registry, params.maxSteps, part)

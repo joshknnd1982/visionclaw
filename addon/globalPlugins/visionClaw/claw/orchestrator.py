@@ -78,6 +78,8 @@ class Orchestrator:
 		self.remembering = lambda: memoriesModule.AUTO
 		# The skills: VisionClaw's own and the user's (claw/skills.py), or None.
 		self.skills = None
+		# facts() gives where the user is as plain facts for the router (router.WEB and so on); set by the add-on.
+		self.facts = lambda: {}
 
 	def _oneByOne(self):
 		try:
@@ -135,6 +137,12 @@ class Orchestrator:
 		params = task.params = policy.select(planner.quickTriage(request), task.reasoning)._replace(
 			oneByOne=small, oneModel=one)
 		context = self._context(request)
+		# Where the user is, as plain facts for the router (claw/router.py). Unknown hides nothing.
+		try:
+			task.facts = dict(self.facts() or {})
+		except Exception as e:
+			debuglog.error("router", "Where the user is could not be found out for the router", e)
+			task.facts = {}
 		# The skills that fit the request, chosen by plain code from its words. One with steps of its own, whose
 		# starting words the request has word for word, is the plan: the user's own, or one VisionClaw ships.
 		task.skills = self._chooseSkills(task, request)
@@ -261,6 +269,17 @@ class Orchestrator:
 			step = steps[index]
 			if step.tool == ANSWER:
 				break  # always last; written by _answer
+			# A step that depends on a check is done only if the check said so; if the check itself did not work,
+			# nobody knows, and the step is left out as one that could not be done.
+			gate = step.onlyIf
+			if gate is not None and gate.status != taskModule.STEP_DONE:
+				step.status, step.result = taskModule.SKIPPED, "What it depends on could not be checked."
+				index += 1
+				continue
+			if gate is not None and not gate.holds:
+				step.status, step.result = taskModule.NOT_NEEDED, "What it depends on did not hold."
+				index += 1
+				continue
 			# A step whose groundwork failed cannot work either: clicking needs the list of items.
 			needs = self.registry.get(step.tool).before
 			if needs and any(
@@ -282,6 +301,10 @@ class Orchestrator:
 				if choice == STOP:
 					raise taskModule.Cancelled()
 				step.status = taskModule.SKIPPED
+			if worked and step.test is not None:
+				step.holds = bool(step.test(step.result))
+				task.emit(taskModule.DETAIL, "That holds, so what depends on it is done." if step.holds
+					else "That does not hold, so what depends on it is left out.")
 			# After finding something out, the rest of a plan the model wrote itself may no longer fit.
 			remaining = [s for s in steps[index + 1:] if s.tool != ANSWER]
 			if (worked and replans and remaining and self.registry.get(step.tool).looks
@@ -351,7 +374,17 @@ class Orchestrator:
 				if what not in failed:
 					failed.append(what)
 				continue
+			if step.status == taskModule.NOT_NEEDED:
+				# Said once for each thing that was left out, right after what the check found.
+				note = f"So this was not done: {clip(step.part or step.title, 120)}."
+				if note not in told:
+					told.append(note)
+				continue
 			if step.status != taskModule.STEP_DONE:
+				continue
+			if step.test is not None:
+				# A check's answer is told in plain code's own words, whatever its tool usually does with a result.
+				told.append(step.said(step.result, step.holds) if step.said else step.result)
 				continue
 			tool = self.registry.get(step.tool)
 			if tool.tell == SUMMARIZE and lastOfPart and lookup.isNothing(step.result):

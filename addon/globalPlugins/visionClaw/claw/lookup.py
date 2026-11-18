@@ -55,6 +55,14 @@ _INPUTS = re.compile(
 	r"\b(controllers?|game ?pads?|joy ?pads?|joysticks?|xbox|playstation|triggers?|thumb ?sticks?|bumpers?|d-?pad|"
 	r"pinch\w*|fingers?|touch\w*|pressure|stylus|mouse ?look|own (mouse )?(pointer|cursor)|reads? the mouse|"
 	r"direct mouse|turns? the view|first[- ]person)\b", re.IGNORECASE)
+# What VisionClaw itself does on the computer for the user: asked only when the question names one of these.
+_COMPUTER = re.compile(
+	r"\b(recycle bin|recycling bin|trash|system volume|computer'?s? volume|mute (my|the) computer|shut ?down|restart (my|the) "
+	r"(computer|pc|laptop)|lock (my|the) (computer|pc|laptop)|disk space|free space|downloads folder|documents folder|"
+	r"switch to|minimi[sz]e|maximi[sz]e|close (a|the|this) window|several things|more than one thing|multi-?step|"
+	r"if you see|check ?box|slider|option|switch)\b"
+	r"|\b(can|could|will|does) (you|visionclaw)\b.{0,40}\b(open|close|find|empty|start|launch|turn|set|do)\b"
+	r"|\bwhat can (you|visionclaw) do\b", re.IGNORECASE)
 # NVDA's own list of what is new in its newest versions. Every line of it names something NVDA does, so it is
 # asked only when the question is about what is new, what changed or was fixed, or a version.
 _NEWS = re.compile(
@@ -81,6 +89,7 @@ NOTES = {
 	"app-browsers": (APP, "VisionClaw's notes on web browsers", _BROWSERS),
 	"app-office": (APP, "VisionClaw's notes on Word, Excel and Outlook", _OFFICE),
 	"visionclaw-inputs": (NVDA, "VisionClaw's notes on game controllers, touch, pressure and games", _INPUTS),
+	"visionclaw-computer": (NVDA, "VisionClaw's notes on what it does on the computer for you", _COMPUTER),
 }
 # Written for people who write add-ons. Left out unless the question is about that.
 DEVELOPER_NOTES = frozenset(("addon-development", "objects-and-events", "nvda-inside", "guides"))

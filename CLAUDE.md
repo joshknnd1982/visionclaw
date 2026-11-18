@@ -610,6 +610,83 @@ keyboard and speech alone.
   - **Said before, not after.** Room on the drive and FAT32's limit of 4 GB for one file are checked before the
     copy starts (`portable.check`); the copy shows a progress bar, can be stopped, and leaves no half file. A
     build never carries anyone's data (`build.py` leaves out `addon/data`).
+- **VisionClaw works the computer itself, in many small steps, and says what is going on.** The owner said on
+  2026-11-18, after "first, look at my screen. If you see recycle bin, open it" ended in a description and
+  "check and see if my recycle bin needs to be emptied" in a look-up: "claude must expand visionclaw
+  capabilities to do many more things by controlling my computer on my behalf", "multistep things", and
+  "visionclaw must be able to execute multistep agentic tasks whether in regards to accessibility, NVDA,
+  writing addons, or general agentic computer use while still letting the blind user know what is going on."
+  What follows from it (`claw/computer.py`, `computertools.py`, `claw/controls.py`, `controltools.py`):
+  - **A model never writes what is opened or changed.** Which program, folder, settings page, window, file,
+    volume or control is meant is read from the user's own words by plain code; a model at most chooses among
+    the ids or names of what was found. What may be opened is fixed in `computer.PLACES` or found on this
+    computer (Start menu, desktop, Windows' Apps folder, the user's own folders); a text that was fetched or
+    generated never names something to open.
+  - **What cannot be undone is always asked about** (`mustAgree`, whatever the settings say): emptying the
+    Recycle Bin, locking, sleeping, restarting, shutting down, signing out. A restart or shutdown waits
+    `computer.POWER_WAIT` seconds and can be called off. Everything else that changes something uses `confirm`.
+  - **The computer's volume is speech.** Turning it down stops at `computer.QUIET`; muting or a number below it
+    is refused when no braille display is in use and always asked about when one is. Never add a way around
+    this. NVDA's own volume stays a setting of NVDA: a bare "volume" means that, as before.
+  - **Say what happened.** A window asked to close that is still open is said to be open; after a volume
+    change the level is read back; the Recycle Bin is counted again after emptying.
+  - **Windows' own structures** were read on 2026-11-18 from Microsoft's pages and from the header files of the
+    Windows SDK on the owner's computer, named at the top of `computertools.py`; the pages of Windows Settings
+    are from Microsoft's page "Launch Windows Settings". Read them again before changing one; do not write a
+    structure, a function's place in an interface, or a settings address from memory.
+  - **Tests never open, empty, close, change the volume of, lock or shut down the real computer.**
+    `tests/test_nvda_stub.py` replaces `computertools.shellOpen`, `emptyBin`, `setVolume`, `setMute`,
+    `focusWindow`, `closeWindow`, `showWindow`, `minimizeAll`, `pressEscape` and `power`, and makes up what
+    would be read. Reading alone (the Recycle Bin's count, the volume, drives, windows, programs) may be run on
+    the real computer. Never run the changing ones for the owner without asking.
+  - **A long request is split by plain rules where they can tell for certain** (`planner.plainSplit`): an end
+    of a sentence, "then", a comma or "and" before a word that begins a thing to do (`computer.ACTS`). Up to
+    `planner.MAX_PARTS` things. Where a part needs the part before it to be understood and plain code cannot
+    say which thing "it" is, or the first part is no thing to do, the request is left to the model as before.
+    "Adjust the volume and turn it up" is one thing; a button that is found before more is done is found to
+    be clicked (`_FIND_IT`), and the parts shown to the user say so. Add a case to `tests/test_computer.py`
+    for every request of the owner's that was split wrongly.
+  - **A request that depends on something is checked by plain code first** (`computer.condition`,
+    `planner.conditional`): whether something is on the screen (`check_seen`: NVDA's names where the user is,
+    then the text that is shown, then the model that sees, whose lone yes is said to be a model's), whether a
+    window is open, and what the Recycle Bin holds. The check is a step of its own; the steps that depend on
+    it carry it as `onlyIf`, are left out as `NOT_NEEDED` when it does not hold, and the answer says "So this
+    was not done". Not done because of a condition is no failure. Only these three kinds are understood; any
+    other "if" is planned as before. Do not hand a condition to a model to judge in prose.
+  - **A named control of the program in front** (`set_control`): looked for by its name in what NVDA knows of
+    the window, then on the other pages of a dialog with tabs (and the page that was shown is shown again
+    when it is on none), then in the window's picture. The least risky way that works: the control's own
+    action, the keyboard, the mouse last. The answer says what it was and what it is now; a reading from a
+    picture is said to be one. It is meant where the words say "this program" or right after a click or
+    another control there (`planner._INSIDE`); alone, "turn off the typing echo" is NVDA's own setting.
+  - **The notes and skills** that go with this: `claw/knowledge/visionclaw-computer.md`, asked only when a
+    question names one of these things (`lookup._COMPUTER`), and the skills `work-the-computer` and
+    `control-in-a-program`. When a tool's behaviour changes, change the notes, the README and the help with it.
+  - **Still to do, and said so to the user**: creating, renaming, moving and deleting files; choosing from a
+    combo box by the option's name; a dialog whose pages are a list or a tree and not tabs; a volume for one
+    program; Wi-Fi and Bluetooth turned on and off without the Settings page.
+- **The router: a model is offered only what fits** (`claw/router.py`). The owner asked on 2026-11-18 for "a
+  lightweight routing layer in Python that exposes only the tools relevant to the current app or window
+  context (for example, showing browser tools only when a browser is focused)", and for it to be used wherever
+  else it helps. A small model chooses well among a dozen things and badly among eighty.
+  - **What is offered**: the everyday core always; what works a web page when a web page or a browser is in
+    front (`router.WEB`), when the part before opened one, or when the words speak of a page; what needs a
+    game controller when one is connected or named; what reads everything from the user's words only when the
+    words say it (`planner.needsFor`); what is about one subject (skills, notes, downloads, the log) when the
+    words name it (`router.GATES`). The facts come from the add-on (`plugin._clawFacts`).
+  - **It narrows, it never forbids.** Every recipe a pattern of the planner finds in the words is offered
+    (`planner.hinted`). A fact that could not be found out hides nothing. When a model finds nothing that fits
+    among what it was offered, it is offered everything, once (`planner.classify`). The user's own choice is
+    never narrowed: this is about what a model is shown, not about what the user may ask for.
+  - **Where the words can hardly mean anything else, no model is asked** (`planner.decided`, `_SURE`): the
+    Recycle Bin, locking and shutting down, the computer's own volume, a place of Windows opened by its name,
+    a question right after a web page was opened, a named control right after a click. Each was either sure by
+    its words or measured: the real 9B model chose wrongly twice in a row for the last two.
+  - **A plan a model writes itself** gets only the tools of what was offered (`router.tools`).
+  - **A new recipe** is offered always unless it gets a line in `router.GATES` or `planner._NEEDS`; give it one
+    when it can only be meant in a place or by words of its own, and add the request to `tests/test_computer.py`,
+    where every request listed must be offered the recipe its words point to. Measure with the whole of
+    `tests/live_orchestrator.py` after changing a gate.
 - **Never commit** model files (`*.gguf`, `*.bin`), `dist/`, tokens, or the `SmallClaw/` reference clone.
 
 ## Layout
@@ -637,6 +714,11 @@ addon/
     touchinput.py            fingers and a pen through Windows itself: a gesture as the places every finger
                              passes through, a pen stroke with a pressure at each place, a pen held down
     touchtools.py            the tools for fingers and pressure: touch, compare, the wheel instead, what worked
+    computertools.py         the computer itself, through Windows: things opened by name, the Recycle Bin, the
+                             computer's volume, open windows, the user's files, facts about the computer,
+                             locking and shutting down, and whether something is on the screen
+    controltools.py          a named control of the program in front: found in the window, on the other pages
+                             of its dialog or in its picture, and turned on, off, up or down
     padtools.py              a game controller: noticing it, reading it, controller mode, its buzz, the tools
     accesstools.py           deep inspection, lasting fixes for a website or program, installed add-ons, which
                              add-on does what the user wants, NVDA Coach;
@@ -688,6 +770,13 @@ addon/
       debuglog.py            VisionClaw's own log file: levels, rotation, errors with their place in the code
       web.py                 web addresses, search addresses, the passages of a page that matter
       drivers.py             rules that keep speech and braille alive; what happened with each driver
+      computer.py            working the computer itself, as plain logic: what is to be opened and which found
+                             thing is meant, what the Recycle Bin holds and whether it is worth emptying, the
+                             computer's volume, which window, which files, facts in words, locking and
+                             shutting down, and what a request depends on
+      controls.py            what the user's words ask of a named control, and which control a name means
+      router.py              which kinds of request and which tools a model is offered: by where the user is,
+                             by the part before, and by what the words name
       pointer.py             which mouse action is meant, where a drag ends, how pointer mode moves; how long
                              to hold, which keys are held, a place on a thing, gestures as strokes, when and
                              how often to click, where a picture changed
@@ -917,6 +1006,17 @@ A session is done only when its "Done when" line is true.
 - [x] **3.43 The data folder inside the add-on, and a portable copy.** Moved in at start, carried over on
   update and removal; one file or a portable NVDA with everything in it, made from the settings. Tested with
   plain Python, the real wxPython and a real file of 1.1 GB; not run inside NVDA.
+- [x] **3.44 The computer itself.** Things opened by their name; the Recycle Bin checked and emptied; the
+  computer's volume; windows switched to, closed, minimized and maximized; the user's folders and files; facts
+  about the computer; locking, restarting and shutting down. Reading was run on the owner's real Windows 11;
+  everything that changes something only against stand-ins.
+- [x] **3.45 Several things in one request, and things that depend on something.** Up to eight things, split by
+  plain rules; "if you see", "if it is open", "if the Recycle Bin is not empty" checked by a step of its own.
+  Measured with the real Qwen3.5 9B on the owner's own five requests.
+- [x] **3.46 A named control of the program in front.** On or off, up or down, also on another page of a dialog
+  with tabs and in the window's picture. Tested with stand-in controls; not run in a real program.
+- [x] **3.47 The router.** A model is offered what fits where the user is and what they said, and is not asked
+  at all where the words are sure. Measured with the real model on the whole of `tests/live_orchestrator.py`.
 - [ ] **3.5 Test inside NVDA.** Install the build in NVDA (ask the user first) and walk through
   `docs/TESTPLAN.md`. Fix what breaks. *Done when:* every item in the test plan is ticked by a real run.
 
@@ -929,7 +1029,7 @@ A session is done only when its "Done when" line is true.
   examples; add a `learn` command that studies a topic and stores notes. *Done when:* a question about an NVDA
   feature is answered with a quote from the user guide.
 - [x] **4.3 Skills.** SmallClaw-style `SKILL.md` files (starting words, the jobs they are for, plain sentences,
-  and optional fixed steps), 49 built in for what blind people do at a computer, seven of them for the add-ons
+  and optional fixed steps), 51 built in for what blind people do at a computer, seven of them for the add-ons
   the models write (`claw/skills/`), chosen by
   plain code from the request's words, their sentences given to the forms, the vision model, the coder and the
   answer of their jobs; a skill with steps runs them as its plan. The user makes, changes, turns off, deletes and
@@ -966,6 +1066,9 @@ python tests/test_guides.py              the developer guides as sentences and a
 python tests/test_touch.py               fingers, pressure, a turn in the mouse's own steps, a drawn game with a
                                          pointer of its own brought to a place and measured; plain Python
 python tests/test_gamepad.py             a game controller's states, buttons and sticks; its skills and notes
+python tests/test_computer.py            working the computer itself, requests that depend on something, long requests
+                                         split by plain rules, a named control, the router; whole requests with
+                                         stand-in tools and a scripted model
 python tests/live_touch.py               says what it would do; with --yes really touches and presses, inside
                                          its own window only; never run it without asking the owner
 python tests/live_learn.py               a real model and the real internet learn about a program; read every note

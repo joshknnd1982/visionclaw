@@ -1,6 +1,6 @@
 # VisionClaw status
 
-Updated 2026-11-18, version 1.4.0.
+Updated 2026-11-18, version 1.5.0.
 
 ## What exists
 
@@ -1386,6 +1386,49 @@ that makes a portable copy with all of it, "no exceptions", whatever its size.
   such a file on another computer, not starting VisionClaw from a portable NVDA on a flash drive. The 4 GB check
   reads the drive's file system from Windows; it was not tried on a real FAT32 drive.
 
+## The computer itself, several things in one request, a named control, and the router (1.5.0, 2026-11-18)
+
+**What failed in real use.** The owner asked, with Qwen3.5 9B doing both jobs: "first, look at my screen. If you
+see recycle bin, open it." Both parts were sent to describing the screen, and the answer ended "To open it,
+press the Enter key": nothing was opened. Then: "check and see if my recycle bin needs to be emptied or not."
+That was sent to the look-up, which answered with a memory, "See if it needs to be emptied or not (this
+follows: Check your recycle bin)": an earlier request about the Recycle Bin had been kept as a memory instead
+of being done. The cause was the same both times: VisionClaw had no tool that acts on the computer itself, so
+the model chose the nearest thing it was offered. The owner then asked for many more such tasks, for several
+things in one request, for work inside a program's own settings, and for a router.
+
+**What exists now.** Twelve tools and nine recipes in `computertools.py` and `controltools.py`, with their
+logic in `claw/computer.py` and `claw/controls.py`: `find_thing` and `open_thing`, `recycle_bin`,
+`empty_recycle_bin`, `system_volume`, `list_windows` and `window_action`, `find_files`, `computer_info`,
+`power`, `check_seen`, `set_control`. `web_open` takes a browser the user names. `planner.plainSplit` splits a
+request of up to eight things by plain rules; `planner.conditional` puts a check before the steps that depend
+on it; `claw/router.py` decides what a model is offered, and `planner.decided` what no model is asked about.
+Two skills, `work-the-computer` and `control-in-a-program`, and the notes `visionclaw-computer.md`.
+
+| Test | What it shows | Result |
+|---|---|---|
+| `tests/test_computer.py`, plain Python | What is to be opened and which found thing is meant; that a place of Windows is only ever opened by what is fixed in the code; the Recycle Bin's sentences and when emptying is called worth it; the computer's volume and its floor of 10 percent; locking and shutting down, and that nothing of NVDA's, a program's or a website's is meant; which window the words name; files by folder, kind and name; eleven requests that depend on something and four that are left alone; 14 requests split by plain rules and 12 left to the model; 62 requests and the recipe their words point to, among them every older one whose words could have been taken by a new recipe; the router with and without a browser, a controller and a part before; whole requests with stand-in tools and a scripted model, among them the owner's five | passes |
+| `tests/test_nvda_stub.py`, new part | The real tools against a made-up Windows: a place, a program and a file found and opened; a no from the user; Windows refusing; the Recycle Bin checked, and emptied only after a question that is asked whatever the settings say; the volume turned down, held at 10 percent, refused to mute without braille and asked about with braille; a window closed by the user's words whatever the model wrote, one that stays open said to be open, Escape offered for a panel that is no window; files, facts, and a restart that is always asked about; whether something is on the screen by NVDA's names, by the text shown and by the model; a check box on another page of a dialog with tabs turned on, with the page named; a slider turned up and to its end; a control that is nowhere, with the page that was shown shown again; the owner's first request through the real tools with one model for both jobs: one question to the model in all | passes |
+| Reading from the real computer (Windows 11, build 26300), with plain Python and stand-ins for NVDA's modules only | The Recycle Bin (it was empty: 0 items), the volume (20 percent, not muted), the drives, the memory, the time the computer has been on, the open windows, the user's folders from the registry, 166 programs of the Start menu and Windows' Apps folder and 41 things on the desktop, and which browsers are installed. `SHQUERYRBINFO` is 24 bytes in a 64-bit program, as the header says | worked; nothing was opened or changed |
+| `tests/live_orchestrator.py`, Qwen3.5 9B for both jobs as the owner has it, one small question at a time, stand-in tools, the 24 new requests | The owner's five requests and 19 more: opening by name, the Recycle Bin, the volume, windows, files, facts, a restart, three things that depend on something, a named control | 24 of 24 handled the right way. "Check and see if my recycle bin needs to be emptied or not" now answers in 0.0 seconds with no model asked; "first, look at my screen. If you see recycle bin, open it" in 14.9 seconds, of which the look takes nearly all. In the first run the model had to ask the user twice: after "go to gmail.com" it sent "tell me how many emails I have" to describing the screen, twice, and after a click it sent "turn the volume up a bit" to NVDA's settings, twice. Both are now decided by plain code (`planner.decided`) |
+| The same, all 145 requests of `tests/live_orchestrator.py`, the same model and settings | Whether the router, the plain splitting and the new recipes made any older request worse | All 145 were carried out and every answer was read. Each of the 121 older requests went to the kind of request it should, and every one of the 68 kinds was still reached by the requests that are for it: no kind was shut out by the router. No run of the older requests without the router was made on this day to set beside it, so "no worse" rests on reading the answers, not on a comparison. A model was offered 12 kinds of request on average, of the 68 the stand-ins make possible, and 19 parts were decided by the words alone. Four times the model's choice differed from what the words point to after a second look, and the user was asked: "How do I bake a cake?", "Name the focused button Share on this website", "Give me a hotkey for the gain knob", and the second half of "Do a deep query of this control and tell me how a sighted person works it". The first two were known before; none of the four is about the computer. Weak answers that are the stand-ins' or the look-up's, not the router's: "I'm coming from JAWS. What is the JAWS cursor called in NVDA?" found nothing that answers, because the live test has no training material, and "Tell me when the inbox count changes" made a fix with a muddled name. The whole run took 213 seconds of work |
+| `python tests/run_all.py` | Every plain-Python test, 28 files | passes |
+
+**What the router changes, measured.** For "Make NVDA speak a little faster" a model is offered 9 kinds of
+request of the 68 the live test's stand-ins make possible; for the parts of the owner's long request 10, 18
+and 14. Seven of the 24 new requests are decided by the words alone and take no model call to plan.
+
+**Not tested, and said in the release notes.** Nothing of this has run inside NVDA. Opening a thing, emptying
+the Recycle Bin, changing the volume and muting, switching to, closing, minimizing and maximizing a window,
+Escape for a panel, locking, sleeping, restarting, shutting down and signing out have only met stand-ins: the
+calls to Windows are written from Microsoft's pages and the SDK's headers, and only those that read were run.
+`set_control` has only met stand-in controls: a real dialog with tabs, a real slider through UI Automation,
+the keyboard way for a slider without it, and the whole of the way through a window's picture are untried.
+What a web page such as Gmail gives NVDA to read, and so whether "how many emails do I have" is answered, was
+not tried; the stand-in page has no mail. `check_seen` was not tried on a real desktop: whether Windows' text
+recognition reads the names under desktop icons, and whether NVDA gives the icons' names when another window
+is in front (then only the text and the model are left).
+
 ## What was not tested
 
 - **Fingers, pressure, games that read the mouse directly and a game controller (1.2.0)** were tested with
@@ -1455,6 +1498,17 @@ that makes a portable copy with all of it, "no exceptions", whatever its size.
 
 ## Known limits
 
+- Working the computer itself: files are only looked at and opened, not created, renamed, moved or deleted. A
+  list to choose from inside a program (a combo box) is not set by the option's name; the focus is put on it
+  and the keys are said. The pages of a dialog are found only where they are tabs, not where they are a list or
+  a tree. The computer's volume is that of the device Windows plays through, not of one program. Wi-Fi and
+  Bluetooth are not switched; their Settings pages are opened. A program that runs with more rights than NVDA
+  cannot be closed or brought to the front. The words for all of this are understood in English only.
+- "If you see" something: where its name is in no text and NVDA gives no name, only the model's yes or no is
+  left, and a yes of its alone is said to be the model's. Three kinds of condition are understood: something on
+  the screen, a window that is open, and what the Recycle Bin holds.
+- A request of more than eight things is cut off at eight.
+
 - Accessibility fixes are of five kinds. One fix cannot be removed by itself yet: a newer fix about the same
   thing replaces it, or the whole add-on is removed. What a fixes add-on says ("No more posts below") is English.
 - A control gets a name only where something fixed in the page's or program's code tells it apart.
@@ -1497,6 +1551,10 @@ that makes a portable copy with all of it, "no exceptions", whatever its size.
   asked instead.
 
 ## Next session
+
+1.5.0 added twelve tools that act on the computer and none of them has run inside NVDA. First of all, with the
+owner's yes: the new section "Working the computer itself" of `docs/TESTPLAN.md`, starting with the two
+requests that failed. Then the owner's examples inside a real program with a settings dialog.
 
 `python tests/live_touch.py --yes` was run on 2026-11-18 with the owner's yes: Windows took the fingers and
 the pen, and `touchinput.py` needed no change. Run it again, after asking, when `touchinput.py` changes.

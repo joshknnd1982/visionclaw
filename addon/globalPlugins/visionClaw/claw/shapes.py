@@ -29,7 +29,11 @@ SOURCES = {
 	("fill_field", "field"): ("list_items", NAMES),
 	("show_skill", "skill"): ("list_skills", NAMES),
 	("manage_skill", "skill"): ("list_skills", NAMES),
+	("open_thing", "thing"): ("find_thing", IDS),
+	("window_action", "window"): ("list_windows", NAMES),
 }
+# Fields for which one found thing is taken without asking a model: what was found is what the user named.
+ONLY_ONE = frozenset((("open_thing", "thing"),))
 MAX_CHOICES = 30
 NUMBER_PATTERN = "^[+-]?[0-9]{1,4}$"
 _ID = re.compile(r"^(\S{1,120}): ")
@@ -231,6 +235,9 @@ def said(toolName, name, part, steps, index, form=None):
 		wanted = 2 if (toolName, "to") in _SECOND else 1
 		return names[0] if len(names) == wanted else None
 	if source[1] == IDS:
+		# One thing was found by its name: it is the only answer the form allows, so no model is asked for it.
+		if len(choices) == 1 and (toolName, name) in ONLY_ONE:
+			return choices[0]
 		# A dotted name the user wrote out in full, like api.getFocusObject, is the one that is meant.
 		low = (part or "").lower()
 		written = [choice for choice in choices if "." in choice and re.search(

@@ -92,6 +92,11 @@ def actionOf(part):
 	if re.search(r"\b(hover(s|ing)?|point(s|ing)? (at|to)|mouse ?over|rest(s|ing)? the (mouse|pointer) on"
 			r"|move the (mouse|pointer) (to|over|onto))\b", text):
 		return HOVER
+	# Something that is only to be found is pointed at, not clicked: the mouse rests on it, and what appears is
+	# said. "Find and click" is a click.
+	if re.search(r"^\s*(please )?(can you )?(find|locate|where is|where's)\b", text) and not re.search(
+			r"\b(click|press|push|activate|open|select|choose)\b", text):
+		return HOVER
 	return CLICK
 
 

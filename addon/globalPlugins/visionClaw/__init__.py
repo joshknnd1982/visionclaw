@@ -537,6 +537,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		self.orchestrator.program = lambda: nvdatools.onMain(asktools.programNow)["app"]
 		self.orchestrator.remembering = memorytools.when
 		self.orchestrator.skills = self.skills
+		self.orchestrator.facts = self._clawFacts
 		# Telling the user, once, what can be downloaded for them (claw/offers.py).
 		self.offers = offers.Offers(os.path.join(DATA_DIR, "offered.json"))
 		self.orchestrator.offer = lambda request, recipes: self.offers.next(request, recipes, self.downloadState())
@@ -1001,6 +1002,30 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		where = nvdatools.onMain(self.clawScreen.situation)
 		made = self.helpers.listText()
 		return where + ("\nAlready made by VisionClaw:\n" + made if made else "")
+
+	def _clawFacts(self):
+		"""Where the user is, as plain facts for the router (claw/router.py): whether a web page or a browser is
+		in front, whether a game controller is connected, and whether the program in front is one whose mouse
+		is read directly. A fact that cannot be found out is left out, and then hides nothing."""
+		from .claw import router
+		facts = {}
+
+		def look():
+			from . import webtools
+			app = (asktools.programNow().get("app") or "").lower()
+			facts[router.WEB] = webtools.page() is not None or app in (
+				"chrome", "firefox", "msedge", "brave", "opera", "vivaldi", "iexplore")
+			facts[router.DIRECT] = self.appWays.mouse(app) != direct.PLAIN
+
+		try:
+			nvdatools.onMain(look)
+		except Exception:
+			pass
+		try:
+			facts[router.CONTROLLER] = self.controller.device is not None
+		except Exception:
+			pass
+		return facts
 
 	def _onClawEvent(self, task, kind, text):
 		if kind in (clawTask.STATE, clawTask.STEP):

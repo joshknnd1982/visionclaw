@@ -26,8 +26,8 @@ import ui
 import wx
 from .vclog import log
 
-from . import mousetools, net, nvdainfo, ocr, webtools
-from .claw import changes, commands, debuglog, drivers, fixes, gamepad, guides, helpfiles, inside, lookup, match, microaddons, offers, pointer, policy, prompts, training, web
+from . import computertools, mousetools, net, nvdainfo, ocr, webtools
+from .claw import changes, commands, computer, debuglog, drivers, fixes, gamepad, guides, helpfiles, inside, lookup, match, microaddons, offers, pointer, policy, prompts, training, web
 from .claw.catalog import CODER, VISION
 from .claw.llm import LLM, clip
 from .claw.memory import score, wordList, words as wordsOf
@@ -2136,6 +2136,10 @@ def build(plugin):
 	def openPage(task, url):
 		before = onMain(pageNow)
 		onMain(webtools.openAddress, url)
+		return waitForPage(task, before)
+
+	def waitForPage(task, before):
+		"""The title of the page that is there once the browser has loaded it; "" when it was not in time."""
 		time.sleep(WEB_SETTLE_SECONDS)
 		deadline = time.monotonic() + WEB_WAIT_SECONDS
 		while time.monotonic() < deadline:
@@ -2147,15 +2151,32 @@ def build(plugin):
 		now = onMain(pageNow)
 		return now[1] if now is not None else ""
 
-	def webOpen(task, address):
-		pageTitle = openPage(task, web.normalizeAddress(address))
+	def webOpen(task, address, asked=""):
+		url = web.normalizeAddress(address)
+		# A browser the user names, as in "go to example.com in Chrome", is used where it is installed.
+		named = computer.browserOf(asked or task.request)
+		path = computertools.browserPath(named[0]) if named else None
+		said = ""
+		if named and path is None:
+			said = f" {named[1]} was not found on this computer, so your usual browser was used."
+		if path is not None:
+			before = onMain(pageNow)
+			try:
+				computertools.shellOpen(path, url)
+			except OSError as e:
+				raise ToolError(f"{named[1]} could not be started. {e}")
+			pageTitle = waitForPage(task, before)
+			said = f" It was opened in {named[1]}."
+		else:
+			pageTitle = openPage(task, url)
 		if not pageTitle:
-			return "The address was given to the browser, but the page was not ready in time."
-		return f"Opened the web page {pageTitle}."
+			return "The address was given to the browser, but the page was not ready in time." + said
+		return f"Opened the web page {pageTitle}." + said
 
-	add("web_open", "open a web address in the user's browser", webOpen,
-		{"address": text("the web address, like example.com", maxLength=300, auto=web.addressIn)},
-		title="Opening the web page", tell=VERBATIM)
+	add("web_open", "open a web address in the user's browser, or in a browser they name", webOpen, {
+		"address": text("the web address, like example.com", maxLength=300, auto=web.addressIn),
+		"asked": text("what the user asked for, in their own words", maxLength=300, auto=True),
+	}, title="Opening the web page", tell=VERBATIM)
 
 	def webSearch(task, words):
 		words = " ".join(str(words).split())
@@ -2304,6 +2325,11 @@ def build(plugin):
 	# What the user asked VisionClaw to remember, as Markdown files, and the user's library of documents.
 	from . import memorytools
 	memorytools.register(plugin, add, text, onMain, confirm)
+	# The computer itself: things opened by name, the Recycle Bin, the volume, windows, files, facts, power.
+	computertools.register(add, plugin, text, onMain, confirm, mustAgree, Refused, screen)
+	# A named control of the program in front: on or off, up or down, also on another page of its dialog.
+	from . import controltools
+	controltools.register(add, plugin, text, onMain, confirm, screen)
 
 	registry.add(Tool(ANSWER, "tell the user the result in plain words; always the last step", lambda task: ""))
 	return registry

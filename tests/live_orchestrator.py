@@ -19,7 +19,7 @@ import time
 
 import harness
 from visionClaw.claw import audit, catalog, commands, fixes, library, lookup, match, memories, orchestrator, pointer, runtime, scrolling, tools, web
-from visionClaw.claw import planner, prompts, skills
+from visionClaw.claw import computer, controls, planner, prompts, router, skills
 from visionClaw.claw.knowledge import Knowledge
 from visionClaw.claw import task as taskModule
 from visionClaw.claw.catalog import CODER, VISION
@@ -615,6 +615,114 @@ def makeRegistry(rt, state):
 				auto=lambda part: "turn off" if "off" in part.lower() else "delete"),
 			"asked": text("what the user asked for, in their own words", maxLength=300, auto=True),
 		}, changes=True, before="list_skills", tell=V)
+	# The computer itself (claw/computer.py): the real tools need Windows, so these stand in for them with the
+	# same forms. Nothing on this computer is opened, emptied, closed or shut down.
+	things = computer.places() + [
+		computer.thing("desktop", "Firefox", computer.ON_DESKTOP, "x"), computer.thing("desktop", "Steam", computer.ON_DESKTOP, "x"),
+		computer.thing("program", "Google Chrome", computer.PROGRAM, "x"), computer.thing("program", "Space Trader", computer.PROGRAM, "x"),
+		computer.thing("program", "Space Trader Editor", computer.PROGRAM, "x")]
+	windows = [
+		{"hwnd": 1, "title": "Space Trader - Main Menu", "app": "spacetrader", "front": True, "minimized": False},
+		{"hwnd": 2, "title": "Settings", "app": "ApplicationFrameHost", "front": False, "minimized": False},
+		{"hwnd": 3, "title": "Mozilla Firefox", "app": "firefox", "front": False, "minimized": False},
+		{"hwnd": 4, "title": "notes.txt - Notepad", "app": "notepad", "front": False, "minimized": True}]
+
+	def findThing(task, words):
+		found, _sure = computer.find(computer.wanted(words), things)
+		if not found:
+			raise tools.ToolError(computer.nothingFound(computer.wanted(words)))
+		task.things = found
+		return computer.foundText(found)
+
+	def openThing(task, thing, asked):
+		item = next((one for one in getattr(task, "things", ()) if one["id"] == thing), None)
+		if item is None:
+			raise tools.ToolError(f"There is no thing with the id {thing}. Copy an id exactly from find_thing.")
+		state.setdefault("opened", []).append(item["id"])
+		return f"Opened {item['name']}."
+
+	def systemVolume(task, asked):
+		wish = computer.volumeOf(asked)
+		if wish is None:
+			raise tools.ToolError("The request does not say what to do with the computer's volume.")
+		state["system volume"] = wish
+		new, _held = computer.volumeNew(40, wish) if wish[0] in (computer.UP, computer.DOWN, computer.SET) else (40, False)
+		return f"The computer's volume was 40 percent and is now {new} percent."
+
+	def listWindows(task, about):
+		task.windows = windows
+		return computer.windowsText(windows)
+
+	def windowAction(task, window, action, asked):
+		meant = computer.windowsMeant(asked, task.windows) or computer.windowsMeant(window, task.windows)
+		if len(meant) != 1:
+			raise tools.ToolError(f"No open window is called \"{window}\". Use a number or a name from list_windows.")
+		state.setdefault("window", []).append((action, meant[0]["title"]))
+		return f"{action.capitalize()}: the window {meant[0]['title']}."
+
+	def checkSeen(task, what, asked):
+		state["checked"] = what
+		return f"{computer.YES} {what} is on the screen: its name is in the text that is shown."
+
+	def setControl(task, asked):
+		wish = controls.wish(asked)
+		if wish is None:
+			raise tools.ToolError("The request does not say which control of this program to set and how.")
+		state.setdefault("control", []).append((wish["name"], wish["what"]))
+		return f"{wish['name'].capitalize()} was set: {wish['what']}."
+
+	def powerTool(task, asked):
+		what = computer.powerOf(asked)
+		if what is None:
+			raise tools.ToolError("The request does not say whether to lock, sleep, restart or shut down.")
+		state["power"] = what
+		return f"Would {what} the computer now; the test does not."
+
+	askedField = {"asked": text("what the user asked for, in their own words", maxLength=300, auto=True)}
+	reg.add(tools.Tool("find_thing",
+		"find what the user wants opened by its name: a program, an app, a thing on the desktop, a folder, a file of "
+		"theirs, the Recycle Bin, Control Panel, or a page of Windows Settings; gives each thing's id",
+		findThing, {"words": text("the name of what is to be opened, as the user said it", maxLength=120, auto=computer.wanted)},
+		looks=True, title="Finding what to open"))
+	reg.add(tools.Tool("open_thing", "open one thing found by find_thing, as a double click on it would", openThing, {
+		"thing": text("the id of the thing to open, from find_thing", maxLength=120),
+		"asked": text("what the user asked for, in their own words", maxLength=300, auto=True),
+	}, changes=True, before="find_thing", title="Opening it", tell=V))
+	simple("recycle_bin", "say how many things the Recycle Bin holds, how much room they take, and whether it is worth emptying",
+		computer.binText(12, 5 << 20, 200 << 30, 500 << 30), "Checking the Recycle Bin", looks=True, tell=V)
+	simple("empty_recycle_bin", "empty the Recycle Bin, which deletes what is in it for good; always asks first",
+		"Emptied the Recycle Bin: 12 items, 5 MB, deleted for good.", "Emptying the Recycle Bin", dict(askedField), changes=True, tell=V)
+	reg.add(tools.Tool("system_volume",
+		"turn the volume of the computer itself up or down, set it to a number of percent, mute or unmute it, or say how loud it is",
+		systemVolume, dict(askedField), changes=True, title="Working the computer's volume", tell=V))
+	reg.add(tools.Tool("list_windows", "list the windows that are open, with the program each belongs to", listWindows,
+		{"about": text("what the user asked for, in their own words", maxLength=200, auto=True)}, looks=True,
+		title="Listing the open windows"))
+	reg.add(tools.Tool("window_action",
+		"switch to, close, minimize, maximize or restore one of the windows from list_windows; or minimize every window",
+		windowAction, {
+			"window": text("the number or the name of the window, from list_windows", maxLength=120),
+			"action": text("what to do with the window", enum=computer.WINDOW_ACTIONS, auto=computer.windowActionOf),
+			"asked": text("what the user asked for, in their own words", maxLength=300, auto=True),
+		}, changes=True, before="list_windows", title="Working the window", tell=V))
+	simple("find_files",
+		"say what is in the user's Desktop, Documents, Downloads, Pictures, Music or Videos folder, newest first, or "
+		"find their files by a word of the name or by kind",
+		"2 items in Downloads. The newest first:\n1. setup.exe, 5 MB, in Downloads, changed November 18, 2026\n"
+		"2. report.pdf, 120 KB, in Downloads, changed November 2, 2026", "Looking through your folders", dict(askedField),
+		looks=True, tell=V)
+	simple("computer_info", "say a fact about the computer itself: free room on its drives, its memory, its processor",
+		"Drive C: (System) has 200 GB free of 500 GB, 40 percent. Asked about: {topic}.", "Asking the computer",
+		{"topic": text("which fact", enum=computer.TOPICS, auto=computer.topicOf)}, looks=True, tell=V)
+	reg.add(tools.Tool("power", "lock the computer, put it to sleep, restart it, shut it down, sign out of Windows",
+		powerTool, dict(askedField), changes=True, title="Locking or shutting down", tell=V))
+	reg.add(tools.Tool("check_seen", "check whether something the user names is on the screen; answers yes or no", checkSeen, {
+		"what": text("the thing to look for, as the user named it", maxLength=80, auto=computer.seenWhat),
+		"asked": text("what the user asked for, in their own words", maxLength=300, auto=True),
+	}, looks=True, title="Checking whether it is on the screen", tell=V))
+	reg.add(tools.Tool("set_control",
+		"turn a named option, check box or switch of the program in front on or off, or turn a named slider or value "
+		"up or down or to a number", setControl, dict(askedField), changes=True, title="Setting the control", tell=V))
 	reg.add(tools.Tool(tools.ANSWER, "tell the user the result in plain words; always the last step", lambda task: ""))
 	return reg
 
@@ -630,6 +738,35 @@ with open(os.path.join(SHELF.folder, "Space Trader manual.txt"), "w", encoding="
 	_f.write("TRADING\nPress T to open the market. Buy low and sell high.\n\nSAVING\nSaving is done with Control+S.\n")
 
 REQUESTS = (
+	# Working the computer itself, several things in one request, things that depend on something, and a named
+	# control of the program in front (2026-11-18). The first five are the owner's own words.
+	"first, look at my screen. If you see recycle bin, open it.",
+	"check and see if my recycle bin needs to be emptied or not.",
+	"Go into my windows settings, turn down my system volume, close windows settings, then go to gmail.com in my google "
+	"chrome and tell me how many emails I have.",
+	"find the settings button in this inaccessible app, then adjust the volume and turn it up a bit and turn the equalizer "
+	"down, then close settings.",
+	"find the settings button, and then in this multipage dialog, turn on my nvidia gpu for this program, and turn off the "
+	"media keys on my keyboard.",
+	"Open Notepad.",
+	"Launch Steam.",
+	"Open my downloads folder.",
+	"Open the Recycle Bin.",
+	"Start Space Trader.",
+	"Is my recycle bin full?",
+	"Empty the recycle bin.",
+	"Switch to Firefox.",
+	"Close this window.",
+	"Minimize all windows.",
+	"What is in my downloads folder?",
+	"How much disk space do I have left?",
+	"Which programs are running?",
+	"Restart my computer.",
+	"Turn the computer's volume up a lot.",
+	"If notepad is open, close it.",
+	"If my recycle bin is not empty, empty it.",
+	"Turn on dark mode in this program.",
+	"Can you empty my recycle bin?",
 	"Remember that my braille display is a Focus 40.",
 	"What do you remember about me?",
 	"Which braille display do I have?",
@@ -792,6 +929,8 @@ def main():
 			orch.memories = KEPT
 			orch.program = lambda: "spacetrader"
 			orch.skills = SKILLS
+			# Where the user is, for the router: a game in front, no web page, no controller.
+			orch.facts = lambda: {router.WEB: False, router.CONTROLLER: False, router.DIRECT: False}
 			task = taskModule.Task(request, reasoning=reasoning)
 			start = time.time()
 			orch.run(task)

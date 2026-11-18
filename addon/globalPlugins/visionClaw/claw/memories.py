@@ -145,6 +145,8 @@ def factOf(said):
 	"""What is to be remembered, in the user's own words: "remember that my display is a Focus 40, please"
 	becomes "my display is a Focus 40"."""
 	text = " ".join(str(said or "").split())
+	# What the planner adds to a part that says "it" is no part of what the user said.
+	text = re.sub(r"\s*\(this follows: .*\)\s*$", "", text, flags=re.IGNORECASE)
 	text = _LEAD.sub("", text)
 	text = re.sub(r"^(that|to)\s+", "", text, flags=re.IGNORECASE)
 	text = _TRAIL.sub("", text).strip(" ,;:")

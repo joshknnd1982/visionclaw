@@ -13,7 +13,7 @@
 # the user decides; and it checks a plan it wrote itself with the reviewer's question, which is a different
 # one. No NVDA dependencies.
 
-from . import planner, policy
+from . import planner, policy, router
 from . import task as taskModule
 from .llm import LLMError, clip
 
@@ -53,10 +53,19 @@ def review(llm, role, request, steps, registry, params):
 	return bool(found.get("agree")) or not problem, problem
 
 
-def _onRecipe(llm, task, part, context, registry, askUser, lead, other, single=False):
-	"""Both models choose how to handle one part. Returns (recipe, how)."""
+def _onRecipe(llm, task, part, context, registry, askUser, lead, other, single=False, before=None):
+	"""Both models choose how to handle one part. Returns (recipe, how). before: the recipe of the part before."""
 	leadName, otherName = policy.ROLE_NAMES[lead], policy.ROLE_NAMES[other]
-	mine = planner.classify(llm, lead, part, context, registry)
+	facts = getattr(task, "facts", None)
+	# Where the words can hardly mean anything else, no model is asked.
+	sure = planner.decided(part, registry, before)
+	if sure is not None:
+		task.emit(taskModule.TALK, f"\"{part}\": your words say it: {planner.label(sure)}.")
+		return sure, AGREED
+	told = router.offeredText(len(planner.offered(part, registry, facts, before)), len(planner.available(registry)))
+	if told:
+		task.emit(taskModule.DETAIL, told)
+	mine = planner.classify(llm, lead, part, context, registry, before=before, facts=facts)
 	task.check()
 	if single:
 		# One model does both jobs. Its second answer to the same question would be the same as its first, so
@@ -65,14 +74,14 @@ def _onRecipe(llm, task, part, context, registry, askUser, lead, other, single=F
 		# again; if it still chooses differently, the user decides, as when two models differ. With the real
 		# 9B model this happened in 2 of 55 parts, and both times the words were right and the model was not.
 		task.emit(taskModule.TALK, f"\"{part}\": the model chose to {planner.label(mine)}.")
-		guess = planner.hint(part)
+		guess = planner.hint(part, before)
 		if guess == mine or guess not in planner.available(registry):
 			return mine, AGREED
 		task.check()
 		note = (
 			f"The user's words point to: {guess} ({planner.label(guess)}). You chose {mine}. Read the request again, "
 			"word by word, and choose the one that fits what the user asked.")
-		again = planner.classify(llm, lead, part, context, registry, note)
+		again = planner.classify(llm, lead, part, context, registry, note, before=before, facts=facts)
 		if again == guess:
 			task.emit(taskModule.TALK, f"After checking against your words, the model chose to {planner.label(again)}.")
 			return again, REVISED
@@ -89,7 +98,7 @@ def _onRecipe(llm, task, part, context, registry, askUser, lead, other, single=F
 			raise Declined()
 		task.emit(taskModule.TALK, f"You chose: {choices[picked]}")
 		return ways[picked], USER_CHOSE
-	theirs = planner.classify(llm, other, part, context, registry)
+	theirs = planner.classify(llm, other, part, context, registry, before=before, facts=facts)
 	if mine == theirs:
 		task.emit(taskModule.TALK, f"\"{part}\": both models chose to {planner.label(mine)}.")
 		return mine, AGREED
@@ -101,9 +110,9 @@ def _onRecipe(llm, task, part, context, registry, askUser, lead, other, single=F
 	task.check()
 	note = "Another model chose: {choice} ({text}). If that fits better than your choice, choose it."
 	mineAgain = planner.classify(
-		llm, lead, part, context, registry, note.format(choice=theirs, text=planner.label(theirs)))
+		llm, lead, part, context, registry, note.format(choice=theirs, text=planner.label(theirs)), before=before, facts=facts)
 	theirsAgain = planner.classify(
-		llm, other, part, context, registry, note.format(choice=mine, text=planner.label(mine)))
+		llm, other, part, context, registry, note.format(choice=mine, text=planner.label(mine)), before=before, facts=facts)
 	if mineAgain == theirsAgain:
 		task.emit(taskModule.TALK, f"After looking again, both models chose to {planner.label(mineAgain)}.")
 		return mineAgain, REVISED
@@ -127,7 +136,8 @@ def _onRecipe(llm, task, part, context, registry, askUser, lead, other, single=F
 def _onOwnPlan(llm, task, part, context, registry, params, askUser, lead):
 	"""A part that fits no recipe, with one model for both jobs: the model writes a plan and checks it itself,
 	with the reviewer's question. Nothing here is called an agreement. Returns (steps, how)."""
-	steps = planner.freeSteps(llm, lead, part, context, registry, params)
+	facts = getattr(task, "facts", None)
+	steps = planner.freeSteps(llm, lead, part, context, registry, params, facts=facts)
 	task.emit(taskModule.TALK, f"Plan for \"{part}\":\n{planner.planText(steps)}")
 	fine, problem = review(llm, lead, part, steps, registry, params)
 	if fine:
@@ -139,7 +149,7 @@ def _onOwnPlan(llm, task, part, context, registry, params, askUser, lead):
 		f"An earlier plan was:\n{planner.detailText(steps)}\n"
 		f"A reviewer found this problem with it: {clip(problem, 300)}\nWrite a better plan that fixes it."
 	)
-	revised = planner.freeSteps(llm, lead, part, context, registry, params, note)
+	revised = planner.freeSteps(llm, lead, part, context, registry, params, note, facts=facts)
 	task.emit(taskModule.TALK, f"New plan:\n{planner.planText(revised)}")
 	fine, problemAgain = review(llm, lead, part, revised, registry, params)
 	if fine:
@@ -171,7 +181,8 @@ def _onFreePlan(llm, task, part, context, registry, params, askUser, lead, other
 	if getattr(params, "oneModel", False):
 		return _onOwnPlan(llm, task, part, context, registry, params, askUser, lead)
 	leadName, otherName = policy.ROLE_NAMES[lead], policy.ROLE_NAMES[other]
-	steps = planner.freeSteps(llm, lead, part, context, registry, params)
+	facts = getattr(task, "facts", None)
+	steps = planner.freeSteps(llm, lead, part, context, registry, params, facts=facts)
 	task.emit(taskModule.TALK, f"Plan from the {leadName} for \"{part}\":\n{planner.planText(steps)}")
 	agrees, problem = review(llm, other, part, steps, registry, params)
 	if agrees:
@@ -183,7 +194,7 @@ def _onFreePlan(llm, task, part, context, registry, params, askUser, lead, other
 		f"An earlier plan was:\n{planner.detailText(steps)}\n"
 		f"A reviewer found this problem with it: {clip(problem, 300)}\nWrite a better plan that fixes it."
 	)
-	revised = planner.freeSteps(llm, lead, part, context, registry, params, note)
+	revised = planner.freeSteps(llm, lead, part, context, registry, params, note, facts=facts)
 	task.emit(taskModule.TALK, f"New plan from the {leadName}:\n{planner.planText(revised)}")
 	agrees, problemAgain = review(llm, other, part, revised, registry, params)
 	if agrees:
@@ -193,7 +204,7 @@ def _onFreePlan(llm, task, part, context, registry, params, askUser, lead, other
 	task.check()
 	try:
 		note = f"Another model's plan had this problem: {clip(problemAgain, 300)}\nWrite your own plan."
-		theirs = planner.freeSteps(llm, other, part, context, registry, params, note)
+		theirs = planner.freeSteps(llm, other, part, context, registry, params, note, facts=facts)
 	except LLMError:
 		theirs = []
 	choices = [f"Use the {leadName}'s plan: " + _oneLine(revised)]
@@ -229,17 +240,33 @@ def agree(llm, task, request, context, registry, params, askUser, lead=policy.LE
 	task.setState(taskModule.AGREEING, (
 		"The model is choosing what to do." if single else "The two models are agreeing on what to do."))
 	steps, recipes, how = [], [], AGREED
-	for part in parts:
+	before = None
+	for whole in parts:
 		task.check()
-		recipe, partHow = _onRecipe(llm, task, part, context, registry, askUser, lead, other, single)
-		if recipe == planner.OTHER:
-			partSteps, planHow = _onFreePlan(llm, task, part, context, registry, params, askUser, lead, other)
-			partHow = max(partHow, planHow, key=_RANK.get)
-		else:
-			partSteps = planner.recipeSteps(recipe, part, registry)
-		steps += partSteps
-		recipes.append(recipe)
-		how = max(how, partHow, key=_RANK.get)
+		# A part that depends on something plain code can find out: the step that checks it comes first, and
+		# what is to be done is planned as always, and done only if the check says so.
+		check = planner.conditional(whole, registry)
+		gate, actions = check if check is not None else (None, [whole])
+		if gate is not None:
+			steps.append(gate)
+			recipes.append(planner.IF)
+			task.emit(taskModule.TALK, (
+				f"\"{whole}\": first {gate.title[:1].lower()}{gate.title[1:]}. "
+				+ ("Only if so: " + "; ".join(actions) + "." if actions else "The answer to that is all that was asked.")))
+		for part in actions:
+			task.check()
+			recipe, partHow = _onRecipe(llm, task, part, context, registry, askUser, lead, other, single, before)
+			if recipe == planner.OTHER:
+				partSteps, planHow = _onFreePlan(llm, task, part, context, registry, params, askUser, lead, other)
+				partHow = max(partHow, planHow, key=_RANK.get)
+			else:
+				partSteps = planner.recipeSteps(recipe, part, registry)
+			for step in partSteps:
+				step.onlyIf = gate
+			steps += partSteps
+			recipes.append(recipe)
+			before = recipe
+			how = max(how, partHow, key=_RANK.get)
 	steps.append(planner.answerStep())
 	task.emit(taskModule.TALK, ("The steps:\n" if single else "The agreed steps:\n") + planner.planText(steps))
 	return steps, how, recipes

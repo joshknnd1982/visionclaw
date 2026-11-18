@@ -33,6 +33,14 @@ chat apps, and names for unlabelled buttons.
 Press **NVDA+Alt+C**, type a request, and press Enter. For example:
 
 - *Make NVDA speak a little faster.*
+- *Check and see if my recycle bin needs to be emptied.* *Empty the recycle bin.* *Open the Recycle Bin.*
+- *Open Notepad.* *Open my Downloads folder.* *Open Bluetooth settings.* *Switch to Firefox.* *Close this window.*
+- *Turn down my system volume.* *How much disk space do I have left?* *What is in my downloads folder?*
+- *Go into my Windows settings, turn down my system volume, close Windows settings, then go to gmail.com in my
+  Google Chrome and tell me how many emails I have.* (Several things in one request, done in order.)
+- *If you see the Recycle Bin, open it.* *If Notepad is open, close it.*
+- *Find the settings button in this app, then turn the volume up a bit and turn the equalizer down.*
+- *In this dialog, turn on my NVIDIA GPU for this program.*
 - *Turn off the typing echo and set punctuation to all.*
 - *How do I read the title of this window?* (You are told the keys, for next time.)
 - *How can I use the keyboard to navigate my desktop?* *How do I switch between open windows?* *How do I rename a file?*
@@ -214,6 +222,65 @@ each request: simple requests think less and answer sooner, new code gets the mo
 models write out their reasoning before deciding, retry more, review generated code more often, and turn on the
 thinking mode of models that have one (Qwen3.5). The context size given to a model is chosen for every single
 call from how long that call is.
+
+## Working the computer for you
+
+VisionClaw does things on the computer itself, not only inside NVDA. Each of these is one small tool; which
+thing you mean is read from your own words by plain code, and a model at most chooses among the few things that
+were found. You are asked before anything is opened, closed or changed, unless you turned that off in the
+settings; what cannot be undone is always asked about.
+
+| You say | What happens |
+|---|---|
+| *Open Notepad. Open my Downloads folder. Open the Recycle Bin. Go into my Windows settings. Open Bluetooth settings.* | The thing is found by its name among the programs of the Start menu, what is on your desktop, the folders, tools and settings pages of Windows, and your own files, and opened as a double click would. When several things have the name, you are asked which. |
+| *Check my recycle bin. Is my recycle bin full?* | How many items it holds, how much room they take, and whether emptying is worth it for the room left on your drive. Answered at once; no model is asked. |
+| *Empty the recycle bin.* | Always asks first, with the number of items and their size: what is emptied is deleted for good. |
+| *Turn down my system volume. Set the computer's volume to 40 percent. What is the volume of my computer?* | The volume of the whole computer, not of NVDA's voice. Turning it down stops at 10 percent so that NVDA can still be heard. Muting, or a number below 10, is refused when no braille display is in use, and asked about when one is. |
+| *Switch to Firefox. Close Notepad. Minimize all windows. Maximize this window.* | The window your words name is worked, and named in the answer. A window that stays open after it was asked to close is said to be still open. Where no window has that name, as for a settings panel inside a program, Escape is offered. |
+| *What is in my downloads folder? Find the file named budget. How many PDFs are in my documents?* | Your Desktop, Documents, Downloads, Pictures, Music and Videos folders are looked through, the newest first, with size and date. Nothing is changed. |
+| *How much disk space do I have left? How much memory does my computer have? How long has my computer been on? Am I connected to the internet? Which programs are running?* | Answered from Windows itself. Nothing is sent anywhere to find out. |
+| *Lock my computer. Restart my computer. Shut down the computer. Cancel the shutdown.* | Always asks first. A restart or shutdown waits 30 seconds and can be called off in that time. |
+
+### Several things in one request
+
+Join up to eight things with commas, *and* or *then*. Plain rules split the request where they can tell for
+certain, so a long request is not left to a small model to cut up. Each thing gets its own small steps, each
+step is announced as it starts ("Step 3 of 8: Closing the window"), and the answer says in order what was
+really done, and what was not.
+
+*"Go into my Windows settings, turn down my system volume, close Windows settings, then go to gmail.com in my
+Google Chrome and tell me how many emails I have."* becomes: open Windows Settings; turn the computer's volume
+down; close the window Settings; open gmail.com in Chrome; read the page and answer.
+
+A web address is opened in the browser you name, where it is installed. What a web page shows of your mail
+depends on the page: you must be signed in there, and VisionClaw reads only what the page says.
+
+### Things that depend on something
+
+*"If you see the Recycle Bin, open it."* *"If Notepad is open, close it."* *"If my recycle bin is not empty,
+empty it."* VisionClaw checks first and tells you what it found. For "if you see", it looks at the names NVDA
+has where you are, then at the text on the screen, and only then asks the model that sees; a yes that rests on
+the model alone is said to be the model's, which can be wrong. When the condition does not hold, the rest is
+not done, and the answer says so. Other kinds of "if" are planned as before.
+
+### Options inside a program
+
+*"Find the settings button in this app, then turn the volume up a bit and turn the equalizer down, then close
+settings."* *"In this dialog, turn on my NVIDIA GPU for this program, and turn off the media keys."* The control
+is looked for by its name: first in what NVDA knows of the window, then on the other pages of a dialog that
+has tabs, then in the window's picture. A check box or switch is turned on or off, a slider up or down or to a
+number, through the control's own action where the program offers one, with the keyboard next, and with the
+mouse last. You are asked first and told what it was and what it is now. Where the control is only in the
+picture, VisionClaw says that its reading is from the picture and can be wrong.
+
+### The router: fewer choices for the model
+
+A small model chooses well among a dozen things and badly among eighty. So before a model is asked what to do,
+plain code leaves out what cannot be meant: what works a web page when no browser is in front and the words
+name no page, what needs a game controller when none is connected, and what reads everything from your words
+when your words do not say it. What your own words point to is always offered. Where the words can hardly mean
+anything else, as with the Recycle Bin or a shutdown, no model is asked at all. And when a model finds nothing
+that fits among what it was offered, it is offered everything, once.
 
 ## Programs and games NVDA cannot read
 

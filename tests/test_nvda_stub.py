@@ -247,6 +247,76 @@ keysPressed = []
 mousetools._key = lambda code, up: keysPressed.append((code, up))
 mousetools._REST = 0
 nvdatools.typeUnicode = typed.append  # nothing is really typed into the computer during the tests
+# Nothing on the real computer is opened, emptied, closed, made louder or quieter, locked or shut down during the
+# tests, and nothing is read from it either: every function of computertools.py that does something only writes
+# down what would have happened, and what the computer would be asked is made up here.
+from visionClaw import computertools  # noqa: E402
+from visionClaw.claw import computer  # noqa: E402
+
+did = []
+pc = {
+	"bin": (3, 5 << 20), "volume": 40, "muted": False, "refuse": False,
+	"windows": [
+		{"hwnd": 11, "title": "Inbox (3) - sam@example.com - Gmail - Google Chrome", "app": "chrome", "front": True, "minimized": False},
+		{"hwnd": 12, "title": "Settings", "app": "ApplicationFrameHost", "front": False, "minimized": False},
+		{"hwnd": 13, "title": "notes.txt - Notepad", "app": "notepad", "front": False, "minimized": True},
+	],
+	"files": [
+		("setup.exe", "Downloads", 5 << 20, 1795000000.0, False, r"C:\Users\sam\Downloads\setup.exe"),
+		("budget 2026.xlsx", "Documents", 20000, 1790000000.0, False, r"C:\Users\sam\Documents\budget 2026.xlsx"),
+	],
+}
+
+
+def fakeOpen(target, arguments=None):
+	if pc["refuse"]:
+		raise OSError("Windows did not open it (its answer was 2).")
+	did.append(("open", target, arguments))
+
+
+def fakeEmpty():
+	did.append(("empty",))
+	pc["bin"] = (0, 0)
+
+
+def fakeSetVolume(level):
+	did.append(("volume", level))
+	pc["volume"] = level
+	return level
+
+
+def fakeSearch(wish, cancel=None):
+	hits = [hit for hit in pc["files"] if hit[1].lower() in wish["folders"] and computer.fileFits(hit[0], wish)]
+	shown = [(name, where, size, "November 18, 2026", isFolder) for name, where, size, _changed, isFolder, _path in hits]
+	return shown, hits, [key.capitalize() for key in wish["folders"]], False
+
+
+computertools.shellOpen = fakeOpen
+computertools.emptyBin = fakeEmpty
+computertools.binInfo = lambda: pc["bin"]
+computertools.systemDrive = lambda: (200 << 30, 500 << 30)
+computertools.volumeNow = lambda: (pc["volume"], pc["muted"])
+computertools.setVolume = fakeSetVolume
+computertools.setMute = lambda muted: (did.append(("mute", muted)), pc.__setitem__("muted", muted))[0]
+computertools.openWindows = lambda: [dict(window) for window in pc["windows"]]
+computertools.focusWindow = lambda hwnd: did.append(("focus", hwnd)) or True
+computertools.closeWindow = lambda hwnd: did.append(("close", hwnd)) or hwnd != 13
+computertools.showWindow = lambda hwnd, action: did.append((action, hwnd))
+computertools.minimizeAll = lambda: did.append(("minimize all",))
+computertools.pressEscape = lambda: did.append(("escape",))
+computertools.power = lambda what: did.append(("power", what))
+computertools.drives = lambda: [("C:", "System", 200 << 30, 500 << 30)]
+computertools.memory = lambda: (21 << 30, 31 << 30)
+computertools.upSeconds = lambda: 86400 + 9 * 3600
+computertools.processorText = lambda: "The processor is a Test Chip, with 16 threads."
+computertools.networkText = lambda: "Windows says this computer is connected to a network."
+computertools.systemText = lambda: "This computer is called TESTPC. You are signed in as sam. Windows is version 10.0, build 26300."
+computertools.gather = lambda: computer.places() + [
+	computer.thing("desktop", "Firefox", computer.ON_DESKTOP, r"C:\Users\sam\Desktop\Firefox.lnk"),
+	computer.thing("program", "Space Trader", computer.PROGRAM, r"C:\Start\Space Trader.lnk"),
+	computer.thing("program", "Space Trader Editor", computer.PROGRAM, r"C:\Start\Space Trader Editor.lnk")]
+computertools.searchFiles = fakeSearch
+computertools.browserPath = lambda exe: r"C:\Chrome\chrome.exe" if exe == "chrome.exe" else None
 from visionClaw.claw import orchestrator, planner  # noqa: E402
 from visionClaw.claw import task as taskModule  # noqa: E402
 from visionClaw.claw.catalog import CODER, VISION  # noqa: E402
@@ -282,7 +352,7 @@ assert instance.dataDir == DATA and instance.portableSettings()["searchEngine"] 
 instance.controller._stopped.set()
 instance.controller._thread.join(5)
 registry = instance.orchestrator.registry
-assert len(registry.names()) == 76, registry.names()
+assert len(registry.names()) == 88, registry.names()
 # Lessons from searches that happened to find something misled; they are dropped when VisionClaw starts.
 assert instance.memory.all() == ["Tool set_setting: this form failed: {} (x). This form worked: {}."], instance.memory.all()
 assert set(planner.available(registry)) == set(planner.RECIPES), set(planner.RECIPES) - set(planner.available(registry))
@@ -784,10 +854,19 @@ def startfile(url):
 
 
 webtools.os = types.SimpleNamespace(startfile=startfile)
-worked, result = registry.call(task, "web_open", {"address": "bbc.co.uk"})
+worked, result = registry.call(task, "web_open", {"address": "bbc.co.uk", "asked": "Open bbc.co.uk"})
 assert worked and opened == ["https://bbc.co.uk"] and result == "Opened the web page BBC Home.", result
+# A browser the user names is used where it is installed; where it is not, the usual one is, and that is said.
+del did[:]
+worked, result = registry.call(task, "web_open", {"address": "bbc.co.uk", "asked": "go to bbc.co.uk in my google chrome"})
+assert worked and did == [("open", r"C:\Chrome\chrome.exe", "https://bbc.co.uk")], (result, did)
+assert result.endswith("It was opened in Google Chrome.") and opened == ["https://bbc.co.uk"], result
+worked, result = registry.call(task, "web_open", {"address": "bbc.co.uk", "asked": "open bbc.co.uk with opera"})
+assert worked and result == (
+	"Opened the web page BBC Home. Opera was not found on this computer, so your usual browser was used."), result
+del opened[1:]
 for bad, why in (("javascript:alert(1)", "Only web addresses"), ("the bbc", "is not a web address"), ("", "is not a web address")):
-	worked, result = registry.call(task, "web_open", {"address": bad})
+	worked, result = registry.call(task, "web_open", {"address": bad, "asked": "open " + bad})
 	assert not worked and why in result and len(opened) == 1, (bad, result)
 worked, result = registry.call(task, "web_search", {"words": "weather in Boston"})
 assert worked and opened[-1] == "https://duckduckgo.com/?q=weather+in+Boston" and result == "Searched the web for weather in Boston."
@@ -3603,6 +3682,374 @@ failedTask.steps = [planner.Step("Asking", "look_up", "x", "x", recipe="nvda_que
 failedTask.steps[0].status = taskModule.STEP_FAILED
 assert instance.orchestrator._offered(failedTask, failedTask.request, ["nvda_question"]) == ""
 shippedGuides.SHIPPED = ""
+
+# --- The computer itself: things opened by name, the Recycle Bin, the volume, windows, files, facts, power ---
+# The real tools, with Windows stood in for (see the top of this file).
+from visionClaw.claw import router, shapes  # noqa: E402
+
+conf["visionClaw"]["confirmChanges"] = True
+questions = []
+instance.clawAsk = lambda question, choices: questions.append(question) or 0
+for name in ("open_thing", "recycle_bin", "empty_bin", "system_volume", "window", "files", "computer_info", "power", "set_control"):
+	assert name in planner.RECIPES and registry.has(planner.RECIPES[name][2]), name
+for name in ("empty_recycle_bin", "power"):
+	assert registry.get(name).changes, name
+# A place of Windows by its name: one thing is found, the user is asked, and Windows is handed what is fixed
+# in the code for it, never something a model wrote.
+task = taskModule.Task("open my recycle bin")
+del did[:]
+worked, result = registry.call(task, "find_thing", {"words": computer.wanted(task.request)})
+assert worked and result == "place-recycle-bin: Recycle Bin, a place of Windows.", result
+worked, result = registry.call(task, "open_thing", {"thing": "place-recycle-bin", "asked": task.request})
+assert worked and result.startswith("Opened Recycle Bin."), result
+assert did == [("open", "shell:RecycleBinFolder", None)] and questions == ["Open Recycle Bin, a place of Windows?"], (did, questions)
+# A program of the Start menu by a word of its name: both that have it are offered, and the id decides.
+task = taskModule.Task("open trader")
+worked, result = registry.call(task, "find_thing", {"words": "trader"})
+assert worked and result.splitlines() == [
+	"program-space-trader: Space Trader, a program.", "program-space-trader-editor: Space Trader Editor, a program."], result
+worked, result = registry.call(task, "open_thing", {"thing": "program-space-trader-editor", "asked": task.request})
+assert worked and did[-1] == ("open", r"C:\Start\Space Trader Editor.lnk", None), did
+worked, result = registry.call(task, "open_thing", {"thing": "program-doom", "asked": task.request})
+assert not worked and "Copy an id exactly from find_thing" in result, result
+# A file of the user's own, by a word of its name, when nothing else has that name.
+task = taskModule.Task("open budget")
+worked, result = registry.call(task, "find_thing", {"words": "budget"})
+assert worked and result == "file-budget-2026-xlsx: budget 2026.xlsx in Documents, a file.", result
+# Nothing by that name: said so, with what to ask for instead; and a no from the user opens nothing.
+worked, result = registry.call(taskModule.Task("open my holiday plans"), "find_thing", {"words": "holiday plans"})
+assert not worked and result.startswith('Nothing called "holiday plans" was found') and "ask to click it instead" in result, result
+task = taskModule.Task("open notepad")
+registry.call(task, "find_thing", {"words": "notepad"})
+instance.clawAsk = lambda question, choices: 1
+count = len(did)
+worked, result = registry.call(task, "open_thing", {"thing": "notepad", "asked": task.request})
+assert worked and result == "You said no, so nothing was changed." and len(did) == count, result
+instance.clawAsk = lambda question, choices: questions.append(question) or 0
+pc["refuse"] = True
+worked, result = registry.call(task, "open_thing", {"thing": "notepad", "asked": task.request})
+assert not worked and result.startswith("Notepad could not be opened."), result
+pc["refuse"] = False
+
+# The Recycle Bin: what it holds, in Windows' own numbers; and emptying it, which is always asked about.
+worked, result = registry.call(taskModule.Task("check my recycle bin"), "recycle_bin", {})
+assert worked and result.startswith("The Recycle Bin holds 3 items, 5 MB in all. It does not need emptying for room"), result
+conf["visionClaw"]["confirmChanges"] = False
+del questions[:], did[:]
+instance.clawAsk = lambda question, choices: questions.append(question) or 1
+worked, result = registry.call(taskModule.Task("empty the recycle bin"), "empty_recycle_bin", {"asked": "empty the recycle bin"})
+assert worked and result == "You said no, so nothing was changed." and not did, (result, did)
+assert questions == [
+	"Empty the Recycle Bin? It holds 3 items, 5 MB in all. They are deleted for good and cannot be brought back."], questions
+instance.clawAsk = lambda question, choices: questions.append(question) or 0
+worked, result = registry.call(taskModule.Task("empty the recycle bin"), "empty_recycle_bin", {"asked": "empty the recycle bin"})
+assert worked and result == "Emptied the Recycle Bin: 3 items, 5 MB, deleted for good." and did == [("empty",)], result
+worked, result = registry.call(taskModule.Task("empty the recycle bin"), "empty_recycle_bin", {"asked": "empty the recycle bin"})
+assert worked and result == "The Recycle Bin is already empty. Nothing was deleted." and did == [("empty",)], result
+assert registry.call(taskModule.Task("x"), "recycle_bin", {})[1] == "The Recycle Bin is empty. There is nothing to empty."
+
+# The computer's volume. Turning it down stops where NVDA's speech can still be heard.
+del did[:]
+worked, result = registry.call(taskModule.Task("x"), "system_volume", {"asked": "turn down my system volume"})
+assert worked and result == "The computer's volume was 40 percent and is now 30 percent." and did == [("volume", 30)], result
+pc["volume"] = 14
+worked, result = registry.call(taskModule.Task("x"), "system_volume", {"asked": "turn the computer's volume down a lot"})
+assert worked and pc["volume"] == 10 and result.endswith(
+	"It was not turned lower than 10 percent, so that NVDA's speech can still be heard."), result
+worked, result = registry.call(taskModule.Task("x"), "system_volume", {"asked": "turn the computer's volume down"})
+assert worked and pc["volume"] == 10 and result.startswith("The computer's volume stays at 10 percent"), result
+# Muting, or a number too low to hear, would silence NVDA: refused when no braille display is in use, whatever
+# the user answers; with a display in use it is asked about, always.
+del did[:], questions[:]
+for said in ("mute my computer", "set the system volume to 3 percent"):
+	worked, result = registry.call(taskModule.Task("x"), "system_volume", {"asked": said})
+	assert worked and result.startswith("VisionClaw did not do this. Muting the computer's sound") and "no braille display is in use" in result, result
+assert not did and not questions and not pc["muted"]
+sys.modules["braille"].handler.display = types.SimpleNamespace(name="freedomScientific")
+worked, result = registry.call(taskModule.Task("x"), "system_volume", {"asked": "mute my computer"})
+assert worked and result == "The computer's sound is muted. To get it back, say: unmute the computer." and did == [("mute", True)], result
+assert questions and "too quiet to hear NVDA's speech: muted. Only braille would be left." in questions[0], questions
+sys.modules["braille"].handler.display = types.SimpleNamespace(name="noBraille")
+worked, result = registry.call(taskModule.Task("x"), "system_volume", {"asked": "unmute the computer"})
+assert worked and result == "The sound is on again. The computer's volume is at 10 percent." and not pc["muted"], result
+worked, result = registry.call(taskModule.Task("x"), "system_volume", {"asked": "what is the volume of my computer"})
+assert worked and result == "The computer's volume is at 10 percent.", result
+worked, result = registry.call(taskModule.Task("x"), "system_volume", {"asked": "set the computer's volume to 60 percent"})
+assert worked and result == "The computer's volume was 10 percent and is now 60 percent.", result
+# NVDA's own volume is not this tool's: the words must be about the computer.
+worked, result = registry.call(taskModule.Task("x"), "system_volume", {"asked": "make the voice louder"})
+assert not worked and "does not say what to do with the computer's volume" in result, result
+
+# Windows that are open: the user's own words say which one, whatever a model wrote in the form.
+task = taskModule.Task("close windows settings")
+worked, result = registry.call(task, "list_windows", {"about": task.request})
+assert worked and result.splitlines() == [
+	"3 windows open:", "1. Inbox (3) - sam@example.com - Gmail - Google Chrome, in front", "2. Settings",
+	"3. notes.txt - Notepad, minimized"], result
+assert shapes.namesIn(result) == [line.split(". ", 1)[1] for line in result.splitlines()[1:]]
+del did[:]
+conf["visionClaw"]["confirmChanges"] = True
+del questions[:]
+worked, result = registry.call(task, "window_action", {"window": "1", "action": "close", "asked": task.request})
+assert worked and result == "Closed the window Settings." and did == [("close", 12)], (result, did)
+assert questions == ["Close the window Settings?"], questions
+conf["visionClaw"]["confirmChanges"] = False
+task = taskModule.Task("switch to notepad")
+registry.call(task, "list_windows", {"about": task.request})
+worked, result = registry.call(task, "window_action", {"window": "Settings", "action": "switch to", "asked": task.request})
+assert worked and result == "Switched to the window notes.txt - Notepad." and did[-1] == ("focus", 13), result
+# A window that stays open after it was asked to close: that is said, not claimed as closed.
+worked, result = registry.call(task, "window_action", {"window": "3", "action": "close", "asked": "close notepad"})
+assert worked and result.startswith("The window notes.txt - Notepad was asked to close and is still open."), result
+# Where the words name no window that is open, what the model chose from the list is used; a name that is not
+# in the list is refused.
+task = taskModule.Task("maximize the spreadsheet")
+registry.call(task, "list_windows", {"about": task.request})
+worked, result = registry.call(task, "window_action", {"window": "2. Settings", "action": "maximize", "asked": task.request})
+assert worked and result == "Maximized the window Settings." and did[-1] == ("maximize", 12), result
+worked, result = registry.call(task, "window_action", {"window": "Excel", "action": "maximize", "asked": task.request})
+assert not worked and 'No open window is called "Excel"' in result, result
+worked, result = registry.call(taskModule.Task("x"), "window_action", {"window": "", "action": "minimize", "asked": "minimize all windows"})
+assert worked and did[-1] == ("minimize all",) and result.startswith("Every window was minimized."), result
+
+# Files, facts and power.
+worked, result = registry.call(taskModule.Task("x"), "find_files", {"asked": "what is in my downloads folder"})
+assert worked and result == (
+	"1 item in Downloads. The newest first:\n1. setup.exe, 5 MB, in Downloads, changed November 18, 2026"), result
+worked, result = registry.call(taskModule.Task("x"), "find_files", {"asked": "find the file named budget"})
+assert worked and result.startswith("1 thing with budget in the name, in your Desktop, Documents") and "budget 2026.xlsx" in result, result
+worked, result = registry.call(taskModule.Task("x"), "computer_info", {"topic": "disk"})
+assert worked and result == "Drive C: (System) has 200 GB free of 500 GB, 40 percent.", result
+worked, result = registry.call(taskModule.Task("x"), "computer_info", {"topic": "uptime"})
+assert worked and result == "The computer has been on for 1 day and 9 hours since it was last started.", result
+worked, result = registry.call(taskModule.Task("x"), "computer_info", {"topic": "programs"})
+assert worked and result == "Programs with a window open: google chrome, Settings, notepad.", result
+worked, result = registry.call(taskModule.Task("x"), "computer_info", {"topic": "overview"})
+assert worked and "TESTPC" in result and "31 GB of memory" in result and "Drive C:" in result, result
+# Restarting is always asked about, whatever the settings say; a no does nothing; calling it off asks nothing.
+del did[:], questions[:]
+instance.clawAsk = lambda question, choices: questions.append(question) or 1
+worked, result = registry.call(taskModule.Task("x"), "power", {"asked": "restart my computer"})
+assert worked and result == "You said no, so nothing was changed." and not did, result
+assert questions[0].startswith("Restart the computer in 30 seconds? Work that is not saved will be lost."), questions
+instance.clawAsk = lambda question, choices: questions.append(question) or 0
+worked, result = registry.call(taskModule.Task("x"), "power", {"asked": "shut down the computer"})
+assert worked and did == [("power", "shut down")] and result == (
+	"The computer shuts down in 30 seconds. To call it off, say: cancel the shutdown."), result
+del questions[:]
+worked, result = registry.call(taskModule.Task("x"), "power", {"asked": "cancel the shutdown"})
+assert worked and did[-1] == ("power", "cancel") and not questions and result == "The restart or shutdown was called off.", result
+worked, result = registry.call(taskModule.Task("x"), "power", {"asked": "restart nvda"})
+assert not worked and "does not say whether to lock the computer" in result, result
+
+# What the user wants closed is no window of its own, as the settings panel inside a program: Escape, after a
+# question, and it is said that this is what was done.
+task = taskModule.Task("close the equalizer panel")
+registry.call(task, "list_windows", {"about": task.request})
+conf["visionClaw"]["confirmChanges"] = True
+del questions[:], did[:]
+worked, result = registry.call(task, "window_action", {"window": "equalizer panel", "action": "close", "asked": task.request})
+assert worked and did == [("escape",)] and result.startswith(
+	"No window of that name is open, so Escape was pressed in the window in front."), (result, did)
+assert questions and questions[0].startswith("No window of that name is open. It may be a panel inside the window in front."), questions
+conf["visionClaw"]["confirmChanges"] = False
+
+# --- A named control of the program in front: on or off, up or down, also on another page of its dialog ---
+import api as apiStub  # noqa: E402
+from visionClaw import controltools, deepquery as deep  # noqa: E402
+from visionClaw.claw import controls  # noqa: E402
+
+controltools._SETTLE = 0
+focused = []
+
+
+class Ctl:
+	"""A control as NVDA would give it: a name, a kind, states, a value, and what pressing it does."""
+
+	def __init__(self, name, role, states=(), value="", span=None):
+		self.name, self.role, self.value, self.span = name, types.SimpleNamespace(name=role), value, span
+		self.states = [types.SimpleNamespace(name=state) for state in states]
+		self.location = types.SimpleNamespace(left=10, top=10, width=100, height=20)
+		self.children = []
+		self.pressed = 0
+
+	def has(self, state):
+		return any(one.name == state for one in self.states)
+
+	def doAction(self):
+		self.pressed += 1
+		if self.role.name == "CHECKBOX":
+			self.states = [] if self.has("CHECKED") else [types.SimpleNamespace(name="CHECKED")]
+		if self.role.name == "TAB":
+			dialog.show(self.name)
+
+	def setFocus(self):
+		focused.append(self.name)
+
+
+class Dialog(Ctl):
+	"""A dialog of three pages. Only the controls of the page that is shown are there."""
+
+	def __init__(self):
+		Ctl.__init__(self, "Sound Studio settings", "DIALOG")
+		self.tabs = [Ctl("General", "TAB", ("SELECTED",)), Ctl("Graphics", "TAB"), Ctl("Keyboard", "TAB")]
+		self.pages = {
+			"General": [Ctl("Start with Windows", "CHECKBOX", ("CHECKED",)), Ctl("Volume", "SLIDER", value="40", span={"now": 40.0}),
+				Ctl("Output device", "COMBOBOX", value="Speakers")],
+			"Graphics": [Ctl("Use NVIDIA GPU (high performance)", "CHECKBOX")],
+			"Keyboard": [Ctl("Enable media keys", "CHECKBOX", ("CHECKED",)), Ctl("Media key volume step", "SLIDER", value="5", span={"now": 5.0})],
+		}
+		self.shown = "General"
+
+	def show(self, name):
+		self.shown = name
+		for tab in self.tabs:
+			tab.states = [types.SimpleNamespace(name="SELECTED")] if tab.name == name else []
+
+	@property
+	def children(self):
+		return self.tabs + self.pages[self.shown]
+
+	@children.setter
+	def children(self, value):
+		pass
+
+
+def fakeTurn(obj, direction, size):
+	now = max(0.0, min(100.0, obj.span["now"] + 10 * direction))
+	moved, obj.span["now"], obj.value = now != obj.span["now"], now, str(int(now))
+	return moved, obj.value
+
+
+dialog = Dialog()
+realForeground, apiStub.getForegroundObject = apiStub.getForegroundObject, lambda: dialog
+realRange, realTurn = deep.rangeOf, deep.turn
+deep.rangeOf = lambda obj: dict(obj.span, low=0.0, high=100.0, small=1.0, readOnly=False) if getattr(obj, "span", None) else None
+deep.turn = fakeTurn
+instance.clawScreen.items = lambda: types.SimpleNamespace(items=[], web=False)
+conf["visionClaw"]["confirmChanges"] = True
+del questions[:]
+# The control is on another page of the dialog: the pages are gone through, and the user is told which page.
+worked, result = registry.call(taskModule.Task("x"), "set_control", {
+	"asked": "In this multipage dialog, turn on my nvidia gpu for this program"})
+assert worked and result == "Use NVIDIA GPU (high performance), on the page Graphics, was off and is now on.", result
+assert questions == ["Turn Use NVIDIA GPU (high performance) on?"] and dialog.shown == "Graphics", (questions, dialog.shown)
+worked, result = registry.call(taskModule.Task("x"), "set_control", {"asked": "Turn off the media keys on my keyboard"})
+assert worked and result == "Enable media keys, on the page Keyboard, was on and is now off.", result
+# What is as it should be already is left alone, and nothing is asked.
+del questions[:]
+worked, result = registry.call(taskModule.Task("x"), "set_control", {"asked": "turn on start with windows in this program"})
+assert worked and result == "Start with Windows, on the page General, is already on. Nothing was changed." and not questions, result
+# A slider on the page that is shown: turned through Windows itself, and what it was and is now is said.
+worked, result = registry.call(taskModule.Task("x"), "set_control", {"asked": "Turn the volume up a bit"})
+assert worked and result == "Volume was 40 and is now 50.", result
+worked, result = registry.call(taskModule.Task("x"), "set_control", {"asked": "turn the volume all the way down"})
+assert worked and result == "Volume was 50 and is now 0.", result
+worked, result = registry.call(taskModule.Task("x"), "set_control", {"asked": "turn the volume down"})
+assert worked and result == "Volume did not change. It shows 0. It may be at its end, or the program did not take it.", result
+# A wish that does not fit the kind of control, and a kind plain code does not set: said, with a keyboard way.
+worked, result = registry.call(taskModule.Task("x"), "set_control", {"asked": "turn the volume off in this program"})
+assert not worked and "turned up or down, not one that is on or off" in result, result
+worked, result = registry.call(taskModule.Task("x"), "set_control", {"asked": "turn the output device up in this program"})
+assert worked and result.startswith("Output device is not a control that is simply on or off or turned up or down; it shows Speakers.") and (
+	focused == ["Output device"]), result
+# No such control anywhere: every other page was looked at, the page that was shown is shown again, and it is said.
+worked, result = registry.call(taskModule.Task("x"), "set_control", {"asked": "Turn the equalizer down"})
+assert not worked and result.startswith(
+	'No control called "equalizer" was found in the window in front: not in what NVDA knows of it, not on its 2 other '
+	"pages, and not in its picture."), result
+assert dialog.shown == "General"
+# A no from the user changes nothing.
+instance.clawAsk = lambda question, choices: 1
+worked, result = registry.call(taskModule.Task("x"), "set_control", {"asked": "turn off start with windows in this program"})
+assert worked and result == "You said no, so nothing was changed." and dialog.pages["General"][0].has("CHECKED"), result
+instance.clawAsk = lambda question, choices: questions.append(question) or 0
+worked, result = registry.call(taskModule.Task("x"), "set_control", {"asked": "what is on my screen"})
+assert not worked and "does not say which control of this program to set" in result, result
+apiStub.getForegroundObject, deep.rangeOf, deep.turn = realForeground, realRange, realTurn
+conf["visionClaw"]["confirmChanges"] = False
+
+# Whether something is on the screen: NVDA's own names first, then the text that is shown, then the picture.
+
+realFocus = apiStub.getFocusObject
+icons = [types.SimpleNamespace(name=name) for name in ("Firefox", "Recycle Bin", "Steam")]
+apiStub.getFocusObject = lambda: types.SimpleNamespace(name="Firefox", parent=types.SimpleNamespace(children=icons))
+worked, result = registry.call(taskModule.Task("x"), "check_seen", {"what": "recycle bin", "asked": "If you see recycle bin, open it"})
+assert worked and result == 'Yes: recycle bin is there: NVDA finds "Recycle Bin" where you are.', result
+apiStub.getFocusObject = realFocus
+instance._grab = lambda box: "picture"
+realRecognize = computertools.ocr.recognize
+computertools.ocr.recognize = lambda image: [[{"text": "Recycle"}, {"text": "Bin"}], [{"text": "Steam"}]]
+worked, result = registry.call(taskModule.Task("x"), "check_seen", {"what": "recycle bin", "asked": "If you see recycle bin, open it"})
+assert worked and result == "Yes: recycle bin is on the screen: its name is in the text that is shown.", result
+# Not in any text: the model that sees is asked for yes or no, and a yes of its alone is said to be a model's.
+computertools.ocr.recognize = lambda image: [[{"text": "Steam"}]]
+computertools.prepareImage = lambda image, size: b"jpeg"
+asked = []
+realRuntime, instance.runtime = instance.runtime, types.SimpleNamespace(
+	describe=lambda image, prompt, maxTokens, cancel=None, system=None: asked.append(prompt) or "Yes, at the top left.",
+	unloadIdle=lambda *args: None, oneModel=lambda: False)
+worked, result = registry.call(taskModule.Task("x"), "check_seen", {"what": "recycle bin", "asked": "If you see recycle bin, open it"})
+assert worked and computer.says(result) and "says it sees recycle bin on the screen: Yes, at the top left." in result, result
+assert result.endswith("a model can be wrong.") and "Begin your answer with the one word yes or the one word no" in asked[0], result
+instance.runtime.describe = lambda image, prompt, maxTokens, cancel=None, system=None: "No, I do not see it."
+worked, result = registry.call(taskModule.Task("x"), "check_seen", {"what": "recycle bin", "asked": "If you see recycle bin, open it"})
+assert worked and not computer.says(result) and result.startswith("No: recycle bin is not on the screen"), result
+instance.runtime = realRuntime
+computertools.ocr.recognize = realRecognize
+
+# Where the user is, as facts for the router: nothing in front is a web page here, and no controller is there.
+facts = instance._clawFacts()
+assert facts.get(router.CONTROLLER) is False and router.WEB in facts and router.DIRECT in facts, facts
+
+# The whole of the request that failed for the owner, through the real tools, with one model for both jobs.
+apiStub.getFocusObject = lambda: types.SimpleNamespace(name="Firefox", parent=types.SimpleNamespace(children=icons))
+
+
+class DeskModel(FakeRuntime):
+	def __init__(self):
+		self.asked = []
+
+	def oneModel(self):
+		return True
+
+	def describe(self, image, prompt, maxTokens, cancel=None, system=None):
+		return "The desktop shows a grid of icons."
+
+	def chat(self, role, messages, maxTokens, onText=None, cancel=None, options=None, raw=False, info=None, context=None):
+		self.asked.append(messages[-1]["content"])
+		schema = options["response_format"]["json_schema"]["schema"]["properties"]
+		if "choice" in schema:
+			return json.dumps({"choice": "describe"})
+		raise AssertionError("an unexpected question to the model: " + messages[-1]["content"])
+
+
+desk = DeskModel()
+realRuntime, instance.runtime = instance.runtime, desk
+nvdatools.prepareImage = lambda image, size: b"jpeg"
+computertools.ocr.recognize = lambda image: []
+nvdatools.ocr.recognize = lambda image: []
+runner = orchestrator.Orchestrator(desk, registry, lambda question, choices: 0)
+runner.facts = instance._clawFacts
+del did[:]
+task = runner.run(taskModule.Task("first, look at my screen. If you see recycle bin, open it."))
+assert task.state == taskModule.DONE, (task.state, task.log[-6:])
+assert [(step.tool, step.status) for step in task.steps] == [
+	("look", "done"), ("check_seen", "done"), ("find_thing", "done"), ("open_thing", "done"), ("answer", "done")], task.steps
+assert did == [("open", "shell:RecycleBinFolder", None)], did
+assert task.answer.startswith(
+	'The desktop shows a grid of icons. Yes: recycle bin is there: NVDA finds "Recycle Bin" where you are. Opened Recycle Bin.'), task.answer
+# One question to the model in all: what to do with "Look at my screen".
+assert len(desk.asked) == 1 and "Look at my screen" in desk.asked[0], desk.asked
+# And the other: no model is asked anything.
+pc["bin"] = (0, 0)
+del desk.asked[:]
+task = runner.run(taskModule.Task("check and see if my recycle bin needs to be emptied or not."))
+assert task.state == taskModule.DONE and not desk.asked, (task.log[-4:], desk.asked)
+assert task.answer == "The Recycle Bin is empty. There is nothing to empty.", task.answer
+instance.runtime = realRuntime
+apiStub.getFocusObject = realFocus
+computertools.ocr.recognize = nvdatools.ocr.recognize = realRecognize
 
 instance.terminate()
 print("OK")
