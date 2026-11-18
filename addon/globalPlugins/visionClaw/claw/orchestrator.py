@@ -29,6 +29,14 @@ _PICK_SYSTEM = (
 	"You are VisionClaw, an assistant inside the NVDA screen reader. You are given what a user asked and some "
 	"numbered lines that were looked up. You choose the one line that answers the user best, by its number."
 )
+# For a model that is not one of the very smallest: it may also say that no line answers the question. A very
+# small model is never given that choice; it takes it at random.
+_JUDGE_SYSTEM = (
+	"You are VisionClaw, an assistant inside the NVDA screen reader, helping a blind person. You are given what "
+	"the user asked, where they are, and numbered lines that were looked up. Choose the line that tells the user "
+	"how to do what they asked or answers their question, by its number. A line that is about something else, "
+	"even if it shares words with the question, does not answer it. If no line answers the question, choose 0."
+)
 _VERIFY_SCHEMA = {
 	"type": "object",
 	"properties": {"done": {"type": "boolean"}, "missing": {"type": "string", "maxLength": 200}},
@@ -314,8 +322,14 @@ class Orchestrator:
 		if toolName in shapes.AS_IS:
 			return clip(result, 700)
 		if toolName == lookup.TOOL:
-			# Already ranked by plain code, the best first: nothing is left for a model to choose.
-			return clip(lookup.quoted(result), 800)
+			# Already ranked by plain code, the best first. A very small model is given nothing to choose; a
+			# capable one says which of the few lines answers the question, knowing where the user is.
+			picked = self._pick(llm, part, lookup.pickable(result))
+			if picked is None:
+				# The model read what was found and says none of it answers. That is said, with the nearest
+				# thing marked as what it is, instead of being given as the answer.
+				return f"{lookup.NO_ANSWER} {clip(lookup.quoted(result), 420)}"
+			return clip(lookup.quoted(result, picked), 800)
 		lines, _asked = shapes.quote(part, result)
 		if not lines:
 			return shapes.notMentioned(part)
@@ -331,6 +345,32 @@ class Orchestrator:
 			except (LLMError, TypeError, ValueError):
 				chosen = 0
 		return clip(lines[max(0, min(len(lines) - 1, chosen))], 500)
+
+	def _pick(self, llm, part, lines):
+		"""The line that answers a question, chosen by a model that is not one of the very smallest, which
+		also says when none does: then None. "" when there is nothing to choose or nobody to choose."""
+		try:
+			entry = self.runtime.entry(self.lead) or {}
+		except Exception:
+			entry = {}
+		if not lines or entry.get("suggest") is False:
+			return ""
+		try:
+			where = self.situation()
+		except Exception:
+			where = ""
+		numbered = "\n".join(f"{number}. {clip(line, 300)}" for number, line in enumerate(lines, 1))
+		user = f"The user asked: \"{clip(part, 300)}\"\n" + (f"Where the user is: {clip(where, 300)}\n" if where else "") + (
+			f"Lines found:\n{numbered}\nWhich line answers what the user asked? Give its number, or 0 if none does.")
+		try:
+			chosen = int(llm.json(self.lead, _JUDGE_SYSTEM, user, {
+				"type": "object", "properties": {"line": {"type": "integer", "enum": list(range(0, len(lines) + 1))}},
+				"required": ["line"]}, maxTokens=20).get("line"))
+		except (LLMError, TypeError, ValueError):
+			return ""
+		if chosen == 0:
+			return None
+		return lines[chosen - 1] if 1 <= chosen <= len(lines) else ""
 
 	def _verify(self, llm, task, request, params, answer):
 		"""The other model checks the result; with one model for both jobs, that model does, with the checker's

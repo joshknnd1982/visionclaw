@@ -135,14 +135,19 @@ def fetchJson(url, timeout=20, limit=None):
 	return json.loads(body.decode("utf-8"))
 
 
-def fetchText(url, timeout=30, limit=None, hosts=None):
+def fetchText(url, timeout=30, limit=None, hosts=None, agent=None, textOnly=False):
 	"""Read a text from an address. limit: the most bytes it may have. hosts: the only servers the answer may
-	come from, also after a redirect; anything else is refused."""
-	req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Cache-Control": "no-cache"})
+	come from, also after a redirect; anything else is refused. agent: what the request calls itself, where
+	a server asks for more than a name. textOnly: refuse an answer that is not text, such as a picture or a
+	program, before any of it is read."""
+	req = urllib.request.Request(url, headers={"User-Agent": agent or USER_AGENT, "Cache-Control": "no-cache"})
 	with _open(req, timeout) as r:
 		host = urllib.parse.urlsplit(r.geturl()).hostname or ""
 		if hosts is not None and host not in hosts:
 			raise ValueError("The answer came from a place it may not come from.")
+		kind = (r.headers.get("Content-Type") or "").lower()
+		if textOnly and kind and not kind.startswith("text/") and not any(word in kind for word in ("html", "json", "xml")):
+			raise ValueError("The answer is not text.")
 		body = r.read() if limit is None else r.read(limit + 1)
 	if limit is not None and len(body) > limit:
 		raise ValueError("The answer is longer than it may be.")

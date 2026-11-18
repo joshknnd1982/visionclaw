@@ -138,6 +138,18 @@ Before you start: disable VisionMate in the Add-on Store, install the VisionClaw
   control are named, with the control's own key if it has one.
 - [ ] "Which windows are open?": the titles of the open windows.
 - [ ] "How do I bake a cake?": one sentence that nothing was found, and what was asked.
+- [ ] In a well-known program such as Notepad++ or Audacity, "Learn about this program": the Last task box says
+  which program it took it to be; a question says what is sent and that no search engine is used; No makes
+  nothing go online. Yes: the answer names the websites read, how many notes were kept, and the file.
+- [ ] "Open the notes on this program": the Markdown file opens; every note has a Source line.
+- [ ] In that program, a question the notes can answer, such as "how do I close a tab": the answer begins
+  "From the notes on". A question nothing answers: "Nothing that was found answers that", or that nothing was found.
+- [ ] "What does this do?" with the focus on a named button: the Last task box says what the model took
+  "this" to be, and the answer is about that button.
+- [ ] In a browser, on a page about a program: "Add this page to the notes on" and the program's name. The
+  answer says how many notes were added and that nothing was fetched.
+- [ ] "Which notes do you have?", then "Delete the notes on this program": asked first, then gone.
+- [ ] In a game, "Learn about this game": it is taken to be a game.
 - [ ] NVDA+Alt+U with a newer version on GitHub: a window opens with the focus in a read-only edit box; the
   arrow keys read what is new line by line; Tab reaches "Download and install" and "Not now"; Escape closes it
   and nothing is downloaded.

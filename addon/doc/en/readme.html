@@ -27,6 +27,7 @@ focus again, and VisionClaw tells you each step as it works. Examples:</p>
 <li>How can I use the keyboard to navigate my desktop? How do I switch between open windows?</li>
 <li>What is browse mode? What does NVDA+T do? What does Windows+D do?</li>
 <li>What can I do here? Which key is for the Save button? Which windows are open?</li>
+<li>Learn about this program. Learn about this game. Delete the notes on this program.</li>
 <li>What is on my screen?</li>
 <li>Press the Play button in this window.</li>
 <li>Give this program a hotkey that clicks Send.</li>
@@ -69,6 +70,27 @@ menu, the taskbar, switching and closing windows, File Explorer, menus, dialogs,
 is about your question, VisionClaw says so and names what it asked; it does not give you the nearest thing.
 The keys of Windows were written from Microsoft's own page and are part of the add-on. Nothing is looked up
 online.</p>
+
+<h2>Learning about the program or game you are in</h2>
+<p>Ask "learn about this program" or "learn about this game" while you are in it, or name one: "learn about
+Audacity". VisionClaw finds out which program it is, a model says what it is called and what kind of thing it
+is, and you are asked before anything goes online. Then it reads what Wikipedia says about it, asks Wikidata
+for the address of the program's own website and manual, and reads a few help pages from that website.</p>
+<p>What it learns is kept as short notes in a Markdown file on your computer, one for each program, in the
+folder notes of VisionClaw's data. The model writes the notes and plain code keeps only those whose keys and
+words are in the page. Every note says which page it is from. The notes may be wrong; they are from the
+internet.</p>
+<ul>
+<li>Then ask your questions in the program: how do I duplicate a line, which key closes a tab. An answer from
+the notes begins "From the notes on".</li>
+<li>Which notes do you have? Open the notes on this program. Delete the notes on this program. Delete all
+notes.</li>
+<li>Add this page to the notes on Notepad++: adds the page open in your own browser. Nothing is fetched for
+it.</li>
+</ul>
+<p>VisionClaw itself asks no search engine: they turn programs away, and VisionClaw does not work around that.
+A program Wikipedia does not know is not found; search for it in your own browser, open a page, and add that
+page. What is sent is the program's name and requests for pages, with nothing about you or your computer.</p>
 
 <h2>Your settings stay yours</h2>
 <p>VisionClaw changes an NVDA setting only when you ask it to, and only the setting you asked about. A change to
@@ -245,7 +267,8 @@ any website does.</p>
 <p>VisionClaw does not collect any information. It connects to the internet only to download the models you
 choose; when you press Look for newer models in the models window and say yes, to read the list of models
 from its own page on GitHub; and when you ask for the latest developer guides and say yes, to download those
-two guides. None of these happens by itself. It reads the list of its own versions from GitHub when you ask it to look for a newer version, and by itself only if you turn that on in the settings. Screens, photos, requests and generated code never
+two guides; and when you ask it to learn about a program and say yes, to read about it on Wikipedia, Wikidata
+and the program's own website. None of these happens by itself. It reads the list of its own versions from GitHub when you ask it to look for a newer version, and by itself only if you turn that on in the settings. Screens, photos, requests and generated code never
 leave your computer.</p>
 
 <h2>Credits</h2>

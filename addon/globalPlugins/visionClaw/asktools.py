@@ -15,10 +15,11 @@ import time
 
 import addonHandler
 import api
-from .vclog import log
 
-from .claw import debuglog, lookup
+from .claw import debuglog, learn, lookup, policy
 from .claw import task as taskModule
+from .claw.catalog import VISION
+from .claw.llm import LLM
 
 addonHandler.initTranslation()
 
@@ -110,6 +111,22 @@ def _withKeys(window):
 			queue.append(child)
 			child = _safe(lambda c=child: c.next)
 	return found
+
+
+def programNow():
+	"""The program in front as plain facts: the name of its file, what its maker called it, its version, its
+	window's title, and the control that has the focus. Main thread."""
+	fg = api.getForegroundObject()
+	focus = api.getFocusObject()
+	module = _safe(lambda: focus.appModule) or _safe(lambda: fg.appModule)
+	return {
+		"app": _one(_safe(lambda: module.appName), 60) or "unknown",
+		"product": _one(_safe(lambda: module.productName), 80),
+		"version": _one(_safe(lambda: module.productVersion), 40),
+		"title": _one(_safe(lambda: fg.name), 100),
+		"focus": _control(focus),
+		"focusName": _one(_safe(lambda: focus.name), 80),
+	}
 
 
 def herePassages(plugin):
@@ -251,16 +268,44 @@ def register(plugin, add, text, onMain, commandsNow):
 			f"Asked the program {app}, and its window{f' {title}' if title else ''}. "
 			f"Controls in it with a key of their own: {withKeys}."))
 		task.check()
+		# The notes VisionClaw made about this program from the internet, if the user had it learn about it.
+		who = onMain(programNow)
+		ident = plugin.appNotes.forProgram(app, learn.candidates(app, who["product"], title))
+		noted = learn.passages(plugin.appNotes.read(ident), plugin.appNotes.nameOf(ident) or app) if ident else []
+		if noted:
+			passages += noted
+			task.emit(taskModule.DETAIL, f"Asked VisionClaw's notes on {plugin.appNotes.nameOf(ident) or app}: {len(noted)} passages.")
 		system, windowsIs, openCount = systemPassages()
 		passages += system
 		task.emit(taskModule.DETAIL, f"Asked Windows: {windowsIs}, {openCount} open windows, and the keys of Windows.")
 		task.check()
-		found = lookup.about(question, passages)
+		# A question that points at something, "what does this do", is put to a model with where the user is:
+		# it says whether the program, the window or the focused control is meant. Plain code offers the three.
+		extra = ""
+		if lookup.pointsAt(question):
+			choices = [
+				(lookup.PROGRAM_MEANT, " ".join(part for part in (app, who["product"]) if part)), (lookup.WINDOW_MEANT, title),
+				(lookup.CONTROL_MEANT, who["focus"] if who["focusName"] else "")]
+			choices = [choice for choice in choices if choice[1]]
+			said = lookup.saysWhich(question)
+			if said:
+				# "This program", "this button": the user's own words say which, and no model is asked.
+				meant = next((at for at, (what, _named) in enumerate(choices) if what == said), None)
+			else:
+				meant = lookup.referent(LLM(plugin.runtime, task), VISION, question, choices)
+			if meant is not None:
+				what, named = choices[meant]
+				extra = who["focusName"] if what == lookup.CONTROL_MEANT else title if what == lookup.WINDOW_MEANT else ""
+				if not said:
+					task.emit(taskModule.DETAIL, (
+						f"The {policy.roleName(VISION, policy.isOneModel(plugin.runtime))} takes the question to be about "
+						f"{what}: {named}."))
+		found = lookup.about(question, passages, extra=extra)
 		debuglog.log("lookup", (
 			f"Asked {len(passages)} passages about \"{question}\". Telling words: {sorted(lookup.asked(question)[0])}. "
 			f"Found: {[(passage.origin, passage.title or passage.text[:50]) for passage in found]}"))
 		if not found:
-			return lookup.nothingText(question, app, title)
+			return lookup.nothingText(question, app, title, notes=bool(noted))
 		return lookup.resultText(found)
 
 	add(lookup.TOOL,

@@ -1,12 +1,12 @@
 # VisionClaw status
 
-Updated 2026-11-17, version 0.10.0.
+Updated 2026-11-17, version 0.11.0.
 
 ## What exists
 
 Everything in phases 1 to 3.4 and 4.1 of `CLAUDE.md`: the fork, the model catalog and models window, the
 graphics choice with fallback, the two-model runtime, the planner with recipes, agreement between the models,
-the step runner, 50 NVDA tools and 43 recipes, the Ask VisionClaw window, app helpers, generated add-ons, the
+the step runner, 53 NVDA tools and 47 recipes, the Ask VisionClaw window, app helpers, generated add-ons, the
 knowledge base and the lessons memory. New in 0.2.0: the web through NVDA's browse mode, reporting on speech,
 braille, drivers and add-ons, safe switching of the synthesizer and braille display, and saving a generated
 add-on as a file. New in 0.3.0: a guard around generated add-ons with automatic debugging and correction,
@@ -719,6 +719,100 @@ bar, the real focus and its ancestors, the open windows as seen from inside NVDA
 takes while the user guide is read, and the window with the edit box are all untried there. How well the
 smaller models choose `look_up` was not measured; only Qwen3.5 9B was run.
 
+## Learning about the program in front, and the models used for more (0.11.0, 2026-11-17)
+
+The owner asked that VisionClaw identify the application or game he is in, search the internet, learn about
+it, make quick notes in Markdown that he can delete later, and let him ask questions about it; and that
+VisionClaw use its models to be more intelligent and more aware of where the user is.
+
+What was built:
+- **`learn_app`** (`learntools.py`, `claw/learn.py`). The program in front is read from Windows (file name,
+  product name, version, window title, focused control). Plain code makes the list of names it could be known
+  by, leaving out product names that only name what runs it (Java, Python, the Windows shell); a model
+  chooses one and says game, program or utility. The user is asked, always, with what is sent. Then:
+  Wikipedia is searched for the name and the article with that name is read, if its opening is about
+  something run on a computer; Wikidata is asked for the official website (P856) and the user manual (P2078);
+  those pages are read, and up to four links on each that lead to help on the same server. At most 6 pages.
+  From each page the sections that name keys, or whose heading is about keys, getting started, the interface
+  or accessibility, are kept, at most 6 a page and 20 in all, 1500 characters each.
+- **Notes.** A model that is not one of the very smallest writes short points from each section; plain code
+  keeps a point only if every key it names is in the section and at least 60 percent of its words are. Where
+  no point stands, the section's own text is kept. One Markdown file per program, with a Source line under
+  every note. `app_notes` lists or opens them, `forget_notes` deletes one or all after a question, `note_page`
+  adds the page open in the user's browser, read through NVDA, with nothing fetched.
+- **Questions from the notes.** `look_up` adds the notes of the program in front to what NVDA, the program,
+  the window and Windows say. An answer from them begins "From the notes on <program>, from <website>".
+  Where nothing is found and there are no notes, the answer says how to get some.
+- **What "this" means.** A question that points ("what does this do", "how do I close it") is put to a model
+  with the program, the window and the focused control as the three choices, unless the user's words say it
+  ("this program", "this button"). The name of what is meant is looked up with the question.
+- **Whether what was found answers the question.** With one small question at a time, a model that is not
+  one of the very smallest is shown the lines that were found and where the user is, and chooses the one that
+  answers, or 0 for none. On 0 the user hears "Nothing that was found answers that. The nearest thing found,
+  which may not be what you want:" and the line. The very smallest models are not asked.
+- **A word nothing has.** In the ranking, a word of the question that no source has now counts as half the
+  rarest word, instead of not at all. "How do I duplicate the current line" no longer gets whatever has
+  "current".
+
+**No search engine, and why.** The first version searched DuckDuckGo's page for people. After about ten
+requests in a few minutes, from this computer, it answered every request with its challenge for automated
+traffic (HTTP 202, "anomaly"). That is the site saying no to programs. It was not worked around; the
+search was taken out, and Wikipedia and Wikidata, which keep a door open for programs, are asked instead.
+What this costs: a program without a Wikipedia article is not found, and one without a website on Wikidata
+gets only Wikipedia. Wikipedia answered "too many requests" (HTTP 429) during the trials, after bursts of
+requests in a few seconds; one learning makes 2 requests to Wikipedia and 2 to Wikidata, a server that asks
+for a pause gets 4 seconds and one more try, and what fails is named in the answer.
+
+Tested, and how:
+- **`tests/test_learn.py`, plain code against a stand-in internet** that writes down every request: the
+  exact list of nine addresses asked for Notepad++, in order, with the servers each answer may come from, and
+  no search engine among them; Notepad++ told from Notepad; the links of a manual that are worth reading and
+  those that are not (download, licence, another website); a cookie notice with keys in it left out; a
+  script's text never read; the notes file word for word; listing, finding, adding to and deleting notes
+  while keeping what the user wrote into them; questions answered from the notes with the website; a program
+  Wikipedia does not know; an article of the right name about a river; "too many requests" retried once; a
+  page that times out; stopping; the model's choice of name and kind among the names offered; a made-up key
+  and a made-up fact dropped from the model's notes; what "this" means; the model's pick of a line and its
+  "none"; the hints for the four new recipes.
+- **`tests/test_nvda_stub.py`**, the real tools through the real registry: no means no request at all; the
+  question's wording; the six requests after yes, each calling itself "VisionClaw/<version> (NVDA screen reader
+  add-on)" and taking text only; the notes file; the model's made-up key not in it; a question answered from
+  the notes; "What does this do?" put to the model and answered about the focused button; the browser page
+  added with no request; deletion; the hint when there are no notes.
+- **The real internet, plain code** (`learn.study` with the add-on's own fetching): Notepad++, 10 requests,
+  5.6 seconds, Wikipedia and npp-user-manual.org, 12 sections; Audacity, 9 requests, 3 seconds, Wikipedia and
+  audacityteam.org, 8 sections; Stardew Valley, Wikipedia's Gameplay section only, because Wikidata answered
+  "too many requests" at that moment; a made-up program, nothing kept.
+- **`tests/live_learn.py`, the real Qwen3.5 9B and the real internet**: the model named five programs and
+  their kind from what Windows reports, all rightly (Notepad++ a program; a Java game by its window's title,
+  a game; Visual Studio Code a program; 7-Zip a utility; Calculator, behind Windows' frame host, a program).
+  Learning about Notepad++ took about 45 seconds, 10 requests; the model wrote points for 10 of 12 sections,
+  each checked against the page, in 1 to 6 seconds a section. After the limits were raised to 6 sections a
+  page, a second run kept 16 notes, 13 of them written by the model, in 57 seconds. Seven questions were then
+  asked from the notes in both ways of answering. Read, with one small question at a time: "How do I go to
+  the next tab?" gave the manual's note on Ctrl+Tab; "What is this program?" gave Wikipedia's opening, and no
+  model was asked what "this" is; "What does this do?", with the focus on a check box, was taken by the model
+  to be about that check box and answered with it and its key; "How do I copy text?" gave the manual's note on
+  Ctrl+C; "How do I duplicate the current line?", which the notes kept do not cover, gave "Nothing that was
+  found answers that" with the nearest note marked as only the nearest, where the first run had given that
+  note as the answer. In its own words the model said for that one "I could not find information on how to
+  duplicate the current line in Notepad++." One answer is weaker than it should be: in its own words, "How do
+  I go to the next tab?" was answered from Windows' note on File Explorer's tabs and not from the program's
+  note.
+- **`tests/live_orchestrator.py` again, the whole list of 72 requests**, with the real Qwen3.5 9B asked one
+  small question at a time and now judging the lines: all 72 carried out, every question answered as before
+  or better, and the model said "nothing answers" for none of them, so it does not turn right answers away
+  on this list. "How do I copy text?" now gives Windows' Control+C, which the model chose over NVDA's
+  review-cursor command. Each question takes about 1.2 seconds, where it took 0.5 before the model judged.
+- The models' new steps cost time: about a second for what "this" means, and about half a second for judging
+  the lines, on a GeForce RTX 5060.
+
+Not tested: **none of this has run inside NVDA.** The program's product name and version as NVDA reports
+them for real programs and games, the question window, how the notes file opens, reading a browser page
+through NVDA for `note_page`, and how long a learning takes while NVDA speaks are all untried there. Only
+Qwen3.5 9B was run; how the 2B and 4B models write notes is not measured. Three programs were learned from
+the real internet; games are the weakest: Wikipedia says what a game is and how it plays, seldom its keys.
+
 ## What was not tested
 
 - **Model management (0.3.2)**, apart from the owner's report above, was tested against stand-ins only: listing what is stored, removing some or all
@@ -788,6 +882,10 @@ smaller models choose `look_up` was not measured; only Qwen3.5 9B was run.
   use finds nothing, and says so. The notes on Windows are in English and cover Windows' own keys, not the
   keys of each program; a program answers only through the keys its own controls report.
 - Menus that are closed are not in a window's controls, so their keys are not found until the menu is open.
+- Learning about a program finds only what Wikipedia, Wikidata and the program's own website have. VisionClaw
+  asks no search engine itself. Notes are in the language of the pages, which is English.
+- A model's notes are checked for keys and words, not for meaning: a point can still say something the page
+  does not mean. Every note names its page, and the file says it may be wrong.
 - The check on generated code is not a sandbox.
 
 ## Next session

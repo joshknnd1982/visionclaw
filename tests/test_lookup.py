@@ -208,7 +208,11 @@ assert lookup.textWords("format") != lookup.textWords("form") and lookup.textWor
 things = [({"keyboard", "layout"}, {"desktop", "laptop"}), ({"desktop"}, {"navigate", "icon"}), ({"mouse"}, {"navigate"})]
 assert ranking.rank({"navigate", "desktop"}, things, share=0.3) == [1, 2, 0]  # without the rule, one shared word is enough
 assert ranking.rank({"navigate", "desktop"}, things, share=0.3, cover=0.6) == [1]
-assert ranking.rank({"quokka", "desktop"}, things, share=0.3, cover=0.6) == [1, 0]  # a word nothing has does not count
+# A word nothing has counts for half of the rarest word: it does not shut out what has the other word,
+# and where it is the only word that tells, nothing is found.
+assert ranking.rank({"quokka", "desktop"}, things, share=0.3, cover=0.5) == [1, 0]
+assert ranking.rank({"quokka", "desktop"}, things, share=0.3, cover=0.6) == []
+assert lines("how do I read the darn window title")[0].startswith("From NVDA: title:")
 
 # --- The plan: a question is looked up in all four, not put to NVDA's commands ---
 assert planner.RECIPES["explain_keys"][2] == ("look_up",) and planner.RECIPES["nvda_question"][2] == ("look_up",)

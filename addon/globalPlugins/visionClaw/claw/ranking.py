@@ -19,6 +19,8 @@ SHARE = 0.6
 
 # A word that only asks ("say", "report") counts this much of a word that names what is asked for.
 LIGHT_WEIGHT = 0.4
+# A word of the request that nothing has counts this much of the rarest word there could be.
+UNKNOWN_WEIGHT = 0.5
 
 
 def rank(asked, entries, limit=6, share=SHARE, light=(), cover=0.0, lightWeight=LIGHT_WEIGHT):
@@ -27,8 +29,10 @@ def rank(asked, entries, limit=6, share=SHARE, light=(), cover=0.0, lightWeight=
 	light: words of the request that only ask. They count for less, and where the request also names
 	something, a thing must share a word that names.
 	cover: the least share of what the request names that a thing must have, by the weight of the words. A
-	thing that has "desktop" is not about "navigate my desktop" when something else has both words; a word
-	that nothing has does not count, because it is the user's own word for something.
+	thing that has "desktop" is not about "navigate my desktop" when something else has both words. A word
+	that nothing has counts as half of the rarest word: it may be the user's own word for something, but
+	where it is the only word that tells, as "duplicate" in "duplicate the current line", nothing that was
+	found is about the request.
 	Returns the indexes of the things the request is about, best first; empty when nothing shares a word."""
 	asked = set(asked)
 	light = set(light) & asked
@@ -42,7 +46,7 @@ def rank(asked, entries, limit=6, share=SHARE, light=(), cover=0.0, lightWeight=
 	total = len(entries)
 	weight = {
 		word: math.log(1 + total / count) * (lightWeight if word in light else 1.0) for word, count in have.items()}
-	whole = sum(weight[word] for word in naming if word in weight)
+	whole = sum(weight.get(word, UNKNOWN_WEIGHT * math.log(1 + total)) for word in naming)
 	scored = []
 	for index, (named, other) in enumerate(entries):
 		named, other = set(named), set(other)

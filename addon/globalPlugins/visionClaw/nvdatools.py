@@ -1981,6 +1981,9 @@ def build(plugin):
 	# A question: NVDA is asked, then the program, then its window, then Windows.
 	from . import asktools
 	asktools.register(plugin, add, text, onMain, _commands)
+	# Learning about the program in front from the internet, after a question, and the notes kept of it.
+	from . import learntools
+	learntools.register(plugin, add, text, onMain, confirm)
 
 	registry.add(Tool(ANSWER, "tell the user the result in plain words; always the last step", lambda task: ""))
 	return registry

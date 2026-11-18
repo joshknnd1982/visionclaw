@@ -16,11 +16,12 @@ VisionClaw is a fork of [VisionMate](https://github.com/athee06/VisionMate) by A
 everything VisionMate does: image descriptions, the overlay for windows NVDA cannot read, photo descriptions in
 chat apps, and names for unlabelled buttons.
 
-> **Status: pre-release (0.10.0).** The orchestration core has been tested with scripted models and with
+> **Status: pre-release (0.11.0).** The orchestration core has been tested with scripted models and with
 > real models through the bundled engine. Inside NVDA 2026.3.1 the owner has run the models window, a first
 > set of requests, five tests of version 0.4.0 and three of 0.8.2; **most of the test plan has not been run inside NVDA
-> yet**, and what 0.9.0 and 0.10.0 add (the command fix, the log, the audit, the questions about pictures, questions
-> answered from NVDA, the program, the window and Windows, the window that says what is new), scrolling and
+> yet**, and what 0.9.0 to 0.11.0 add (the command fix, the log, the audit, the questions about pictures, questions
+> answered from NVDA, the program, the window and Windows, the window that says what is new, learning about a
+> program from the internet), scrolling and
 > the arrow keys for dials not at all. Expect rough edges and please report them. See
 > [docs/STATUS.md](docs/STATUS.md) for exactly what was tested.
 
@@ -34,6 +35,7 @@ Press **NVDA+Alt+C**, type a request, and press Enter. For example:
 - *How can I use the keyboard to navigate my desktop?* *How do I switch between open windows?* *How do I rename a file?*
 - *What is browse mode?* *What does NVDA+T do?* *What does Windows+D do?*
 - *What can I do here?* *Which key is for the Save button?* *Which windows are open?*
+- *Learn about this program.* *Learn about this game.* Then: *How do I duplicate a line?* *Delete the notes on this program.*
 - *What is on my screen?*
 - *Press the Play button in this window.* (Works in windows and games NVDA cannot read.)
 - *Give this program a hotkey that clicks Send.*
@@ -77,7 +79,7 @@ You do not need to know NVDA. VisionClaw finds the right NVDA setting or command
 
 ## Install
 
-1. Download **[VisionClaw-0.10.0.nvda-addon](https://github.com/joshknnd1982/visionclaw/releases/download/v0.10.0/VisionClaw-0.10.0.nvda-addon)**
+1. Download **[VisionClaw-0.11.0.nvda-addon](https://github.com/joshknnd1982/visionclaw/releases/download/v0.11.0/VisionClaw-0.11.0.nvda-addon)**
    (or pick a version on the [releases page](https://github.com/joshknnd1982/visionclaw/releases)), open the
    file, confirm the installation, and restart NVDA.
 2. If VisionMate is installed, disable it in the Add-on Store: VisionClaw includes it and uses the same keys.
@@ -315,6 +317,62 @@ it asked. It does not give you the nearest thing.
 
 In the Last task box you can read what was asked: three lines that begin "Asked NVDA", "Asked the program"
 and "Asked Windows".
+
+## Learning about the program or game you are in
+
+Ask **learn about this program** or **learn about this game** while you are in it. You can also name one:
+*learn about Audacity*.
+
+1. **VisionClaw finds out which program it is.** It reads what Windows reports: the name of the program's
+   file, what its maker called it, its version and its window's title. A model then says which of these
+   names the program is known by and whether it is a game, a program or a utility. A game that runs in Java
+   reports "Java" as its maker's name; the model takes the window's title instead.
+2. **You are asked before anything goes online**, whatever your settings. The question says what is sent.
+3. **It reads three places.** Wikipedia, for what the program is and what its article says about using it.
+   Wikidata, for the address of the program's own website and of its manual. Then that website: its first
+   page and up to five of its pages that are about keys, getting started, the interface or accessibility.
+4. **It writes notes.** From each useful section of a page the model writes short points: what a key does,
+   how something is done. Plain code then checks every point against the page: a point that names a key the
+   page does not have, or whose words are mostly not in the page, is dropped. Where nothing stands, the
+   page's own words are kept. The very smallest models do not write notes; their notes are the page's words.
+5. **The notes are a file.** One Markdown file for each program, in the folder `notes` of VisionClaw's data
+   (`%APPDATA%\nvda\visionClaw\notes`). It says at the top that it is from the internet and may be wrong,
+   and under every note which page it is from.
+
+After that, ask your questions in the program: *how do I duplicate a line*, *which key closes a tab*, *what
+is this program*. The notes are asked together with NVDA, the program, its window and Windows, and an answer
+from them begins "From the notes on", with the website.
+
+- *Which notes do you have?* lists the programs. *Open the notes on this program* opens the file, to read or
+  change. *Delete the notes on this program*, or *delete all notes*, removes them after a question.
+- **A page from your own browser.** Open any page about the program, and ask *add this page to the notes on
+  Notepad++*. The page is read through NVDA as your browser shows it. Nothing is fetched for this, so it
+  works for pages behind a search, a login or a cookie question you have answered yourself.
+
+What this cannot do, and why: **VisionClaw itself asks no search engine.** Search engines serve people and
+turn programs away; when this was built, DuckDuckGo answered with its challenge for automated traffic after
+a few requests, and VisionClaw does not work around that. So a program that Wikipedia has no article about
+is not found, and a program whose website is not on Wikidata gets only what Wikipedia says. For those,
+search in your own browser (*search the web for ... keyboard shortcuts*), open a result, and add that page.
+
+What is sent: the program's name, to Wikipedia; one request to Wikidata; and requests for pages to the
+program's own website, as a browser would make them. Each of these sees your internet address. Every
+request calls itself "VisionClaw" with its version and "NVDA screen reader add-on", and carries nothing
+about you or your computer. VisionClaw's log lists every address a request went to.
+
+## The models: what they decide, and what plain code checks
+
+The models do more than choose a plan and put answers into words:
+
+- For a question that only points, *what does this do*, a model is told where you are and says whether you
+  mean the program, the window or the control that has the focus. Where your own words say it, as in *this
+  program* or *this button*, nobody is asked.
+- A model that is not one of the very smallest reads what was looked up and says which line answers your
+  question, or that none does. Then you hear "Nothing that was found answers that", and the nearest thing is
+  given as only the nearest. A very small model is never given that choice, because it takes it at random.
+- A model names the program you are in and its kind, and writes the notes, as described above.
+
+In each case the model chooses among things plain code found, or writes something plain code can check.
 
 ## Asking NVDA about itself: speech, braille, drivers
 
@@ -629,11 +687,13 @@ Nothing about you or your computer is sent. GitHub sees your internet address, a
 VisionClaw does not collect any information. Its own code connects to the internet only to download the
 models you choose, from Hugging Face; when you press Look for newer models and say yes, to read the list
 of models from its own page on GitHub; and when you ask for the latest developer guides and say yes, to
-download those two guides from NV Access and GitHub. None of these happens by itself. It also reads the list
+download those two guides from NV Access and GitHub; and when you ask it to learn about a program and say yes,
+to read about that program on Wikipedia, Wikidata and the program's own website, sending the program's name
+and nothing about you. None of these happens by itself. It also reads the list
 of its own versions from GitHub when you ask it to look for a newer version; only if you turn that on in the
 settings does it do so by itself, when NVDA starts and at most once a day. Screens, photos, requests and
-generated code never leave your computer. VisionClaw's own log and the audit of NVDA are files on your
-computer and are sent nowhere.
+generated code never leave your computer. VisionClaw's own log, the audit of NVDA and the notes on programs
+are files on your computer and are sent nowhere.
 When you ask it to open or search the web, it hands the address to your own browser, which goes online as
 usual; a web search sends your search words to the search engine you chose.
 

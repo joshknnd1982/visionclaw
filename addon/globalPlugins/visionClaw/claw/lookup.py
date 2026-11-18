@@ -38,6 +38,8 @@ _DEVELOPER = re.compile(
 	r"program(ming|mer)|source|event|nvdaobject)\b", re.IGNORECASE)
 # How a result begins when nothing that was found is about the question. It is then said as it is.
 NOTHING = "Nothing was found about"
+# What is said when a model read what was found and says that none of it answers the question.
+NO_ANSWER = "Nothing that was found answers that. The nearest thing found, which may not be what you want:"
 # A passage is about this long, so that every source is weighed in pieces of the same size.
 PASSAGE_CHARS = 340
 MAX_FOUND = 3
@@ -226,15 +228,23 @@ def fromCommand(scriptName, description, category, line, source=NVDA, origin="")
 	return Passage(source, "", line, origin, command=True, named=named, other=other)
 
 
-def asked(question):
-	"""(the telling words of a question, those among them that only ask or only say "with the keyboard")."""
+def asked(question, extra=""):
+	"""(the telling words of a question, those among them that only ask or only say "with the keyboard").
+	extra: the name of what the question's "this" or "it" means, where a model said which thing that is. Where
+	the question names something itself, the extra words only break ties; where it names nothing, they are
+	what is asked about."""
 	said = roots(commands.telling(question))
 	light = said & (_MEANS | _ASKING)
 	if not said - light:
 		# Nothing is left to name: then even "NVDA" and "key" tell, as in "what is the NVDA key".
 		every = roots(stem(word) for word in _WORD.findall(commands._withoutTimes(question).lower()) if word not in _EMPTY)
 		if every - light:
-			return every, every & light
+			said, light = every, every & light
+	more = textWords(extra) - said if extra else set()
+	if more:
+		if said - light:
+			light = light | more
+		said = said | more
 	return said, light
 
 
@@ -267,10 +277,10 @@ def hasKey(text, key):
 	return bool(re.search(rf"(?<![a-z0-9+]){re.escape(key)}(?![a-z0-9+])", _key(text).replace("caps lock+", "nvda+")))
 
 
-def _ranked(question, passages, limit, cover, share, inOrder=False):
+def _ranked(question, passages, limit, cover, share, inOrder=False, extra=""):
 	"""The passages a question is about, best first, and not all of one kind where there are others: the best
 	from NVDA does not push out the best from Windows, and three commands do not push out the explanation."""
-	said, light = asked(question)
+	said, light = asked(question, extra)
 	naming = said - light
 	found = [passages[index] for index in ranking.rank(
 		said, [passage.words() for passage in passages], WIDE, share=share, light=light, cover=cover,
@@ -293,7 +303,7 @@ def _ranked(question, passages, limit, cover, share, inOrder=False):
 	return [passage for passage in found if passage in chosen]
 
 
-def about(question, passages, limit=MAX_FOUND, cover=COVER, share=SHARE):
+def about(question, passages, limit=MAX_FOUND, cover=COVER, share=SHARE, extra=""):
 	"""The passages that are about a question, best first; among equals, in the order the sources are asked.
 	A key that is written out finds what that key does. A question that asks what something is gets
 	explanations before commands. Passages that say where the user is are added when the question is about
@@ -303,11 +313,14 @@ def about(question, passages, limit=MAX_FOUND, cover=COVER, share=SHARE):
 		ORDER.index(passage.source), passage.command and "no key assigned" in passage.text))
 	if not isDeveloper(question):
 		passages = [passage for passage in passages if not passage.developer]
-	here = [passage for passage in passages if passage.here] if isHere(question) else []
+	# A question that only points, "what does this do", is about where the user is, like one that says "here".
+	own, ownLight = asked(_HERE.sub(" ", question))
+	pointing = isHere(question) or (pointsAt(question) and not own - ownLight)
+	here = [passage for passage in passages if passage.here] if pointing else []
 	keys = keysIn(question)
 	if here and not keys:
 		# "What does this program do" names nothing but the program: then where the user is, is the answer.
-		said, light = asked(_HERE.sub(" ", question))
+		said, light = asked(_HERE.sub(" ", question), extra)
 		if not said - light:
 			return here
 	found = []
@@ -321,13 +334,14 @@ def about(question, passages, limit=MAX_FOUND, cover=COVER, share=SHARE):
 	if not found and isWhatIs(question):
 		# What a thing is, is said where the section about it begins; then anywhere in an explanation; a
 		# command last.
-		said, light = asked(question)
+		said, light = asked(question, extra)
 		found = _ranked(question, [
 			passage for passage in passages if passage.lead and said - light <= passage.words()[0]], limit, cover, share,
-			inOrder=True)
-		found = found or _ranked(question, [passage for passage in passages if not passage.command], limit, cover, share)
+			inOrder=True, extra=extra)
+		found = found or _ranked(
+			question, [passage for passage in passages if not passage.command], limit, cover, share, extra=extra)
 	if not found:
-		found = _ranked(question, passages, limit, cover, share)
+		found = _ranked(question, passages, limit, cover, share, extra=extra)
 	return found + [passage for passage in here if passage not in found]
 
 
@@ -354,14 +368,21 @@ def saidWords(question, limit=4):
 	return found[:limit]
 
 
-def nothingText(question, program="", window=""):
-	"""The honest answer when none of the sources says anything about what was asked."""
+def nothingText(question, program="", window="", notes=None):
+	"""The honest answer when none of the sources says anything about what was asked. notes: whether VisionClaw
+	has notes on the program, where that is known; without them it says how to get some."""
 	named = saidWords(question)
 	what = " or ".join(named) if named else "that"
 	where = "NVDA's commands and user guide"
 	where += f", the program {program}" if program else ", the program in front"
 	where += f", its window {window}" if window else ", its window"
-	return f"{NOTHING} {what}. Asked were: {where}, and what VisionClaw knows about Windows."
+	where += ", VisionClaw's notes on the program" if notes else ""
+	text = f"{NOTHING} {what}. Asked were: {where}, and what VisionClaw knows about Windows."
+	if notes is False:
+		text += (
+			" VisionClaw has no notes on this program yet. Ask it to learn about this program, and it reads up on "
+			"it on the internet after asking you.")
+	return text
 
 
 def isNothing(result):
@@ -381,13 +402,82 @@ def numbered(result):
 	return "\n".join(f"{number}. {line}" for number, line in enumerate(lines, 1))
 
 
-def quoted(result):
-	"""The answer when a very small model is not to put anything in its own words: the best line of a result,
-	and with it the best that Windows says when the best is from somewhere else, because a question like
-	"how do I copy text" has an answer in NVDA and a more usual one in Windows."""
+# What a question says when it points at something instead of naming it.
+_POINTS = re.compile(r"\b(this|that|it|its|here|these|those)\b", re.IGNORECASE)
+_REFERENT_SYSTEM = (
+	"A blind person using a screen reader asked a question that points at something with a word like this, it "
+	"or here, without naming it. You are told where they are. Choose what the question is about."
+)
+
+
+# What a question says it means, when it says "this program" or "this button" and not only "this".
+_SAYS_PROGRAM = re.compile(r"\bth(is|at|e current) (program|app|application|game|utility|tool|software)\b", re.IGNORECASE)
+_SAYS_WINDOW = re.compile(r"\bth(is|at|e current) (window|dialog|screen|page|site|website|tab)\b", re.IGNORECASE)
+_SAYS_CONTROL = re.compile(
+	r"\bth(is|at|e current|e focused) (control|button|field|box|check ?box|list|item|menu|slider|link|option|thing|one)\b"
+	r"|\bfocused\b", re.IGNORECASE)
+PROGRAM_MEANT, WINDOW_MEANT, CONTROL_MEANT = "the program", "the window", "the control that has the focus"
+
+
+def saysWhich(question):
+	"""What a question says it is about, where it says so itself: PROGRAM_MEANT, WINDOW_MEANT, CONTROL_MEANT,
+	or "" when it only points. What the user's own words decide is not asked of a model."""
+	for pattern, meant in ((_SAYS_PROGRAM, PROGRAM_MEANT), (_SAYS_WINDOW, WINDOW_MEANT), (_SAYS_CONTROL, CONTROL_MEANT)):
+		if pattern.search(question or ""):
+			return meant
+	return ""
+
+
+def pointsAt(question):
+	"""Whether a question points at something without naming it: "what does this do", "how do I close it"."""
+	return bool(_POINTS.search(question or ""))
+
+
+def referent(llm, role, question, choices):
+	"""Which of the things where the user is a question means by "this" or "it". choices: (what it is, its
+	name) each, such as ("the program", "notepad"). A model chooses by number; plain code offers the things.
+	Returns the index, or None when the model cannot be asked."""
+	choices = [choice for choice in choices if choice[1]]
+	if len(choices) < 2:
+		return 0 if choices else None
+	numbered = "\n".join(f"{number}. {what}: {clip(name, 120)}" for number, (what, name) in enumerate(choices, 1))
+	schema = {
+		"type": "object",
+		"properties": {"about": {"type": "integer", "enum": list(range(1, len(choices) + 1))}},
+		"required": ["about"],
+	}
+	try:
+		chosen = int(llm.json(
+			role, _REFERENT_SYSTEM, f"The question: \"{clip(question, 300)}\"\nWhere they are:\n{numbered}\n"
+			"Which one is the question about? Give its number.", schema, maxTokens=20).get("about") or 0)
+	except Exception as e:
+		# Knowing what "this" means is a help, not a need: only stopping the request is passed on. Without a
+		# model's answer the question is looked up by its own words.
+		if type(e).__name__ == "Cancelled":
+			raise
+		return None
+	return chosen - 1 if 1 <= chosen <= len(choices) else None
+
+
+def pickable(result):
+	"""The lines of a result that a model may choose among for the answer, or reject: none when the result says
+	where the user is, which is said whole, or that nothing was found."""
+	lines = [line.strip() for line in str(result or "").splitlines() if line.strip()]
+	if not lines or isNothing(result) or lines[0].startswith(_HERE_LINES):
+		return []
+	return [line for line in lines if not line.startswith(_HERE_LINES)][:4]
+
+
+def quoted(result, pick=""):
+	"""The answer when a model is not to put anything in its own words: the best line of a result, and with it
+	the best that Windows says when the best is from somewhere else, because a question like "how do I copy
+	text" has an answer in NVDA and a more usual one in Windows. pick: the line a capable model chose as the
+	one that answers the question; then that line is the answer."""
 	lines = [line.strip() for line in str(result or "").splitlines() if line.strip()]
 	if not lines:
 		return ""
+	if pick and pick in lines:
+		return pick
 	if lines[0].startswith(_HERE_LINES):
 		# Where the user is: the program, the window and the control with the focus belong together.
 		return " ".join(line for line in lines[:4] if line.startswith(_HERE_LINES))

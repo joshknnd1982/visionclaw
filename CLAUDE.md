@@ -62,6 +62,22 @@ keyboard and speech alone.
   size and SHA-256 from GitHub is refused, and the installing is left to NVDA, which asks its own question.
   Nothing is sent but the request. The SHA-256 comes from GitHub like the file: it shows the file arrived
   whole, not who made it; say it that way.
+  A fourth exception, which the owner asked for on 2026-11-17 ("identify the application or game I am in,
+  search the internet, learn about the current app or game, make quick notes in markdown about it which the
+  user can always delete later, then let me ask questions about it"): the tool `learn_app` goes online to
+  learn about a program (`claw/learn.py`, `learntools.py`). Only when the user asks for exactly this, always
+  after a question (asked directly, whatever the settings say) that says what is sent: the program's name to
+  Wikipedia (`learn.WIKI_HOSTS`), a request to Wikidata (`learn.WIKIDATA_HOSTS`) for the address of the
+  program's own website and manual, and requests to that website for at most `learn.MAX_PAGES` pages, over
+  https only, on the same server as the address Wikidata gave. Nothing is sent but these requests; they call
+  themselves "VisionClaw/<version> (NVDA screen reader add-on)" and carry nothing about the user. What comes
+  back is text to read, never run, and is kept as Markdown in the folder `notes` of VisionClaw's data.
+  **No search engine is asked by the add-on's own code.** It was tried on 2026-11-17: DuckDuckGo's page for
+  people answered with its challenge for automated traffic after a handful of requests. That is the site
+  saying no to programs, and it is not to be worked around: no browser-like headers, no other endpoint of a
+  search engine, no retries against a challenge. A general web search goes through the user's own browser
+  (`web_search`), and a page the user has open there can be added to the notes (`note_page`), which reads it
+  through NVDA and fetches nothing. Never add a source to `learn.py` without the owner's yes.
 - **The latest small Qwen models are always offered.** The owner wants every small size of the newest Qwen
   vision and coder models in the lists. When asked to bring them up to date, do not answer from memory: read
   Hugging Face's own listing (`https://huggingface.co/api/models?author=Qwen&sort=createdAt&direction=-1`, and
@@ -195,6 +211,21 @@ keyboard and speech alone.
   version is offered in `updater.UpdateDialog`: a read-only, multi-line edit box with what is new, one point
   to a line (`updates.offerText`), and two buttons. Never put it back into a message box, which can only be
   listened to once.
+- **The models are used where they are good, and plain code checks what they write.** The owner asked on
+  2026-11-17 that VisionClaw use its models to be more intelligent and more aware of where the user is. A
+  model chooses among things plain code found, or writes something plain code can check: which of a
+  program's names it is known by and whether it is a game, a program or a utility (`learn.identify`); short
+  notes from one section of a page at a time, of which only those are kept whose keys and most of whose
+  words are in that section (`learn.writeNotes`, `learn.checked`); what "this", "it" or "here" in a question
+  means, among the program, the window and the focused control (`lookup.referent`), unless the user's own
+  words say it (`lookup.saysWhich`); and, for a model that is not one of the very smallest, which line of
+  what was looked up answers the question, or that none does (`orchestrator._pick`, `lookup.NO_ANSWER`).
+  A very small model (`suggest` is False) is never asked to write notes or given "none of these". A model
+  step that only helps, such as what "this" means, must never end the request when the model cannot answer.
+- **Notes on programs are the user's files.** One Markdown file for each program in `notes`, which says at
+  its top where it is from and that it may be wrong. `forget_notes` deletes one or all after a question;
+  adding to notes never rewrites what is there (`learn.merged`), because the user may have written into it.
+  Notes answer questions as passages of the program (`learn.passages`), each saying which website it is from.
 - **No question about a described picture is refused.** VisionMate asked the model first whether a question
   was "about the image", and a small model said no to what a blind person most needs to ask. The description
   window answers everything (`followup.ANSWER`); the one rule is that what is not shown is said to be not
@@ -232,7 +263,10 @@ addon/
     fixruntime.py            the working part of every fixes add-on; copied into the add-on as text
     updater.py               a newer version of VisionClaw: looking, the window that says what is new,
                              downloading, handing it to NVDA
-    asktools.py              a question: what NVDA, the program in front, its window and Windows each say
+    asktools.py              a question: what NVDA, the program in front, its window and Windows each say,
+                             the notes on the program, and what "this" means, by the user's words or a model
+    learntools.py            learning about the program in front from the internet after a question, adding a
+                             page from the user's browser to the notes, listing, opening and deleting notes
     nvdainfo.py              what NVDA has and uses: synthesizer, voices, braille display, drivers, add-ons;
                              how NVDA drives the synthesizer and the display in use, for the audit
     vclog.py                 one "log" for the NVDA-side files: NVDA's log and VisionClaw's own
@@ -251,6 +285,9 @@ addon/
       commands.py            NVDA's commands as data: finding one, and how often its key is pressed
       lookup.py              a question answered from NVDA, the program, the window and Windows: passages,
                              which of them are about the question, a help page as text, what to say when none is
+      learn.py               what a program is called and what to ask about it; Wikipedia, Wikidata and the
+                             program's own website read as text; the useful sections of a page; notes a model
+                             writes and plain code checks; the notes as Markdown files and as passages
       inside.py              everything inside the running NVDA, listed from its loaded modules; the audit
       debuglog.py            VisionClaw's own log file: levels, rotation, errors with their place in the code
       web.py                 web addresses, search addresses, the passages of a page that matter
@@ -409,6 +446,11 @@ A session is done only when its "Done when" line is true.
   that order; plain code keeps what is about the question and says so when nothing is; the keys of Windows
   as notes written from Microsoft's own page.
 - [x] **3.28 What is new, in a box that can be read line by line**, when a newer version is offered.
+- [x] **3.29 Learning about the program or game in front.** `learn_app` identifies it, asks, reads Wikipedia,
+  Wikidata and the program's own website, and keeps notes as Markdown; `note_page` adds a page from the user's
+  browser; `app_notes` and `forget_notes`; questions are answered from the notes by `look_up`.
+- [x] **3.30 The models used for more.** A model names the program and its kind, writes the notes, says what
+  "this" means, and judges whether what was looked up answers the question; plain code checks each.
 - [ ] **3.5 Test inside NVDA.** Install the build in NVDA (ask the user first) and walk through
   `docs/TESTPLAN.md`. Fix what breaks. *Done when:* every item in the test plan is ticked by a real run.
 
@@ -442,6 +484,8 @@ A session is done only when its "Done when" line is true.
 ```
 python tests/run_all.py                  every plain-Python test (no model needed)
 python tests/test_lookup.py              questions against every NVDA command and the notes; plain Python
+python tests/test_learn.py               learning about a program against a stand-in internet; every request listed
+python tests/live_learn.py               a real model and the real internet learn about a program; read every note
 python tests/live_orchestrator.py        needs the engine and a model on this computer
 python tests/live_side_by_side.py        two real engines on two backends; needs VisionMate's vision data
 python tests/live_addon.py               a real model writes four add-ons and debugs one; read every result

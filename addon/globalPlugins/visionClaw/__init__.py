@@ -35,7 +35,7 @@ from scriptHandler import script
 from speech import extensions as speechExtensions
 
 from . import autodescribe, clawui, controlkeys, curtain, dialogs, explorer, followup, hardware, helpers, imaging, labels, localmedia, mousetools, nvdatools, ocr, sounds, updater, viewers, winzapp
-from .claw import catalog, drivers, guides
+from .claw import catalog, drivers, guides, learn
 from .claw.changes import ChangeLog
 from .claw import debuglog
 from .claw import task as clawTask
@@ -436,6 +436,8 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		# The developer guides, if the user had them downloaded. Read from this computer; nothing goes online here.
 		self.guidesDir = os.path.join(DATA_DIR, "guides")
 		self.knowledge.addSource(guides.SOURCE, lambda: guides.load(self.guidesDir))
+		# What VisionClaw learned about programs from the internet, when asked to: one Markdown file each.
+		self.appNotes = learn.Notes(os.path.join(DATA_DIR, "notes"))
 		self.memory = Memory(os.path.join(DATA_DIR, "lessons.json"))
 		self.driverNotes = drivers.DriverNotes(os.path.join(DATA_DIR, "drivers.json"))
 		# Every setting VisionClaw changes is written down, so that it can be put back.

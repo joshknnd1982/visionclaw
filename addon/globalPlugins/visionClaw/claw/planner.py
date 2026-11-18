@@ -211,6 +211,23 @@ RECIPES = {
 		"make a full audit of this NVDA: count and list every command, module, function, class and object it "
 		"has, and how it works its speech synthesizer and braille display, and save the list as a file",
 		("audit_nvda",)),
+	"learn_app": (
+		"learn about this program from the internet",
+		"go online and learn about the program or game the user is in, or one they name, and keep notes on it; "
+		"only when the user asks to learn about, study or research a program, or to make notes on it",
+		("learn_app",)),
+	"note_page": (
+		"add this web page to the notes on a program",
+		"add what the web page that is open in the browser says to the notes on a program the user names",
+		("note_page",)),
+	"app_notes": (
+		"say which notes VisionClaw has, or open them",
+		"say which programs VisionClaw has notes on, or open the notes on a program so the user can read them",
+		("app_notes",)),
+	"forget_notes": (
+		"delete notes on a program",
+		"delete the notes VisionClaw made about a program: the one named, the one the user is in, or all of them",
+		("forget_notes",)),
 	"visionclaw_log": (
 		"open VisionClaw's log",
 		"open VisionClaw's own debug log, the file that records what VisionClaw did and every error, to find "
@@ -225,6 +242,14 @@ _HINTS = (
 		r"|\b(check|look) for (an? |any )?(updates?|new(er)? version)\b"),
 	("update_guides", r"\b(download|get|pull|fetch|update|refresh|renew)\b.*\b(developer|development|dev)\b.*\bguides?\b"
 		r"|\b(developer|development|dev) guides?\b.*\b(up to date|latest|newest|download|update)\b"),
+	# Notes on programs, learned from the internet. Before everything that the words page, list or remove
+	# would otherwise set off.
+	("forget_notes", r"\b(delete|remove|forget|erase|clear|get rid of)\b.*\bnotes?\b"),
+	("note_page", r"\b(add|put|save|keep)\b.*\b(page|site|article)\b.*\bnotes?\b"
+		r"|\bnotes?\b.*\bfrom (this|the) (web ?page|page|web ?site|site|article)\b"),
+	("app_notes", r"\b(which|what|list|show|open|read)\b.*\bnotes\b"),
+	("learn_app", r"\b(learn|study|research|read up)\b.*\b(app|application|program|game|utility|software|tool|this|it)\b"
+		r"|\b(make|take|write|create)\b.*\bnotes\b|\blearn (about|how to use)\b"),
 	# A control that is dragged or turned: the arrow keys take over. Before the hotkey, mouse and drag hints.
 	("work_control", r"\b(dial|knob|fader)s?\b"
 		r"|\barrow keys?\b.*\b(work|turn|move|operate|control)\b.*\b(slider|control|lever)\b"

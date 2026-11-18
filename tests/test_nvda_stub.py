@@ -238,7 +238,7 @@ with open(os.path.join(CONFIG_DIR, "visionClaw", "lessons.json"), "w", encoding=
 	], f)
 instance = plugin.GlobalPlugin()
 registry = instance.orchestrator.registry
-assert len(registry.names()) == 50, registry.names()
+assert len(registry.names()) == 54, registry.names()
 # Lessons from searches that happened to find something misled; they are dropped when VisionClaw starts.
 assert instance.memory.all() == ["Tool set_setting: this form failed: {} (x). This form worked: {}."], instance.memory.all()
 assert set(planner.available(registry)) == set(planner.RECIPES), set(planner.RECIPES) - set(planner.available(registry))
@@ -2135,7 +2135,7 @@ worked, result = registry.call(taskModule.Task("t"), "look_up", {"question": "wh
 assert worked and result.startswith("From Windows: The windows that are open now. 2 windows are open now: Inbox - Mail; Untitled - Notepad."), result
 # Nothing fits: that is a sentence for the user, not a failed step to be tried again with other words.
 worked, result = registry.call(taskModule.Task("t"), "look_up", {"question": "How do I bake a walnut cake?"})
-assert worked and result == (
+assert worked and result.startswith(
 	"Nothing was found about bake or walnut or cake. Asked were: NVDA's commands and user guide, the program explorer, "
 	"its window Program Manager, and what VisionClaw knows about Windows."), result
 # Looking things up changes nothing, and the recipes for questions use it.
@@ -2160,6 +2160,10 @@ class AsInTheRun:
 		schema = options["response_format"]["json_schema"]["schema"]["properties"]
 		if "choice" in schema:
 			return json.dumps({"choice": "explain_keys"})
+		if "line" in schema:
+			# A model of this size reads what was found and says whether it answers the question.
+			assert "1. From Windows: The desktop: going to it" in messages[-1]["content"]
+			return json.dumps({"line": 1})
 		raise AssertionError(f"an unexpected question to the model: {messages[-1]['content']}")
 
 
@@ -2170,6 +2174,179 @@ assert task.state == taskModule.DONE and [step.tool for step in task.steps] == [
 assert task.answer.startswith(
 	"From Windows: The desktop: going to it and navigating its icons with the keyboard. Press Windows+D to go to the desktop;"), task.answer
 assert "layout" not in task.answer
+
+# --- Learning about the program in front from the internet, the notes, and questions answered from them ---
+from visionClaw import learntools  # noqa: E402
+from visionClaw.claw import learn  # noqa: E402
+
+trader = types.SimpleNamespace(appName="spacetrader", productName="", productVersion="2.1")
+newGame = types.SimpleNamespace(
+	name="New Game", role=Role(name="BUTTON", displayString="button"), value=None, description="", states=[],
+	keyboardShortcut="Alt+N", positionInfo={}, appModule=trader, treeInterceptor=None, firstChild=None, next=None)
+menuWindow = types.SimpleNamespace(
+	name="Space Trader - Main Menu", role=Role(name="WINDOW", displayString="window"), appModule=trader, firstChild=None)
+sys.modules["api"].getForegroundObject = lambda: menuWindow
+sys.modules["api"].getFocusObject = lambda: newGame
+sys.modules["api"].getFocusAncestors = lambda: [types.SimpleNamespace(name="Desktop", role=Role(displayString="window")), menuWindow]
+WEB = {
+	"https://en.wikipedia.org/w/api.php?action=query&list=search": json.dumps({"query": {"search": [
+		{"title": "Space Trader (video game)"}, {"title": "Trader"}]}}),
+	"https://en.wikipedia.org/w/api.php?action=query&prop=pageprops": json.dumps({"query": {"pages": {"7": {
+		"title": "Space Trader (video game)", "pageprops": {"wikibase_item": "Q7"},
+		"extract": "Space Trader is a strategy video game about trading between planets.\n\n== Gameplay ==\n"
+			"The player buys and sells goods. Press Ctrl+N to start a new game and F5 to save the game."}}}}),
+	"https://www.wikidata.org/w/api.php?action=wbgetclaims&format=json&entity=Q7&property=P2078": json.dumps({"claims": {}}),
+	"https://www.wikidata.org/w/api.php?action=wbgetclaims&format=json&entity=Q7&property=P856": json.dumps(
+		{"claims": {"P856": [{"mainsnak": {"datavalue": {"value": "https://spacetrader.example.org/"}}}]}}),
+	"https://spacetrader.example.org/help/keyboard-shortcuts/": "<html><head><title>Keys</title></head><body><h2>Keyboard shortcuts</h2>"
+		"<table><tr><td>Ctrl+S</td><td>Save the game</td></tr><tr><td>Ctrl+L</td><td>Load a game</td></tr></table></body></html>",
+	"https://spacetrader.example.org/": "<html><head><title>Space Trader</title></head><body><h2>Controls</h2>"
+		"<p>Use the arrow keys to move between planets. Press Enter to land on a planet.</p>"
+		"<a href='/help/keyboard-shortcuts/'>Keyboard shortcuts</a> <a href=\"/help/keyboard-shortcuts/\">Keyboard shortcuts</a>"
+		"<a href=\"/buy/\">Buy the game</a></body></html>",
+}
+requests = []
+
+
+def fakeFetchText(url, timeout=30, limit=None, hosts=None, agent=None, textOnly=False):
+	requests.append((url, hosts, agent, textOnly))
+	if hosts is not None and url.split("/")[2] not in hosts:
+		raise ValueError("The answer came from a place it may not come from.")
+	for start, body in WEB.items():
+		if url.startswith(start):
+			return body
+	raise OSError("no such page")
+
+
+learntools.net.fetchText = fakeFetchText
+
+
+class LearningModel:
+	"""The model's part in learning: it names the program and its kind, writes notes, and says what "this" means."""
+	asked = []
+
+	def oneModel(self):
+		return True
+
+	def hasModel(self, role):
+		return True
+
+	def entry(self, role):
+		return {"id": "one", "name": "Qwen3.5 9B"}
+
+	def chat(self, role, messages, maxTokens, onText=None, cancel=None, options=None, raw=False, info=None, context=None):
+		user = messages[-1]["content"]
+		self.asked.append(user)
+		schema = options["response_format"]["json_schema"]["schema"]["properties"]
+		if "kind" in schema:
+			return json.dumps({"name": next(name for name in schema["name"]["enum"] if "Trader" in name), "kind": "game"})
+		if "notes" in schema:
+			if "Ctrl+N" in user:
+				# One note that stands in the text, and one with a key the text does not have.
+				return json.dumps({"notes": ["Ctrl+N starts a new game.", "Press F9 to win the game."]})
+			return json.dumps({"notes": []})
+		if "about" in schema:
+			return json.dumps({"about": len(schema["about"]["enum"])})  # the last thing offered: the focused control
+		raise AssertionError(f"an unexpected question to the model: {user}")
+
+
+realRuntime, instance.runtime = instance.runtime, LearningModel()
+notesFile = os.path.join(CONFIG_DIR, "visionClaw", "notes", "spacetrader.md")
+questions = []
+# The user is asked before anything goes online, whatever the settings say. No: nothing is requested.
+instance.clawAsk = lambda question, choices: questions.append((question, choices)) or 1
+task = taskModule.Task("Learn about this game")
+worked, result = registry.call(task, "learn_app", registry.get("learn_app").autoForm("Learn about this game"))
+assert worked and result == "You said no, so VisionClaw did not go online and no notes were made.", result
+assert requests == [] and not os.path.exists(notesFile)
+question, choices = questions[0]
+assert question.startswith(
+	"VisionClaw will go online to learn about Space Trader. It sends the name Space Trader to Wikipedia, asks Wikidata "
+	"for the address of its website and its manual, and then reads up to 6 help pages straight from that website. "
+	"No search engine is used. Nothing else about you or your computer is sent;"), question
+assert question.endswith("Go online now?") and choices == ["Yes, go online", "No"]
+# The model was asked which name the program is known by, among those plain code found, and what kind it is.
+assert any("The possible names: Main Menu; Space Trader; spacetrader" in user for user in LearningModel.asked), LearningModel.asked
+assert any(text == (
+	"The program in front is spacetrader, with the window Space Trader - Main Menu. The model takes it to be the game "
+	"Space Trader.") for _seconds, kind, text in task.log if kind == taskModule.TALK), task.log
+# Yes: Wikipedia, Wikidata and the game's own website are read, and nothing else.
+instance.clawAsk = lambda question, choices: 0
+task = taskModule.Task("Learn about this game")
+worked, result = registry.call(task, "learn_app", {"name": "", "asked": "Learn about this game"})
+assert worked and result.startswith(
+	"VisionClaw learned about the game Space Trader. It read 2 websites (en.wikipedia.org, spacetrader.example.org) and "
+	f"kept 4 notes, in the file {notesFile}. 1 of them were put into short points by the model and checked against the page."), result
+assert [url.split("?")[0] if "wikipedia" in url else url for url, _h, _a, _t in requests] == [
+	"https://en.wikipedia.org/w/api.php", "https://en.wikipedia.org/w/api.php",
+	"https://www.wikidata.org/w/api.php?action=wbgetclaims&format=json&entity=Q7&property=P2078",
+	"https://www.wikidata.org/w/api.php?action=wbgetclaims&format=json&entity=Q7&property=P856",
+	"https://spacetrader.example.org/", "https://spacetrader.example.org/help/keyboard-shortcuts/"], requests
+assert "srsearch=Space+Trader+video+game" in requests[0][0]
+# Every request says what it is and nothing about the user, and only text is taken.
+assert all(agent == "VisionClaw/0.9.0 (NVDA screen reader add-on)" and textOnly for _url, _hosts, agent, textOnly in requests), requests
+with open(notesFile, encoding="utf-8") as f:
+	kept = f.read()
+assert kept.startswith("# Notes on Space Trader (program spacetrader)\n") and "\n## What Space Trader is\n" in kept
+# The model's note that stands in the page is kept; the one with a made-up key is not.
+assert "\n## Gameplay\n\n- Ctrl+N starts a new game.\n\nSource: https://en.wikipedia.org/wiki/Space_Trader_%28video_game%29\n" in kept, kept
+assert "F9" not in kept and "| Ctrl+S | Save the game" in kept
+steps = [text for _seconds, kind, text in task.log if kind == taskModule.DETAIL]
+assert "Asking Wikipedia about Space Trader." in steps and "Reading Keyboard shortcuts on spacetrader.example.org." in steps
+assert "Writing notes on: Gameplay." in steps, steps
+assert "learn: Learned about Space Trader (game). Requests went to:" in debuglog.tail(40)
+
+# Questions about the game are now answered from the notes, each saying which website it is from.
+task = taskModule.Task("t")
+worked, result = registry.call(task, "look_up", {"question": "How do I save my game?"})
+assert worked and result.splitlines()[0].startswith("From the notes on Space Trader, from "), result
+assert "Save the game" in result.splitlines()[0] or "F5 to save" in result, result
+assert any(text.startswith("Asked VisionClaw's notes on Space Trader: ") for _s, kind, text in task.log if kind == taskModule.DETAIL)
+# A question that only points is put to the model with where the user is; it says the focused button is meant.
+task = taskModule.Task("t")
+worked, result = registry.call(task, "look_up", {"question": "What does this do?"})
+assert worked and "The focus is on: button \"New Game\". Its own key is Alt+N." in result, result
+assert "Ctrl+N starts a new game" in result, result
+assert ("The model takes the question to be about the control that has the focus: button \"New Game\"."
+	in [text for _s, kind, text in task.log if kind == taskModule.DETAIL]), task.log
+assert any("3. the control that has the focus: button \"New Game\"" in user for user in LearningModel.asked)
+# Which notes there are.
+worked, result = registry.call(taskModule.Task("t"), "app_notes", {"asked": "Which notes do you have?"})
+assert worked and result.startswith("VisionClaw has notes on 1 program: Space Trader, 4 notes from "), result
+assert result.endswith("There are notes on the program you are in, spacetrader."), result
+# A page the user has open in their own browser is added to the notes; nothing is fetched for it.
+del requests[:]
+learntools.webtools.pageText = lambda: (
+	"Space Trader tips", "Tips\nTrading\nPress T to trade and B to buy. Press Ctrl+T to open the trade screen.\nAbout\nWe like games.")
+learntools.webtools.page = lambda: "document"
+learntools.webtools.address = lambda document: "https://tips.example.net/space-trader"
+learntools.webtools.headings = lambda: [(2, "Trading", None), (2, "About", None)]
+form = registry.get("note_page").autoForm("Add this page to the notes on Space Trader")
+assert form["name"] == "Space Trader"
+worked, result = registry.call(taskModule.Task("t"), "note_page", form)
+assert worked and result.startswith(
+	f"Added 1 note from the page Space Trader tips to the notes on Space Trader, in the file {notesFile}. Nothing was "
+	"fetched from the internet for this"), result
+assert requests == []
+with open(notesFile, encoding="utf-8") as f:
+	kept = f.read()
+assert "\n## Trading\n\nPress T to trade and B to buy." in kept and kept.rstrip().endswith("Source: https://tips.example.net/space-trader")
+worked, result = registry.call(taskModule.Task("t"), "note_page", {"name": "", "asked": "add this page to my notes"})
+assert not worked and "does not say which program the page is about" in result, result
+# The notes are deleted when the user asks, and then a question says how to get some.
+worked, result = registry.call(taskModule.Task("t"), "forget_notes", {"which": "Delete the notes on this program"})
+assert worked and result == "Deleted the notes on Space Trader. VisionClaw has no notes left.", result
+assert not os.path.exists(notesFile)
+worked, result = registry.call(taskModule.Task("t"), "forget_notes", {"which": "delete all notes"})
+assert worked and result == "VisionClaw has no notes on any program, so there is nothing to delete.", result
+worked, result = registry.call(taskModule.Task("t"), "look_up", {"question": "How do I bake a walnut cake?"})
+assert worked and result.endswith(
+	"VisionClaw has no notes on this program yet. Ask it to learn about this program, and it reads up on it on the "
+	"internet after asking you."), result
+for name in ("learn_app", "note_page", "forget_notes"):
+	assert registry.get(name).changes and registry.get(name).tell == "verbatim"
+assert planner.hint("Learn about this game") == "learn_app" and planner.RECIPES["learn_app"][2] == ("learn_app",)
+instance.runtime = realRuntime
 
 instance.terminate()
 print("OK")
