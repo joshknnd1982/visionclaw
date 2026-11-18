@@ -24,7 +24,22 @@ DIST = os.path.join(ROOT, "dist")
 ENGINE = os.path.join(SRC, "engine", "vcengine.exe")
 
 
+def checkShipped():
+	"""What comes with every build as Markdown must be exactly the guides that may be passed on
+	(guides.MAY_SHIP): a text put into the add-on is published to every user."""
+	sys.path.insert(0, os.path.join(ROOT, "tests"))
+	import harness  # noqa: F401
+	from visionClaw.claw import guides
+	have = sorted(name for name in os.listdir(guides.SHIPPED) if name.endswith(".md")) if os.path.isdir(guides.SHIPPED) else []
+	want = sorted(ident + ".md" for ident in guides.MAY_SHIP)
+	if have != want:
+		sys.exit(
+			f"The guides that come with the build are {have}, and should be {want}. Run "
+			"python tools/update_shipped_guides.py first.")
+
+
 def main():
+	checkShipped()
 	if not os.path.isfile(ENGINE):
 		sys.exit("The engine is missing: addon/engine/vcengine.exe. See BUILD.md for where to get it.")
 	manifest = open(os.path.join(SRC, "manifest.ini"), encoding="utf-8").read()

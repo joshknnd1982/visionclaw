@@ -14,7 +14,7 @@ import re
 import time
 import zipfile
 
-from . import prompts
+from . import guides, prompts
 from .llm import LLMError, clip
 from .tools import ToolError
 
@@ -484,7 +484,8 @@ def _writer(params):
 def _generate(llm, role, user, params, purpose=""):
 	# Who the add-on is for, the user's own instructions and language come with every writing and repair.
 	answer = llm.text(
-		role, prompts.coding(_SYSTEM, purpose), user, maxTokens=params.codeTokens, reasoning=params.reasoning, temperature=0,
+		role, prompts.coding(_SYSTEM, purpose, guided=guides.CODER_HEAD in user), user, maxTokens=params.codeTokens,
+		reasoning=params.reasoning, temperature=0,
 		code=True)
 	return extractCode(answer)
 

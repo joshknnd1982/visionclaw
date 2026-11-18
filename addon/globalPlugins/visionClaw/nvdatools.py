@@ -27,7 +27,7 @@ import wx
 from .vclog import log
 
 from . import mousetools, net, nvdainfo, ocr, webtools
-from .claw import changes, commands, debuglog, drivers, fixes, gamepad, guides, inside, lookup, match, microaddons, pointer, policy, prompts, web
+from .claw import changes, commands, debuglog, drivers, fixes, gamepad, guides, helpfiles, inside, lookup, match, microaddons, offers, pointer, policy, prompts, training, web
 from .claw.catalog import CODER, VISION
 from .claw.llm import LLM, clip
 from .claw.memory import score, wordList, words as wordsOf
@@ -1114,6 +1114,70 @@ def failingLine(trace):
 	return f"The failing line is line {number}, in {function}: {code.strip()}"
 
 
+def nvdaHas(name):
+	"""Whether the running NVDA has a dotted name, like api.getFocusObject: True, False, or None when that
+	cannot be told. Looking never changes anything: only modules that are loaded already are asked, nothing is
+	imported and nothing is called. A part of a package that is not loaded yet cannot be told."""
+	parts = str(name or "").split(".")
+	thing = sys.modules.get(parts[0])
+	if thing is None or not inspect.ismodule(thing):
+		return None
+	for part in parts[1:]:
+		if not (inspect.ismodule(thing) or inspect.isclass(thing)):
+			# What an object has is not asked: reading it could run code.
+			return None
+		try:
+			known = part in vars(thing) or (inspect.isclass(thing) and any(part in vars(base) for base in thing.__mro__))
+		except Exception:
+			return None
+		if not known:
+			loaded = sys.modules.get(f"{thing.__name__}.{part}") if inspect.ismodule(thing) else None
+			if loaded is not None:
+				thing = loaded
+				continue
+			# A package has parts that are loaded only when they are needed, and a module can make a name when
+			# it is asked for one.
+			return None if hasattr(thing, "__path__") or hasattr(thing, "__getattr__") else False
+		thing = vars(thing).get(part) if part in vars(thing) else getattr(thing, part, None)
+	return True
+
+
+def guideLines(plugin, purpose, known=""):
+	"""For the model that writes or repairs an add-on: the few single lines of the downloaded developer guides
+	that fit what the add-on is for (claw/guides.py), without those whose names this NVDA no longer has, and
+	without those about a name the model is told anyway (known: VisionClaw's own notes for this request; its
+	instructions are added here); "" when no guides are on the computer or none is left. Never raises: the
+	guides only help."""
+	kept = getattr(plugin, "devGuides", None)
+	if kept is None:
+		return ""
+	try:
+		text = kept.forCoder(purpose, exists=nvdaHas, known=f"{microaddons._SYSTEM}\n{known}")
+	except Exception as e:
+		debuglog.error("guides", "The developer guides could not be read for the add-on", e)
+		return ""
+	if text:
+		debuglog.log("guides", f"Given to the add-on writer from the developer guides: {text!r}")
+	return text
+
+
+def coderNotes(plugin, task, purpose, notes):
+	"""All that the model that writes or repairs an add-on is given to read, in the order in which it counts,
+	because it is cut off at its end: what a chosen skill says, what the user asked VisionClaw to remember with
+	their library, the lines of the developer guides that fit, and then VisionClaw's own notes. Each is chosen
+	by plain code from what the add-on is for, and left out when nothing fits."""
+	from . import memorytools
+	parts = [
+		# When VisionClaw corrects an add-on by itself there is no request, so the skills are chosen by what the
+		# add-on is for.
+		stepGuide(task) or addonGuide(getattr(plugin, "skills", None), purpose),
+		memorytools.forCoder(plugin, purpose).strip(),
+		guideLines(plugin, purpose, notes),
+		notes,
+	]
+	return "\n".join(part for part in parts if part)
+
+
 def debugFacts(error):
 	"""What NVDA really offers where an add-on used something that does not exist. This is how the models
 	learn how NVDA works from their own mistakes: by looking inside the running NVDA."""
@@ -1174,17 +1238,9 @@ def fixAddon(plugin, task, name, said=""):
 	lessons = plugin.memory.search("NVDA add-on code mistake " + purpose, limit=3)
 	if lessons:
 		notes += "\nMistakes made before on this computer:\n" + "\n".join(f"- {text}" for text in lessons)
-	# What the user asked VisionClaw to remember, their library and the notes on accessibility interfaces that
-	# belong with the add-on: before the notes, which are cut off at their end; the skill's guide goes before all.
-	from . import memorytools
-	mine = memorytools.forCoder(plugin, purpose).strip()
-	if mine:
-		notes = f"{mine}\n{notes}"
-	# What a skill says about add-ons comes first: the notes are cut off at their end. When VisionClaw corrects
-	# an add-on by itself there is no request, so the skills are chosen by what the add-on is for.
-	guide = stepGuide(task) or addonGuide(getattr(plugin, "skills", None), purpose)
-	if guide:
-		notes = f"{guide}\n{notes}"
+	# What a skill says, what the user asked VisionClaw to remember, their library, the notes on accessibility
+	# interfaces and the lines of the developer guides that belong with the add-on come before the notes.
+	notes = coderNotes(plugin, task, purpose, notes)
 	fixed = microaddons.fix(LLM(plugin.runtime, task), task, purpose, source, problems, notes, task.params, CODER, VISION)
 	repairs = meta.get("repairs", 0) + 1
 	store.save(ident, fixed, purpose, repairs=repairs)
@@ -1612,12 +1668,113 @@ def build(plugin):
 		result = guides.update(
 			plugin.guidesDir, lambda url: net.fetchText(url, limit=guides.MAX_BYTES, hosts=guides.HOSTS), task.cancel)
 		plugin.knowledge.replaceSource(guides.SOURCE, lambda: guides.load(plugin.guidesDir))
+		plugin.devGuides.reload()
 		return guides.summary(result)
 
 	add("update_guides",
 		"download the latest NVDA developer guide and NVDA add-on development guide from the internet and keep them "
 		"for the models to read; only when the user asks for exactly this",
 		updateGuides, changes=True, title="Getting the latest developer guides", tell=VERBATIM)
+
+	def guidesInfo(task, asked):
+		# What VisionClaw knows, plain code says: which guides are here, from which day, and where.
+		told = guides.storedText(plugin.guidesDir)
+		if plugin.devGuides.here() and re.search(r"\b(open|show me the (files?|folder)|see the (files?|folder))\b", asked or "", re.IGNORECASE):
+			try:
+				onMain(os.startfile, plugin.guidesDir)
+			except OSError as e:
+				raise ToolError(f"The folder could not be opened ({e}). It is {plugin.guidesDir}.")
+			told = "The folder with the developer guides is open in a window. " + told
+		return told
+
+	add("guides_info",
+		"say which NVDA developer guides VisionClaw has downloaded to this computer, from which day and where they "
+		"are kept, or open their folder; not for what the guides say about something",
+		guidesInfo, {"asked": text("what the user asked for, in their own words", maxLength=300, auto=True)},
+		looks=True, title="Looking at the developer guides", tell=VERBATIM)
+
+	def removeGuides(task):
+		if not plugin.devGuides.downloaded():
+			return (
+				"No developer guides were downloaded, so there is nothing to delete. "
+				+ ("The copy that came with VisionClaw stays; it is part of the add-on." if plugin.devGuides.here() else "")).strip()
+		# Translators: Asked before the downloaded developer guides are deleted.
+		confirm(_(
+			"Delete the NVDA developer guides from this computer? VisionClaw then no longer looks things up in them. "
+			"They can be downloaded again at any time."))
+		gone = guides.remove(plugin.guidesDir)
+		plugin.knowledge.replaceSource(guides.SOURCE, lambda: guides.load(plugin.guidesDir))
+		plugin.devGuides.reload()
+		if not gone:
+			raise ToolError("The developer guides could not be deleted. Their files are in the folder " + plugin.guidesDir + ".")
+		return (
+			f"Deleted from this computer: the {' and the '.join(gone)}. To have them again, ask VisionClaw to get the "
+			"latest NVDA developer guides." + (
+				" The copy that came with VisionClaw is used again." if plugin.devGuides.here() else ""))
+
+	add("remove_guides", "delete the downloaded NVDA developer guides from this computer",
+		removeGuides, changes=True, title="Deleting the developer guides", tell=VERBATIM)
+
+	# What VisionClaw can download for the user, whether it is here already, and the words that get it.
+	add("downloads_info",
+		"say what VisionClaw can download for the user on request, guides, lessons and notes, whether each is on this "
+		"computer already, and what to say to get it; when the user asks what it can download, get or learn from",
+		lambda task: offers.overview(plugin.downloadState()), looks=True,
+		title="Looking at what can be downloaded", tell=VERBATIM)
+
+	# Free material that teaches NVDA: the NVDA wiki, AFB's lessons and Hadley's workshops (claw/training.py).
+	# The owner said yes to these three sources on 2026-11-18.
+	def updateTraining(task):
+		# Going online is always asked about, whatever the settings say. The question names every site.
+		mustAgree(training.question())
+		result = training.update(
+			plugin.trainingDir, lambda url: net.fetchText(url, limit=training.MAX_BYTES, hosts=training.HOSTS), task.cancel)
+		plugin.knowledge.replaceSource(training.SOURCE, lambda: training.load(plugin.trainingDir))
+		return training.summary(result)
+
+	add("update_training",
+		"download free material that teaches NVDA from the internet, the NVDA wiki, the lessons of the American "
+		"Foundation for the Blind and the workshops of Hadley, and keep it for looking things up; only when the "
+		"user asks for exactly this",
+		updateTraining, changes=True, title="Getting the free training material", tell=VERBATIM)
+
+	def trainingInfo(task, asked):
+		# What VisionClaw has to read, said by plain code: the training material, and NVDA's own help as Markdown.
+		told = training.storedText(plugin.trainingDir) + " " + helpfiles.listText(plugin.helpDir)
+		if re.search(r"\b(open|show me the (files?|folder)|see the (files?|folder))\b", asked or "", re.IGNORECASE):
+			folder = plugin.trainingDir if training.here(plugin.trainingDir) else plugin.helpDir
+			if os.path.isdir(folder):
+				try:
+					onMain(os.startfile, folder)
+				except OSError as e:
+					raise ToolError(f"The folder could not be opened ({e}). It is {folder}.")
+				told = f"The folder {folder} is open in a window. " + told
+		return told
+
+	add("training_info",
+		"say which training material about NVDA VisionClaw has downloaded to this computer, from which day and "
+		"where it is kept, and where NVDA's own help is kept as Markdown files, or open the folder; not for what "
+		"the material says about something",
+		trainingInfo, {"asked": text("what the user asked for, in their own words", maxLength=300, auto=True)},
+		looks=True, title="Looking at the training material", tell=VERBATIM)
+
+	def removeTraining(task):
+		if not training.here(plugin.trainingDir):
+			return "No training material is on this computer, so there is nothing to delete."
+		# Translators: Asked before the downloaded training material is deleted.
+		confirm(_(
+			"Delete the downloaded NVDA training material from this computer? VisionClaw then no longer looks things "
+			"up in it. It can be downloaded again at any time."))
+		gone = training.remove(plugin.trainingDir)
+		plugin.knowledge.replaceSource(training.SOURCE, lambda: training.load(plugin.trainingDir))
+		if not gone:
+			raise ToolError("The training material could not be deleted. Its files are in the folder " + plugin.trainingDir + ".")
+		return (
+			f"Deleted from this computer: {', '.join(gone)}. To have it again, ask VisionClaw to get the free NVDA "
+			"training material.")
+
+	add("remove_training", "delete the downloaded NVDA training material from this computer",
+		removeTraining, changes=True, title="Deleting the training material", tell=VERBATIM)
 
 	add("search_help", "read NVDA's user guide, the developer guides and VisionClaw's notes on NVDA and its add-on system", searchHelp,
 		{"words": text("2 to 4 keywords for what you need to know", maxLength=80, auto=True)}, looks=True,
@@ -1804,15 +1961,9 @@ def build(plugin):
 		lessons = plugin.memory.search("NVDA add-on code mistake " + purpose, limit=3)
 		if lessons:
 			notes += "\nMistakes made before on this computer:\n" + "\n".join(f"- {t}" for t in lessons)
-		# What the user asked VisionClaw to remember, their library and the notes on accessibility interfaces that
-		# belong with the add-on: before the notes, which are cut off at their end; the skill's guide goes before all.
-		mine = memorytools.forCoder(plugin, purpose).strip()
-		if mine:
-			notes = f"{mine}\n{notes}"
-		# What a chosen skill says about add-ons comes first: the notes are cut off at their end.
-		guide = stepGuide(task) or addonGuide(plugin.skills, purpose)
-		if guide:
-			notes = f"{guide}\n{notes}"
+		# What a skill says, what the user asked VisionClaw to remember, their library, the notes on accessibility
+		# interfaces and the lines of the developer guides that belong with the add-on come before the notes.
+		notes = coderNotes(plugin, task, purpose, notes)
 		source = microaddons.write(llm, task, purpose, facts, notes, params, CODER, VISION)
 		keys = microaddons.gestures(source)
 		keyText = " Keys: " + "; ".join(f"{k} ({d})" if d else k for k, d in keys) + "." if keys else ""
@@ -2137,7 +2288,7 @@ def build(plugin):
 	controlkeys.register(add, plugin, text, confirm, screen, pickItem, mentioned)
 	# Deep inspection, lasting fixes for a website or program, and questions about installed add-ons.
 	from . import accesstools
-	accesstools.register(plugin, add, text)
+	accesstools.register(plugin, add, text, registry)
 	# A newer version of VisionClaw itself, when the user asks for it in words.
 	from . import updater
 	updater.register(plugin, add, text)

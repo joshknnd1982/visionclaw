@@ -1123,24 +1123,247 @@ What was done:
 | `tests/live_orchestrator.py`, Qwen3.5 9B and Qwen2.5 Coder 1.5B, stand-in tools, 109 requests of which 13 are new ("Pinch the Options button with two fingers", "Swipe left with three fingers", "Press hard on the New Game button for 2 seconds", "Draw a line to the right with the pressure rising", "Turn left", "Look up a little", "This game has its own mouse pointer", "The mouse turns the view in this game", "Is a game controller connected?", "What do the buttons on my controller do?", "Turn on controller mode", "Make the X button on my controller click the New Game button", "Give this program a hotkey, NVDA+alt+1, that clicks the Options button") | Which job both models choose, and the forms | 106 of 109 got the fitting job from both models, four of them after looking again; all 13 new ones did, and every older mouse request (click, hold, hover, the gestures, the timed clicks, scroll, zoom, drag, pointer mode, the dials). For "Swipe left with three fingers" the coder model first chose the mouse's gesture and took the touch on looking again. One fault of the test itself was found first: it had no stand-in for making a hotkey, so the models could not choose that job at all and both clicked the button; with the stand-in added both chose the hotkey, also for a key. The three that did not get a fitting job: "Name the focused button Share on this website" and the second half of "Do a deep query of this control and tell me how a sighted person works it", as in 1.1.0; and "How do I bake a cake?", which both models chose to plan themselves, so that it took 79 seconds and one question to the user before the right answer came, that nothing was found. That request was run again without the new jobs and went the same way, so it does not come from this change |
 
 What the measurement shows, and what it does not. The models send requests in words to the right job, and
-tell a drawn control that says how it is worked. Nothing here touched a real screen: `InjectTouchInput` and
-`InjectSyntheticPointerInput` were never called with a finger or a pen down, so whether Windows takes the
-structures as VisionClaw fills them in is not known. What is known: the structures have the sizes of
-Microsoft's own on this computer (96, 144, 120 and 152 bytes in a 64-bit Python), and Windows 11 here gives a
-program a pen (`CreateSyntheticPointerDevice` gave one, which was given back unused). The window of
-`tests/live_touch.py` was opened and closed without a touch. No game was run: that a game sees a movement made
+tell a drawn control that says how it is worked. For the release itself nothing touched a real screen. After
+it, on 2026-11-18 and with the owner's yes, `python tests/live_touch.py --yes` was run once on the owner's
+computer (Windows 11, 64-bit Python; NVDA had no part in it, and whether the computer has a touch screen was
+not looked at). Inside its own small window
+that never takes the focus it made one pinch and one pen stroke, and printed what Windows told that window:
+48 touches by 2 fingers, which began 160 pixels apart and ended 28 apart, pressing at 512 of 1024; and 15 pen
+reports whose pressure went from 154 to 1024 of 1024. So Windows takes the fingers and the pen as
+`touchinput.py` makes them, and a window is told the pressure that was asked for. That is one window of the
+test's own: no real program was touched, and it says nothing of what a program does with a touch. The
+structures have the sizes of Microsoft's own on this computer (96, 144, 120 and 152 bytes in a 64-bit
+Python). No game was run: that a game sees a movement made
 by `mouse_event` as it sees a hand is how Windows is documented to hand on such input, and it is not tried
 here. No controller was plugged in: `XInputGetState` and the joystick interface were never read with one
 there, the buzz was never felt, and how the pointer feels under a real stick is not known. In NVDA 2024.1 to
 2025, which are 32-bit, the structures are smaller by Windows' own rules; that was not run.
 
+## The developer guides put to use, add-ons by what the user wants, NVDA Coach (1.3.0, 2026-11-18)
+
+The owner asked for four things in one sitting: that the downloaded developer guides be used with fitting
+skills, retrieval, memory and system prompts, for VisionClaw's own abilities and the features that came from
+VisionMate; that VisionClaw search and apply NVDA's user guides, help and free training material; that it
+work with the add-on NVDA Coach, only when asked and with as much help as asked; and that it notice the
+installed add-ons, learn what they do and bring them in for what the user wants. Three tools and three
+recipes more, which makes 71 tools and 66 recipes: `guides_info`, `remove_guides`, `coach`. Four skills more,
+46 in all, seven of them for the add-ons the models write. New files: `claw/addons.py`, `tests/test_guides.py`,
+`tests/live_addon_guides.py`, `tests/live_followup.py`. Released as 1.3.0 with the four sections that follow.
+
+What was found in the guides as VisionClaw had kept them, on the owner's computer:
+
+- **Code examples were cut up.** `knowledge.sections` took every line that begins with # for a heading, also
+  a comment inside an example, so that "Developer guide example 2" was a section whose body was bare code.
+  And `guides.tidy` took the indentation off every line outside a fence, which is how the add-on guide writes
+  most of its examples: their Python was no longer Python. Both are corrected (`guides.cut`, `guides.tidy`).
+  Copies kept by 1.1.0 and older are still read, and the user is told to ask for the guides once more.
+- **The writer of an add-on never saw the guides**, although the message after the download said so: its notes
+  came from two of VisionClaw's own files only. The message now says what is true.
+- **Nothing could say which guides are on the computer.** `guides.storedText` existed and was called nowhere.
+
+What exists now:
+
+- **The guides read three ways** (`claw/guides.py`): sections of plain sentences without code, for questions
+  and speech; single facts, one line for one name of NVDA's code (98 in the two real guides: items of lists
+  such as "api.getFocusObject(): Retrieves the focused control", and rows of the table of the add-on guide
+  that says what is wanted and how it is written); and which guides are here, from which day.
+- **For the writer of an add-on** (`nvdatools.coderNotes`, `guideLines`): the facts the request names, whose
+  names this NVDA still has (`nvdatools.nvdaHas`), that are NVDA's own and allowed in a small add-on, and that
+  name something the model is not told anyway. `prompts.CODE_GUIDE` goes with them and only with them.
+- **For answers**: `prompts.DEV_GUIDE` when what was looked up is from the guides, `prompts.ADDON_HELP` when it
+  is from an add-on; the skills `developer-guides`, `addon-by-the-guides`, `work-with-add-ons`,
+  `as-much-help-as-asked`; what the user asked to be remembered about how much help they want
+  (`memories.helpWanted`) with every answer a model words. A question about writing for NVDA that finds
+  nothing says how to get the guides when they are not on the computer.
+- **Add-ons** (`claw/addons.py`, `accesstools.installedAddons`): every installed add-on read from the running
+  NVDA as plain data; `addon_info` without a name finds the add-ons that say they do what the user wants.
+- **NVDA Coach** (`coach`): read from its source at 1.6.0. A hint, one step, a whole lesson, the list, the
+  progress, or its own window, by the user's own words. Without it, "teach me how to" is answered by `look_up`.
+- **NVDA's list of what is new** for its newest three versions, read from the file that comes with NVDA, asked
+  only about what is new, changed or fixed.
+- **The description window**: a question about a key is given the one NVDA command it is about.
+
+How it was tested:
+
+- `tests/test_guides.py` (plain, new): an indented example kept whole and its comment no heading; the list of
+  contents left out; sentences without code; facts from items and rows and never from an example; which facts
+  seven requests get, and that five get none; a name NVDA no longer has left out; guides kept by 1.1.0 read;
+  the record, its age, deleting; the instructions chosen by where lines are from; three made-up add-ons asked
+  what they do, one of them turned off; NVDA Coach's lessons from made-up files, ten requests sorted by how
+  much help they ask for, a hint that does not give the step, the progress; the list of what is new with what
+  is for developers left out; five commands and nine questions of the description window; where sixteen
+  requests are sent; the skills chosen.
+- `tests/test_nvda_stub.py`: `nvdaHas` on a made-up module; `update_guides` with a guide that has a fact;
+  `guideLines` and `coderNotes`; `guides_info` and `remove_guides` saying no and yes; `addon_info` with a wish;
+  `coach` without the add-on (by name, and "teach me", which goes on to `look_up`), with a stand-in for it
+  (hint, step, list, its command run once), and with it turned off.
+- `python tests/run_all.py`: all 24 files pass.
+- **The real guides.** The two guides were fetched once by hand on 2026-11-18 from the two addresses in
+  `guides.SOURCES` and kept with the new code: 96 and 120 sections, 98 facts. The copy VisionClaw 0.8.0 had
+  downloaded on the owner's computer on 2026-11-17 was read with the new code as well: 213 sections, 98 facts.
+- **NVDA Coach's real lessons.** Its six English lesson files were read from its repository: 45 lessons in six
+  chapters, as its own description says. Eleven requests found the right lesson ("the speech rate" finds
+  "The Synth Settings Ring", "the NVDA menu" finds "Meet Your NVDA Key").
+- **NVDA's real list of what is new** on this computer (2026.3.1): 22 sections, 117 passages from three versions.
+- `tests/live_addon_guides.py` with Qwen2.5 Coder 1.5B writing and Qwen3.5 9B reviewing. First run, six
+  add-ons, every fitting fact given: with the guides 4 of 5 passed, without them 4 of 5. "Beep when a link gets
+  the focus" passed without and failed with (the line about api.getFocusObject led to a key command); "tell me
+  when the name of the focused control changes" failed without and passed with (the line named the event).
+  Second run, nine add-ons, after facts the model is told anyway were left out: two requests got a line, and
+  both passed with and without it. **So: no harm any more, and no gain measured.** VisionClaw's own notes
+  already name what everyday add-ons need. Two failures have nothing to do with the guides and are left for
+  phase 5: the name-change add-on is written as a key command, and the live-region add-on does not use
+  event_liveRegionChange.
+- `tests/live_followup.py` with Qwen3.5 9B, three runs. First, with lines of the user guide and the developer
+  guides: the title right where it had been made up; the status bar wrong (the text was cut so that another
+  row's key was left); a line that was not about the question repeated as the answer; and for a question about
+  add-ons an invented key where the model had said before that the picture does not show this. After the
+  narrowing to one named command with a key: the title, the status bar and the NVDA menu went from a made-up
+  key ("Alt and then S", "Control plus F10", "Control plus Alt plus M") to the right one; a command that was
+  not the answer was ignored once ("move the mouse to this button") and repeated once ("copy this text" got
+  NVDA's review copy, NVDA+F10, where Control+C is meant); questions about the picture were asked as before.
+
+Free help and training material, researched on 2026-11-18 by fetching every address; nothing was added:
+
+- Clearly licensed (GPL v2 or later): only NVDA's own documentation. It is on the computer already, in the
+  user's language. `download.nvaccess.org/documentation/` also has it in 52 languages and for older versions.
+- Free to read, for blind users, no licence stated: the NVDA wiki on GitHub, among it "Switching from JAWS to
+  NVDA", "Switching from Window-Eyes to NVDA", a FAQ that calls itself out of date, and working the Office
+  ribbon. The host is one VisionClaw may already ask (`raw.githubusercontent.com`).
+- Free to read, all rights reserved: the American Foundation for the Blind's "Learn NVDA" lessons as
+  transcripts (2016; the page says "we encourage you to share them"), Hadley's NVDA Screen Reader Series as
+  transcripts, the California School for the Blind's practice lessons, NV Access's Get Help page.
+- For testers and developers, clearly licensed: WebAIM's NVDA article and list of keys (free with credit),
+  the Accessibility Developer Guide (MIT).
+- Not to be used: NV Access's Basic Training (paid; its free sample forbids reuse), Deque University (forbids
+  copying), and sites that answer programs with a challenge (OpenLearn, Pressbooks, Mozilla Support).
+
+**Not tested, and not known:** anything of this inside NVDA. `nvdaHas` on NVDA's real modules, where a module
+that makes names when asked cannot be told. The `coach` tool with the real NVDA Coach installed: finding it
+among the add-ons, its lessons' folder in the installed add-on, its progress file, and running its command,
+which in Excel is left to NVDA. Lessons of NVDA Coach in other languages, where "Press Enter to continue" is
+worded differently and stays in a step. `installedAddons` with the owner's 20 add-ons: how long reading every
+help page takes on each request. Whether the suggested small vision model keeps to the command it is given in
+the description window: only the 9B model was on the computer. Whether a larger coder model gains from the
+lines of the guides. Skills and the memory of how much help is wanted were not measured with a model.
+
+## Free training material, everything as Markdown, a hand on the mouse (1.3.0, 2026-11-18)
+
+The owner said yes to three sources of free training material by name, the NVDA wiki, AFB and Hadley, and
+asked that the user can request them through VisionClaw and that skills, retrieval, memory and system prompts
+make use of them; that all guides, wikis and other material be kept as Markdown files; and that VisionClaw
+adapt, also to the times a blind user works a game controller or a real mouse. Three tools and three recipes
+more, which makes 74 tools and 69 recipes: `update_training`, `training_info`, `remove_training`. Three
+skills more, 49 in all. New files: `claw/training.py`, `claw/helpfiles.py`, `tests/test_training.py`.
+
+- **Training material** (`claw/training.py`): 18 pages. Six of the NVDA wiki (coming from JAWS, coming from
+  Window-Eyes, the ribbon of Office, which programs work with NVDA, more voices, the log), kept as the
+  Markdown they are; the eight lessons of AFB's "Learn NVDA" from 2016 and Hadley's four workshops, as the
+  transcripts on their pages, without the sites' menus, players and offers. The wiki's FAQ was left out: it
+  says of itself that it is out of date. Every file says at its top where it is from and whose it is.
+- **Asked for in words**: "get the free NVDA training material" asks first, naming every site and the 18
+  requests, whatever the settings say. "Which training material do I have", "open the training material
+  folder", "delete the training material".
+- **Retrieval**: a source of its own after NVDA, the program, the window and Windows; every page asked only
+  about what it is about. What VisionClaw remembers about the user opens a page too: "I come from JAWS", said
+  once, is kept without being asked for, and the page for people from JAWS is then asked for every question.
+- **System prompt**: `prompts.TRAINING_HELP`, chosen when an answer is made from the material.
+- **Skills**: `training-material`, `coming-from-another-screen-reader`, `hand-on-the-mouse`.
+- **Everything as Markdown** (`claw/helpfiles.py`): NVDA's user guide, its list of what is new and each
+  add-on's help are turned into Markdown files in the folder `help` of VisionClaw's data the first time they
+  are asked, made again when the page they came from is newer or another one, and read from there. This also
+  ends the reading of every add-on's page of help on each request about add-ons.
+- **A skill can take the place of another** (`instead of:`): `hand-on-the-mouse` instead of
+  `mouse-from-keyboard`, so that a user with a hand on the mouse is not told to use the keyboard.
+
+How it was tested:
+
+- `tests/test_training.py` (plain, new): only the three sources, 18 addresses over https from the servers
+  named; the question; a made-up lesson page kept without menus, form, player, offers and speaker marks, and
+  a teaser left out; files with where they are from; a page that is not the page, and a site that cannot be
+  reached, leaving the earlier copy; passages with their gates, asked with and without the word JAWS, with and
+  without a memory that names it, with and without "teach me"; the instruction chosen for every source; five
+  things a user says about themselves kept; eleven requests sent to the right recipe; the skills chosen and
+  the one that takes another's place; a page of help kept as Markdown, read again without being made again,
+  made again when the page changes or is another one, and read as it is when the file cannot be written.
+- `tests/test_nvda_stub.py`: `update_training` saying no and yes with a stand-in for the internet, the servers
+  and the size limit handed to the download; `training_info`; `look_up` giving a lesson only to "teach me",
+  and the page for people from JAWS only once VisionClaw remembers it; the user guide and the stand-in
+  add-on's help written as Markdown files; `remove_training`.
+- `python tests/run_all.py`: all 25 files pass.
+- **The real pages.** All 18 were fetched once by hand on 2026-11-18 and kept with the new code: 4 to 30
+  kilobytes each, 539 passages. Seventeen questions were asked of them together with NVDA's real user guide
+  and every real command: questions that name JAWS, Window-Eyes, the ribbon, voices or the log were answered
+  from the wiki; "teach me how to move around a web page" from AFB's lesson on the internet; ordinary
+  questions from NVDA's own help as before. Which passage of a spoken lesson is picked is rough: a transcript
+  is talk, and the piece found is sometimes beside the point.
+- `tests/live_orchestrator.py` with Qwen3.5 9B and Qwen2.5 Coder 1.5B, before the three training recipes were
+  added: 115 requests, all done, none failed. "Which developer guides do I have", "Delete the developer
+  guides", "Give me a hint about browse mode", "Coach me on reading the current line", "Open NVDA Coach" and
+  "Is there an add-on that tells me the date" each went to the right recipe, both models agreeing.
+- The same run again after the three training recipes were added: 120 requests, all done, none failed. "Get
+  the free NVDA training material", "Which training material do I have" and "Delete the training material"
+  each went to the right recipe, both models agreeing. "I am using my real mouse. How do I hear what is under
+  the pointer?" was answered with NVDA+M for mouse tracking and NVDA+control+M for the mouse settings, and was
+  not sent back to the keyboard: the skill `hand-on-the-mouse` reached the answer. "I'm coming from JAWS. What
+  is the JAWS cursor called in NVDA?" was answered "The information provided does not state" this, which is
+  right for this test: its stand-in for `look_up` has no page of the wiki, so the model said so instead of
+  guessing. With the wiki downloaded, in NVDA, that question is not tested. `downloads_info` was added after
+  this run had started and was not in it.
+
+**Not tested, and not known:** anything of this inside NVDA. The add-on's own download code (`net.fetchText`)
+has not fetched the 18 pages; afb.org and hadleyhelps.org may answer it differently than they answered a plain
+request. How the answers read when a model words a passage of a transcript: only which passages are found was
+looked at. The skills `hand-on-the-mouse`, `coming-from-another-screen-reader` and `training-material` were
+not measured with a model. Whether a lesson from 2016 contradicts NVDA 2026 anywhere: the instruction says
+NVDA's own guide is right, and that was not measured either. Turning the user guide into Markdown takes a
+moment the first time a question is asked; how long inside NVDA is not known.
+
+## Guides that come with every build (1.3.0, 2026-11-18)
+
+The owner asked that all guides and all training material, being Markdown, be included with every build.
+What each owner allows was read the same day. Shipped: the NVDA Developer Guide (NV Access; GNU General Public
+License, version 2 or later; `copying.txt` in the folder it is downloaded from), 96 sections, 108 kilobytes,
+in `claw/shipped/guides`, with its owner and licence in its first line. Not shipped, and why: the NVDA Add-on
+Development Guide (the repository nvdaaddons/DevGuide has no licence file and GitHub reports none; its page
+asks to respect its authors' copyright), the NVDA wiki's pages (no licence stated), AFB's lessons (copyright
+AFB) and Hadley's workshops ("All rights reserved"). Those four are downloaded when the user asks, as before.
+No owner has been asked for permission yet.
+
+- `guides.MAY_SHIP`, `guides.shipped`, `tools/update_shipped_guides.py`, a check in `build.py`.
+- A user who downloaded nothing has 95 sections of the Developer Guide for questions, and 2 single facts for
+  the writing of add-ons: nearly all facts are in the Add-on Development Guide, which is not shipped.
+- Tested: `tests/test_guides.py` part 10 (only what `MAY_SHIP` names is in the folder; the file's first line;
+  read without a download; a downloaded copy used in its place and the shipped one back after deleting; a
+  file that may not be shipped is never read from the folder), and in `tests/test_nvda_stub.py` `guides_info`,
+  `remove_guides` and `search_help` with the shipped guide. `build.py` itself was not run, so as not to write
+  over the 1.2.0 package in `dist`; that it packs every file under `addon` was read in its code.
+
+## Telling the user what can be downloaded (1.3.0, 2026-11-18)
+
+The owner asked that the user be able to find out what VisionClaw can download for them. New: `claw/offers.py`,
+the tool and recipe `downloads_info` (75 tools, 70 recipes), the button "What VisionClaw can download for you"
+in the settings, `orchestrator._offered`, the file `offered.json`.
+
+- **Asked for**: "what can you download for me" gives the overview, said as it is: the developer guides, the
+  training material, notes on a program, a newer version, newer models, which of it is here, the words for each.
+- **Told once**: one sentence after an answer that it fits, each said once ever.
+- Tested in `tests/test_training.py` part 7 (the overview; nine sentences the user is told to say, each sent
+  to the recipe it names; each offer said once, also in another session; nothing offered that is here, after a
+  request about downloading, or after a change of a setting; a file that cannot be written) and in
+  `tests/test_nvda_stub.py` (the tool; the sentence after a request that was done, not a second time, not
+  after one that failed).
+- **Not tested:** the button in the settings and its window, which need NVDA; the sentence spoken at the end
+  of a real answer; `downloads_info` among the recipes the real models choose from, which was added after the
+  last run of `tests/live_orchestrator.py` had started.
+
 ## What was not tested
 
 - **Fingers, pressure, games that read the mouse directly and a game controller (1.2.0)** were tested with
   stand-ins for Windows, the mouse and the controller, with a game drawn by the test, and with the real models
-  on drawn pictures and on requests in words. Not tried at all: a real touch or pen stroke taken by Windows
-  (`python tests/live_touch.py --yes` shows it, inside its own window); a real program that takes touch, and
-  one that does not; a drawing program that follows a pen's pressure; NVDA's own touch handling put aside on
+  on drawn pictures and on requests in words. A real pinch and a real pen stroke were taken by Windows once,
+  inside the own window of `python tests/live_touch.py --yes` (2026-11-18, see above). Not tried at all: a
+  real program that takes touch, and one that does not; a drawing program that follows a pen's pressure; NVDA's own touch handling put aside on
   a computer with a touch screen; a real game whose view the mouse turns, and one that draws its own pointer,
   with its pointer measured; a real controller, of Xbox's kind and of another make, in a real hand, with its
   buzz; and all of it in a 32-bit NVDA.
@@ -1246,9 +1469,9 @@ there, the buzz was never felt, and how the pointer feels under a real stick is 
 
 ## Next session
 
-First, with the owner's yes: `python tests/live_touch.py --yes`, which shows in a minute whether Windows takes
-the fingers and the pen as VisionClaw makes them. If it does not, fix `touchinput.py` before anything else.
-Then phase 3.5: install the build in NVDA (ask the owner first), walk through `docs/TESTPLAN.md`, fix what breaks.
+`python tests/live_touch.py --yes` was run on 2026-11-18 with the owner's yes: Windows took the fingers and
+the pen, and `touchinput.py` needed no change. Run it again, after asking, when `touchinput.py` changes.
+Phase 3.5: install the build in NVDA (ask the owner first), walk through `docs/TESTPLAN.md`, fix what breaks.
 Then download the two suggested models and repeat `tests/live_orchestrator.py` with them.
 
 Found on 2026-11-18 and left open: with Qwen3.5 9B and Qwen2.5 Coder 1.5B, "Name the focused button Share on

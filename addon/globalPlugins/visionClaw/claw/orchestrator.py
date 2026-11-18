@@ -72,6 +72,8 @@ class Orchestrator:
 		# The user's choice of whether the models are asked one small question at a time: auto, always, never.
 		self.stepwise = lambda: policy.AUTO
 		self.memories = None
+		# offer(request, recipes) gives a sentence about what can be downloaded, or ""; set by the add-on.
+		self.offer = None
 		self.program = lambda: ""
 		self.remembering = lambda: memoriesModule.AUTO
 		# The skills: VisionClaw's own and the user's (claw/skills.py), or None.
@@ -182,6 +184,10 @@ class Orchestrator:
 		kept = self._keep(task)
 		if kept:
 			answer = f"{answer.rstrip()}\n{kept}" if answer else kept
+		# One sentence, said once, that something which fits this request can be downloaded (claw/offers.py).
+		offered = self._offered(task, request, recipes)
+		if offered:
+			answer = f"{answer.rstrip()}\n{offered}" if answer else offered
 		task.answer = answer
 		task.emit(taskModule.ANSWER, answer)
 		task.setState(taskModule.DONE, "Finished.")
@@ -211,6 +217,17 @@ class Orchestrator:
 			f"\"{request}\": following the skill {skill.name}, step by step as it is written: "
 			+ "; ".join(planner.label(recipe) for recipe in recipes) + "."))
 		return steps + [planner.answerStep()], "skill", recipes
+
+	def _helpWanted(self):
+		"""What the user asked to be remembered about how much help an answer gives; a fault never ends the
+		request, because this only helps."""
+		if self.memories is None:
+			return []
+		try:
+			return self.memories.helpWanted()
+		except Exception as e:
+			debuglog.error("memories", "The memories about answers could not be read", e)
+			return []
 
 	def _context(self, request):
 		parts = []
@@ -371,8 +388,12 @@ class Orchestrator:
 			guide = skillsModule.guide(getattr(task, "skills", ()), anyRecipe={s.recipe for s in self._work(task)})
 			if guide:
 				user += f"\n{guide}"
+			# How much help the user said they want, kept among their memories, goes with every answer.
+			wanted = self._helpWanted()
+			if wanted:
+				user += "\nThe user asked VisionClaw to remember this about answers:\n" + "\n".join(f"- {line}" for line in wanted)
 			try:
-				summary = llm.text(self.lead, prompts.speaking(_ANSWER_TASK), user, maxTokens=params.answerTokens, reasoning=params.reasoning)
+				summary = llm.text(self.lead, prompts.speaking(_ANSWER_TASK, found=user), user, maxTokens=params.answerTokens, reasoning=params.reasoning)
 			except LLMError:
 				summary = ""
 			pieces.append(" ".join((summary or "").split()) or " ".join(result for _part, result in info))
@@ -469,6 +490,20 @@ class Orchestrator:
 		task.setState(taskModule.WORKING, f"Doing the missing part: {len(extra) - 1} more steps.")
 		self._runSteps(llm, task, request, params, start=len(done))
 		return self._answer(llm, task, request, params)
+
+	def _offered(self, task, request, recipes):
+		"""What the user is told once about what can be downloaded, after a request that it fits and that was
+		done; "" when there is nothing to say. Plain code decides, and a fault never ends the request."""
+		if self.offer is None or self._allFailed(task):
+			return ""
+		try:
+			said = self.offer(request, [recipe for recipe in recipes if recipe]) or ""
+		except Exception as e:
+			debuglog.error("offers", "What can be downloaded could not be offered", e)
+			return ""
+		if said:
+			debuglog.log("offers", f"Said once after {request!r}: {said!r}")
+		return said
 
 	def _keep(self, task):
 		"""Keeps what the user said about themselves or how they like things done, when nothing else in the

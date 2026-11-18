@@ -20,12 +20,16 @@ NVDA, APP, WINDOW, SYSTEM = "nvda", "app", "window", "system"
 # Asked after those four, every time: the documents the user put into VisionClaw's library (claw/library.py),
 # and what the user asked VisionClaw to remember (claw/memories.py).
 LIBRARY, MINE = "library", "mine"
+# Free material that teaches NVDA, downloaded when the user asked for it (claw/training.py). It was written by
+# others than NV Access and some of it for an older NVDA, so among equals it comes after what NVDA, the
+# program, the window and Windows say themselves.
+TRAINING = "training"
 # The order in which the sources are asked, and in which equally good answers are given.
 ORDER = (NVDA, APP, WINDOW, SYSTEM)
-RANK = ORDER + (LIBRARY, MINE)
+RANK = ORDER + (TRAINING, LIBRARY, MINE)
 ORIGINS = {
 	NVDA: "NVDA", APP: "this program", WINDOW: "this window", SYSTEM: "Windows", LIBRARY: "your library",
-	MINE: "what you asked VisionClaw to remember"}
+	MINE: "what you asked VisionClaw to remember", TRAINING: "the training material"}
 TOOL = "look_up"
 # Questions about the interfaces through which programs tell screen readers what is on the screen. Notes on
 # them would answer everyday questions with how a program is made ("button" is an ARIA role), so they are
@@ -51,6 +55,12 @@ _INPUTS = re.compile(
 	r"\b(controllers?|game ?pads?|joy ?pads?|joysticks?|xbox|playstation|triggers?|thumb ?sticks?|bumpers?|d-?pad|"
 	r"pinch\w*|fingers?|touch\w*|pressure|stylus|mouse ?look|own (mouse )?(pointer|cursor)|reads? the mouse|"
 	r"direct mouse|turns? the view|first[- ]person)\b", re.IGNORECASE)
+# NVDA's own list of what is new in its newest versions. Every line of it names something NVDA does, so it is
+# asked only when the question is about what is new, what changed or was fixed, or a version.
+_NEWS = re.compile(
+	r"\bwhat('s| is| was) (new|changed|fixed|different)\b|\bnew (in|features?|versions?|things?)\b|\brelease notes?\b"
+	r"|\b(latest|newest|this|last|new|current) (version|release|update)\b|\bchange ?log\b|\b20\d\d\.\d\b"
+	r"|\bnvda\b.*\b(changed|changes|fixed|fixes)\b|\b(changed|changes|fixed|fixes)\b.*\bnvda\b", re.IGNORECASE)
 # Where each knowledge file belongs, and what it is called when an answer is taken from it, and, for some,
 # what a question or the program in front must name for the file to be asked. A file that is not listed is
 # NVDA's.
@@ -63,6 +73,7 @@ NOTES = {
 	"making-apps-accessible": (NVDA, "VisionClaw's notes"),
 	"making-websites-accessible": (NVDA, "VisionClaw's notes"),
 	"guides": (NVDA, "NVDA's developer guides"),
+	"changes": (NVDA, "NVDA's list of what is new", _NEWS),
 	"api-uia": (SYSTEM, "VisionClaw's notes on UI Automation", _API),
 	"api-msaa-ia2": (SYSTEM, "VisionClaw's notes on MSAA and IAccessible2", _API),
 	"api-aria": (SYSTEM, "VisionClaw's notes on ARIA for web pages", _API),
@@ -126,6 +137,8 @@ _SENTENCE = re.compile(r"(?<=[.!?;])\s+")
 # Different words people use for one thing. Kept short: only what real questions were seen to miss.
 _SAME = {
 	"talk": "speak", "speech": "speak", "spoken": "speak", "app": "program", "applic": "program", "exit": "quit",
+	# "focus" loses its s as if it were many of something, and "focused" does not.
+	"focu": "focus",
 	"pc": "comput", "laptop": "comput", "tray": "notific", "erase": "delet", "remov": "delet",
 }
 
@@ -249,6 +262,49 @@ def chunks(body, chars=PASSAGE_CHARS):
 	return found
 
 
+def _helpText(part):
+	"""What is under one heading of a page of help, as sentences."""
+	body = re.sub(r"<th\b[^>]*>.*?</th>", " ", part, flags=re.DOTALL | re.IGNORECASE)
+	body = re.sub(r"</td>\s*<td\b[^>]*>", ", ", body, flags=re.IGNORECASE)
+	body = re.sub(r"</(tr|li|p|dd|dt)>", "; ", body, flags=re.IGNORECASE)
+	body = " ".join(html.unescape(re.sub(r"<[^>]+>", " ", body)).split())
+	# Tidy what the joining left behind: "text. ;" and "; ;".
+	body = re.sub(r"\s+([;,.])", r"\1", body)
+	return re.sub(r"([.!?:;,])[;,]+", r"\1", body).strip(" ;,")
+
+
+# NVDA's own list of what is new, which comes with NVDA as changes.html: how many of the newest versions are
+# read, and how a version's heading looks. The whole list goes back to 2006 and is over a megabyte.
+NEWS = "changes"
+NEWS_VERSIONS = 3
+_VERSION = re.compile(r"^\d{4}\.\d+(\.\d+)*$")
+
+
+def newsSections(page, versions=NEWS_VERSIONS):
+	"""NVDA's list of what is new as (title, text) for its newest versions, every title saying which version
+	it is about: "New in NVDA 2026.3: New Features". What is written for developers is left out."""
+	page = re.sub(r"<(script|style)\b.*?</\1>", " ", page or "", flags=re.DOTALL | re.IGNORECASE)
+	parts = re.split(r"<h[1-4][^>]*>(.*?)</h[1-4]>", page, flags=re.DOTALL | re.IGNORECASE)
+	found, version, seen = [], "", 0
+	for at in range(1, len(parts) - 1, 2):
+		title = " ".join(html.unescape(re.sub(r"<[^>]+>", "", parts[at])).split())
+		if _VERSION.match(title):
+			seen += 1
+			if seen > versions:
+				break
+			# The first one is the newest: said so, because that is how it is asked for.
+			version = title if seen > 1 else f"{title}, the latest version"
+			heading = f"What is new in NVDA {version}"
+		elif not version or re.search(r"developer", title, re.IGNORECASE):
+			continue
+		else:
+			heading = f"New in NVDA {version}: {title}"
+		body = _helpText(parts[at + 1])
+		if len(body) > 40:
+			found.append((heading, body))
+	return found
+
+
 def htmlSections(page):
 	"""A web page of help, such as NVDA's user guide, as (title, text) at its headings. A table's heading row
 	is left out, because "Name, Desktop key, Laptop key" says nothing and would make every table look as if it
@@ -258,13 +314,7 @@ def htmlSections(page):
 	parts = re.split(r"<h[1-4][^>]*>(.*?)</h[1-4]>", page, flags=re.DOTALL | re.IGNORECASE)
 	for at in range(1, len(parts) - 1, 2):
 		title = " ".join(html.unescape(re.sub(r"<[^>]+>", "", parts[at])).split())
-		body = re.sub(r"<th\b[^>]*>.*?</th>", " ", parts[at + 1], flags=re.DOTALL | re.IGNORECASE)
-		body = re.sub(r"</td>\s*<td\b[^>]*>", ", ", body, flags=re.IGNORECASE)
-		body = re.sub(r"</(tr|li|p|dd|dt)>", "; ", body, flags=re.IGNORECASE)
-		body = " ".join(html.unescape(re.sub(r"<[^>]+>", " ", body)).split())
-		# Tidy what the joining left behind: "text. ;" and "; ;".
-		body = re.sub(r"\s+([;,.])", r"\1", body)
-		body = re.sub(r"([.!?:;,])[;,]+", r"\1", body).strip(" ;,")
+		body = _helpText(parts[at + 1])
 		# The page's own title and its table of contents name everything and say nothing.
 		if title and len(body) > 40 and at > 1 and not re.search(r"table of contents", title, re.IGNORECASE):
 			found.append((title, body))
@@ -462,9 +512,11 @@ def saidWords(question, limit=4):
 	return found[:limit]
 
 
-def nothingText(question, program="", window="", notes=None, library=False, memories=False):
+def nothingText(question, program="", window="", notes=None, library=False, memories=False, guides=None):
 	"""The honest answer when none of the sources says anything about what was asked. notes: whether VisionClaw
-	has notes on the program, where that is known; without them it says how to get some."""
+	has notes on the program, where that is known; without them it says how to get some. guides: whether the
+	developer guides are on this computer, where that is known; a question about writing for NVDA that found
+	nothing without them says how to get them."""
 	named = saidWords(question)
 	what = " or ".join(named) if named else "that"
 	where = "NVDA's commands and user guide"
@@ -476,6 +528,10 @@ def nothingText(question, program="", window="", notes=None, library=False, memo
 	where += ", what you asked VisionClaw to remember" if memories else ""
 	head, _comma, last = where.rpartition(", ")
 	text = f"{NOTHING} {what}. Asked were: {head}, and {last}."
+	if guides is False and isDeveloper(question):
+		return text + (
+			" The NVDA developer guides are not on this computer. Ask VisionClaw to get the latest NVDA developer "
+			"guides, and it downloads them after asking you.")
 	if notes is False:
 		text += (
 			" VisionClaw has no notes on this program yet. Ask it to learn about this program, and it reads up on "

@@ -302,7 +302,7 @@ result = guides.update(folder, fetch, today="2026-11-17")
 assert asked == [source["url"] for source in guides.SOURCES] and all(url.startswith("https://") for url in asked)
 assert result == {"got": [("NVDA Developer Guide", 12), ("NVDA Add-on Development Guide", 10)], "failed": []}, result
 assert guides.summary(result).startswith("Downloaded the NVDA Developer Guide and kept it as Markdown, 12 sections.")
-assert guides.stored(folder)["NVDA Developer Guide"] == {"date": "2026-11-17", "sections": 12}
+assert guides.stored(folder)["NVDA Developer Guide"] == {"date": "2026-11-17", "sections": 12, "format": guides.FORMAT}
 loaded = guides.load(folder)
 assert len(loaded) == 22 and loaded[0][0] == "NVDA Developer Guide: Part 0" and loaded[0][2] == "guides", loaded[0]
 # A guide that cannot be fetched, or an answer that is not a guide, leaves the earlier copy in place.

@@ -363,6 +363,40 @@ def makeRegistry(rt, state):
 		"for the models to read; only when the user asks for exactly this",
 		"Downloaded the NVDA Developer Guide and kept it as Markdown, 120 sections.", "Getting the latest developer guides",
 		changes=True, tell=V)
+	simple("guides_info",
+		"say which NVDA developer guides VisionClaw has downloaded to this computer, from which day and where they "
+		"are kept, or open their folder; not for what the guides say about something",
+		"The NVDA Developer Guide by NV Access, downloaded on 2026-11-17, 1 day ago.", "Looking at the developer guides",
+		{"asked": text("what the user asked for, in their own words", maxLength=300, auto=True)}, looks=True, tell=V)
+	simple("remove_guides", "delete the downloaded NVDA developer guides from this computer",
+		"Deleted from this computer: the NVDA Developer Guide and the NVDA Add-on Development Guide.",
+		"Deleting the developer guides", changes=True, tell=V)
+	simple("downloads_info",
+		"say what VisionClaw can download for the user on request, guides, lessons and notes, whether each is on this "
+		"computer already, and what to say to get it; when the user asks what it can download, get or learn from",
+		"VisionClaw can get these for you from the internet. Each is downloaded only when you ask for it.",
+		"Looking at what can be downloaded", looks=True, tell=V)
+	simple("update_training",
+		"download free material that teaches NVDA from the internet, the NVDA wiki, the lessons of the American "
+		"Foundation for the Blind and the workshops of Hadley, and keep it for looking things up; only when the "
+		"user asks for exactly this",
+		"Downloaded 6 pages of the NVDA wiki and kept them as Markdown.", "Getting the free training material",
+		changes=True, tell=V)
+	simple("training_info",
+		"say which training material about NVDA VisionClaw has downloaded to this computer, from which day and "
+		"where it is kept, and where NVDA's own help is kept as Markdown files, or open the folder; not for what "
+		"the material says about something",
+		"6 pages of the NVDA wiki, by NVDA's community, on GitHub, downloaded today.", "Looking at the training material",
+		{"asked": text("what the user asked for, in their own words", maxLength=300, auto=True)}, looks=True, tell=V)
+	simple("remove_training", "delete the downloaded NVDA training material from this computer",
+		"Deleted from this computer: the NVDA wiki.", "Deleting the training material", changes=True, tell=V)
+	simple("coach",
+		"coach the user with the lessons of the add-on NVDA Coach when they ask to be coached, taught or trained, "
+		"or ask for a lesson or a hint: opens NVDA Coach, or gives a hint, one step or a whole lesson from it, says "
+		"which lessons it has, or how far the user is",
+		"From NVDA Coach, the lesson \"About Browse Mode\" in Browse Mode and Web Navigation, a hint: Arrow keys move "
+		"through it just like a regular document.", "Asking NVDA Coach",
+		{"asked": text("what the user asked for, in their own words", maxLength=300, auto=True)}, looks=True, tell=V)
 	simple("scroll_view",
 		"scroll what the window in front shows with the mouse wheel, up, down, left or right, a little, a page or "
 		"to the end; says whether anything moved and how far along the view now stands",
@@ -697,6 +731,20 @@ REQUESTS = (
 	"This program has a dial that is only used by clicking and dragging. Make it work with the keyboard.",
 	"Give me a hotkey for the gain knob.",
 	"Get the latest NVDA developer guides.",
+	# The guides themselves, the add-ons by what is wanted, and NVDA Coach (2026-11-18).
+	"Which developer guides do I have?",
+	"Delete the developer guides.",
+	"Give me a hint about browse mode.",
+	"Coach me on reading the current line.",
+	"Open NVDA Coach.",
+	"Is there an add-on that tells me the date?",
+	# Free training material, another screen reader, and a hand on the mouse (2026-11-18).
+	"What can you download for me?",
+	"Get the free NVDA training material.",
+	"Which training material do I have?",
+	"Delete the training material.",
+	"I'm coming from JAWS. What is the JAWS cursor called in NVDA?",
+	"I am using my real mouse. How do I hear what is under the pointer?",
 	"Do a deep query of this control and tell me how a sighted person works it.",
 	"What model is installed?",
 	"Which AI model are you using?",

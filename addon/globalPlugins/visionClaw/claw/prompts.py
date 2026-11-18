@@ -13,7 +13,9 @@
 #   QUICK, DETAILED, BRIEF  what is asked for when a picture is described quickly, in detail, or in one
 #             sentence (the automatic descriptions);
 #   ADDON     what an add-on written on the fly must be for this user (the owner asked on 2026-11-17 that the
-#             instructions, skills, memories and notes apply to add-ons written on the fly as well).
+#             instructions, skills, memories and notes apply to add-ons written on the fly as well);
+#   CODE_GUIDE, DEV_GUIDE, ADDON_HELP  what holds when lines of the downloaded developer guides come with the
+#             writing of an add-on, and when an answer is made from those guides or from an installed add-on.
 # The user's own instructions and the language of the answers come after them.
 # The owner asked that the user can always put back the original wording after a mistake: VisionClaw's own
 # wording is only ever kept here, in the code, and what the user wrote is kept beside it, so "restore" is
@@ -96,6 +98,36 @@ CODE_PROGRAM = (
 	"It is for one program or game: it checks the name of the program the control belongs to before it does "
 	"anything."
 )
+# Added when lines of the downloaded developer guides come with the request (claw/guides.py): plain code found
+# them by what the add-on is for, and the model is told what they are for. The owner asked on 2026-11-18 that
+# the guides, once downloaded, be used with fitting skills, notes, memories and system prompts.
+CODE_GUIDE = (
+	"Lines from NVDA's developer guides come with the request: write the names of NVDA's functions and modules "
+	"exactly as those lines write them, and use only the ones this add-on needs."
+)
+# For an answer the user hears, added when what was looked up is from the developer guides, or from an add-on
+# that is installed in NVDA. Plain code sees where the lines are from (aboutFound).
+DEV_GUIDE = (
+	"About NVDA's developer guides: They are written for people who write add-ons, and this user may not read "
+	"code. Say in plain words what a line from them means. Spell the names of functions and modules exactly as "
+	"they are written, and read out no lines of code."
+)
+ADDON_HELP = (
+	"About add-ons: When something is from an add-on that is installed in NVDA, say the name of that add-on. Say "
+	"its keys exactly as its help or its command writes them. If the add-on is turned off, say so."
+)
+TRAINING_HELP = (
+	"About training material: A line from the NVDA wiki, from AFB or from Hadley was written by others than the "
+	"makers of NVDA, and some of it for an older NVDA. Say where it is from. Where NVDA's own user guide or "
+	"commands say something else, they are right."
+)
+# How a line that was looked up begins when it is from the developer guides, from an add-on, and from the
+# training material the user had downloaded (claw/lookup.py, claw/training.py).
+_FOUND = (
+	("devGuide", re.compile(r"From NVDA's developer guides:")),
+	("addonHelp", re.compile(r"From (an add-on's help|the add-on\b)")),
+	("trainingHelp", re.compile(r"From (the NVDA wiki|AFB's|Hadley's)\b")),
+)
 # Which words ask for which kind. Plain code decides; nothing is added when nothing fits.
 CODE_KINDS = (
 	("codeKey", re.compile(
@@ -113,11 +145,14 @@ CODE_KINDS = (
 # each kind of add-on must be.
 GLOBAL = ("user", "speaking", "seeing", "addon")
 REQUESTS = ("quick", "detailed", "brief")
-CODE = tuple(name for name, _words in CODE_KINDS)
-PARTS = GLOBAL + REQUESTS + CODE
+CODE = tuple(name for name, _words in CODE_KINDS) + ("codeGuide",)
+# What an answer is told besides, by where the lines it is made from come from.
+ANSWERS = tuple(name for name, _begins in _FOUND)
+PARTS = GLOBAL + REQUESTS + CODE + ANSWERS
 DEFAULTS = {
 	"user": USER, "speaking": SPEAKING, "seeing": SEEING, "addon": ADDON, "quick": QUICK, "detailed": DETAILED,
-	"brief": BRIEF, "codeKey": CODE_KEY, "codeAuto": CODE_AUTO, "codeProgram": CODE_PROGRAM,
+	"brief": BRIEF, "codeKey": CODE_KEY, "codeAuto": CODE_AUTO, "codeProgram": CODE_PROGRAM, "codeGuide": CODE_GUIDE,
+	"devGuide": DEV_GUIDE, "addonHelp": ADDON_HELP, "trainingHelp": TRAINING_HELP,
 }
 # The user's own instructions are cut to this: they are read with every answer, by models with little room.
 OWN_CHARS = 500
@@ -195,9 +230,17 @@ def _build(task, parts, code=False):
 	return "\n".join(lines) + _tail(code)
 
 
-def speaking(task=""):
-	"""The system prompt for an answer the user hears: the task, who the user is, how to word the answer."""
-	return _build(task, ("speaking",))
+def aboutFound(found):
+	"""The parts an answer is told besides, by where the lines that were looked up are from: the developer
+	guides, an installed add-on. Plain code decides, and nothing is added when the lines are from neither."""
+	text = str(found or "")
+	return tuple(name for name, begins in _FOUND if begins.search(text))
+
+
+def speaking(task="", found=""):
+	"""The system prompt for an answer the user hears: the task, who the user is, how to word the answer, and,
+	where what was looked up (found) is from the developer guides or an add-on, what holds for those."""
+	return _build(task, ("speaking",) + aboutFound(found))
 
 
 def seeing(task=""):
@@ -210,12 +253,12 @@ def codeKinds(purpose):
 	return tuple(name for name, words in CODE_KINDS if words.search(str(purpose or "")))
 
 
-def coding(task, purpose=""):
+def coding(task, purpose="", guided=False):
 	"""The system prompt for writing, reviewing or repairing an add-on on the fly: the task's first line, who
 	the user is, the task's own rules, what the add-on must be for this user and for the kinds of add-on the
-	request asks for (purpose: the user's words), the user's own instructions, and the language of what the
-	add-on says."""
-	return _build(task, ("addon",) + codeKinds(purpose), code=True)
+	request asks for (purpose: the user's words), what holds for lines of the developer guides when some come
+	with the request (guided), the user's own instructions, and the language of what the add-on says."""
+	return _build(task, ("addon",) + codeKinds(purpose) + (("codeGuide",) if guided else ()), code=True)
 
 
 def summary():

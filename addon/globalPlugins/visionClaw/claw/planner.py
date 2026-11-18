@@ -162,8 +162,15 @@ RECIPES = {
 		("check_access", "add_fix")),
 	"addon_question": (
 		"answer a question about an installed add-on",
-		"say what one add-on installed in NVDA does, whether it is on, which keys it has, or how to use it",
+		"say what one add-on installed in NVDA does, whether it is on, which keys it has, or how to use it; or "
+		"which of the installed add-ons can do something the user wants",
 		("addon_info",)),
+	"coach": (
+		"coach you with the lessons of NVDA Coach",
+		"coach, teach or train the user in NVDA with the add-on NVDA Coach: open it, give a hint, a step or a whole "
+		"lesson from it, say which lessons it has or how far the user is; only when the user asks to be coached, "
+		"taught or trained, or for a lesson or a hint",
+		("coach",)),
 	"drag": (
 		"drag something with the mouse",
 		"drag an item with the mouse onto another item or in a direction, or move a slider",
@@ -182,6 +189,34 @@ RECIPES = {
 		"download the latest NVDA developer guide and add-on development guide from the internet, for the models "
 		"to read up in",
 		("update_guides",)),
+	"guides_info": (
+		"say which developer guides are on this computer",
+		"say which NVDA developer guides VisionClaw has downloaded, how old they are and where they are kept, or "
+		"open their folder; not a question about what the guides say",
+		("guides_info",)),
+	"remove_guides": (
+		"delete the developer guides from this computer",
+		"delete the downloaded NVDA developer guides from this computer",
+		("remove_guides",)),
+	"downloads_info": (
+		"say what VisionClaw can download for you",
+		"say what VisionClaw can download for the user on request, guides, lessons and notes, whether each is here "
+		"already, and what to say to get it; not for downloading it",
+		("downloads_info",)),
+	"update_training": (
+		"download free material that teaches NVDA",
+		"download free material that teaches NVDA from the internet, the NVDA wiki, the lessons of the American "
+		"Foundation for the Blind and the workshops of Hadley, to look things up in",
+		("update_training",)),
+	"training_info": (
+		"say which training material is on this computer",
+		"say which training material about NVDA VisionClaw has downloaded, how old it is and where it and NVDA's "
+		"own help are kept as Markdown files, or open the folder; not a question about what the material says",
+		("training_info",)),
+	"remove_training": (
+		"delete the training material from this computer",
+		"delete the downloaded NVDA training material from this computer",
+		("remove_training",)),
 	"scroll": (
 		"scroll with the mouse wheel",
 		"scroll what the window shows up, down, left or right with the mouse wheel, a little, a page or to the "
@@ -326,8 +361,31 @@ _HINTS = (
 	("update_visionclaw", r"\b(update|upgrade|updates|new version|newer version|latest version|up to date)\b.*\bvisionclaw\b"
 		r"|\bvisionclaw\b.*\b(update|updates|upgrade|new version|newer version|latest version|up to date)\b"
 		r"|\b(check|look) for (an? |any )?(updates?|new(er)? version)\b"),
+	# What can be downloaded at all. Before the hints for downloading one thing, which its words also have.
+	("downloads_info", r"\bwhat\b.{0,40}\b(can|could|may|would) (you|visionclaw)\b.{0,20}\b(download|fetch|get from the internet|get for me)\b"
+		r"|\bwhat (else )?(can|could) (you|visionclaw) (learn from|read up in|get me)\b"
+		r"|\b(what|which) (other |more )?(guides|help|materials?|lessons|documentation)\b.{0,30}\b(can|could)\b.{0,20}\b(download\w*|get)\b"
+		r"|\bwhat (is|are) (there|available) to download\b|\bdownloadable\b|\bcan be downloaded\b"),
+	# Free material that teaches NVDA, downloaded when asked: deleting it, getting it, and what is here. Before
+	# the hints for being coached, which the words training and lessons would otherwise set off.
+	("remove_training", r"\b(delete|remove|erase|get rid of|throw away)\b.*\b(training|learning|teaching) (material|materials|pages|files|resources)\b"
+		r"|\b(delete|remove|erase)\b.*\b(afb|hadley|wiki)\b.*\b(lessons?|pages?|material|workshops?)\b"),
+	("update_training", r"\b(download|get|pull|fetch|update|refresh|renew)\b.*\b(training|learning|teaching) (material|materials|pages|files|resources)\b"
+		r"|\b(download|fetch)\b.*\b(tutorials|lessons|workshops|training)\b"
+		r"|\b(download|get|fetch|update)\b.*\b(nvda wiki|wiki pages?|afb|hadley)\b"),
+	("training_info", r"^(?!.*\b(says?|said|about|explain|mean|tell me how|how (do|can|to)|teach)\b).*("
+		r"\b(which|what|do i have|have i got|do you have|have you got|are|is|how old|when|where|open|show|list)\b.*"
+		r"\b(training|learning|teaching) (material|materials|pages|files|resources)\b"
+		r"|\b(where|which)\b.*\b(markdown|md) files\b)"),
+	# The developer guides themselves: deleting them, getting them, and which ones are here. What the guides say
+	# about something is a question, and goes to the hints for questions below.
+	("remove_guides", r"\b(delete|remove|erase|get rid of|throw away)\b.*\b(developer|development|dev)\b.*\bguides?\b"),
 	("update_guides", r"\b(download|get|pull|fetch|update|refresh|renew)\b.*\b(developer|development|dev)\b.*\bguides?\b"
 		r"|\b(developer|development|dev) guides?\b.*\b(up to date|latest|newest|download|update)\b"),
+	("guides_info", r"^(?!.*\b(says?|said|about|explain|mean|tell me how|how (do|can|to)|write|according)\b).*("
+		r"\b(which|do i have|have i got|do you have|have you got|are|is|how old|when|where|open|show|list)\b.*"
+		r"\b(developer|development|dev)\b.*\bguides?\b"
+		r"|\b(developer|development|dev) guides?\b.*\b(downloaded|installed|stored|kept|saved|on (this|my) computer|here|old|from)\b)"),
 	# Notes on programs, learned from the internet. Before everything that the words page, list or remove
 	# would otherwise set off.
 	("forget_notes", r"\b(delete|remove|forget|erase|clear|get rid of)\b.*\bnotes?\b"),
@@ -454,6 +512,13 @@ _HINTS = (
 	("open_website", r"\b(open|go to|visit|load|browse to)\b.*(\w\.[a-z]{2,}\b|web ?site|web ?page|\burl\b)"),
 	("fill_field", r"\b(type|enter|write|fill|put)\b.*\b(in|into)\b.*\b(field|box|form|search)\b"),
 	# One add-on, named: "the Clock add-on". Questions about add-ons in general stay with nvda_info below.
+	# Being coached, taught or trained in NVDA, with the add-on NVDA Coach where it is installed. Only where the
+	# user's own words ask for it; "how do I ..." stays a question.
+	("coach", r"\bnvda coach\b|\bcoach(ing)? me\b|\b(teach|train|tutor) me\b|\bgive me (a |some |another )?(hint|lesson|clue)s?\b"
+		r"|\b(a|an|the|my|next|another|first|whole|full) (nvda )?(lesson|tutorial)s?\b|\b(which|what|how many) lessons\b"
+		r"|\bhints? (for|about|on)\b|\bjust a hint\b|\b(start|open|continue|resume) (the |my |nvda )?(coach|training|lessons?)\b"),
+	("addon_question", r"\b(is there|are there|do i have|have i got|which|what|any)\b.{0,30}\badd-?ons?\b.{0,12}\b(for|that|to|can|could|lets?|helps?)\b"
+		r"|\bwhich of my add-?ons\b|\b(use|using|with) (an|my|one of my|any of my) add-?ons?\b"),
 	("addon_question", r"\b(what|how|which|tell me|explain|help|does|is)\b.*\b(the|my) [\w .-]{0,40}add-?on\b(?!s)"
 		r"|\b(about|use|using) (the|my) [\w .-]{0,40}add-?on\b(?!s)"),
 	("nvda_info", r"\b(which|what|list|show|tell me|do i have)\b.*\b(synthesi[sz]ers?|synths?|voices?|braille|drivers?|add-?ons?|version)\b"),

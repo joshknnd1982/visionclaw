@@ -10,6 +10,7 @@
 #   description: what the skill is for, in one line
 #   when: photo, picture, selfie            the words that start it, separated by commas
 #   uses: describe                          the recipes it is for (planner.RECIPES), separated by commas
+#   instead of: another-skill               optional: skills that are not used when this one is, by folder name
 #   steps:                                  optional: a fixed list of recipes, each with the words it is given
 #   - where_am_i
 #   - describe: say what this window shows
@@ -93,11 +94,14 @@ class Skill:
 	"""One skill. slug: its folder name. source: YOURS or OURS. on: whether it is used."""
 
 	def __init__(self, name, description="", when=(), uses=(), steps=(), instructions="", slug="", source=YOURS,
-			path=""):
+			path="", instead=()):
 		self.name = " ".join(str(name or "").split())[:NAME_CHARS]
 		self.description = " ".join(str(description or "").split())[:DESCRIPTION_CHARS]
 		self.when = _phrases(when)
 		self.uses = tuple(_names(uses))
+		# The folder names of skills that say the opposite for the same words: where this one fits, they are not
+		# used. A hand on the mouse is not helped by being told to use the keyboard instead.
+		self.instead = tuple(slugOf(name) for name in _names(instead))
 		self.steps = tuple(
 			(recipe, " ".join(str(words or "").split())[:STEP_WORDS_CHARS]) for recipe, words in steps)[:MAX_STEPS]
 		self.instructions = str(instructions or "").strip()[:INSTRUCTION_CHARS]
@@ -163,7 +167,7 @@ def parse(text, slug="", source=YOURS, path=""):
 		raise SkillError("The skill has no name.")
 	return Skill(
 		head.get("name"), head.get("description", ""), head.get("when", ""), head.get("uses", ""),
-		head.get("steps", ()), "\n".join(body).strip(), slug, source, path)
+		head.get("steps", ()), "\n".join(body).strip(), slug, source, path, head.get("instead of", head.get("instead", "")))
 
 
 def _head(lines):
@@ -204,6 +208,8 @@ def toText(skill):
 	lines.append(f"when: {', '.join(skill.when)}")
 	if skill.uses:
 		lines.append(f"uses: {', '.join(skill.uses)}")
+	if skill.instead:
+		lines.append(f"instead of: {', '.join(skill.instead)}")
 	if skill.steps:
 		lines.append("steps:")
 		lines += [f"- {recipe}: {words}" if words else f"- {recipe}" for recipe, words in skill.steps]
@@ -439,7 +445,9 @@ class Skills:
 				# Among equals, the user's own skill comes first.
 				scored.append((-found, 0 if skill.source == YOURS else 1, skill.name.lower(), skill))
 		scored.sort(key=lambda item: item[:3])
-		chosen = [item[3] for item in scored[:limit]]
+		# A skill that fits takes the place of those it names, wherever they stand.
+		replaced = {slug for item in scored for slug in item[3].instead}
+		chosen = [item[3] for item in scored if item[3].slug not in replaced][:limit]
 		if chosen:
 			debuglog.log("skills", f"Skills chosen for {request!r}: {[skill.slug for skill in chosen]}")
 		return chosen

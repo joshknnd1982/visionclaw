@@ -30,7 +30,8 @@ import inputCore
 from .vclog import log
 
 from . import controlkeys, deepquery, fixruntime, mousetools, nvdainfo, ocr
-from .claw import audit, direct, dragcontrol, fixes, match, microaddons, pointer, policy, scrolling, web, working
+from .claw import addons as addonsModule
+from .claw import audit, direct, dragcontrol, fixes, helpfiles, lookup, match, microaddons, pointer, policy, scrolling, web, working
 from .claw.catalog import CODER, VISION
 from .claw.fixmatch import hostOf, labelOf, matches, nodeFromObject, plainText
 from .claw.llm import LLM, clip
@@ -801,12 +802,61 @@ def _docText(addon):
 	return html.unescape(re.sub(r"<[^>]+>", " ", page))
 
 
+# Where the help of the add-ons is kept as Markdown files (claw/helpfiles.py); set when the tools are made.
+_help = {"dir": ""}
+ABOUT = "About"
+
+
+def _helpSections(page):
+	"""An add-on's page of help as (heading, text) at its headings. What stands before the first heading goes
+	under "About", so that nothing of the page is left out."""
+	page = re.sub(r"<(script|style|head)\b.*?</\1>", " ", page or "", flags=re.DOTALL | re.IGNORECASE)
+	parts = re.split(r"<h[1-4][^>]*>(.*?)</h[1-4]>", page, flags=re.DOTALL | re.IGNORECASE)
+	found = []
+	lead = lookup._helpText(parts[0])
+	if len(lead) > 20:
+		found.append((ABOUT, lead))
+	for at in range(1, len(parts) - 1, 2):
+		title = " ".join(html.unescape(re.sub(r"<[^>]+>", "", parts[at])).split())
+		body = lookup._helpText(parts[at + 1])
+		if title and len(body) > 20:
+			found.append((title, body))
+	return found
+
+
+def addonHelp(addon):
+	"""The help of an add-on as (heading, text), read from its Markdown file in VisionClaw's data folder, which
+	is made from the add-on's own page of help when that is newer or another one. [] when it has none."""
+	path = _safe(lambda: addon.getDocFilePath())
+	if not path or not os.path.isfile(path):
+		return []
+	summary = str(_safe(lambda: addon.manifest["summary"]) or addon.name)
+	if _help["dir"]:
+		dest = os.path.join(_help["dir"], "addons", helpfiles.fileName(addon.name) + ".md")
+		return helpfiles.kept(path, dest, f"The help of the add-on {summary}", _helpSections)
+	with open(path, encoding="utf-8", errors="replace") as f:
+		return _helpSections(f.read(400000))
+
+
+def _helpBlocks(addon):
+	"""The help of an add-on in blocks of a size that is weighed well, each beginning with its heading."""
+	found = []
+	for heading, body in addonHelp(addon):
+		for piece in lookup.chunks(body, 1000):
+			found.append(piece if heading == ABOUT else f"{heading}. {piece}")
+	return found
+
+
 def addonText(wanted, about):
 	"""What an installed add-on is and offers, in sentences that are said to the user as they are, so that a
 	key is never retold wrongly. What comes first depends on what was asked: its keys, or what it does.
 	Main thread."""
 	addon, summary = _addonOf(wanted, about)
 	if addon is None:
+		# No add-on is named. Where the words say what the user wants to do, the add-ons are asked which of them
+		# does it: what each says about itself, its help and its commands, weighed by plain code.
+		if addonsModule.wishOf(about):
+			return addonsModule.wishText(about, installedAddons())
 		if plainText(wanted) in _ANY_ADDON or re.search(r"\b(all|any|which|installed|list|every)\b", str(about).lower()):
 			return nvdainfo.addons()
 		raise ToolError(f"No installed add-on is called \"{wanted}\". {nvdainfo.addons()}")
@@ -840,25 +890,91 @@ def addonText(wanted, about):
 	return "\n".join([first] + (keys + helpText if wantsKeys else does + keys + helpText))
 
 
-def _addonCommands(addon):
-	"""The commands an add-on adds where the user is, each with its keys. Main thread."""
-	root = os.path.join(os.path.normcase(addon.path), "")
+def _commandsByAddon(available):
+	"""The commands each add-on adds where the user is, as {the add-on's own name: [(what it does, its keys)]}.
+	A command belongs to the add-on in whose folder the file of its code is. Main thread."""
+	roots = [(os.path.join(os.path.normcase(addon.path), ""), addon.name) for addon in available if _safe(lambda a=addon: a.path)]
 	focus = api.getFocusObject()
 	mappings = inputCore.manager.getAllGestureMappings(obj=focus, ancestors=api.getFocusAncestors())
-	found = []
+	found = {}
 	for scripts in mappings.values():
 		for info in scripts.values():
 			module = sys.modules.get(getattr(info.cls, "__module__", ""))
 			path = os.path.normcase(str(getattr(module, "__file__", "") or ""))
-			if not path.startswith(root):
+			owner = next((name for root, name in roots if path.startswith(root)), None) if path else None
+			if owner is None:
 				continue
 			keys = []
 			for gesture in info.gestures:
 				shown = _safe(lambda g=gesture: inputCore.getDisplayTextForGestureIdentifier(g)[1])
 				if shown and gesture.startswith("kb") and shown not in keys:
 					keys.append(shown)
-			found.append(f"{info.displayName} ({' or '.join(keys) if keys else 'no key assigned'})")
+			found.setdefault(owner, []).append((str(info.displayName or ""), " or ".join(keys)))
 	return found
+
+
+def _addonCommands(addon):
+	"""The commands an add-on adds where the user is, each with its keys. Main thread."""
+	return [f"{what} ({keys or 'no key assigned'})" for what, keys in _commandsByAddon([addon]).get(addon.name, [])]
+
+
+def addonOwners():
+	"""Which add-on each loaded module belongs to, as {the module's name: what its add-on is called}: a module
+	belongs to the add-on in whose folder its file is. So that a command can be said to be from its add-on.
+	Main thread."""
+	roots = []
+	for addon in list(addonHandler.getRunningAddons()):
+		path = _safe(lambda a=addon: a.path)
+		if path:
+			roots.append((os.path.join(os.path.normcase(str(path)), ""), str(_safe(lambda a=addon: a.manifest["summary"]) or addon.name)))
+	found = {}
+	if roots:
+		for name, module in list(sys.modules.items()):
+			path = os.path.normcase(str(getattr(module, "__file__", "") or ""))
+			owner = next((called for folder, called in roots if path.startswith(folder)), None) if path else None
+			if owner:
+				found[name] = owner
+	return found
+
+
+def _addonState(addon):
+	if _safe(lambda: addon.isDisabled):
+		return addonsModule.OFF
+	return addonsModule.ON if _safe(lambda: addon.isRunning, True) else addonsModule.WAITING
+
+
+def installedAddons():
+	"""Every add-on installed in this NVDA as plain data (claw/addons.py): what it is called, what it says
+	about itself, whether it is on, its commands where the user is, and its help. Read from the running NVDA
+	each time, never from a list kept somewhere. Main thread."""
+	available = list(addonHandler.getAvailableAddons())
+	commands = _safe(lambda: _commandsByAddon(available), {}) or {}
+	found = []
+	for addon in available:
+		manifest = _safe(lambda a=addon: a.manifest) or {}
+		state = _addonState(addon)
+		blocks = _safe(lambda a=addon: _helpBlocks(a), []) or []
+		found.append(addonsModule.Installed(
+			addon.name, _safe(lambda: manifest["summary"]) or addon.name, _safe(lambda: manifest["description"]) or "",
+			state, commands.get(addon.name, []) if state == addonsModule.ON else [], blocks))
+	return found
+
+
+def coachNow():
+	"""NVDA Coach in this NVDA: (its state or None when it is not installed, the folder of its lessons, the
+	file of what the user has finished, the languages to look for). Main thread."""
+	import globalVars
+	import languageHandler
+	addon = next((a for a in addonHandler.getAvailableAddons() if a.name == addonsModule.COACH), None)
+	if addon is None:
+		return None, "", "", ()
+	lang = str(_safe(languageHandler.getLanguage) or "en")
+	# As NVDA Coach itself chooses: NVDA's language, what stands in for it, the language without its country,
+	# then English.
+	alias = {"zh_HK": "zh_TW", "zh_MO": "zh_TW", "zh": "zh_CN", "pt": "pt_BR", "pt_PT": "pt_BR"}.get(lang, "")
+	return (
+		_addonState(addon), os.path.join(addon.path, *addonsModule.COACH_LESSONS),
+		os.path.join(globalVars.appArgs.configPath, addonsModule.COACH_PROGRESS), (lang, alias, lang.split("_")[0], "en"))
 
 
 def addonSections():
@@ -866,15 +982,15 @@ def addonSections():
 	found = []
 	for addon in list(addonHandler.getRunningAddons()):
 		summary = str(_safe(lambda a=addon: a.manifest["summary"]) or addon.name)
-		text = _safe(lambda a=addon: _docText(a)) or ""
-		blocks = [" ".join(block.split()) for block in re.split(r"\n\s*\n", text)]
-		for block in [b for b in blocks if len(b) > 60][:30]:
+		for block in (_safe(lambda a=addon: _helpBlocks(a), []) or [])[:40]:
 			found.append((f"The add-on {summary}", block[:1200], "addons"))
 	return found
 
 
-def register(plugin, add, text):
-	"""Add the tools to the registry. add and text are the helpers of nvdatools.build."""
+def register(plugin, add, text, registry=None):
+	"""Add the tools to the registry. add and text are the helpers of nvdatools.build; registry is where the
+	tools are kept, so that one tool can hand a question on to another."""
+	_help["dir"] = getattr(plugin, "helpDir", "") or ""
 	plugin.knowledge.addSource("addons", addonSections)
 
 	def inspection(task):
@@ -1026,9 +1142,44 @@ def register(plugin, add, text):
 			"asked": text("what the user asked for, in their own words", maxLength=300, auto=True),
 		}, changes=True, before="check_access", title="Making the fix")
 
+	def coach(task, asked):
+		state, folder, progress, languages = onMain(coachNow)
+		if state != addonsModule.ON:
+			if registry is not None and addonsModule.topic(asked) and not addonsModule.namesCoach(asked):
+				# The user asked to be taught something, not for NVDA Coach by name: NVDA itself is asked, then
+				# the program, its window and Windows, as for any question.
+				worked, found = registry.call(task, lookup.TOOL, {"question": addonsModule.plainQuestion(asked)})
+				if worked and found and not lookup.isNothing(found):
+					return f"{clip(found, 1250)}\n{addonsModule.COACH_ABSENT}" if state is None else found
+			return addonsModule.coachMissing(state)
+		from . import nvdatools
+		known = onMain(nvdatools._commands)
+		command = next((c for c in known if c.scriptName == addonsModule.COACH_SCRIPT), None)
+		key = " or ".join(command.keys) if command is not None and command.keys else ""
+		if addonsModule.wants(asked) == addonsModule.OPEN:
+			# The Coach's own window is what was asked for: its one command is run, as if its key were pressed.
+			if command is None:
+				return "NVDA Coach is on, but its command cannot be used where you are now. It is also in NVDA's Help menu."
+			if onMain(lambda: _safe(lambda: api.getFocusObject().appModule.appName)) == "excel":
+				return (
+					"In Excel, NVDA Coach leaves its key to NVDA, which uses it for the headers of columns. Move to "
+					"another program first, or open NVDA Coach from NVDA's Help menu.")
+			with nvdatools._SpeechCapture() as heard:
+				onMain(nvdatools._runCommand, command, [1], heard)
+			return addonsModule.COACH_OPENED
+		lessons = addonsModule.coachLessons(folder, languages)
+		return addonsModule.coachText(lessons, addonsModule.coachDone(progress), asked, key)
+
+	add("coach",
+		"coach the user with the lessons of the add-on NVDA Coach when they ask to be coached, taught or trained, "
+		"or ask for a lesson or a hint: opens NVDA Coach, or gives a hint, one step or a whole lesson from it, says "
+		"which lessons it has, or how far the user is",
+		coach, {"asked": text("what the user asked for, in their own words", maxLength=300, auto=True)},
+		looks=True, title="Asking NVDA Coach", tell=VERBATIM)
+
 	add("addon_info",
 		"say what an add-on installed in this NVDA does, whether it is on, what its commands and keys are, and what "
-		"its help says",
+		"its help says; or, when no add-on is named, which of the installed add-ons does what the user wants",
 		lambda task, addon, about: onMain(addonText, addon, about), {
 			"addon": text("the name of the add-on, or all for the list of add-ons", maxLength=60),
 			"about": text("what the user wants to know about it", maxLength=200, auto=True),

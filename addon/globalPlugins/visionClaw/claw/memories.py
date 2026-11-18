@@ -59,7 +59,13 @@ _ABOUT_SELF = re.compile(
 	r"partially sighted|low vision|visually impaired|new to|a beginner|left[- ]handed|right[- ]handed|learning)|"
 	r"i (use|have|own) (a|an|the|my) [\w -]{0,30}(braille display|braille|keyboard|laptop|headphones|speakers|"
 	r"screen|monitor|mouse|computer|phone|synthesi[sz]er|voice)|my (braille display|keyboard|laptop|computer|"
-	r"synthesi[sz]er|first language|language|screen reader|voice) is|i speak\b)",
+	r"synthesi[sz]er|first language|language|screen reader|voice) is|i speak\b|"
+	# Another screen reader the user knows, and a mouse, trackpad or controller they sometimes work by hand.
+	r"i (used|use|know|come from|came from|switched from|moved from|am used to|was using|have used) (to use )?"
+	r"(jaws|window[- ]?eyes|narrator|voice ?over|talkback|supernova|zoomtext|orca|another screen reader)|"
+	r"i('m| am) (coming|switching|moving) from|i('m| am) an? (former |long[- ]time )?(jaws|window[- ]?eyes|narrator) user|"
+	r"i (sometimes |often |also |still )?(use|have|own|work with) (a|an|the|my) [\w -]{0,30}(game controller|controller|"
+	r"game ?pad|joystick|track ?pad|touch ?pad|trackball))",
 	re.IGNORECASE)
 # How the user likes things done.
 _LIKES = re.compile(
@@ -80,7 +86,15 @@ _COMPUTER = re.compile(
 	r"descriptions?|colou?rs?|picture\w*|screen|window|programs?|apps?|applications?|games?|browser|web|page|"
 	r"site|email|mail|document|file|folder|add-?ons?|settings?|ask\w*|confirm\w*|delet\w*|chang\w*|"
 	r"blind|deaf\w*|sight\w*|vision|low vision|magnif\w*|new to|beginner|learning|left[- ]handed|"
-	r"right[- ]handed|language|english|short|long|detail\w*|slow\w*|fast\w*|step|steps)\b", re.IGNORECASE)
+	r"right[- ]handed|language|english|short|long|detail\w*|slow\w*|fast\w*|step|steps|hints?|help|lessons?|"
+	r"coach\w*|teach\w*|explain\w*|guides?)\b", re.IGNORECASE)
+# A memory of how the user likes things done that is about how much help an answer gives: it goes with every
+# answer a model words, whatever the question is about (the owner, 2026-11-18: help is given "respecting the
+# level of help the user is asking for").
+_HOW_MUCH_HELP = re.compile(
+	r"\b(answers?|help|hints?|steps?|step by step|short|shorter|brief\w*|long|longer|detail\w*|explain\w*|"
+	r"explanations?|beginner|simple|simpler|plain|keys? only|only the keys?)\b", re.IGNORECASE)
+HELP_LINES = 2
 # Where something is: a folder, a file or an address.
 _WHERE = re.compile(r"[a-z]:\\|\\\\|https?://|www\.|\b(folder|file|website|address|is at|are at|is in the|are in the)\b",
 	re.IGNORECASE)
@@ -422,6 +436,12 @@ class Memories:
 			lines.append(line)
 			used += len(line)
 		return lines
+
+	def helpWanted(self, limit=HELP_LINES, chars=160):
+		"""What the user asked VisionClaw to remember about how much help they want in an answer, newest first,
+		as lines for the model that words an answer; empty when there is none."""
+		found = [entry for entry in reversed(self.all()) if entry.kind == LIKES and _HOW_MUCH_HELP.search(entry.text())]
+		return [clip(entry.text(), chars) for entry in found[:limit]]
 
 	def listText(self):
 		kept = self.all()

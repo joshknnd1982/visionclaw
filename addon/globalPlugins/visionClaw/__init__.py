@@ -36,7 +36,7 @@ from speech import extensions as speechExtensions
 
 from . import autodescribe, clawui, controlkeys, curtain, dialogs, explorer, followup, hardware, helpers, imaging, labels, localmedia, mousetools, nvdatools, ocr, sounds, updater, viewers, winzapp
 from . import asktools, memorytools, padtools, touchinput
-from .claw import catalog, direct, drivers, guides, learn, prompts
+from .claw import catalog, direct, drivers, guides, learn, offers, prompts, training
 from .claw.changes import ChangeLog
 from .claw import debuglog
 from .claw import task as clawTask
@@ -169,6 +169,10 @@ confspec = {
 	"promptCodeKey": 'string(default="")',
 	"promptCodeAuto": 'string(default="")',
 	"promptCodeProgram": 'string(default="")',
+	"promptCodeGuide": 'string(default="")',
+	"promptDevGuide": 'string(default="")',
+	"promptAddonHelp": 'string(default="")',
+	"promptTrainingHelp": 'string(default="")',
 	"promptQuick": 'string(default="")',
 	"promptDetailed": 'string(default="")',
 	"promptBrief": 'string(default="")',
@@ -224,6 +228,8 @@ def _languageInstruction():
 PROMPT_KEYS = {
 	"user": "promptUser", "speaking": "promptSpeaking", "seeing": "promptSeeing", "addon": "promptAddon",
 	"codeKey": "promptCodeKey", "codeAuto": "promptCodeAuto", "codeProgram": "promptCodeProgram",
+	"codeGuide": "promptCodeGuide", "devGuide": "promptDevGuide", "addonHelp": "promptAddonHelp",
+	"trainingHelp": "promptTrainingHelp",
 	"quick": "promptQuick", "detailed": "promptDetailed", "brief": "promptBrief",
 }
 
@@ -469,6 +475,14 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		# The developer guides, if the user had them downloaded. Read from this computer; nothing goes online here.
 		self.guidesDir = os.path.join(DATA_DIR, "guides")
 		self.knowledge.addSource(guides.SOURCE, lambda: guides.load(self.guidesDir))
+		# The same guides as single facts, for the model that writes an add-on (claw/guides.py).
+		self.devGuides = guides.Guides(self.guidesDir)
+		# Free material that teaches NVDA, downloaded when the user asked for it (claw/training.py). Its
+		# passages are asked through asktools, each only about what its page is about.
+		self.trainingDir = os.path.join(DATA_DIR, "training")
+		self.knowledge.addSource(training.SOURCE, lambda: training.load(self.trainingDir))
+		# NVDA's own help and the help of the add-ons, kept as Markdown files (claw/helpfiles.py).
+		self.helpDir = os.path.join(DATA_DIR, "help")
 		# What VisionClaw learned about programs from the internet, when asked to: one Markdown file each.
 		self.appNotes = learn.Notes(os.path.join(DATA_DIR, "notes"))
 		self.memory = Memory(os.path.join(DATA_DIR, "lessons.json"))
@@ -506,6 +520,9 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		self.orchestrator.program = lambda: nvdatools.onMain(asktools.programNow)["app"]
 		self.orchestrator.remembering = memorytools.when
 		self.orchestrator.skills = self.skills
+		# Telling the user, once, what can be downloaded for them (claw/offers.py).
+		self.offers = offers.Offers(os.path.join(DATA_DIR, "offered.json"))
+		self.orchestrator.offer = lambda request, recipes: self.offers.next(request, recipes, self.downloadState())
 		wx.CallLater(2000, self.helpers.loadEnabled)
 		self._autoCache = collections.OrderedDict()
 		self._autoGeneration = 0
@@ -581,6 +598,19 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 				f"Log level: {debuglog.level()}. This log stays on this computer; VisionClaw sends it nowhere."))
 		except Exception:
 			log.debugWarning("VisionClaw: the first log entry could not be written", exc_info=True)
+
+	def downloadState(self):
+		"""What of the things VisionClaw can download is on this computer already (claw/offers.py)."""
+		return {
+			"devGuide": self.devGuides.has("nvda-developer-guide"),
+			"addonGuide": self.devGuides.has("nvda-addon-development-guide"),
+			"training": training.here(self.trainingDir),
+		}
+
+	def showDownloads(self):
+		"""Show what VisionClaw can download for the user, in a window that is read line by line."""
+		# Translators: Title of the window that says what VisionClaw can download for the user.
+		ui.browseableMessage(offers.overview(self.downloadState()), _("What VisionClaw can download for you"))
 
 	def openLog(self):
 		"""Open VisionClaw's log in the program Windows uses for text files."""
@@ -782,6 +812,10 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			("codeKey", _("Add-ons started with a key")),
 			("codeAuto", _("Add-ons that work by themselves")),
 			("codeProgram", _("Add-ons for one program or game")),
+			("codeGuide", _("Add-ons written with lines from the developer guides")),
+			("devGuide", _("Answers taken from the developer guides")),
+			("addonHelp", _("Answers about an installed add-on")),
+			("trainingHelp", _("Answers taken from downloaded training material")),
 		]
 		values = {part: prompts.part(part) if prompts.isCustom(part) else "" for part in prompts.PARTS}
 		values["own"] = c["ownInstructions"]
@@ -1246,12 +1280,22 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 
 		answer = None
 		debuglog.log("describe", f"Question about the picture: {question!r}")
+		# A question that asks how something is done is given what NVDA's own help on this computer says about
+		# it, found by plain code (followup.known). This only helps: a fault here never ends the answer.
+		found = ""
+		try:
+			from . import asktools
+			found = asktools.forPicture(self, question)
+		except Exception as e:
+			debuglog.error("describe", "What is known about the question could not be looked up", e)
+		if found:
+			debuglog.log("describe", f"Given with the question: {found.strip()!r}")
 		self._speakingCancel = cancel
 		try:
 			with self._inUse():
 				self._ensureEngine()
 				answer = self._engine.chat(
-					messages + [{"role": "user", "content": question + followup.ANSWER + _languageInstruction()}],
+					messages + [{"role": "user", "content": question + found + followup.ANSWER + _languageInstruction()}],
 					followup.MAX_TOKENS, onText, cancel,
 				)
 		except EngineError as e:

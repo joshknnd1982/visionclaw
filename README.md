@@ -16,14 +16,15 @@ VisionClaw is a fork of [VisionMate](https://github.com/athee06/VisionMate) by A
 everything VisionMate does: image descriptions, the overlay for windows NVDA cannot read, photo descriptions in
 chat apps, and names for unlabelled buttons.
 
-> **Status: version 1.2.0.** The orchestration core has been tested with scripted models and with
+> **Status: version 1.3.0.** The orchestration core has been tested with scripted models and with
 > real models through the bundled engine. Inside NVDA 2026.3.1 the owner has run the models window, a first
 > set of requests, five tests of version 0.4.0 and three of 0.8.2; **most of the test plan has not been run inside NVDA
 > yet**, and what 0.9.0 to 0.11.0 add (the command fix, the log, the audit, the questions about pictures, questions
 > answered from NVDA, the program, the window and Windows, the window that says what is new, learning about a
 > program from the internet), what 1.1.0 adds (controls that are hovered over, held down, swiped or clicked at
 > the right moment, and the choice of quant), what 1.2.0 adds (fingers and pressure, games that read the mouse
-> directly, and a game controller), scrolling and
+> directly, and a game controller), what 1.3.0 adds (the developer guides put to use, free training material,
+> add-ons by what you want, NVDA Coach, and being told what can be downloaded), scrolling and
 > the arrow keys for dials not at all. Expect rough edges and please report them. See
 > [docs/STATUS.md](docs/STATUS.md) for exactly what was tested.
 
@@ -722,12 +723,96 @@ a control that is dragged or turned; a name for one that has none; or advice whe
 
 ## The latest developer guides, for the models to read
 
+The NVDA Developer Guide from NV Access comes with VisionClaw, as Markdown text, as it was when your version
+was built: you have it without a download. It is under the same licence as VisionClaw. The NVDA Add-on
+Development Guide does not come with it, because its authors have not said that it may be passed on.
+
 Ask "get the latest NVDA developer guides". VisionClaw asks first, then downloads the NVDA Developer Guide
 from NV Access and the NVDA Add-on Development Guide from the NVDA add-ons community, turns them into plain
-Markdown text and keeps them on your computer. From then on the models read up in them, together with NVDA's
-user guide and VisionClaw's own notes, when they plan a settings change, answer a question about NVDA, or
-write and correct an add-on. Ask again whenever you want newer copies. It never happens by itself, only the
-two requests are sent, and what is downloaded is text to read, never a program.
+Markdown text and keeps them on your computer. Ask again whenever you want newer copies. It never happens by
+itself, only the two requests are sent, and what is downloaded is text to read, never a program.
+
+What VisionClaw does with them once they are there:
+
+- **Questions about writing for NVDA** ("what does the developer guide say about events") are answered from
+  them, in plain words and without code read out; the answer says which guide it is from.
+- **When it writes or corrects an add-on for you**, the model is given the single lines of the guides that fit
+  your request and that VisionClaw's own notes do not already cover: one line for one function, never a whole
+  code example. A line whose function your NVDA no longer has is left out.
+- **In the description window**, a question about how something is done is given what NVDA's own help says.
+- **"Which developer guides do I have"** tells you which guides are on the computer, from which day and in
+  which folder; "open the developer guides folder" opens it; "delete the developer guides" removes them after
+  asking.
+
+Guides downloaded with VisionClaw 1.1.0 or older lost the indentation of some code examples. Ask for the
+latest guides once more to have them kept as they were written; VisionClaw tells you so when you ask which
+guides you have.
+
+## The add-ons you have installed, and NVDA Coach
+
+VisionClaw reads from the running NVDA which add-ons are installed, what each says about itself, its help and
+its commands. Nothing is kept in a list, so a new add-on is known the next time you ask.
+
+- "Is there an add-on that reads math?", "which of my add-ons can tell me the date?": it names the add-on
+  that says it does this, with its key written as the add-on writes it, and says when that add-on is turned off.
+- "What does the Clock add-on do?", "which keys does it have?": as before.
+- VisionClaw never installs, removes, turns on or turns off an add-on.
+
+**NVDA Coach** is a free add-on by Tony Gebhard, in NVDA's Add-on Store, that teaches NVDA in lessons of single
+steps. VisionClaw works with it only when you ask to be coached or taught, and gives as much help as you ask for:
+
+- "give me a hint about browse mode": one hint from the lesson, and no more;
+- "coach me on reading the current line": the one step that is about it;
+- "teach me object navigation step by step" or "give me a lesson on the NVDA menu": the lesson's steps in order;
+- "which lessons does NVDA Coach have", "how far am I in NVDA Coach": the chapters, and what you have finished;
+- "open NVDA Coach" or "coach me": NVDA Coach's own window, opened with its own command.
+
+Without NVDA Coach, "teach me how to ..." is answered from NVDA's own user guide, and VisionClaw says once
+that the add-on exists. You can also tell VisionClaw how much help you want in general ("from now on, give me
+only a hint", "always explain things step by step"); it remembers that and keeps to it in its answers.
+
+NVDA's own list of what is new in its newest three versions, which comes with NVDA, is asked when you ask
+what is new, what changed or what was fixed.
+
+## Free training material, and everything as Markdown files
+
+Ask "get the free NVDA training material". VisionClaw says which sites it is from and how many requests it
+sends, asks, and then downloads 18 pages and keeps them as Markdown text on your computer:
+
+- from the **NVDA wiki**, written by NVDA's community: coming to NVDA from JAWS, coming from Window-Eyes,
+  the ribbon of Office, which programs work with NVDA, more voices, and NVDA's log;
+- the eight lessons of the **American Foundation for the Blind's "Learn NVDA"**, from 2016, as their transcripts;
+- the four workshops of **Hadley's "NVDA Screen Reader Series"**, as their transcripts.
+
+AFB and Hadley keep their copyright, and the wiki states no licence: the pages are kept for your own reading,
+each file says where it is from, and nothing is passed on. It never happens by itself.
+
+VisionClaw then uses them where they belong, after NVDA's own user guide: the lessons when you ask to learn
+or be taught something, or say you are new; the page for people from JAWS when you name JAWS. Say once "I come
+from JAWS" and VisionClaw remembers it, and looks in that page for every question. An answer made from a lesson
+says where it is from. "Which training material do I have" tells you what is on the computer; "delete the
+training material" removes it after asking.
+
+Everything VisionClaw reads up in is a Markdown file you can open, in VisionClaw's data folder: `guides`,
+`training`, `notes`, `memories`, `skills`, and `help`, where NVDA's own user guide, its list of what is new
+and the help of each of your add-ons are kept as Markdown and made again when NVDA or an add-on is updated.
+
+## Finding out what VisionClaw can download for you
+
+Ask "what can you download for me", or press the button "What VisionClaw can download for you" in VisionClaw's
+settings. VisionClaw names everything it can get from the internet for you, the developer guides, the free
+lessons, notes on the program you are in, newer models and a newer version, says which of it is on your
+computer already, and gives the words that get each. It also tells you by itself, in one sentence after a
+fitting answer: after you ask for an add-on, that the guide for writing add-ons can be downloaded; after you
+ask to be taught something, that lessons can be. Each of these sentences is said once and never again, and
+nothing is downloaded until you ask and say yes.
+
+## When you have a hand on a mouse
+
+VisionClaw works from the keyboard first. At the times you work a real mouse, a trackpad or a game controller
+yourself, say so ("I am using my real mouse"), and it helps with that instead of leading you back to the
+keyboard: with NVDA's own mouse tracking (NVDA+M), with directions in words, and by saying what is under the
+pointer before you click.
 
 ## Add-ons written by VisionClaw
 
@@ -897,6 +982,8 @@ checklist for testing inside NVDA.
   chat-photo features. GPL v2 or later.
 - [SmallClaw](https://github.com/XposeMarket/SmallClaw) by XposeMarket: the agent design. MIT.
 - [llama.cpp](https://github.com/ggml-org/llama.cpp): the engine. MIT.
+- The NVDA Developer Guide by NV Access and contributors comes with VisionClaw as Markdown text. GNU General
+  Public License, version 2 or later.
 - Qwen models by the Qwen team, Alibaba Cloud: Apache 2.0. GGUF conversions of Qwen3.5 by Unsloth.
 - [NVDA](https://github.com/nvaccess/nvda) by NV Access and contributors, GPL v2 or later: VisionClaw's notes on
   how NVDA is built inside were written from its source, and the tests use the descriptions of its commands

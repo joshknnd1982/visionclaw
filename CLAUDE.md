@@ -110,6 +110,21 @@ keyboard and speech alone.
   https only, on the same server as the address Wikidata gave. Nothing is sent but these requests; they call
   themselves "VisionClaw/<version> (NVDA screen reader add-on)" and carry nothing about the user. What comes
   back is text to read, never run, and is kept as Markdown in the folder `notes` of VisionClaw's data.
+  A fifth exception, which the owner asked for on 2026-11-18 ("search and apply info from all nvda user
+  guides, help documentation and free training material that it can find and download, converting it to
+  markdown") and said yes to source by source the same day ("Yes, the wiki", "Also AFB and Hadley", "you may
+  download them, and user must be able to request them through visionclaw"): the tool `update_training`
+  downloads free material that teaches NVDA (`claw/training.py`): six pages of the NVDA wiki on GitHub, the
+  eight lessons of the American Foundation for the Blind's "Learn NVDA" and the four workshops of Hadley's
+  "NVDA Screen Reader Series", the last two as the transcripts on their pages. Only when the user asks for
+  exactly this, always after a question (`mustAgree`, whatever the settings say) that names every site and the
+  number of requests (`training.question`), only from the addresses and servers fixed in `training.SETS` and
+  `training.HOSTS`, over https, and nothing is sent but the requests. What comes back is text to read, never
+  run. AFB and Hadley keep their copyright and the wiki states no licence: every file says at its top where
+  it is from and whose it is, it is kept for the user's own reading on this computer, nothing of it is passed
+  on or put into the add-on, and an answer made from it says where it is from. A site that answers a program
+  with a challenge is not to be worked around; the earlier copy stays. Never add a source without the owner's
+  yes; `tests/test_training.py` fails when the sources or servers change.
   **No search engine is asked by the add-on's own code.** It was tried on 2026-11-17: DuckDuckGo's page for
   people answered with its challenge for automated traffic after a handful of requests. That is the site
   saying no to programs, and it is not to be worked around: no browser-like headers, no other endpoint of a
@@ -394,11 +409,178 @@ keyboard and speech alone.
   the mouse, a skill leads to the keyboard way first and then to NVDA's keys that work the mouse, taken from
   `tests/nvda_commands.json`, never to "click the icon at the top right". A one-word starting phrase matches
   by its stem, so check that the stem is not an everyday word ("news" became "new").
+- **The developer guides are put to use a line at a time, and only where they add something.** The owner
+  said on 2026-11-18: "if the user asks to download the nvda development guides in markdown ... then we must
+  also have appropriate skills, rag, memory, and system prompts to optimise the visionclaw addon and its AI
+  models and smallclaw abilities along with the original visionmate features". What follows from it
+  (`claw/guides.py`):
+  - **Kept as they were written.** A code example keeps its indentation: one written indented is put between
+    fences (`guides.tidy`), and a line that begins with # inside an example is a comment, not a heading
+    (`guides.cut`). VisionClaw 1.1.0 and older lost both; such copies have no `format` in `guides.json`, are
+    still read (`cut(old=True)`, `prose(old=True)`), and the user is told to ask for the guides again. Bump
+    `guides.FORMAT` when the way they are kept changes.
+  - **Read in three ways, each by plain code.** As sections of plain sentences without code, for questions and
+    for speech (`guides.load`, `prose`); as single facts, one line about one name of NVDA's code
+    (`guides.facts`: an item of a list that begins with a name, a row of a table that says what is wanted and
+    how it is written; never a line of an example or a sentence of the running text); and as what is on the
+    computer, from which day (`guides.storedText`, the tools `guides_info` and `remove_guides`).
+  - **The writer of an add-on gets facts, never examples, and only new ones.** `nvdatools.coderNotes` puts in
+    order what the coder reads: skill, memories and library, the lines of the guides, VisionClaw's own notes.
+    A fact is given when the request names it (`guides.fits`), when the running NVDA still has its name
+    (`nvdatools.nvdaHas`: loaded modules only, nothing imported or called), when it is not about Python's own
+    modules or something a small add-on must not use (`guides.NOT_FOR_ADDONS`), and when the model is not told
+    its name anyway (`known`: the coder's instructions and the notes sent). The last rule was measured with
+    Qwen2.5 Coder 1.5B on 2026-11-18 (`tests/live_addon_guides.py`): a line that repeated the notes made the
+    model write a key command where an event was asked for. With the rule, 2 of 9 requests got a line and
+    both passed with and without it: no harm, and no gain measured either. Do not loosen it without measuring
+    on the whole evaluation set.
+  - **Instructions chosen by where the lines are from.** `prompts.CODE_GUIDE` goes to the coder only when its
+    message has lines of the guides (`guides.CODER_HEAD`); `prompts.DEV_GUIDE` and `prompts.ADDON_HELP` go to
+    an answer only when what was looked up is from the guides or from an add-on (`prompts.aboutFound`). The
+    user can rewrite all three in "How VisionClaw answers".
+  - **Skills**: `developer-guides` for answers, `addon-by-the-guides` for the coder; both start only when the
+    request names the guides.
+  - **Never a new source without the owner's yes**, as before: `guides.SOURCES` and `HOSTS` are unchanged, and
+    `tests/test_guides.py` fails when they change.
+- **NVDA's own help comes first, and is already on the computer.** The owner asked on 2026-11-18 that VisionClaw
+  "search and apply info from all nvda user guides, help documentation and free training material that it can
+  find and download, converting it to markdown". NVDA's user guide and its list of what is new come with NVDA,
+  in the user's language and for the installed version, and are read from there: the user guide always, the
+  list of what is new for its newest three versions and only when the question asks what is new, changed or
+  fixed (`lookup.newsSections`, `lookup._NEWS`, `asktools.newsSections`). The key commands reference is made
+  from the user guide and says nothing more. Free training material from the internet was researched on
+  2026-11-18 by fetching every address (the list is in `docs/STATUS.md`): only NVDA's own documentation is
+  clearly licensed; NV Access's Basic Training is paid. The owner said yes to the NVDA wiki, AFB and Hadley
+  (the fifth exception under "Local only"). VisionClaw's own code still asks no search engine, so "find"
+  means a fixed list; anything else the user finds can be added with `note_page` from a page open in their
+  browser, or put into the library as a file.
+- **Downloaded training material is asked after NVDA's own help, and each page only about what it is about.**
+  It was written by others than NV Access, AFB's lessons in 2016. Its passages have a source of their own
+  (`lookup.TRAINING`), which among equals comes after NVDA, the program, the window and Windows, and every
+  page has a gate (`training.SETS`): the page for people from JAWS when JAWS is named, the ribbon page for the
+  ribbon, the lessons when the user asks to learn, be taught or coached, or says they are new. What the user
+  asked VisionClaw to remember about themselves opens a gate too (`training.comesFrom`): someone who said once
+  that they come from JAWS gets that page without naming JAWS again. `prompts.TRAINING_HELP` goes with an
+  answer made from it: say where it is from, and NVDA's own guide is right where they differ. Skills:
+  `training-material`, `coming-from-another-screen-reader`. A lesson's web page is kept without the site
+  around it (`training.lessonText`): the main part of the page, up to the first heading after which only the
+  site's own offers follow (`stop`). When a site is rebuilt and that no longer fits, the page comes back too
+  short, is refused, and the earlier copy stays; then read the page again and correct `stop`, do not guess.
+  The wiki's own FAQ was left out because it says of itself that it is out of date.
+- **Everything VisionClaw reads up in is a Markdown file the user can open.** The owner said on 2026-11-18:
+  "all guides, wikis, and other materials should be converted to markdown (md) files to make it as easy as
+  possible for visionclaw and its local AI models to work and interact with and learn from". In VisionClaw's
+  data folder: `guides` (the developer guides), `training` (one folder for each source), `notes` (programs
+  learned about), `memories`, `skills`, and `help`: NVDA's own user guide, its list of what is new, and one
+  file for each add-on's help (`claw/helpfiles.py`). A file in `help` is made from the page that came with
+  NVDA or the add-on, and made again when that page is newer or another one, as after an update or a change
+  of NVDA's language; VisionClaw then reads the Markdown file, so what it looks things up in and what the
+  user can open are the same text. A file that cannot be written is no fault: the page is read as it is. The
+  user's own library is the one place that takes other kinds of file. New material is kept as Markdown, with
+  a line at its top that says what it was made from.
+- **Add-ons installed in NVDA are asked what they do; nothing is kept in a list.** The owner said on
+  2026-11-18: "make skills, rag, memories and system prompts to detect addons, learn what they do, and help
+  the user work with various addons depending on what the user wishes to do with the screen reader."
+  `accesstools.installedAddons` reads every add-on from the running NVDA each time: its name, what it says
+  about itself, whether it is on, its commands where the user is, its help. `claw/addons.py` turns that into
+  passages that say which add-on they are from, and plain code finds the add-ons that say they do what the
+  user wants (`addons.forWish`, `wishText`), or says that none does. `addon_info` does this when no add-on is
+  named and the words say what is wanted (`addons.wishOf`). A command that an add-on adds says which add-on
+  it is from when a question is answered with it (`accesstools.addonOwners`, `asktools.commandPassages`).
+  **VisionClaw never installs, removes, turns on or turns off an add-on**, and says so of one that is turned
+  off. The skill `work-with-add-ons` and
+  `prompts.ADDON_HELP` word answers about add-ons.
+- **NVDA Coach only when the user asks, and as much help as they ask for.** The owner said on 2026-11-18 that
+  VisionClaw "should detect if it is installed if user makes a certain request, and interact with that addon
+  giving the user lots of help, but only if user requests, while respecting the level of help the user is
+  asking for". NVDA Coach (Tony Gebhard, GPL v2, id `nvdaCoach`) was read from its source at version 1.6.0:
+  one command (`toggleCoach`), lessons as plain steps with hints in files of its own, a file of what is
+  finished, no setting for how much help, nothing online. So the level is read from the user's own words
+  (`addons.wants`): the Coach's window, the list of lessons, how far the user is, a hint and no more, one
+  step, a whole lesson. The tool `coach` reads the lessons and the progress, never writes them, runs the
+  Coach's one command only when its window is asked for, and says its text word for word. "Press Enter to
+  continue" is taken out of a step, because said outside the Coach's window it would have the user press
+  Enter in another program. Not installed: asked for by name, that is said; asked to be taught something,
+  NVDA itself answers through `look_up` and the Coach is named once. When a newer NVDA Coach keeps its lessons
+  differently they are not found and VisionClaw says so: read its source again, do not guess.
+- **How much help an answer gives is the user's choice, and is remembered.** The skill `as-much-help-as-asked`
+  goes with an answer when the request says how much. What the user asked VisionClaw to remember about it
+  ("from now on, give me only a hint") goes with every answer a model words (`memories.helpWanted`,
+  `orchestrator._helpWanted`), whatever the question is about.
+- **In the description window, a question about a key is given the one NVDA command it is about, and nothing
+  else.** A model that only sees a picture makes keys up: asked how to read the window's title, Qwen3.5 9B
+  said "press Alt and then S". `followup.known` adds one line to a question that asks how something is done or
+  which key does it: the command of NVDA, among those that work where the user is (`asktools.forPicture`),
+  that has a key, is the best found, has a word of its own name in the question, and has nearly every word the
+  question names; what it does on one press, and its key (`followup._once`). A question about what the picture
+  shows is asked exactly as before. Measured on 2026-11-18 with Qwen3.5 9B (`tests/live_followup.py`): the
+  title, the status bar and the NVDA menu went from a made-up key to the right one; a command that was not
+  the answer was ignored once and repeated once (NVDA's review copy for "copy this text"). **Do not widen
+  it without measuring**: lines of the user guide were tried and a line that was not about the question was
+  repeated as the answer with its key; a passage of the developer guides made the model invent a key where
+  before it had said, rightly, that the picture does not show this. So the developer guides do not go to the
+  description window. The suggested small vision model was not on the computer and was not measured.
+- **VisionClaw adapts to the user, and the keyboard is the first way, not the only one.** The owner said
+  on 2026-11-18: "visionclaw must be able to adapt and learn, using its models for the best experience for
+  the blind keyboard-only user. and sometimes for those times a blind user may need to use a game controller
+  or a physical mouse." What adapts today, each kept as data the user can read and delete: what the user said
+  about themselves and how they like things done (memories, and with them how much help an answer gives and
+  which screen reader they come from); what worked in a program (`direct.AppWays`, helpers, fixes); what a
+  program is, learned on request (notes); what failed in a form (`claw/memory.py`); skills the user makes. A
+  model chooses or words; plain code checks and keeps. **When the user says they have a hand on a mouse,
+  trackpad or controller, that is their choice: help with it** (the skills `hand-on-the-mouse` and
+  `game-controller`), with NVDA's own mouse tracking, read from `tests/nvda_commands.json`, and directions in
+  words. VisionClaw still never makes an answer depend on the mouse when the user did not bring it up.
+- **A skill can take the place of another.** `instead of:` in a SKILL.md names skills, by folder name, that
+  are not used when this one fits (`skills.Skills.choose`): two skills that say opposite things for the same
+  words must not both reach a model. `hand-on-the-mouse` takes the place of `mouse-from-keyboard`.
+- **Every build carries the guides and the training material that may be passed on.** The owner said on
+  2026-11-18: "since everything is in markdown, all guides and all training material, just include it with
+  every build of the addon. put this as a rule in claude.md ... then every visionclaw user gets it, even if
+  the guides get a little out of date they are still useful for the end-user." So what is kept as Markdown and
+  may be passed on is part of the add-on, in `addon/globalPlugins/visionClaw/claw/shipped`, and every user has
+  it without a download; a copy the user downloads later is newer and is used in its place.
+  - **A text put into the add-on is published to every user, so only what its owner allows to be passed on
+    goes in.** `guides.MAY_SHIP` names each shipped source and by what right. Checked on 2026-11-18 by reading
+    each source: the **NVDA Developer Guide** is under the GNU General Public License, version 2 or later,
+    like VisionClaw, and is shipped. The **NVDA Add-on Development Guide** and the **NVDA wiki** state no
+    licence (the guide's own page asks to respect its authors' copyright); **AFB** keeps its copyright;
+    **Hadley** says "All rights reserved". These four are **not** shipped: each is downloaded when the user
+    asks, as before. NVDA's own user guide and list of what is new come with NVDA itself.
+  - **A source is added the day its owner says yes**, in writing: put its id and the words "by permission of
+    ..., on ..." into `MAY_SHIP` (for the training material, give `claw/training.py` a `MAY_SHIP` and a
+    `shipped` folder read the same way as `guides.shipped`), keep who said yes, when and in which words in
+    `docs/STATUS.md`, and say in the file's first line whose it is. Never ship a text on a guess about its
+    licence, and never because it is free to read: free to read is not free to pass on.
+  - **Before every build** run `python tools/update_shipped_guides.py`, which fetches what `MAY_SHIP` names
+    from the addresses fixed in `guides.SOURCES`, turns it into Markdown with the add-on's own code, writes
+    whose it is and its licence in its first line, and takes out of the folder anything that may not be
+    shipped. `build.py` refuses to build when the folder holds anything else than what `MAY_SHIP` names, and
+    `tests/test_guides.py` fails then too.
+  - **A little out of date is fine, and said.** The user is told that a guide came with VisionClaw and as it
+    was on which day (`guides.storedText`), and can always ask for the latest.
+- **The user is told what can be downloaded for them.** The owner said on 2026-11-18, of what does not come
+  with the add-on: "visionclaw must provide a way for the user to know that these are downloadable on
+  request. otherwise the user may never know what help and guides visionclaw can get for the user". Three
+  ways, all plain code (`claw/offers.py`): the overview, asked for in words ("what can you download for me",
+  the tool `downloads_info`) or with the button "What VisionClaw can download for you" in the settings, which
+  names everything that can be downloaded, whether it is here already, and the words that get it; one
+  sentence after an answer where it fits (the guide for add-ons after a request about writing one, the lessons
+  after a request to learn or one that names another screen reader, the overview after any other question);
+  and the answers that already say so (`guides.storedText`, `training.storedText`, `lookup.nothingText`,
+  `addons.coachMissing`). **Each sentence is said once and then never again** (`offered.json` in VisionClaw's
+  data), begins with "This is said once", is not said after a request that failed or that was itself about
+  downloading, and offers only what is not here. Nothing is ever downloaded because of it: the user asks, and
+  is asked first. Whatever VisionClaw learns to download later gets a line in `offers.overview`, and a
+  sentence of its own only if the user could not find out otherwise; `tests/test_training.py` checks that
+  every sentence the user is told to say is sent to the recipe it names.
 - **Measure with the real model.** After any change to a prompt, a recipe or a form, run
   `python tests/live_orchestrator.py` and read every answer. A change that passes the scripted tests can still
   make a small model worse.
 - **Patch files with a script file, not a shell heredoc.** In this environment Bash heredocs that contain
-  triple-quoted Python with apostrophes fail to parse. Write the patch script with the Write tool and run it.
+  triple-quoted Python with apostrophes fail to parse, and a heredoc turns two backslashes into one, so that
+  a regular expression's `\b` arrives as a backspace character. Write the patch script with the Write tool
+  and run it.
 - **Never commit** model files (`*.gguf`, `*.bin`), `dist/`, tokens, or the `SmallClaw/` reference clone.
 
 ## Layout
@@ -427,7 +609,8 @@ addon/
                              passes through, a pen stroke with a pressure at each place, a pen held down
     touchtools.py            the tools for fingers and pressure: touch, compare, the wheel instead, what worked
     padtools.py              a game controller: noticing it, reading it, controller mode, its buzz, the tools
-    accesstools.py           deep inspection, lasting fixes for a website or program, installed add-ons;
+    accesstools.py           deep inspection, lasting fixes for a website or program, installed add-ons, which
+                             add-on does what the user wants, NVDA Coach;
                              both models judging how a control is worked
     deepquery.py             a deep query of one control: NVDA, UI Automation, the window, the off-screen model
     controlkeys.py           arrow keys for a control that is dragged: taking hold, trying how it is worked,
@@ -449,7 +632,8 @@ addon/
     nvdainfo.py              what NVDA has and uses: synthesizer, voices, braille display, drivers, add-ons;
                              how NVDA drives the synthesizer and the display in use, for the audit
     vclog.py                 one "log" for the NVDA-side files: NVDA's log and VisionClaw's own
-    followup.py              questions in the description window: all are answered
+    followup.py              questions in the description window: all are answered; a question about a key is
+                             given the one NVDA command it is about
     helpers.py               app helpers and generated add-ons: loading them live, their hotkeys
     (the rest)               VisionMate features: overlay, OCR, chat photos, labels ...
     claw/                    SmallClaw-style core. NO NVDA imports.
@@ -503,7 +687,20 @@ addon/
                              for a step, a skill's own steps as the plan; VisionClaw's own and the user's
       skills/                VisionClaw's own skills, one folder with a SKILL.md each
       knowledge.py           searchable NVDA add-on knowledge (claw/knowledge/*.md)
-      guides.py              the downloaded developer guides: fixed addresses, web page to Markdown, sections
+      guides.py              the downloaded developer guides: fixed addresses, web page to Markdown with its
+                             code examples kept whole, sections as plain sentences, single facts for the writer
+                             of an add-on, which guides are here and from when
+      training.py            free material that teaches NVDA: the fixed sources the owner said yes to, a
+                             lesson's web page without the site around it, each page with what must be named
+                             for it to be asked, which material is here
+      shipped/               what comes with every build as Markdown: the guides that may be passed on
+      offers.py              what can be downloaded for the user: the overview, and one sentence said once
+                             after an answer that it fits
+      helpfiles.py           NVDA's own help and the add-ons' help kept as Markdown files, made again when the
+                             page they were made from changes
+      addons.py              the add-ons installed in NVDA as plain data: which of them does what the user
+                             wants; NVDA Coach's lessons and progress read from its files, and how much help
+                             the user's words ask for
       working.py             how a control is worked, from NVDA's facts, its own name or both models, for
                              every kind of control NVDA has; which remedy fits;
                              what a window's class says about the toolkit or game engine
@@ -661,6 +858,28 @@ A session is done only when its "Done when" line is true.
 - [x] **3.34 A game controller.** Noticed when it is connected; controller mode (NVDA+Alt+J, or View and Menu
   held together) with sticks, buttons, triggers, the buzz and jumping between the things in a window; a button
   as a hotkey of a program; a setting with three choices. Tested with made-up controller states.
+- [x] **3.35 The developer guides put to use.** Code examples kept whole; the guides as plain sentences for
+  questions and as single facts for the writer of an add-on, given only where they add a name the notes do
+  not have; `guides_info` and `remove_guides`; instructions and skills chosen by where lines are from.
+  Measured with the real coder model: no harm, no gain on nine everyday add-ons.
+- [x] **3.36 Add-ons by what the user wants, and NVDA Coach.** `addon_info` finds the installed add-on that
+  says it does something; `coach` gives a hint, a step, a lesson, the list or the progress from NVDA Coach's
+  own files, or opens it; how much help the user wants is read from their words and remembered. Tested with
+  stand-ins and with NVDA Coach's real English lessons read from its repository; not run inside NVDA.
+- [x] **3.37 NVDA's own list of what is new, and keys in the description window.** Both measured or tried on
+  the real files of NVDA 2026.3.1 on this computer.
+- [x] **3.38 Free training material from the internet.** `update_training` downloads the NVDA wiki's pages
+  and the transcripts of AFB's and Hadley's lessons after a question that names every site; `training_info`,
+  `remove_training`; each page asked only about what it is about and after NVDA's own help. Tried on the real
+  pages, fetched once by hand; the add-on's own download code has not fetched them yet.
+- [x] **3.39 Everything as Markdown files.** NVDA's user guide, its list of what is new and each add-on's help
+  are kept as Markdown in `help` and read from there.
+- [x] **3.41 Guides that come with every build.** The NVDA Developer Guide, which is under the GPL, is part of
+  the add-on as Markdown; the others wait for their owners' yes.
+- [x] **3.42 Telling the user what can be downloaded.** `downloads_info`, a button in the settings, and one
+  sentence said once after a fitting answer.
+- [x] **3.40 A hand on the mouse.** A skill for the times a blind user works a real mouse or trackpad, in place
+  of the skill that leads back to the keyboard. Not measured with a model.
 - [ ] **3.5 Test inside NVDA.** Install the build in NVDA (ask the user first) and walk through
   `docs/TESTPLAN.md`. Fix what breaks. *Done when:* every item in the test plan is ticked by a real run.
 
@@ -673,7 +892,7 @@ A session is done only when its "Done when" line is true.
   examples; add a `learn` command that studies a topic and stores notes. *Done when:* a question about an NVDA
   feature is answered with a quote from the user guide.
 - [x] **4.3 Skills.** SmallClaw-style `SKILL.md` files (starting words, the jobs they are for, plain sentences,
-  and optional fixed steps), 42 built in for what blind people do at a computer, six of them for the add-ons
+  and optional fixed steps), 49 built in for what blind people do at a computer, seven of them for the add-ons
   the models write (`claw/skills/`), chosen by
   plain code from the request's words, their sentences given to the forms, the vision model, the coder and the
   answer of their jobs; a skill with steps runs them as its plan. The user makes, changes, turns off, deletes and
@@ -704,6 +923,9 @@ python tests/test_skills.py              every built-in skill checked; choosing,
 python tests/test_skills_window.py       the skills window with the real wxPython and stand-ins for NVDA's gui
 python tests/test_learn.py               learning about a program against a stand-in internet; every request listed
 python tests/test_memories.py            memories as files, kept, recalled, forgotten; the library; gated notes
+python tests/test_guides.py              the developer guides as sentences and as facts, which facts a request gets,
+                                         add-ons by what the user wants, NVDA Coach's lessons from made-up files,
+                                         NVDA's list of what is new, keys in the description window
 python tests/test_touch.py               fingers, pressure, a turn in the mouse's own steps, a drawn game with a
                                          pointer of its own brought to a place and measured; plain Python
 python tests/test_gamepad.py             a game controller's states, buttons and sticks; its skills and notes
@@ -715,6 +937,12 @@ python tests/live_side_by_side.py        two real engines on two backends; needs
 python tests/live_addon.py               a real model writes four add-ons and debugs one; read every result
 python tests/live_addon_memories.py      a real model writes add-ons with a memory, the library and the notes on
                                          accessibility interfaces put first; read every result
+python tests/test_training.py            the training material against a stand-in internet: the fixed sources, a
+                                         lesson without the site around it, gates, the Markdown help files
+python tests/live_addon_guides.py MODELS GUIDES   a real model writes the same add-ons with and without lines of
+                                         the developer guides; read every add-on
+python tests/live_followup.py MODELS     a real vision model answers questions in the description window before
+                                         and now; add --dry to see only what plain code would give
 python tests/live_quants.py FOLDER 1 ID1 ID2   two quants of one coder write the same add-ons; counts passes
                                          and repair rounds; read every add-on it writes to a file
 python tests/live_working.py             both real models say how drawn and described controls are worked
@@ -722,6 +950,8 @@ python tests/live_prompts.py             a real vision model describes drawn pic
                                          instructions for blind users; read every answer
 python tools/write_models_list.py        writes models.json from the catalog; run after every change to CATALOG
 python tools/write_command_fixture.py    writes tests/nvda_commands.json from NVDA's globalCommands.py
+python tools/update_shipped_guides.py    fetches the guides that may be passed on and puts them into the add-on;
+                                         run before every build
 python tools/audit_nvda_source.py        counts NVDA's modules, commands, drivers and extension points from its source
 python build.py                          writes dist/VisionClaw-<version>.nvda-addon
 ```
@@ -732,7 +962,8 @@ Run `python tests/run_all.py` before every commit. Compile every add-on file wit
 ## Releasing
 
 1. Bump `version` and `changelog` in `addon/manifest.ini`.
-2. `python tests/run_all.py`, then `python build.py`.
+2. `python tools/update_shipped_guides.py`, so that the build carries the guides as they are now; then
+   `python tests/run_all.py`, then `python build.py`.
 3. Commit, tag `v<version>`, push, and create a GitHub release with `dist/VisionClaw-<version>.nvda-addon` and
    the fixed-name copy `VisionClaw.nvda-addon`.
    VisionMate's own version tags were renamed locally to `visionmate-v...` so that they do not collide with
@@ -748,3 +979,4 @@ Run `python tests/run_all.py` before every commit. Compile every add-on file wit
 - VisionMate by Athiban Vijay — the describe, overlay, OCR and chat-photo features (GPL v2 or later).
 - SmallClaw by XposeMarket (MIT) — the agent design the `claw/` package follows.
 - llama.cpp (MIT) — the engine. Qwen models by the Qwen team, Alibaba Cloud (Apache 2.0).
+- The NVDA Developer Guide by NV Access and contributors (GPL v2 or later) — comes with every build as Markdown.

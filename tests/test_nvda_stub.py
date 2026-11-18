@@ -211,6 +211,12 @@ sys.modules["contentRecog"].recogUi = sys.modules["contentRecog.recogUi"]
 sys.path.insert(0, os.path.join(ROOT, "addon", "globalPlugins"))
 plugin = importlib.import_module("visionClaw")
 from visionClaw import mousetools, nvdatools, padtools, webtools  # noqa: E402
+from visionClaw.claw import guides as shippedGuides  # noqa: E402
+
+# The guide that comes with every build is put aside: the tests below are about what the user downloads.
+# tests/test_guides.py checks the one that comes with VisionClaw.
+SHIPPED_GUIDES = shippedGuides.SHIPPED
+shippedGuides.SHIPPED = ""
 # Nothing really moves the mouse during the tests: every move and button is only written down.
 moves, buttons = [], []
 # The real functions are kept: where the mouse itself is moved for a game, they are tested with what is below
@@ -253,7 +259,7 @@ instance = plugin.GlobalPlugin()
 instance.controller._stopped.set()
 instance.controller._thread.join(5)
 registry = instance.orchestrator.registry
-assert len(registry.names()) == 69, registry.names()
+assert len(registry.names()) == 76, registry.names()
 # Lessons from searches that happened to find something misled; they are dropped when VisionClaw starts.
 assert instance.memory.all() == ["Tool set_setting: this form failed: {} (x). This form worked: {}."], instance.memory.all()
 assert set(planner.available(registry)) == set(planner.RECIPES), set(planner.RECIPES) - set(planner.available(registry))
@@ -3342,6 +3348,238 @@ worked, result = registry.call(taskModule.Task("t"), "manage_skill", {
 assert worked and result == "Your skill Recipes was deleted." and instance.skills.get("recipes") is None, result
 assert "Delete your skill Recipes?" in skillQuestions[-1]
 # The skills window (skillsui.py) needs real wx lists, which the stand-in does not have; it is tested in NVDA.
+
+# --- The developer guides put to use, add-ons by what the user wants, and NVDA Coach ---
+# tests/test_guides.py checks the plain parts; here the tools, in the stand-in NVDA.
+from visionClaw.claw import addons as addonsModule  # noqa: E402
+from visionClaw.claw import guides as guidesModule  # noqa: E402
+
+# Whether the running NVDA has a name: asked of loaded modules only, and nothing is imported or called.
+quokkas = types.ModuleType("quokkatones")
+quokkas.beep = lambda *args: None
+quokkas.Role = type("Role", (), {"BUTTON": 1})
+sys.modules["quokkatones"] = quokkas
+assert nvdatools.nvdaHas("quokkatones.beep") is True and nvdatools.nvdaHas("quokkatones.Role.BUTTON") is True
+assert nvdatools.nvdaHas("quokkatones.gone") is False and nvdatools.nvdaHas("quokkatones.Role.LINK") is False
+assert nvdatools.nvdaHas("nosuchmodule.thing") is None and nvdatools.nvdaHas("quokkatones.beep.deeper") is None
+
+FACTS_WIKI = (
+	"## Useful modules\n\n- `quokkatones.beep(pitch in hertz, duration in milliseconds)`: Plays a tone of specified pitch.\n"
+	"- `quokkatones.gone(text)`: Retrieves the wombat that was removed long ago.\n\n"
+	+ "".join(f"## Lesson {n}\n\n{'An add-on is a package, says lesson %d. ' % n * 40}\n\n" for n in range(8)))
+nvdatools.net.fetchText = lambda url, limit=None, hosts=None: GUIDE if url.endswith(".html") else FACTS_WIKI
+instance.clawAsk = lambda question, choices: 0
+conf["visionClaw"]["confirmChanges"] = False
+worked, result = registry.call(taskModule.Task("test"), "update_guides", {})
+assert worked and "it is given the lines of them that fit" in result and "the models" not in result.lower(), result
+# The writer of an add-on is given the line that fits, and never one whose name this NVDA no longer has.
+lines = nvdatools.guideLines(instance, "Beep when a link gets the focus.")
+assert lines == guidesModule.CODER_HEAD + "\n- quokkatones.beep(pitch in hertz, duration in milliseconds): Plays a tone of specified pitch.", lines
+assert nvdatools.guideLines(instance, "Retrieve the wombat when I press NVDA+alt+W.") == ""
+assert nvdatools.guideLines(instance, "Say hello when I press NVDA+shift+H.") == ""
+# In what the writer reads, the lines of the guides come before VisionClaw's own notes, which are cut off last.
+notes = nvdatools.coderNotes(instance, taskModule.Task("t"), "Beep when a link gets the focus.", "OWN NOTES")
+assert notes.endswith("OWN NOTES") and guidesModule.CODER_HEAD in notes and notes.index(guidesModule.CODER_HEAD) < notes.index("OWN NOTES"), notes
+notes = nvdatools.coderNotes(instance, taskModule.Task("t"), "Say hello when I press NVDA+shift+H.", "OWN NOTES")
+assert notes.endswith("OWN NOTES") and guidesModule.CODER_HEAD not in notes, notes
+
+# Which guides are here is said by plain code, word for word.
+worked, result = registry.call(taskModule.Task("test"), "guides_info", {"asked": "which developer guides do I have"})
+assert worked and result.startswith("The NVDA Developer Guide by NV Access, downloaded today."), result
+assert instance.guidesDir in result and registry.get("guides_info").tell == "verbatim"
+# Deleting them is asked about, and afterwards nothing of them is looked up or given.
+conf["visionClaw"]["confirmChanges"] = True
+del questions[:]
+instance.clawAsk = lambda question, choices: questions.append(question) or 1
+worked, result = registry.call(taskModule.Task("test"), "remove_guides", {})
+assert worked and result == "You said no, so nothing was changed." and instance.devGuides.here(), result
+assert questions[0].startswith("Delete the NVDA developer guides from this computer?"), questions
+instance.clawAsk = lambda question, choices: 0
+worked, result = registry.call(taskModule.Task("test"), "remove_guides", {})
+assert worked and result.startswith("Deleted from this computer: the NVDA Developer Guide and the NVDA Add-on Development Guide."), result
+assert not instance.devGuides.here() and nvdatools.guideLines(instance, "Beep when a link gets the focus.") == ""
+worked, result = registry.call(taskModule.Task("test"), "guides_info", {"asked": "which developer guides do I have"})
+assert worked and result.startswith("No developer guides are on this computer yet."), result
+worked, result = registry.call(taskModule.Task("test"), "remove_guides", {})
+assert worked and result == "No developer guides were downloaded, so there is nothing to delete.", result
+# With the guide that comes with every build: it is there without a download, and it is not deleted.
+shippedGuides.SHIPPED = SHIPPED_GUIDES
+instance.knowledge.replaceSource(shippedGuides.SOURCE, lambda: shippedGuides.load(instance.guidesDir))
+worked, result = registry.call(taskModule.Task("test"), "guides_info", {"asked": "which developer guides do I have"})
+assert worked and result.startswith("The NVDA Developer Guide by NV Access came with VisionClaw, as it was on "), result
+worked, result = registry.call(taskModule.Task("test"), "remove_guides", {})
+assert worked and result == (
+	"No developer guides were downloaded, so there is nothing to delete. The copy that came with VisionClaw stays; "
+	"it is part of the add-on."), result
+worked, result = registry.call(taskModule.Task("test"), "search_help", {"words": "extension points action decider"})
+assert worked and "NVDA Developer Guide: " in result, result
+shippedGuides.SHIPPED = ""
+instance.knowledge.replaceSource(shippedGuides.SOURCE, lambda: shippedGuides.load(instance.guidesDir))
+conf["visionClaw"]["confirmChanges"] = False
+
+# An add-on that is not named, and something the user wants to do: the add-ons are asked which of them does it.
+sys.modules["addonHandler"].getAvailableAddons = lambda: [clock]
+sys.modules["addonHandler"].getRunningAddons = lambda: [clock]
+worked, result = registry.call(taskModule.Task("t"), "addon_info", {"addon": "all", "about": "is there an add-on that rings alarms"})
+assert worked and result.startswith("One add-on installed in NVDA says it does this.\nThe add-on Clock and calendar: "), result
+assert "Alarms ring at the time you set." in result, result
+worked, result = registry.call(taskModule.Task("t"), "addon_info", {"addon": "all", "about": "do I have an add-on for sudoku"})
+assert worked and result.startswith("None of the 1 add-ons installed in NVDA says anything about sudoku."), result
+# With nothing that is wanted, it is the list as before.
+worked, result = registry.call(taskModule.Task("t"), "addon_info", {"addon": "all", "about": "which add-ons do I have"})
+assert worked and result == "Add-ons installed (1): Clock and calendar 2.1 (enabled).", result
+found = accesstools.installedAddons()
+assert [(addon.ident, addon.name, addon.state) for addon in found] == [("clock", "Clock and calendar", addonsModule.ON)], found
+# A command that an add-on adds says which add-on it is from, when a question is answered with it.
+clockModule = types.ModuleType("globalPlugins.clockStandIn")
+clockModule.__file__ = os.path.join(addonDir, "globalPlugins", "clockStandIn.py")
+sys.modules["globalPlugins.clockStandIn"] = clockModule
+assert accesstools.addonOwners().get("globalPlugins.clockStandIn") == "Clock and calendar", accesstools.addonOwners()
+from visionClaw import asktools as askModule  # noqa: E402
+ClockPlugin = type("ClockPlugin", (), {"__module__": "globalPlugins.clockStandIn"})
+clockCommand = nvdatools._Command("sayAlarm", "sayAlarm", ClockPlugin, "Says when the next alarm rings", "Clock", ["NVDA+f11"], ["kb:nvda+f11"])
+fromClock = askModule.commandPassages([clockCommand], "notepad", accesstools.addonOwners())
+assert fromClock[0].line().startswith("From the add-on Clock and calendar: sayAlarm: Says when the next alarm rings. Keys: NVDA+f11."), fromClock[0].line()
+assert askModule.commandPassages([clockCommand], "notepad")[0].origin == "NVDA"
+del sys.modules["globalPlugins.clockStandIn"]
+
+# NVDA Coach is not installed. Asked for by name: said so, and nothing is installed. Asked to be taught
+# something: NVDA itself answers, and the Coach is named once.
+worked, result = registry.call(taskModule.Task("t"), "coach", {"asked": "open NVDA Coach"})
+assert worked and result == addonsModule.coachMissing(None) and "does not install add-ons" in result, result
+worked, result = registry.call(taskModule.Task("t"), "coach", {"asked": "teach me how to hear the current date"})
+assert worked and result.endswith(addonsModule.COACH_ABSENT) and "date" in result.lower() and "f12" in result.lower(), result
+
+# NVDA Coach is installed: its lessons are read from its own files, and its own command opens it.
+coachDir = tempfile.mkdtemp()
+lessonDir = os.path.join(coachDir, "globalPlugins", "nvdaCoach", "lessons", "en")
+os.makedirs(lessonDir)
+with open(os.path.join(lessonDir, "start.json"), "w", encoding="utf-8") as f:
+	json.dump({"id": "start", "title": "Getting Started", "order": 1, "lessons": [
+		{"id": "title", "title": "Read the Title Bar", "order": 1, "steps": [
+			{"type": "info", "instruction": "NVDA+T reads the title bar of the window. Press Enter to continue.",
+				"hints": ["Hold the NVDA key and press T."]}]}]}, f)
+coachAddon = types.SimpleNamespace(
+	name="nvdaCoach", path=coachDir, isDisabled=False, isRunning=True,
+	manifest={"summary": "NVDA Coach - Interactive Screen Reader Training", "version": "1.6.0", "author": "Someone",
+		"description": "Interactive screen reader training."},
+	getDocFilePath=lambda: None)
+sys.modules["addonHandler"].getAvailableAddons = lambda: [clock, coachAddon]
+opened = []
+Commands.script_toggleCoach = lambda self, gesture: opened.append("coach")
+MAPPINGS["NVDA Coach"] = {"coach": info("toggleCoach", "Show NVDA Coach window, or open the lesson picker", ["kb:nvda+shift+c"])}
+SHOWN["kb:nvda+shift+c"] = "NVDA+shift+c"
+worked, result = registry.call(taskModule.Task("t"), "coach", {"asked": "give me a hint about reading the title bar"})
+assert worked and result.startswith('From NVDA Coach, the lesson "Read the Title Bar" in Getting Started, a hint: Hold the NVDA key and press T.'), result
+assert not opened
+worked, result = registry.call(taskModule.Task("t"), "coach", {"asked": "coach me on the title bar"})
+assert worked and "step 1 of 1: NVDA+T reads the title bar of the window." in result and "press NVDA+shift+c" in result, result
+assert "Press Enter to continue" not in result and not opened
+worked, result = registry.call(taskModule.Task("t"), "coach", {"asked": "which lessons does NVDA Coach have"})
+assert worked and result.startswith("NVDA Coach has 1 lesson in 1 chapter: Getting Started, 1 lesson."), result
+# Only when its own window is asked for is its command run, once.
+worked, result = registry.call(taskModule.Task("t"), "coach", {"asked": "open NVDA Coach"})
+assert worked and result == addonsModule.COACH_OPENED and opened == ["coach"], (result, opened)
+assert registry.get("coach").tell == "verbatim" and "coach" in planner.RECIPES
+# Turned off: said so, nothing is run, and VisionClaw does not turn it on.
+coachAddon.isDisabled = True
+worked, result = registry.call(taskModule.Task("t"), "coach", {"asked": "open NVDA Coach"})
+assert worked and result == addonsModule.coachMissing(addonsModule.OFF) and opened == ["coach"], result
+sys.modules["addonHandler"].getAvailableAddons = lambda: [clock]
+del MAPPINGS["NVDA Coach"]
+
+# --- Free training material, downloaded only after a yes; NVDA's own help kept as Markdown files ---
+# tests/test_training.py checks the plain parts; here the tools, in the stand-in NVDA.
+from visionClaw.claw import helpfiles as helpModule  # noqa: E402
+from visionClaw.claw import training as trainingModule  # noqa: E402
+
+LESSON_PAGE = (
+	"<html><body><header>Menu</header><main><h1>Lesson</h1><h2>Transcript</h2>"
+	+ "".join(f"<p>[Ricky] In part {n} the quokkalesson shows how the Windows key opens the Start menu.</p>" for n in range(30))
+	+ "<h2>Learn NVDA</h2><p>More lessons.</p></main></body></html>")
+WIKI_LESSON = "## Cursors\n\nThe JAWS cursor is called object navigation with the review cursor in NVDA.\n\n" + "More for people from JAWS. " * 80
+trainingFetched = []
+
+
+def trainingFetch(url, limit=None, hosts=None):
+	trainingFetched.append((url, hosts, limit))
+	return WIKI_LESSON if url.startswith(trainingModule.WIKI) else LESSON_PAGE
+
+
+nvdatools.net.fetchText = trainingFetch
+conf["visionClaw"]["confirmChanges"] = False
+# It is asked about even when the user turned confirmations off, the question names every site, and a no
+# downloads nothing.
+del questions[:]
+instance.clawAsk = lambda question, choices: questions.append(question) or 1
+worked, result = registry.call(taskModule.Task("test"), "update_training", {})
+assert worked and result == "You said no, so nothing was changed." and trainingFetched == [], (result, trainingFetched)
+assert questions[0] == trainingModule.question() and "afb.org" in questions[0] and "18 requests are sent" in questions[0]
+instance.clawAsk = lambda question, choices: 0
+worked, result = registry.call(taskModule.Task("test"), "update_training", {})
+assert worked and result.startswith("Downloaded 6 pages of the NVDA wiki and kept them as Markdown."), result
+assert len(trainingFetched) == 18 and all(hosts == trainingModule.HOSTS and limit == trainingModule.MAX_BYTES for _url, hosts, limit in trainingFetched)
+assert {url.split("/")[2] for url, _hosts, _limit in trainingFetched} == {"raw.githubusercontent.com", "afb.org", "hadleyhelps.org"}
+assert os.path.isfile(os.path.join(instance.trainingDir, "hadley-nvda", "useful-shortcuts.md"))
+assert registry.get("update_training").tell == "verbatim" and "update_training" in planner.RECIPES
+# What is here is said by plain code, with where NVDA's own help is kept as Markdown.
+worked, result = registry.call(taskModule.Task("test"), "training_info", {"asked": "which training material do I have"})
+assert worked and result.startswith("6 pages of the NVDA wiki, by NVDA's community, on GitHub, downloaded today."), result
+assert instance.trainingDir in result and instance.helpDir in result, result
+# A question that asks to be taught is given a lesson with what NVDA says itself; one that does not, is not.
+worked, result = registry.call(taskModule.Task("test"), "look_up", {"question": "Teach me how the Windows key opens the Start menu"})
+assert worked and "From AFB's Learn NVDA lessons, from 2016:" in result and "quokkalesson" in result, result
+worked, result = registry.call(taskModule.Task("test"), "look_up", {"question": "How does the Windows key open the Start menu"})
+assert "quokkalesson" not in result, result
+# The page for people who come from JAWS: when JAWS is named, or when VisionClaw remembers that the user does.
+worked, result = registry.call(taskModule.Task("test"), "look_up", {"question": "What is the review cursor in object navigation?"})
+assert "From the NVDA wiki" not in result, result
+instance.memories.add("I come from JAWS", kind="you")
+worked, result = registry.call(taskModule.Task("test"), "look_up", {"question": "What is the review cursor in object navigation?"})
+assert worked and "From the NVDA wiki: Switching from JAWS to NVDA: Cursors." in result, result
+# NVDA's user guide was turned into a Markdown file by the question, and the add-ons' help with it.
+assert os.path.isfile(os.path.join(instance.helpDir, "nvda-user-guide.md"))
+with open(os.path.join(instance.helpDir, "nvda-user-guide.md"), encoding="utf-8") as f:
+	assert helpModule.madeFrom(f.read()) == guidePath
+accesstools.installedAddons()
+with open(os.path.join(instance.helpDir, "addons", "clock.md"), encoding="utf-8") as f:
+	clockHelp = f.read()
+assert clockHelp.startswith("# The help of the add-on Clock and calendar\n") and "## Alarms\n\nAlarms ring at the time you set." in clockHelp, clockHelp
+# Deleting is asked about, and afterwards nothing of it is looked up.
+conf["visionClaw"]["confirmChanges"] = True
+instance.clawAsk = lambda question, choices: questions.append(question) or 0
+worked, result = registry.call(taskModule.Task("test"), "remove_training", {})
+assert worked and result.startswith("Deleted from this computer: the NVDA wiki, AFB's Learn NVDA lessons, from 2016, Hadley's NVDA workshops."), result
+assert questions[-1].startswith("Delete the downloaded NVDA training material from this computer?")
+worked, result = registry.call(taskModule.Task("test"), "look_up", {"question": "Teach me how the Windows key opens the Start menu"})
+assert "quokkalesson" not in result, result
+worked, result = registry.call(taskModule.Task("test"), "remove_training", {})
+assert worked and result == "No training material is on this computer, so there is nothing to delete.", result
+conf["visionClaw"]["confirmChanges"] = False
+
+# --- What can be downloaded: said when asked, and once after an answer that it fits ---
+from visionClaw.claw import offers as offersModule  # noqa: E402
+
+shippedGuides.SHIPPED = SHIPPED_GUIDES
+worked, result = registry.call(taskModule.Task("test"), "downloads_info", {})
+assert worked and result == offersModule.overview({"devGuide": True, "addonGuide": False, "training": False}), result
+assert registry.get("downloads_info").tell == "verbatim" and "downloads_info" in planner.RECIPES
+assert instance.downloadState() == {"devGuide": True, "addonGuide": False, "training": False}
+# The orchestrator is given the sentences, and says each once after a request that was done.
+assert instance.orchestrator.offer is not None
+doneTask = taskModule.Task("Write an add-on that beeps when a link gets the focus")
+doneTask.steps = [planner.Step("Writing", "create_addon", "x", "x", recipe="write_addon")]
+doneTask.steps[0].status = taskModule.STEP_DONE
+said = instance.orchestrator._offered(doneTask, doneTask.request, ["write_addon"])
+assert said == offersModule.SENTENCES[offersModule.GUIDES], said
+assert instance.orchestrator._offered(doneTask, doneTask.request, ["write_addon"]) == ""
+assert os.path.isfile(os.path.join(os.path.dirname(instance.guidesDir), "offered.json"))
+# After a request that failed, nothing is offered.
+failedTask = taskModule.Task("Teach me how to read a web page")
+failedTask.steps = [planner.Step("Asking", "look_up", "x", "x", recipe="nvda_question")]
+failedTask.steps[0].status = taskModule.STEP_FAILED
+assert instance.orchestrator._offered(failedTask, failedTask.request, ["nvda_question"]) == ""
+shippedGuides.SHIPPED = ""
 
 instance.terminate()
 print("OK")

@@ -81,6 +81,9 @@ class VisionClawPanel(gui.settingsDialogs.SettingsPanel):
 		# Translators: Button in settings that opens the window of what VisionClaw remembers, to delete some or all.
 		self.memoriesBtn = helper.addItem(wx.Button(self, label=_("What VisionClaw remem&bers, to forget some or all...")))
 		self.memoriesBtn.Bind(wx.EVT_BUTTON, lambda e: self._openFolder("memories"))
+		# Translators: Button in settings that says which guides and lessons VisionClaw can download when asked.
+		self.downloadsBtn = helper.addItem(wx.Button(self, label=_("What VisionClaw can download for you...")))
+		self.downloadsBtn.Bind(wx.EVT_BUTTON, lambda e: self.plugin.showDownloads() if self.plugin else None)
 		# Translators: Button in settings that opens the folder of documents VisionClaw looks things up in.
 		self.libraryBtn = helper.addItem(wx.Button(self, label=_("Open your li&brary of documents...")))
 		self.libraryBtn.Bind(wx.EVT_BUTTON, lambda e: self._openFolder("library"))

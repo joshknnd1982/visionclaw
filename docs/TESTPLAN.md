@@ -319,6 +319,54 @@ Settings, Display, Scale).
       with words from the guides. (Owner's report, 0.8.0, 2026-11-17, without detail.)
 - [ ] Without an internet connection it says that the guides could not be downloaded, and earlier copies stay.
 
+## The developer guides put to use, add-ons by what you want, NVDA Coach (after 1.1.0)
+- [ ] "Which developer guides do I have" says both guides, the day, and the folder. With guides kept by 1.1.0 or
+      older it also says they were kept by an older VisionClaw and how to get them again.
+- [ ] After "get the latest NVDA developer guides" once more, the same question no longer says that.
+- [ ] "What does the developer guide say about events" is answered in plain words, names the guide, and reads
+      out no code.
+- [ ] "Open the developer guides folder" opens the folder in File Explorer.
+- [ ] "Delete the developer guides" asks, deletes on yes, and "which developer guides do I have" then says none.
+- [ ] "Write an add-on that says the window class name of the focused control when I press NVDA+alt+K": VisionClaw's
+      log shows the line "Given to the add-on writer from the developer guides", and the add-on works.
+- [ ] "Write an add-on that beeps when a link gets the focus": the log shows no line from the guides, and the
+      add-on works as before.
+- [ ] "Is there an add-on that ..." with something one of your add-ons does: it names that add-on and its key.
+- [ ] The same for something no add-on does: it says none does, and lists the add-ons.
+- [ ] For an add-on that is turned off: it says so, and does not turn it on.
+- [ ] Without NVDA Coach: "open NVDA Coach" says it is not installed and installs nothing; "teach me how to read
+      the window title" answers from NVDA's user guide and names NVDA Coach once.
+- [ ] With NVDA Coach installed: "give me a hint about browse mode" gives one hint; "coach me on reading the
+      current line" gives one step; "teach me object navigation step by step" gives the steps; "which lessons
+      does NVDA Coach have" and "how far am I in NVDA Coach" answer; "open NVDA Coach" opens its window.
+- [ ] With NVDA Coach installed and Excel in front: "open NVDA Coach" says to leave Excel first.
+- [ ] "From now on, give me only a hint." Then "how do I read the window title": the answer is a hint.
+      "Forget that" puts it back.
+- [ ] "What is new in the latest version of NVDA" is answered from NVDA's own list, and names the version.
+- [ ] "Get the free NVDA training material" asks first, also with "ask before changes" turned off, and names
+      the NVDA wiki, AFB and Hadley and 18 requests. No downloads nothing.
+- [ ] Yes downloads 18 pages. VisionClaw's data folder has `training` with three folders of Markdown files, and
+      each file says at its top where it is from.
+- [ ] "Which training material do I have" says the three sources, the day and the folder.
+- [ ] "Teach me how to move around a web page" is answered with a lesson, and says where it is from.
+      "How do I move to the next heading" is answered from NVDA's own help as before.
+- [ ] "I come from JAWS." Then "what is the review cursor": the answer uses the wiki's page for people from JAWS.
+- [ ] "Delete the training material" asks, and deletes on yes.
+- [ ] After the first question, VisionClaw's data folder has `help` with `nvda-user-guide.md`,
+      `nvda-whats-new.md`, and after a question about add-ons a file for each add-on in `help\addons`.
+- [ ] "What can you download for me" names the developer guides, the lessons, notes on a program, a newer
+      version and newer models, says which are here, and gives the words for each.
+- [ ] In VisionClaw's settings, the button "What VisionClaw can download for you" opens the same text in a
+      window that can be read line by line.
+- [ ] On a fresh installation, the first question ("how do I read the title") ends with one sentence that
+      begins "This is said once" and names "what can you download for me". The next question does not.
+- [ ] The first request for an add-on ends with one sentence about the NVDA Add-on Development Guide; the
+      second does not. After "get the latest NVDA developer guides", it is never said.
+- [ ] "I am using my real mouse. How do I hear what is under the pointer?" names NVDA+M and does not tell you
+      to use the keyboard instead.
+- [ ] In the description window (NVDA+Alt+W pressed twice on a window), "how do I read the title of this window with the
+      keyboard" names NVDA+T; "which button has the focus" is answered from the picture as before.
+
 ## The very small models, one question at a time (after 0.6.0)
 - [ ] VisionClaw's settings have "Ask the models one small question at a time" with Automatic, Always, Never,
       and the choice is kept after OK.
@@ -403,7 +451,8 @@ Settings, Display, Scale).
       and has no stars, hashes or list marks.
 
 ## Fingers and pressure (after 1.2.0)
-- [ ] First, outside the Ask window: `python tests/live_touch.py --yes`. It opens a small window of its own,
+- [x] (Run on 2026-11-18 on the owner's computer, outside NVDA: it said all three.)
+      First, outside the Ask window: `python tests/live_touch.py --yes`. It opens a small window of its own,
       touches and presses only inside it, and prints what Windows told that window. It must say that two
       fingers began further apart than they ended, that the pen's pressure rose, and "Windows took the
       fingers and the pen as VisionClaw makes them."

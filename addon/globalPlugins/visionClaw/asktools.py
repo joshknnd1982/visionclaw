@@ -16,7 +16,7 @@ import time
 import addonHandler
 import api
 
-from .claw import debuglog, learn, lookup, policy
+from .claw import debuglog, helpfiles, learn, lookup, memories, policy, training
 from .claw import task as taskModule
 from .claw.catalog import VISION
 from .claw.llm import LLM
@@ -29,7 +29,7 @@ WALK_SECONDS = 0.4
 MAX_WITH_KEYS = 40
 MAX_WINDOWS = 30
 # The passages that stay the same while NVDA runs: the user guide, the notes, the help of the add-ons.
-_kept = {"count": None, "passages": [], "guide": None}
+_kept = {"count": None, "passages": [], "guide": None, "news": None, "training": [], "trainingStamp": None}
 
 
 def _safe(fn, default=None):
@@ -44,14 +44,34 @@ def _one(text, chars=120):
 	return text if len(text) <= chars else text[:chars].rstrip() + " ..."
 
 
-def guideSections():
-	"""All of NVDA's own user guide, as it is on this computer, at its headings."""
+def guideSections(helpDir=""):
+	"""All of NVDA's own user guide, as it is on this computer, at its headings. helpDir: where it is kept as
+	a Markdown file, made when the guide is newer or another one; it is then read from there."""
 	import documentationUtils
 	path = documentationUtils.getDocFilePath("userGuide.html")
 	if not path or not os.path.isfile(path):
 		return []
-	with open(path, encoding="utf-8", errors="replace") as f:
-		return [(title, body, "userGuide") for title, body in lookup.htmlSections(f.read())]
+	if helpDir:
+		found = helpfiles.kept(path, os.path.join(helpDir, "nvda-user-guide.md"), "NVDA's user guide", lookup.htmlSections)
+	else:
+		with open(path, encoding="utf-8", errors="replace") as f:
+			found = lookup.htmlSections(f.read())
+	return [(title, body, "userGuide") for title, body in found]
+
+
+def newsSections(helpDir=""):
+	"""NVDA's own list of what is new in its newest versions, as it is on this computer; kept as a Markdown
+	file like the user guide."""
+	import documentationUtils
+	path = documentationUtils.getDocFilePath("changes.html")
+	if not path or not os.path.isfile(path):
+		return []
+	if helpDir:
+		found = helpfiles.kept(path, os.path.join(helpDir, "nvda-whats-new.md"), "What is new in NVDA", lookup.newsSections)
+	else:
+		with open(path, encoding="utf-8", errors="replace") as f:
+			found = lookup.newsSections(f.read())
+	return [(title, body, lookup.NEWS) for title, body in found]
 
 
 def keptPassages(plugin):
@@ -60,27 +80,56 @@ def keptPassages(plugin):
 	count = _safe(plugin.knowledge.count, 0)
 	if _kept["guide"] is None:
 		try:
-			_kept["guide"] = lookup.fromSections(guideSections())
+			_kept["guide"] = lookup.fromSections(guideSections(getattr(plugin, "helpDir", "")))
 		except Exception as e:
 			debuglog.error("lookup", "NVDA's user guide could not be read", e)
 			_kept["guide"] = []
+	if _kept["news"] is None:
+		# Asked only when a question is about what is new or what changed (lookup._NEWS).
+		try:
+			_kept["news"] = lookup.fromSections(newsSections(getattr(plugin, "helpDir", "")))
+		except Exception as e:
+			debuglog.error("lookup", "NVDA's list of what is new could not be read", e)
+			_kept["news"] = []
 	if _kept["count"] != count:
 		_kept["count"] = count
 		# The whole user guide is read above; the knowledge keeps only the start of each of its sections.
-		_kept["passages"] = lookup.fromSections(plugin.knowledge.everything(exclude=("userGuide",)))
-	return _kept["guide"] + _kept["passages"]
+		# The training material is asked as passages of its own below, each only about what its page is about.
+		_kept["passages"] = lookup.fromSections(plugin.knowledge.everything(exclude=("userGuide", training.SOURCE)))
+	folder = getattr(plugin, "trainingDir", "")
+	stamp = _safe(lambda: os.path.getmtime(os.path.join(folder, training.RECORD)), 0) if folder else 0
+	if _kept["trainingStamp"] != stamp:
+		# Read again after it was downloaded or deleted.
+		_kept["trainingStamp"] = stamp
+		_kept["training"] = (_safe(lambda: training.passages(folder), []) or []) if stamp else []
+	return _kept["guide"] + _kept["news"] + _kept["passages"] + _kept["training"]
 
 
-def commandPassages(known, app):
-	"""NVDA's commands where the user is. Those that belong to the program in front are the program's."""
+def forPicture(plugin, question):
+	"""For a question in the description window that asks how something is done: the one command of NVDA,
+	among those that work where the user is, that the question names, with its key (followup.known); "" for a
+	question about the picture itself. Called from the thread that answers; the commands are read on NVDA's
+	main thread."""
+	from . import followup, nvdatools
+	if not followup.asksHow(question):
+		return ""
+	known = _safe(lambda: nvdatools.onMain(nvdatools._commands), []) or []
+	return followup.known(question, commandPassages(known, "this program"))
+
+
+def commandPassages(known, app, owners=None):
+	"""NVDA's commands where the user is. Those that belong to the program in front are the program's, and
+	one that an add-on adds says which add-on it is from (owners: accesstools.addonOwners)."""
 	found = []
 	for command in known:
 		if not command.documented:
 			continue  # a command nobody described cannot answer a question
 		ofApp = command.source.startswith("appModules.")
+		addon = (owners or {}).get(command.source, "")
+		origin = f"the add-on {addon}" if addon else f"NVDA's commands for {app}" if ofApp else ""
 		found.append(lookup.fromCommand(
 			command.scriptName, command.description, command.category, command.line(),
-			lookup.APP if ofApp else lookup.NVDA, f"NVDA's commands for {app}" if ofApp else ""))
+			lookup.APP if ofApp else lookup.NVDA, origin))
 	return found
 
 
@@ -263,7 +312,10 @@ def register(plugin, add, text, onMain, commandsNow):
 			"its user guide, and the help of its add-ons."))
 		task.check()
 		here, app, title, withKeys = onMain(herePassages, plugin)
-		passages = commandPassages(known, app) + kept + here
+		# A command that an add-on adds says which add-on it is from.
+		from . import accesstools
+		owners = _safe(lambda: onMain(accesstools.addonOwners), {}) or {}
+		passages = commandPassages(known, app, owners) + kept + here
 		task.emit(taskModule.DETAIL, (
 			f"Asked the program {app}, and its window{f' {title}' if title else ''}. "
 			f"Controls in it with a key of their own: {withKeys}."))
@@ -283,6 +335,9 @@ def register(plugin, add, text, onMain, commandsNow):
 		names = [name for name in (app, who["product"]) if name and name != "unknown"]
 		shelved = _safe(lambda: plugin.library.passages(names), []) or []
 		mine = _safe(lambda: lookup.fromMemories(plugin.memories.all()), []) or []
+		# What the user asked to be remembered about themselves opens what is only asked when it is named:
+		# someone who said once that they come from JAWS is given the page for that without saying it again.
+		about = _safe(lambda: [entry.text() for entry in plugin.memories.all() if entry.kind == memories.YOU], []) or []
 		passages += shelved + mine
 		if shelved or mine:
 			task.emit(taskModule.DETAIL, (
@@ -309,12 +364,14 @@ def register(plugin, add, text, onMain, commandsNow):
 					task.emit(taskModule.DETAIL, (
 						f"The {policy.roleName(VISION, policy.isOneModel(plugin.runtime))} takes the question to be about "
 						f"{what}: {named}."))
-		found = lookup.about(question, passages, extra=extra, program=names)
+		found = lookup.about(question, passages, extra=extra, program=names + training.comesFrom(about))
 		debuglog.log("lookup", (
 			f"Asked {len(passages)} passages about \"{question}\". Telling words: {sorted(lookup.asked(question)[0])}. "
 			f"Found: {[(passage.origin, passage.title or passage.text[:50]) for passage in found]}"))
 		if not found:
-			return lookup.nothingText(question, app, title, notes=bool(noted), library=bool(shelved), memories=bool(mine))
+			return lookup.nothingText(
+				question, app, title, notes=bool(noted), library=bool(shelved), memories=bool(mine),
+				guides=_safe(lambda: plugin.devGuides.here()))
 		return lookup.resultText(found)
 
 	add(lookup.TOOL,
