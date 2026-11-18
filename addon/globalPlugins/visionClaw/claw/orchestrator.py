@@ -7,7 +7,7 @@
 # time, check the result, tell the user what really happened, and remember what was learned.
 # No NVDA dependencies.
 
-from . import agent, consensus, debuglog, planner, policy, shapes
+from . import agent, consensus, debuglog, lookup, planner, policy, shapes
 from . import task as taskModule
 from .catalog import CODER, VISION
 from .llm import LLM, LLMError, clip, plainSpeech
@@ -19,6 +19,9 @@ _ANSWER_SYSTEM = (
 	"You are VisionClaw, an assistant inside the NVDA screen reader. Answer the user from the information given. "
 	"They are blind and will hear your words spoken, so use short, plain sentences and no lists or symbols.\n"
 	"Rules: Use only the information given; never add anything that is not in it. "
+	"Answer exactly what the user asked. Information may come in several pieces that say where they are from; "
+	"use the pieces that are about the question and leave out the others. Each numbered piece stands alone: "
+	"never put steps from two pieces together into one way of doing something. "
 	"If it names keys for a command, say the keys. If the information does not answer the question, say that "
 	"you could not find it. Do not mention tools, steps, forms or models. Do not say that anything was changed."
 )
@@ -263,7 +266,11 @@ class Orchestrator:
 			if step.status != taskModule.STEP_DONE:
 				continue
 			tool = self.registry.get(step.tool)
-			if tool.tell == VERBATIM and (tool.changes or lastOfPart):
+			if tool.tell == SUMMARIZE and lastOfPart and lookup.isNothing(step.result):
+				# Nothing that was looked up is about the question: plain code says so, as it is. A model
+				# that is handed nothing makes something up.
+				told.append(step.result)
+			elif tool.tell == VERBATIM and (tool.changes or lastOfPart):
 				# Two parts answered by the same look are said once: "how big is the model, and is it loaded".
 				if tool.changes or step.result not in told:
 					told.append(step.result)
@@ -286,7 +293,8 @@ class Orchestrator:
 			# A very small model is not asked to put what was found into its own words: it makes things up.
 			pieces += [self._quoted(llm, part, result, tool) for (part, result), tool in zip(info, task.infoTools)]
 		elif info:
-			user = "\n\n".join(f"The user asked: \"{clip(part, 300)}\"\nInformation found:\n{clip(result, 1200)}"
+			user = "\n\n".join(
+				f"The user asked: \"{clip(part, 300)}\"\nInformation found:\n{clip(lookup.numbered(result), 1200)}"
 				for part, result in info) + (
 					"\n\nAnswer each of these questions, in order." if len(info) > 1 else "\n\nAnswer the user.")
 			try:
@@ -305,6 +313,9 @@ class Orchestrator:
 		code finds the lines; where there are several, the model only chooses among them."""
 		if toolName in shapes.AS_IS:
 			return clip(result, 700)
+		if toolName == lookup.TOOL:
+			# Already ranked by plain code, the best first: nothing is left for a model to choose.
+			return clip(lookup.quoted(result), 800)
 		lines, _asked = shapes.quote(part, result)
 		if not lines:
 			return shapes.notMentioned(part)

@@ -24,6 +24,9 @@ focus again, and VisionClaw tells you each step as it works. Examples:</p>
 <li>Make NVDA speak a little faster.</li>
 <li>Turn off the typing echo and set punctuation to all.</li>
 <li>How do I read the title of this window?</li>
+<li>How can I use the keyboard to navigate my desktop? How do I switch between open windows?</li>
+<li>What is browse mode? What does NVDA+T do? What does Windows+D do?</li>
+<li>What can I do here? Which key is for the Save button? Which windows are open?</li>
 <li>What is on my screen?</li>
 <li>Press the Play button in this window.</li>
 <li>Give this program a hotkey that clicks Send.</li>
@@ -48,6 +51,24 @@ against your own words; if the two still differ after it has looked again, you a
 "what model is installed" to hear which model does which job and how big it is. If a step does not work, you are asked whether to skip it, try again or stop. By default
 VisionClaw also asks before it changes a setting, clicks, presses keys or types; you can turn that off in
 settings.</p>
+
+<h2>Questions: NVDA, the program, the window, Windows</h2>
+<p>A question such as "how do I", "what key", "what is" or "what does this key do" is asked of four places,
+every time, in this order:</p>
+<ol>
+<li>NVDA: every command that works where you are, with its keys; all of NVDA's user guide; the help of your
+add-ons.</li>
+<li>The program in front: which program it is, its version, NVDA's commands for it, and the hotkeys VisionClaw
+made for it.</li>
+<li>Its window: the title, the control that has the focus with its state, its place in its list, its own key
+and what it is inside of, the status bar, and the controls that have keys of their own.</li>
+<li>Windows: which Windows this is, which windows are open, and the keys of Windows: the desktop, the Start
+menu, the taskbar, switching and closing windows, File Explorer, menus, dialogs, text, copy and paste.</li>
+</ol>
+<p>Plain code then keeps only what is about your question, and the answer says where it is from. When nothing
+is about your question, VisionClaw says so and names what it asked; it does not give you the nearest thing.
+The keys of Windows were written from Microsoft's own page and are part of the add-on. Nothing is looked up
+online.</p>
 
 <h2>Your settings stay yours</h2>
 <p>VisionClaw changes an NVDA setting only when you ask it to, and only the setting you asked about. A change to
@@ -210,7 +231,9 @@ when NVDA starts, answering in NVDA's language, and the tick while waiting.</li>
 <h2>Getting a newer version of VisionClaw</h2>
 <p>Press NVDA+Alt+U, use the button "Look for a newer version now" in VisionClaw's settings, or ask "check for a
 new version of VisionClaw". VisionClaw reads the list of its versions from its own page on GitHub. If there is a
-newer one, you hear its version, its size and what is new, and you are asked whether to download it. The file
+newer one, a window opens with the focus in a read-only edit box that holds its version, its size and what is
+new, one point to a line. Read it with the arrow keys as often as you like. Tab reaches two buttons, Download
+and install, and Not now; Escape means not now. The file
 is checked against the size and SHA-256 GitHub reports, and then NVDA itself asks whether to install it and
 restarts.</p>
 <p>In the settings, "Look for a newer version of VisionClaw" can be set to "When NVDA starts, at most once a day,

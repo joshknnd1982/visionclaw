@@ -256,6 +256,16 @@ class Helpers:
 
 	# --- Both ---
 
+	def appLines(self, app):
+		"""The hotkeys VisionClaw made for one program, as sentences."""
+		lines = []
+		for binding in dict(self._bindings.get(app, {})).values():
+			if binding.get("action") == dragcontrol.ACTION:
+				lines.append(f"{dragcontrol.describe(binding)}.")
+			else:
+				lines.append(f"{binding['key']} does {binding['action']} \"{binding['item']}\".")
+		return lines
+
 	def listText(self):
 		lines = []
 		for app, bindings in sorted(self._bindings.items()):

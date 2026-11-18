@@ -18,7 +18,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-TESTS = ("test_speaker.py", "test_core.py", "test_one_model.py","test_parts.py", "test_pointer.py", "test_scrolling.py", "test_working.py", "test_shapes.py", "test_commands.py", "test_updates.py", "test_access.py", "test_runtime.py", "test_nvda_stub.py")
+TESTS = ("test_speaker.py", "test_core.py", "test_one_model.py","test_parts.py", "test_pointer.py", "test_scrolling.py", "test_working.py", "test_shapes.py", "test_commands.py", "test_lookup.py", "test_updates.py", "test_access.py", "test_runtime.py", "test_nvda_stub.py")
 
 
 def main():

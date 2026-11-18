@@ -1,12 +1,12 @@
 # VisionClaw status
 
-Updated 2026-11-17, version 0.9.0.
+Updated 2026-11-17, version 0.10.0.
 
 ## What exists
 
 Everything in phases 1 to 3.4 and 4.1 of `CLAUDE.md`: the fork, the model catalog and models window, the
 graphics choice with fallback, the two-model runtime, the planner with recipes, agreement between the models,
-the step runner, 49 NVDA tools and 43 recipes, the Ask VisionClaw window, app helpers, generated add-ons, the
+the step runner, 50 NVDA tools and 43 recipes, the Ask VisionClaw window, app helpers, generated add-ons, the
 knowledge base and the lessons memory. New in 0.2.0: the web through NVDA's browse mode, reporting on speech,
 braille, drivers and add-ons, safe switching of the synthesizer and braille display, and saving a generated
 add-on as a file. New in 0.3.0: a guard around generated add-ons with automatic debugging and correction,
@@ -613,6 +613,112 @@ jobs and "one small question at a time" set to Always. He pasted what the Last t
 - **The notes on speech and braille** describe NVDA's own code. Synthesizers and displays that add-ons bring
   follow the same base classes; nothing was tried with a real braille display.
 
+## A question answered off the point in real use, and what 0.10.0 does about it (2026-11-17)
+
+In NVDA the owner asked "How can I use the keyboard to navigate my desktop?", with Qwen3.5 9B for both jobs
+and one small question at a time. The answer was "toggleKeyboardLayout: Toggles between desktop and laptop
+keyboard layout. Keys: no key assigned." The owner asked that VisionClaw always query NVDA, then the program,
+the window and Windows itself before it answers, that an answer always be about the question, and that
+VisionClaw be more intelligent and more aware of where the user is.
+
+What was wrong, read from the transcript and reproduced against all 265 commands of NVDA 2026.3.1:
+1. A "how do I" question was planned as `find_command` alone. Nothing but NVDA's commands was ever asked, so
+   a question about Windows or about the program in front could not be answered at all.
+2. Among the commands, the one that shares "keyboard" and "desktop" with the question was the best match.
+   "Keyboard" says how, not what; it counted as much as "desktop".
+3. Nothing checked that what was found was about the question, and with one small question at a time the
+   found line is the answer.
+
+What 0.10.0 does:
+- **One step, `look_up`, asks four places, always, in this order** (`asktools.py`): NVDA (the commands that
+  work where the user is, the whole user guide as it is on the computer, the help of the installed add-ons,
+  VisionClaw's notes); the program in front (name, product, version, NVDA's commands for it, the hotkeys
+  VisionClaw made for it); its window (title, the control with the focus with value, states, place in its
+  group, own key, description and what it is inside of, the status bar, and up to 40 controls that have a key
+  of their own, found in at most 0.4 seconds); Windows (version, the titles of the open windows, and 34 short
+  notes on the keys of Windows). Three lines in the Last task box say what was asked.
+- **Plain code decides what is about the question** (`claw/lookup.py`): every source gives passages of about
+  340 characters; all are ranked together by the words the question names, a rare word counting for more and a
+  word in a heading for more again; words that only ask or only say "with the keyboard" count for a twentieth;
+  a passage must cover 45 percent of what is named and score 75 percent of the best; the best of each source
+  is kept before a second from the same. Among equals the order is NVDA, program, window, Windows.
+- A written-out key ("what does NVDA+T do") finds what that key does. "What is" and "how do I use" get the
+  start of the section that explains the thing, before any command. "This program", "here" and "focused" bring
+  in where the user is; a question that names nothing else is answered with that alone.
+- **Nothing found is said by plain code**, as a sentence that names what was asked, and is given to the user as
+  it is. No model is asked to put nothing into words, and the step does not count as failed.
+- The recipes `explain_keys` and `nvda_question` are now `look_up`. A question that fits no other hint is
+  hinted as a question, so it is looked up and not planned freely.
+- The model that answers is shown the pieces numbered, each saying where it is from, and is told to use the
+  ones about the question and never to join steps from two pieces.
+- NVDA's user guide is read with its tables: heading rows ("Name, Desktop key, Laptop key") are left out, which
+  alone made half the guide look as if it were about the desktop, and each other row is a sentence, so a
+  command stays with its keys. The title page and table of contents are left out.
+- **The notes on Windows** (`claw/knowledge/windows-keyboard.md`) were written from Microsoft's page "Keyboard
+  shortcuts in Windows" (support.microsoft.com), read on 2026-11-17 through Microsoft's own documentation
+  service, for Windows 11 and 10; Control+S and Control+O from Microsoft Learn, "Moving from Mac to Windows".
+  Not on those pages, and written from common knowledge: that the arrow keys move between icons, that typing
+  first letters jumps, that Enter opens, that Space presses a button, and the Applications key.
+- **What is new in a newer version** is shown in a read-only edit box, one point to a line, with the buttons
+  Download and install, and Not now (`updater.UpdateDialog`, `updates.offerText`), from the key, the button
+  and the request in words alike. The owner asked for this on the same day.
+
+Tested, and how:
+- **`tests/test_lookup.py`, plain code**, against every NVDA command, VisionClaw's real notes and a stand-in
+  page of help: the question that went wrong gives the desktop section of the Windows notes and not the
+  layout command; NVDA answers what is NVDA's (the title, the current line, the time, say all, the NVDA menu);
+  Windows answers eleven everyday questions (switching windows, the Start menu, renaming, the system tray,
+  locking, the taskbar, minimizing, saving, selecting text, closing, shutting down); copying text gives NVDA's
+  and Windows' answers, NVDA's first; three "what is" questions give explanations; written-out keys; "here"
+  and "this program"; a window's own controls with their keys; the order among equals; nothing found for
+  three questions; developer notes kept out of a user's question; word endings; the coverage rule; the hints;
+  and the whole request through the orchestrator with a scripted model, for the quoted answer, the answer in
+  the model's words, and nothing found.
+- **`tests/test_nvda_stub.py`**, the real tool through the real registry against stand-ins for NVDA: a replay
+  of the owner's question with the layout command among NVDA's commands, the three "Asked" lines, a command
+  with its key, the user guide read from a file with a table, where the user is on a stand-in desktop
+  (program, version, window, focused icon, 1 of 12, what it is inside of), a control's own key, the open
+  windows, nothing found, and the whole request as in the real run. The window that says what is new: what it
+  shows, yes and no, from the request in words and from the key.
+- **Names in NVDA's own code**: the compiled modules of the NVDA 2026.3.1 on this computer were searched for
+  every NVDA name the new code uses (api.getStatusBar, getStatusBarText, getFocusAncestors,
+  winVersion.getWinVer with releaseName and build, documentationUtils.getDocFilePath, the app module's
+  productName and productVersion, keyboardShortcut, positionInfo, displayString). All were found. Finding a
+  name does not prove it behaves as expected.
+- **The listing of open windows** was run by itself on this computer, outside NVDA: it ran and found one
+  window. Windows that Windows keeps hidden for sleeping apps are left out.
+- **A trial against the real user guide of NVDA 2026.3.1** on this computer, 1643 passages with the commands
+  and notes, 35 questions, each ranked in under 5 thousandths of a second. This is how the rules above were
+  found: the first trial gave the mouse chapter for the desktop question, because of the table heading
+  "Desktop key". Known weak answers that remain: "what is focus mode" has no section of its own and gets
+  passages that mention it; "how do I save a file" and the like are answered from the Windows notes only where
+  a note exists.
+- **`tests/live_orchestrator.py` with the owner's real model**, Qwen3.5 9B for both jobs, stand-in tools but
+  the real ranking over the real commands, notes and user guide. With one small question at a time, as the
+  owner uses it: all 72 requests of the list were carried out, 12 of them new questions, each question in
+  about half a second. The desktop question now gives: "From Windows: The desktop: going to it and navigating
+  its icons with the keyboard. Press Windows+D to go to the desktop; press it again to bring the windows back.
+  On the desktop the arrow keys move from icon to icon, typing the first letters of a name jumps to that icon,
+  and Enter opens it." With the model putting answers into its own words (20 requests read): "Press Windows
+  and D together to go to the desktop. ... Use the arrow keys to move from one icon to another. ... Press
+  Enter to open an icon."; "Press the NVDA key plus T to read the window title. The current window title is
+  Space Trader - Main Menu."; "Press Alt+N to start a new game."
+  What the runs showed and what was changed for it: (1) for "how do I copy text" the model joined NVDA's
+  review-cursor command and Control+C into one way; since the pieces are numbered it says them as two.
+  (2) "What is browse mode" was answered from the settings chapter of the same name; of two sections with the
+  asked-for heading the first in the guide is now taken. (3) "Which windows are open" was taken as "where am
+  I"; the hint was narrowed. (4) "How much battery is left" found nothing, because "much" and "left" counted
+  as what is asked about, and it had lost its way to the battery command; "much" and "many" now only ask, and
+  the words point to the command again. (5) "What can I do here", quoted, gave the program alone; the window
+  and the focused control are now said with it. One request still ends in a question to the user: "How do I
+  bake a cake?", where the model wants to work out steps itself; after the user's choice it says that nothing
+  was found.
+
+Not tested: **none of this has run inside NVDA.** Walking a real window for controls with keys, the status
+bar, the real focus and its ancestors, the open windows as seen from inside NVDA, how long the first question
+takes while the user guide is read, and the window with the edit box are all untried there. How well the
+smaller models choose `look_up` was not measured; only Qwen3.5 9B was run.
+
 ## What was not tested
 
 - **Model management (0.3.2)**, apart from the owner's report above, was tested against stand-ins only: listing what is stored, removing some or all
@@ -678,6 +784,10 @@ jobs and "one small question at a time" set to Always. He pasted what the Last t
 - VisionClaw's log holds what was asked and what was read from the screen, in plain text, until it is
   overwritten. It can be switched off.
 - App helpers find their item by text, so an item that is only an unnamed icon cannot be a helper's target yet.
+- Questions are matched by words. A question in words that neither NVDA, the window nor the notes on Windows
+  use finds nothing, and says so. The notes on Windows are in English and cover Windows' own keys, not the
+  keys of each program; a program answers only through the keys its own controls report.
+- Menus that are closed are not in a window's controls, so their keys are not found until the menu is open.
 - The check on generated code is not a sandbox.
 
 ## Next session

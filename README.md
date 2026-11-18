@@ -16,10 +16,11 @@ VisionClaw is a fork of [VisionMate](https://github.com/athee06/VisionMate) by A
 everything VisionMate does: image descriptions, the overlay for windows NVDA cannot read, photo descriptions in
 chat apps, and names for unlabelled buttons.
 
-> **Status: pre-release (0.9.0).** The orchestration core has been tested with scripted models and with
+> **Status: pre-release (0.10.0).** The orchestration core has been tested with scripted models and with
 > real models through the bundled engine. Inside NVDA 2026.3.1 the owner has run the models window, a first
 > set of requests, five tests of version 0.4.0 and three of 0.8.2; **most of the test plan has not been run inside NVDA
-> yet**, and what 0.9.0 adds (the command fix, the log, the audit, the questions about pictures), scrolling and
+> yet**, and what 0.9.0 and 0.10.0 add (the command fix, the log, the audit, the questions about pictures, questions
+> answered from NVDA, the program, the window and Windows, the window that says what is new), scrolling and
 > the arrow keys for dials not at all. Expect rough edges and please report them. See
 > [docs/STATUS.md](docs/STATUS.md) for exactly what was tested.
 
@@ -30,6 +31,9 @@ Press **NVDA+Alt+C**, type a request, and press Enter. For example:
 - *Make NVDA speak a little faster.*
 - *Turn off the typing echo and set punctuation to all.*
 - *How do I read the title of this window?* (You are told the keys, for next time.)
+- *How can I use the keyboard to navigate my desktop?* *How do I switch between open windows?* *How do I rename a file?*
+- *What is browse mode?* *What does NVDA+T do?* *What does Windows+D do?*
+- *What can I do here?* *Which key is for the Save button?* *Which windows are open?*
 - *What is on my screen?*
 - *Press the Play button in this window.* (Works in windows and games NVDA cannot read.)
 - *Give this program a hotkey that clicks Send.*
@@ -73,7 +77,7 @@ You do not need to know NVDA. VisionClaw finds the right NVDA setting or command
 
 ## Install
 
-1. Download **[VisionClaw-0.9.0.nvda-addon](https://github.com/joshknnd1982/visionclaw/releases/download/v0.9.0/VisionClaw-0.9.0.nvda-addon)**
+1. Download **[VisionClaw-0.10.0.nvda-addon](https://github.com/joshknnd1982/visionclaw/releases/download/v0.10.0/VisionClaw-0.10.0.nvda-addon)**
    (or pick a version on the [releases page](https://github.com/joshknnd1982/visionclaw/releases)), open the
    file, confirm the installation, and restart NVDA.
 2. If VisionMate is installed, disable it in the Add-on Store: VisionClaw includes it and uses the same keys.
@@ -278,6 +282,39 @@ What it cannot do: a control that nothing in the page's or program's code tells 
 named reliably, and the report says how many those are. A window NVDA cannot read at all cannot be fixed
 this way; use the picture instead (*list what is in the window*, an app helper hotkey, or pointer mode).
 Sites change, and a fix that no longer finds its control says so instead of doing something else.
+
+## Questions: NVDA is asked, then the program, then its window, then Windows
+
+A question such as *how do I ...*, *what key ...*, *what is ...* or *what does this key do* is never put to
+one place alone. Every time, VisionClaw asks four, in this order:
+
+1. **NVDA**: every command that works where you are, with its keys; the whole of NVDA's own user guide on
+   your computer; and the help of the add-ons you have installed.
+2. **The program in front**: which program it is and its version, the commands NVDA has for that program, and
+   the hotkeys VisionClaw made for it.
+3. **Its window**: the window's title, the control that has the focus (its kind, name, value, state, its place
+   in its list, its own key, and what it is inside of), the status bar, and the controls in the window that
+   have keys of their own.
+4. **Windows itself**: which Windows this is, which windows are open, and VisionClaw's notes on the keys of
+   Windows: the desktop, the Start menu, the taskbar, the notification area, switching and closing windows,
+   File Explorer, menus, dialogs, text, copy and paste, locking and shutting down. These notes were written
+   from Microsoft's own page on Windows keyboard shortcuts and are part of the add-on; nothing is looked up
+   online.
+
+Each of them gives what it has in small pieces. Plain code, not a model, then decides which pieces are about
+your question: a piece must be about what your question names, and words that only say "with the keyboard"
+or "how do I" count for almost nothing. That is why *How can I use the keyboard to navigate my desktop?* is
+answered with the keys for the desktop, and not with the NVDA command that switches the keyboard layout,
+which only shares the words keyboard and desktop.
+
+The answer says where it is from: "From NVDA", "From NVDA's user guide", "From this window", "From Windows".
+Where NVDA and Windows both have an answer, as for copying text, you get both, NVDA's first. A larger model
+puts the pieces into its own words; a model that is asked one small question at a time gives you the best
+piece word for word. When nothing is about your question, VisionClaw says so in one sentence and names what
+it asked. It does not give you the nearest thing.
+
+In the Last task box you can read what was asked: three lines that begin "Asked NVDA", "Asked the program"
+and "Asked Windows".
 
 ## Asking NVDA about itself: speech, braille, drivers
 
@@ -567,12 +604,14 @@ Double-check anything important.
 VisionClaw can look on its own page on GitHub for a newer version of itself and get it for you.
 
 - **When you ask:** press **NVDA+Alt+U**, or use the button "Look for a newer version now" in VisionClaw's
-  settings, or ask in words: *check for a new version of VisionClaw*. If there is one, you hear its version,
-  its size and what is new, and you are asked whether to download it. If there is none, you are told that you
-  have the newest.
+  settings, or ask in words: *check for a new version of VisionClaw*. If there is one, a window opens with
+  the focus in a **read-only edit box** that holds its version, its size and what is new, one point to a line.
+  Read it with the arrow keys, line by line or word by word, as often as you like, and copy from it. Tab
+  reaches two buttons: **Download and install**, and **Not now**. Escape means not now. If there is no newer
+  version, you are told that you have the newest.
 - **By itself, if you choose that:** in VisionClaw's settings, "Look for a newer version of VisionClaw" can be
   set to "When NVDA starts, at most once a day, and tell me". Then, a little after NVDA has started, you hear
-  one sentence if a newer version exists: "VisionClaw 0.9.0 is available. Press NVDA+Alt+U to get it." No
+  one sentence if a newer version exists: "VisionClaw 0.10.0 is available. Press NVDA+Alt+U to get it." No
   window opens and nothing is downloaded until you ask. The setting starts on "Only when I ask".
 - **Getting it:** after your yes, the add-on file of that release is downloaded and checked against the size
   and SHA-256 that GitHub reports for it. Then it is handed to NVDA, which asks its own question about

@@ -153,7 +153,7 @@ assert said(task, "Using the plan you chose", taskModule.STATE)
 # 5. The words point to another choice than the model made: it is told which, looks again, and takes it.
 task, state, asked, rt = run("How do I read the window title?", choices=["describe", "explain_keys"])
 assert task.state == taskModule.DONE and not asked, task.log
-assert [s.tool for s in task.steps] == ["find_command", "answer"] and "looked" not in state
+assert [s.tool for s in task.steps] == ["look_up", "answer"] and "looked" not in state
 assert choosing(rt) == [VISION, VISION]
 assert any("The user's words point to: explain_keys (tell you which keys to use). You chose describe." in user
 	for _r, system, user in rt.calls if system.startswith("You choose how"))
@@ -163,7 +163,7 @@ assert said(task, "The model corrected its plan", taskModule.STATE)
 # 5b. It keeps its own choice: then the user decides, as when two models differ. The words' reading comes
 #     first, and nothing is said of two models.
 task, state, asked, rt = run("How do I read the window title?", choices=["describe"], userChoices=[0])
-assert task.state == taskModule.DONE and [s.tool for s in task.steps] == ["find_command", "answer"], task.log
+assert task.state == taskModule.DONE and [s.tool for s in task.steps] == ["look_up", "answer"], task.log
 question, options = asked[0]
 assert question == "VisionClaw is not sure what you mean by \"How do I read the window title?\". What should it do?"
 assert options == ["Tell you which keys to use.", "Look at the screen and describe it.", "Cancel. I will ask in a different way."]

@@ -35,7 +35,7 @@ _ASKING = frozenset(stem(word) for word in "say tell read report speak give show
 ALIASES = {
 	"dateTime": {1: "clock hour", 2: "day today weekday month year calendar"},
 	"say_battery_status": {1: "power charge charging charged charger"},
-	"sayAll": {1: "start reading continuous continuously aloud"},
+	"sayAll": {1: "start reading continuous continuously aloud everything whole"},
 	"showGui": {1: "open menu"},
 }
 

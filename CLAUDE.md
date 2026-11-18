@@ -175,6 +175,26 @@ keyboard and speech alone.
   nothing (`inside.reports`: get, is, has) is called to say what it gives back. The notes in
   `claw/knowledge/nvda-inside.md` were written from NVDA's source with `tools/audit_nvda_source.py`; when
   they are brought up to date, read the source again, do not write from memory.
+- **A question is asked of NVDA, then the program, then its window, then Windows, every time.** The owner
+  asked for this on 2026-11-17, after "How can I use the keyboard to navigate my desktop?" was put to NVDA's
+  commands alone and answered with the command that switches the keyboard layout. The tool `look_up`
+  (`asktools.py`) asks all four, always, in that order: NVDA's commands where the user is, its whole user
+  guide and its add-ons' help; the program in front; its window, the focused control and the controls that
+  have keys of their own; Windows' version, the open windows, and the notes in
+  `claw/knowledge/windows-keyboard.md`. Every one gives small passages, and plain code ranks all of them
+  together by what the question names (`claw/lookup.py`): a passage must cover enough of it
+  (`ranking.rank(cover=)`), words that only say "with the keyboard" count for almost nothing, a written-out
+  key finds what that key does, and "what is" gets an explanation before a command. When nothing is about
+  the question, plain code says so (`lookup.nothingText`) and no model is asked. Never send a question to
+  one source alone again, and never let a recipe for questions end in `find_command`.
+- **The notes on Windows are one answer to a section.** `windows-keyboard.md` was written from Microsoft's
+  page "Keyboard shortcuts in Windows", read on 2026-11-17; the smallest models give a section to the user
+  word for word. When it is brought up to date, read Microsoft's page again, keep each section under about
+  340 characters, and put the words people ask with into its heading.
+- **What is new in a version is read in an edit box.** The owner asked for this on 2026-11-17. A newer
+  version is offered in `updater.UpdateDialog`: a read-only, multi-line edit box with what is new, one point
+  to a line (`updates.offerText`), and two buttons. Never put it back into a message box, which can only be
+  listened to once.
 - **No question about a described picture is refused.** VisionMate asked the model first whether a question
   was "about the image", and a small model said no to what a blind person most needs to ask. The description
   window answers everything (`followup.ANSWER`); the one rule is that what is not shown is said to be not
@@ -210,7 +230,9 @@ addon/
     controlkeys.py           arrow keys for a control that is dragged: taking hold, trying how it is worked,
                              telling what changed, keeping it under a hotkey
     fixruntime.py            the working part of every fixes add-on; copied into the add-on as text
-    updater.py               a newer version of VisionClaw: looking, asking, downloading, handing it to NVDA
+    updater.py               a newer version of VisionClaw: looking, the window that says what is new,
+                             downloading, handing it to NVDA
+    asktools.py              a question: what NVDA, the program in front, its window and Windows each say
     nvdainfo.py              what NVDA has and uses: synthesizer, voices, braille display, drivers, add-ons;
                              how NVDA drives the synthesizer and the display in use, for the audit
     vclog.py                 one "log" for the NVDA-side files: NVDA's log and VisionClaw's own
@@ -227,6 +249,8 @@ addon/
       match.py               forgiving matching of what a model writes against what exists
       ranking.py             which of many things a request is about: rare words tell, names tell more
       commands.py            NVDA's commands as data: finding one, and how often its key is pressed
+      lookup.py              a question answered from NVDA, the program, the window and Windows: passages,
+                             which of them are about the question, a help page as text, what to say when none is
       inside.py              everything inside the running NVDA, listed from its loaded modules; the audit
       debuglog.py            VisionClaw's own log file: levels, rotation, errors with their place in the code
       web.py                 web addresses, search addresses, the passages of a page that matter
@@ -381,6 +405,10 @@ A session is done only when its "Done when" line is true.
   value; `object_info` for every fact of a control; `audit_nvda` for the whole of it, with how speech and
   braille are driven; notes on NVDA's inside written from its source.
 - [x] **3.26 Every question about a picture is answered.**
+- [x] **3.27 Questions answered from NVDA, the program, the window and Windows.** `look_up` asks all four in
+  that order; plain code keeps what is about the question and says so when nothing is; the keys of Windows
+  as notes written from Microsoft's own page.
+- [x] **3.28 What is new, in a box that can be read line by line**, when a newer version is offered.
 - [ ] **3.5 Test inside NVDA.** Install the build in NVDA (ask the user first) and walk through
   `docs/TESTPLAN.md`. Fix what breaks. *Done when:* every item in the test plan is ticked by a real run.
 
@@ -413,6 +441,7 @@ A session is done only when its "Done when" line is true.
 
 ```
 python tests/run_all.py                  every plain-Python test (no model needed)
+python tests/test_lookup.py              questions against every NVDA command and the notes; plain Python
 python tests/live_orchestrator.py        needs the engine and a model on this computer
 python tests/live_side_by_side.py        two real engines on two backends; needs VisionMate's vision data
 python tests/live_addon.py               a real model writes four add-ons and debugs one; read every result

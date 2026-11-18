@@ -128,6 +128,19 @@ Before you start: disable VisionMate in the Add-on Store, install the VisionClaw
 - [ ] The same, answering No: nothing changes and the answer says so.
 - [ ] "Turn off the typing echo and set punctuation to all": two changes, both reported.
 - [ ] "How do I read the title of this window?": the answer names the keys.
+- [ ] "How can I use the keyboard to navigate my desktop?": the answer is about the desktop (Windows+D, the
+  arrow keys, Enter), and not about the keyboard layout. The Last task box shows three lines that begin
+  "Asked NVDA", "Asked the program" and "Asked Windows".
+- [ ] "How do I switch between open windows?": Alt+Tab. "How do I rename a file?": F2.
+- [ ] "What is browse mode?": an explanation from NVDA's user guide, not a command.
+- [ ] "What does NVDA+T do?" and "What does Windows+D do?": each says what that key does.
+- [ ] "What can I do here?", in a dialog with a button in focus: the program, the window and the focused
+  control are named, with the control's own key if it has one.
+- [ ] "Which windows are open?": the titles of the open windows.
+- [ ] "How do I bake a cake?": one sentence that nothing was found, and what was asked.
+- [ ] NVDA+Alt+U with a newer version on GitHub: a window opens with the focus in a read-only edit box; the
+  arrow keys read what is new line by line; Tab reaches "Download and install" and "Not now"; Escape closes it
+  and nothing is downloaded.
 - [ ] "Read the window title": the title is spoken and the keys are named.
 - [ ] "What is on my screen?": a description is spoken.
 - [ ] "Read the text in this window": the text is read.

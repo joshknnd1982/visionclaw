@@ -27,7 +27,7 @@ import wx
 from .vclog import log
 
 from . import mousetools, net, nvdainfo, ocr, webtools
-from .claw import changes, commands, debuglog, drivers, fixes, guides, inside, match, microaddons, pointer, policy, web
+from .claw import changes, commands, debuglog, drivers, fixes, guides, inside, lookup, match, microaddons, pointer, policy, web
 from .claw.catalog import CODER, VISION
 from .claw.llm import LLM, clip
 from .claw.memory import score, wordList, words as wordsOf
@@ -840,15 +840,8 @@ def userGuideSections():
 		return []
 	with open(path, encoding="utf-8", errors="replace") as f:
 		page = f.read()
-	found = []
-	parts = re.split(r"<h[1-4][^>]*>(.*?)</h[1-4]>", page, flags=re.DOTALL)
-	for i in range(1, len(parts) - 1, 2):
-		title = html.unescape(re.sub(r"<[^>]+>", "", parts[i])).strip()
-		body = html.unescape(re.sub(r"<[^>]+>", " ", parts[i + 1]))
-		body = " ".join(body.split())
-		if title and len(body) > 40:
-			found.append((title, body[:1500], "userGuide"))
-	return found
+	# Each row of a table as a sentence, and no heading rows: see lookup.htmlSections.
+	return [(title, body[:1500], "userGuide") for title, body in lookup.htmlSections(page)]
 
 
 def _kindOf(thing):
@@ -1985,6 +1978,9 @@ def build(plugin):
 	# A newer version of VisionClaw itself, when the user asks for it in words.
 	from . import updater
 	updater.register(plugin, add, text)
+	# A question: NVDA is asked, then the program, then its window, then Windows.
+	from . import asktools
+	asktools.register(plugin, add, text, onMain, _commands)
 
 	registry.add(Tool(ANSWER, "tell the user the result in plain words; always the last step", lambda task: ""))
 	return registry

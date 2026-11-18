@@ -74,6 +74,9 @@ def makeRegistry(state):
 	reg.add(tools.Tool("find_command", "find an NVDA command by words",
 		lambda task, words: "title: Reports the title of the window. Keys: NVDA+t.",
 		{"words": text("keywords", auto=True)}, looks=True, title="Finding the command"))
+	reg.add(tools.Tool("look_up", "ask NVDA, the program, the window and Windows about a question",
+		lambda task, question: "From NVDA: title: Reports the title of the window. Keys: NVDA+t.",
+		{"question": text("the question", auto=True)}, looks=True, title="Asking NVDA, the program, the window and Windows"))
 	reg.add(tools.Tool("press_keys", "press keys in the program", lambda task, keys: f"Pressed {keys}.",
 		{"keys": text("the keys")}, changes=True, title="Pressing keys"))
 	reg.add(tools.Tool(tools.ANSWER, "tell the user the result", lambda task: ""))
@@ -171,7 +174,7 @@ assert said(task, "Using the plan you chose", taskModule.STATE)
 
 # 3b. The user picks the other model's way instead.
 task, state, asked, rt = run(choices=["change_setting"], otherChoices=["explain_keys"], userChoices=[1])
-assert [s.tool for s in task.steps] == ["find_command", "answer"] and "rate" not in state
+assert [s.tool for s in task.steps] == ["look_up", "answer"] and "rate" not in state
 
 # 4. The models never agree and the user cancels: nothing is changed.
 task, state, asked, rt = run(forms=[GOOD], choices=["change_setting"], otherChoices=["explain_keys"], userChoices=[2])
@@ -217,7 +220,7 @@ assert [s.part for s in task.steps[:-1]] == ["Make NVDA talk faster, then tell m
 
 # 11. Information that was looked up is put into words by the model; here, the keys of a command.
 task, state, asked, rt = run("How do I read the window title?", choices=["explain_keys"])
-assert [s.tool for s in task.steps] == ["find_command", "answer"]
+assert [s.tool for s in task.steps] == ["look_up", "answer"]
 assert task.answer == "Press NVDA+T to hear the window title."
 answerPrompt = next(u for _r, s, u in rt.calls if s.startswith("You are VisionClaw, an assistant inside the NVDA screen reader. Answer"))
 assert "Keys: NVDA+t" in answerPrompt

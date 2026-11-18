@@ -238,7 +238,7 @@ with open(os.path.join(CONFIG_DIR, "visionClaw", "lessons.json"), "w", encoding=
 	], f)
 instance = plugin.GlobalPlugin()
 registry = instance.orchestrator.registry
-assert len(registry.names()) == 49, registry.names()
+assert len(registry.names()) == 50, registry.names()
 # Lessons from searches that happened to find something misled; they are dropped when VisionClaw starts.
 assert instance.memory.all() == ["Tool set_setting: this form failed: {} (x). This form worked: {}."], instance.memory.all()
 assert set(planner.available(registry)) == set(planner.RECIPES), set(planner.RECIPES) - set(planner.available(registry))
@@ -1261,6 +1261,9 @@ updater._openInstaller = opened.append
 updater.currentVersion = lambda: "0.8.0"
 sys.modules["ui"].message = said.append
 updater.gui.messageBox = lambda text, *args, **kwargs: boxes.append(text) or sys.modules["wx"].YES
+# The window that says what is new and asks whether to download: what it would show is written down.
+offers, wanted = [], [True]
+updater.askDownload = lambda found, current: offers.append(updater.updates.offerText(found, current)) or wanted[0]
 task = taskModule.Task("test")
 assert conf["visionClaw"]["updateCheck"] == "manual" and conf["visionClaw"]["updateLastCheck"] == ""
 # Asked in words: the user is asked before anything goes online. No means nothing goes online.
@@ -1277,14 +1280,19 @@ assert fetched == ["https://api.github.com/repos/joshknnd1982/visionclaw/release
 assert float(conf["visionClaw"]["updateLastCheck"]) > 0
 # A newer one is there: it is offered with what is new, and "not now" downloads nothing.
 onGitHub.append(published("0.9.0"))
-answers = [0, 1]
-instance.clawAsk = lambda question, choices: questions.append(question) or answers.pop(0)
+wanted[0] = False
 worked, result = registry.call(task, "check_update", {})
+# What is new is shown in a box of its own, one point to a line, with the choice as buttons.
+assert offers[-1].splitlines()[:6] == [
+	"VisionClaw 0.9.0 is available. You have 0.8.0.", "It is a download of 3 MB.", "",
+	"What is new in VisionClaw 0.9.0:", "Scrolling is smoother.", ""], offers
+assert len(questions) == 3 and "Download it now" not in questions[-1], questions  # only asked before going online
 assert worked and result.startswith("VisionClaw 0.9.0 is available. You have 0.8.0. It is a download of 3 MB. What is new: "
 	"Scrolling is smoother. You said not now, so nothing was downloaded."), result
 assert downloaded == [] and opened == []
 # Yes: the release's own file is downloaded with its size and checksum, and handed to NVDA to install.
 instance.clawAsk = lambda question, choices: 0
+wanted[0] = True
 worked, result = registry.call(task, "check_update", {})
 assert worked and result.startswith("VisionClaw 0.9.0 was downloaded and checked. NVDA now asks whether to install it"), result
 assert downloaded == [(f"{BASE}/v0.9.0/VisionClaw-0.9.0.nvda-addon", 3000000, "5" * 64)], downloaded
@@ -1311,16 +1319,20 @@ def idle():
 
 # With the key (NVDA+Alt+U) or the button: a window says that a newer version is there and asks before the
 # download; yes downloads it and hands it to NVDA.
-del downloaded[:], opened[:], boxes[:], said[:]
+del downloaded[:], opened[:], boxes[:], said[:], offers[:]
 instance.updater.check()
 idle()
 time.sleep(0.05)
 idle()
 assert said[0] == "Looking for a newer version of VisionClaw." and "Downloading VisionClaw 0.9.0." in said, said
-assert boxes[0].startswith("VisionClaw 0.9.0 is available. You have 0.8.0.") and "Download it now?" in boxes[0], boxes
+assert boxes == [] and offers[0].startswith("VisionClaw 0.9.0 is available. You have 0.8.0.\nIt is a download of 3 MB."), (boxes, offers)
+assert "\nWhat is new in VisionClaw 0.9.0:\nScrolling is smoother.\n" in offers[0], offers
+# The window itself: a read-only box that holds all of it, and the two choices as buttons.
+shown = updater.UpdateDialog(None, offers[0])
+assert isinstance(shown, updater.wx.Dialog) and shown.textCtrl is not None
 assert len(downloaded) == 1 and len(opened) == 1 and said[-1].startswith("VisionClaw 0.9.0 was downloaded and checked."), said
 # No: nothing is downloaded.
-updater.gui.messageBox = lambda text, *args, **kwargs: boxes.append(text) or sys.modules["wx"].NO
+wanted[0] = False
 del downloaded[:], opened[:]
 instance.updater.check()
 idle()
@@ -2048,6 +2060,116 @@ for question in ("what is the currently highlighted item on my desktop?", "what 
 	assert answers == [(question, "The Recycle Bin icon is highlighted.")], answers
 	assert conversation["history"] == [(question, "The Recycle Bin icon is highlighted.")]
 assert "Question about the picture: 'hello'" in debuglog.tail(30)
+
+# --- A question is put to NVDA, then the program, then its window, then Windows ---
+# The request that went wrong in real use: "How can I use the keyboard to navigate my desktop?" was put to
+# NVDA's commands alone, and answered with the command that switches the keyboard layout.
+from visionClaw import asktools  # noqa: E402
+from visionClaw.claw import lookup  # noqa: E402
+
+guidePath = os.path.join(CONFIG_DIR, "userGuide.html")
+with open(guidePath, "w", encoding="utf-8") as f:
+	f.write(
+		"<h1>NVDA User Guide</h1><p>Contents: Browse Mode, the desktop keyboard layout, and more of the same kind.</p>"
+		"<h2>Browse Mode</h2><p>Complex read-only documents such as web pages are browsed in NVDA using browse mode.</p>"
+		"<table><tr><th>Name</th><th>Desktop key</th><th>Laptop key</th></tr>"
+		"<tr><td>Toggle browse and focus modes</td><td>NVDA+space</td><td>NVDA+space</td></tr></table>")
+sys.modules["documentationUtils"].getDocFilePath = lambda name: guidePath
+sys.modules["winVersion"].getWinVer = lambda: types.SimpleNamespace(releaseName="Windows 11 24H2", build=26100)
+asktools.openWindows = lambda: ["Inbox - Mail", "Untitled - Notepad"]  # the real windows of this computer are not read
+asktools._kept.update(count=None, passages=[], guide=None)
+MAPPINGS["Input"] = {
+	"layout": info("toggleKeyboardLayout", "Toggles between desktop and laptop keyboard layout", []),
+	"title": info("title", "Reports the title of the current application or foreground window. If pressed twice, spells the title", ["kb:nvda+t"]),
+}
+SHOWN["kb:nvda+t"] = "NVDA+t"
+explorer = types.SimpleNamespace(appName="explorer", productName="Microsoft Windows Operating System", productVersion="10.0.26100")
+viewButton = types.SimpleNamespace(
+	name="View", role=Role(name="BUTTON", displayString="button"), keyboardShortcut="Alt+V", firstChild=None, next=None)
+programManager = types.SimpleNamespace(
+	name="Program Manager", role=Role(name="PANE", displayString="pane"), appModule=explorer, firstChild=viewButton)
+desktopList = types.SimpleNamespace(name="Desktop", role=Role(name="LIST", displayString="list"))
+recycleBin = types.SimpleNamespace(
+	name="Recycle Bin", role=Role(name="LISTITEM", displayString="list item"), value=None, description="",
+	states=[Role(name="SELECTED", displayString="selected"), Role(name="FOCUSED", displayString="focused")],
+	keyboardShortcut=None, positionInfo={"indexInGroup": 1, "similarItemsInGroup": 12}, appModule=explorer,
+	treeInterceptor=None, firstChild=None, next=None)
+sys.modules["api"].getForegroundObject = lambda: programManager
+sys.modules["api"].getFocusObject = lambda: recycleBin
+sys.modules["api"].getFocusAncestors = lambda: [types.SimpleNamespace(name="Desktop", role=Role(displayString="window")), programManager, desktopList]
+sys.modules["api"].getStatusBar = lambda: None
+question = "How can I use the keyboard to navigate my desktop?"
+task = taskModule.Task(question)
+worked, result = registry.call(task, "look_up", {"question": question})
+assert worked and result.startswith(
+	"From Windows: The desktop: going to it and navigating its icons with the keyboard. Press Windows+D to go to the "
+	"desktop; press it again to bring the windows back. On the desktop the arrow keys move from icon to icon"), result
+assert "toggleKeyboardLayout" not in result and "layout" not in result, result
+# All four were asked, in order, and the user is told so.
+told = [text for _seconds, kind, text in task.log if kind == taskModule.DETAIL]
+assert told[0] == "Asked NVDA: 7 commands that work where you are, its user guide, and the help of its add-ons.", told
+assert told[1] == "Asked the program explorer, and its window Program Manager. Controls in it with a key of their own: 1.", told
+assert told[2] == "Asked Windows: Windows 11 24H2, build 26100, 2 open windows, and the keys of Windows.", told
+assert "lookup: Asked " in debuglog.tail(20) and "Telling words: ['desktop', 'keyboard', 'navig']" in debuglog.tail(20)
+# NVDA answers what is NVDA's: a command with its key, and what something is from its user guide, whose
+# table headings ("Desktop key") are not taken for content.
+worked, result = registry.call(taskModule.Task("t"), "look_up", {"question": "How do I read the window title?"})
+assert worked and result.splitlines()[0] == (
+	"From NVDA: title: Reports the title of the current application or foreground window. If pressed twice, spells "
+	"the title. Keys: NVDA+t."), result
+worked, result = registry.call(taskModule.Task("t"), "look_up", {"question": "What is browse mode?"})
+assert worked and result.splitlines()[0] == (
+	"From NVDA's user guide: Browse Mode. Complex read-only documents such as web pages are browsed in NVDA using "
+	"browse mode. Toggle browse and focus modes, NVDA+space, NVDA+space"), result
+# The program and its window answer for where the user is.
+worked, result = registry.call(taskModule.Task("t"), "look_up", {"question": "What can I do here?"})
+assert worked and result.splitlines() == [
+	"From the program explorer: The program in front is explorer, which is Microsoft Windows Operating System, version 10.0.26100.",
+	"From this window: The window in front is called Program Manager.",
+	"From this window: The control that has the focus. The focus is on: list item \"Recycle Bin\". It is selected. It is 1 of 12. "
+	"It is inside: pane \"Program Manager\", then list \"Desktop\".",
+], result
+worked, result = registry.call(taskModule.Task("t"), "look_up", {"question": "which key is for the View button"})
+assert worked and "From this window: Keys of the controls in this window. View (button): Alt+V." in result, result
+worked, result = registry.call(taskModule.Task("t"), "look_up", {"question": "which windows are open"})
+assert worked and result.startswith("From Windows: The windows that are open now. 2 windows are open now: Inbox - Mail; Untitled - Notepad."), result
+# Nothing fits: that is a sentence for the user, not a failed step to be tried again with other words.
+worked, result = registry.call(taskModule.Task("t"), "look_up", {"question": "How do I bake a walnut cake?"})
+assert worked and result == (
+	"Nothing was found about bake or walnut or cake. Asked were: NVDA's commands and user guide, the program explorer, "
+	"its window Program Manager, and what VisionClaw knows about Windows."), result
+# Looking things up changes nothing, and the recipes for questions use it.
+assert registry.get("look_up").looks and not registry.get("look_up").changes and registry.get("look_up").tell == "summarize"
+assert planner.RECIPES["explain_keys"][2] == ("look_up",) and planner.hint(question) == "explain_keys"
+
+
+class AsInTheRun:
+	"""One model for both jobs, asked one small question at a time, as in the run that went wrong."""
+	oneModel = True
+
+	def hasModel(self, role):
+		return True
+
+	def entry(self, role):
+		return {"id": "one", "name": "Qwen3.5 9B"}
+
+	def whereText(self):
+		return ""
+
+	def chat(self, role, messages, maxTokens, onText=None, cancel=None, options=None, raw=False, info=None, context=None):
+		schema = options["response_format"]["json_schema"]["schema"]["properties"]
+		if "choice" in schema:
+			return json.dumps({"choice": "explain_keys"})
+		raise AssertionError(f"an unexpected question to the model: {messages[-1]['content']}")
+
+
+runner = orchestrator.Orchestrator(AsInTheRun(), registry, lambda question, choices: 0)
+runner.stepwise = lambda: "always"
+task = runner.run(taskModule.Task(question))
+assert task.state == taskModule.DONE and [step.tool for step in task.steps] == ["look_up", "answer"], (task.state, task.log[-4:])
+assert task.answer.startswith(
+	"From Windows: The desktop: going to it and navigating its icons with the keyboard. Press Windows+D to go to the desktop;"), task.answer
+assert "layout" not in task.answer
 
 instance.terminate()
 print("OK")

@@ -21,11 +21,14 @@ SHARE = 0.6
 LIGHT_WEIGHT = 0.4
 
 
-def rank(asked, entries, limit=6, share=SHARE, light=()):
+def rank(asked, entries, limit=6, share=SHARE, light=(), cover=0.0, lightWeight=LIGHT_WEIGHT):
 	"""asked: the telling words of the request, as a set.
 	entries: one (words of its name, words of its description) pair of sets for each thing.
 	light: words of the request that only ask. They count for less, and where the request also names
 	something, a thing must share a word that names.
+	cover: the least share of what the request names that a thing must have, by the weight of the words. A
+	thing that has "desktop" is not about "navigate my desktop" when something else has both words; a word
+	that nothing has does not count, because it is the user's own word for something.
 	Returns the indexes of the things the request is about, best first; empty when nothing shares a word."""
 	asked = set(asked)
 	light = set(light) & asked
@@ -38,7 +41,8 @@ def rank(asked, entries, limit=6, share=SHARE, light=()):
 			have[word] = have.get(word, 0) + 1
 	total = len(entries)
 	weight = {
-		word: math.log(1 + total / count) * (LIGHT_WEIGHT if word in light else 1.0) for word, count in have.items()}
+		word: math.log(1 + total / count) * (lightWeight if word in light else 1.0) for word, count in have.items()}
+	whole = sum(weight[word] for word in naming if word in weight)
 	scored = []
 	for index, (named, other) in enumerate(entries):
 		named, other = set(named), set(other)
@@ -47,6 +51,8 @@ def rank(asked, entries, limit=6, share=SHARE, light=()):
 		if not inName and not inRest:
 			continue
 		if naming and not naming & (inName | inRest):
+			continue
+		if cover and whole and sum(weight[word] for word in naming & (inName | inRest)) < cover * whole:
 			continue
 		score = sum(weight[word] * NAME_WEIGHT for word in inName) + sum(weight[word] for word in inRest)
 		# Among equals, the thing that is about less is more likely the thing that was meant.

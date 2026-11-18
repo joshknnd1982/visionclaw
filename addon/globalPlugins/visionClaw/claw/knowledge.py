@@ -89,5 +89,9 @@ class Knowledge:
 	def count(self):
 		return len(self._load())
 
+	def everything(self, exclude=()):
+		"""Every section as (title, body, source), without those of the sources named."""
+		return [section for section in self._load() if section[2] not in exclude]
+
 
 __all__ = ["Knowledge", "sections", "words"]

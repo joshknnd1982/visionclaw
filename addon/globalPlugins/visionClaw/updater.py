@@ -39,6 +39,50 @@ def currentVersion():
 		return ""
 
 
+class UpdateDialog(wx.Dialog):
+	"""Says that a newer version is there and what is new in it, in a read-only edit box, so that it can be
+	read line by line, word by word and again, and copied; and asks whether to download it. A message box
+	can only be listened to once, from start to end."""
+
+	def __init__(self, parent, text):
+		# Translators: Title of the window about a newer version of VisionClaw.
+		super().__init__(parent, title=_("VisionClaw update"))
+		main = wx.BoxSizer(wx.VERTICAL)
+		# Translators: Label of the read-only box that says what is new in a newer version of VisionClaw.
+		main.Add(wx.StaticText(self, label=_("&What is new:")), flag=wx.LEFT | wx.RIGHT | wx.TOP, border=10)
+		self.textCtrl = wx.TextCtrl(self, value=text, size=(620, 320), style=wx.TE_MULTILINE | wx.TE_READONLY)
+		main.Add(self.textCtrl, proportion=1, flag=wx.ALL | wx.EXPAND, border=10)
+		buttons = wx.BoxSizer(wx.HORIZONTAL)
+		# Translators: Button that downloads a newer version of VisionClaw and hands it to NVDA to install.
+		yes = wx.Button(self, wx.ID_YES, label=_("&Download and install"))
+		# Translators: Button that closes the window about a newer version without downloading anything.
+		no = wx.Button(self, wx.ID_NO, label=_("&Not now"))
+		buttons.Add(yes)
+		buttons.Add(no, flag=wx.LEFT, border=10)
+		main.Add(buttons, flag=wx.ALL | wx.ALIGN_RIGHT, border=10)
+		self.SetSizerAndFit(main)
+		self.SetEscapeId(wx.ID_NO)
+		self.CentreOnScreen()
+		yes.Bind(wx.EVT_BUTTON, lambda e: self.EndModal(wx.ID_YES))
+		no.Bind(wx.EVT_BUTTON, lambda e: self.EndModal(wx.ID_NO))
+		self.Bind(wx.EVT_CLOSE, lambda e: self.EndModal(wx.ID_NO))
+		# The box has the focus, at its start, so that reading begins with what is new and nothing is
+		# downloaded by a stray Enter.
+		self.textCtrl.SetFocus()
+		self.textCtrl.SetInsertionPoint(0)
+
+
+def askDownload(found, current):
+	"""Show what is new in a newer version and ask whether to download it. True for yes. Main thread."""
+	dialog = UpdateDialog(gui.mainFrame, updates.offerText(found, current))
+	gui.mainFrame.prePopup()
+	try:
+		return dialog.ShowModal() == wx.ID_YES
+	finally:
+		gui.mainFrame.postPopup()
+		dialog.Destroy()
+
+
 def _openInstaller(path):
 	"""Hand the downloaded add-on file to Windows, which gives it to NVDA: NVDA then asks its own question
 	about installing it and restarts. Raises OSError if Windows has no program for such files."""
@@ -134,10 +178,8 @@ class Updater:
 				"VisionClaw {version} is available. Press NVDA+Alt+U to get it."
 			).format(version=found["version"]))
 			return
-		question = updates.availableText(found, current) + "\n\n" + _(
-			# Translators: Asked when a newer version of VisionClaw is available.
-			"Download it now? When it is here and checked, NVDA asks whether to install it, and restarts after that.")
-		if gui.messageBox(question, _("VisionClaw update"), wx.YES_NO | wx.ICON_QUESTION) != wx.YES:
+		# What is new is shown in a box that can be read line by line, with the two choices as buttons.
+		if not askDownload(found, current):
 			return
 		self._busy = True
 		# Translators: Spoken when the download of a newer version begins.
@@ -204,12 +246,10 @@ def register(plugin, add, text):
 			return updates.newestText(current)
 		task.check()
 		available = updates.availableText(found, current)
-		# Translators: Asked after a newer version of VisionClaw was found. {found} says which, and what is new.
-		choice = plugin.clawAsk(_(
-			"{found} Download it now? When it is here and checked, NVDA asks whether to install it, and restarts "
-			"after that."
-		).format(found=available), [_("Yes, download it"), _("Not now")])
-		if choice != 0:
+		# The same window as with the key: what is new in a box that can be read line by line.
+		from . import clawui
+		if not clawui._fromWorker(lambda: askDownload(found, current), task.cancel):
+			task.check()
 			return f"{available} You said not now, so nothing was downloaded. Press NVDA+Alt+U whenever you want it."
 		try:
 			path = plugin.updater.download(found)

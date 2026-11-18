@@ -17,7 +17,8 @@ import sys
 import time
 
 import harness
-from visionClaw.claw import audit, catalog, commands, fixes, match, orchestrator, pointer, runtime, scrolling, tools, web
+from visionClaw.claw import audit, catalog, commands, fixes, lookup, match, orchestrator, pointer, runtime, scrolling, tools, web
+from visionClaw.claw.knowledge import Knowledge
 from visionClaw.claw import task as taskModule
 from visionClaw.claw.catalog import CODER, VISION
 from visionClaw.claw.memory import Memory, score
@@ -144,7 +145,43 @@ def makeRegistry(rt, state):
 	def text(description, **extra):
 		return dict({"type": "string", "description": description}, **extra)
 
+	# A question: every command of NVDA, VisionClaw's notes with the keys of Windows, NVDA's own user guide where
+	# NVDA is installed on this computer, and a stand-in program and window, ranked by the real code.
+	notes = Knowledge()
+	guide = os.path.join(os.environ.get("ProgramFiles", ""), "NVDA", "documentation", "en", "userGuide.html")
+	if os.path.isfile(guide):
+		with open(guide, encoding="utf-8", errors="replace") as f:
+			page = f.read()
+		notes.addSource("userGuide", lambda: [(title, body, "userGuide") for title, body in lookup.htmlSections(page)])
+	pool = [lookup.fromCommand(
+		c["name"], c["description"], c["category"],
+		f"{c['name']}: {c['description'].strip().rstrip('.')}. Keys: {keysOf(c)}.") for c in known]
+	pool += lookup.fromSections(notes.everything())
+	pool += [
+		lookup.Passage(lookup.APP, "The program in front", "The program in front is spacetrader, which is Space Trader, version 2.1.",
+			"the program spacetrader", here=True),
+		lookup.Passage(lookup.WINDOW, "The window in front", "The window in front is called Space Trader - Main Menu.",
+			"this window", here=True),
+		lookup.Passage(lookup.WINDOW, "The control that has the focus",
+			"The focus is on: button \"New Game\". It is 1 of 4. Its own key is Alt+N.", "this window", here=True),
+		lookup.Passage(lookup.WINDOW, "Keys of the controls in this window",
+			"New Game (button): Alt+N; Load Game (button): Alt+L; Options (button): Alt+O; Quit (button): Alt+Q.", "this window"),
+		lookup.Passage(lookup.SYSTEM, "The version of Windows on this computer", "This computer runs Windows 11 24H2, build 26100."),
+		lookup.Passage(lookup.SYSTEM, "The windows that are open now",
+			"3 windows are open now: Space Trader - Main Menu; Inbox - Mail; Untitled - Notepad."),
+	]
+
+	def lookUp(task, question):
+		state["asked"] = question
+		return lookup.resultText(lookup.about(question, pool)) or lookup.nothingText(question, "spacetrader", "Space Trader - Main Menu")
+
 	V = tools.VERBATIM
+	reg.add(tools.Tool(lookup.TOOL,
+		"answer a question about how to do something with the keyboard or what something is: asks NVDA (its "
+		"commands and user guide), then the program in front, then its window, then Windows, and gives what they "
+		"say that is about the question",
+		lookUp, {"question": text("the user's question, in their own words", maxLength=300, auto=True)},
+		looks=True, title="Asking NVDA, the program, the window and Windows"))
 	reg.add(tools.Tool("focus_info", "say which program, window and control the user is in",
 		lambda task: "Program: spacetrader. Window title: Space Trader. Focused control: pane, no name.",
 		looks=True, title="Checking where you are", tell=V))
@@ -418,6 +455,18 @@ REQUESTS = (
 	"What is on my screen?",
 	"Click the New Game button.",
 	"How do I read the title of this window?",
+	"How can I use the keyboard to navigate my desktop?",
+	"How do I switch between open windows?",
+	"How do I copy text?",
+	"What is browse mode?",
+	"What does NVDA+T do?",
+	"How do I close this program?",
+	"What can I do here?",
+	"Which key starts a new game?",
+	"How do I rename a file?",
+	"How do I bake a cake?",
+	"Which windows are open?",
+	"How do I get to the system tray?",
 	"Read the window title.",
 	"Turn off the typing echo and set punctuation to all.",
 	"Click Options, then tell me what the window shows.",
@@ -492,7 +541,7 @@ def main():
 			if only and not any(part in request.lower() for part in only):
 				continue
 			state = {}
-			orch = orchestrator.Orchestrator(rt, makeRegistry(rt, state), askUser, lambda: "Program: spacetrader.", Memory("nul"))
+			orch = orchestrator.Orchestrator(rt, makeRegistry(rt, state), askUser, lambda: "Program: spacetrader. Window title: Space Trader - Main Menu. Focused control: button, New Game.", Memory("nul"))
 			# A fifth argument says whether the model is asked one small question at a time: auto, always or never.
 			orch.stepwise = lambda: sys.argv[5] if len(sys.argv) > 5 else "auto"
 			task = taskModule.Task(request, reasoning=reasoning)

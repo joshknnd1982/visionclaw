@@ -30,14 +30,19 @@ RECIPES = {
 		"do one thing NVDA has a command for, now: read the window title, say the time or battery, start reading, "
 		"open the NVDA menu",
 		("find_command", "run_command")),
+	# Both ask NVDA first, then the program in front, then its window, then Windows (asktools.py), and answer
+	# from what is about the question. A question is never put to NVDA's commands alone: "how can I use the
+	# keyboard to navigate my desktop" was answered with the command that switches the keyboard layout.
 	"explain_keys": (
 		"tell you which keys to use",
-		"tell the user which keys or which command to use for something in NVDA; questions like how do I ...",
-		("find_command",)),
+		"tell the user which keys or which command to use for something, in NVDA, in the program in front or in "
+		"Windows; questions like how do I ...",
+		("look_up",)),
 	"nvda_question": (
-		"answer a question about NVDA",
-		"answer a question about NVDA, what something in NVDA is, or how NVDA works",
-		("search_help",)),
+		"answer a question about NVDA, this program or Windows",
+		"answer a question about NVDA, the program in front, its window or Windows: what something is, what a "
+		"key does, how something works, or which windows are open",
+		("look_up",)),
 	"describe": (
 		"look at the screen and describe it",
 		"say what the screen, the window, a picture or a control looks like or shows",
@@ -306,12 +311,15 @@ _HINTS = (
 		r".*\b(of|for)\b.*\b(this|the|focused|current|navigator|control|object|button|window)\b"
 		r"|\bwhat does nvda know about\b"),
 	("do_command", r"\b(read|say|speak|tell me|report)\b.*\b(title|time|date|battery|clipboard|status|focus)\b|say all|start reading"
-		r"|\b(give|get|tell|check|what('s| is| are))\b.*\b(time|date|battery)\b|\bwhat (time|day|date) is it\b"),
+		r"|\b(give|get|tell|check|what('s| is| are))\b.*\b(time|date|battery)\b|\bwhat (time|day|date) is it\b"
+		r"|\bhow (much|full|low|empty) (is )?(the |my )?(battery|power|charge)\b|\bbattery (level|left|status|charge)\b"),
 	("read_text", r"\bread\b.*\b(text|everything)\b|\bread (me )?(the |this |all of the )?(whole )?(window|screen)\b"),
 	("web_page", r"\b(this|the|current) (web ?page|page|web ?site|site|article)\b|summari[sz]e"),
 	("describe", r"what('s| is| does)? .*(look|show|screen|window|picture|image|photo)|describe|look at|colou?r|what do you see|on (the|my) screen"),
-	("where_am_i", r"where am i|which (program|app|window|control)|what (program|app|window) (is|am)"),
+	("where_am_i", r"where am i|which (program|app|window|control)\b|what (program|app|window) (is|am)"),
 	("nvda_question", r"what (is|are|does)|explain|tell me about|why"),
+	# Any other question is looked up, not planned freely: a small model plans a question badly.
+	("nvda_question", r"^(what|which|who|where|when|how)\b|^(can|could|does|do|is|are|should|will)\b.*\?\s*$"),
 )
 _CONNECTORS = re.compile(r"\b(and|then|also|after that|afterwards|plus)\b|[;]|,\s*(and|then)?", re.IGNORECASE)
 MAX_PARTS = 4

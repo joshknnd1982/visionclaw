@@ -26,6 +26,8 @@ _TAG = re.compile(r"^v(\d+(?:\.\d+){1,3})$")
 _DIGEST = re.compile(r"^sha256:([0-9a-f]{64})$")
 MIN_BYTES, MAX_BYTES = 200000, 400 * 2 ** 20
 NOTES_CHARS = 500
+# What is new, in full, for the box it is read in line by line.
+WHATS_NEW_CHARS = 8000
 
 
 def _file(release, version):
@@ -49,9 +51,9 @@ def _file(release, version):
 	return None
 
 
-def notesOf(body):
-	"""What a release says is new, as plain text short enough to be listened to. VisionClaw's releases put it
-	under a heading that begins "New in"; where there is one, only what stands under it is taken."""
+def _newLines(body):
+	"""The lines of a release's text that say what is new, without Markdown marks. VisionClaw's releases put
+	it under a heading that begins "New in"; where there is one, only what stands under it is taken."""
 	raw = str(body or "").splitlines()
 	start = next((i for i, line in enumerate(raw) if re.match(r"^#+\s*new in\b", line.strip(), re.IGNORECASE)), None)
 	if start is not None:
@@ -62,6 +64,20 @@ def notesOf(body):
 		line = re.sub(r"[*_`#>]+", "", line).strip(" -\t")
 		if line:
 			lines.append(line)
+	return lines
+
+
+def whatsNew(body):
+	"""What a release says is new, in full and one point to a line, for a box that is read line by line."""
+	text = "\n".join(_newLines(body))
+	if len(text) > WHATS_NEW_CHARS:
+		text = text[:WHATS_NEW_CHARS].rsplit(" ", 1)[0] + " ..."
+	return text
+
+
+def notesOf(body):
+	"""What a release says is new, as plain text short enough to be listened to in one sentence."""
+	lines = _newLines(body)
 	text = " ".join(lines)
 	if len(text) > NOTES_CHARS:
 		text = text[:NOTES_CHARS].rsplit(" ", 1)[0] + " ..."
@@ -88,7 +104,7 @@ def newest(releases, current):
 		found = _file(release, version)
 		if found is None:
 			continue
-		found.update(version=version, notes=notesOf(release.get("body")))
+		found.update(version=version, notes=notesOf(release.get("body")), whatsNew=whatsNew(release.get("body")))
 		best = found
 	return best
 
@@ -112,6 +128,25 @@ def availableText(found, current):
 	if found["notes"]:
 		text += f" What is new: {found['notes']}"
 	return text
+
+
+def offerText(found, current):
+	"""All that the window about a newer version shows in its box: which version, how big, and every point
+	of what is new on a line of its own."""
+	megabytes = max(1, round(found["size"] / 2 ** 20))
+	lines = [
+		f"VisionClaw {found['version']} is available. You have {current}.",
+		f"It is a download of {megabytes} MB.",
+		"",
+		f"What is new in VisionClaw {found['version']}:",
+	]
+	lines += (found.get("whatsNew") or found.get("notes") or "The release does not say what is new.").splitlines()
+	lines += [
+		"",
+		"Nothing is downloaded until you choose Download and install.",
+		"When the file is here and checked, NVDA asks whether to install it, and restarts after that.",
+	]
+	return "\n".join(lines)
 
 
 def newestText(current):
