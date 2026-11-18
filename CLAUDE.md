@@ -609,7 +609,8 @@ Run `python tests/run_all.py` before every commit. Compile every add-on file wit
    the fixed-name copy `VisionClaw.nvda-addon`.
    VisionMate's own version tags were renamed locally to `visionmate-v...` so that they do not collide with
    VisionClaw's `v...` tags. Never push the `visionmate-` tags.
-4. Until phase 3.5 is done, releases are marked **pre-release** and the notes say what has not been run in NVDA.
+4. The owner made 0.12.0 the full release 1.0.0 on 2026-11-18, before phase 3.5 was done. From 1.0.0 on, releases
+   are full releases, not pre-releases; the notes still say what has not been run in NVDA.
 5. Installed copies find a release through `claw/updates.py`. For that the tag must be `v` and the version in
    numbers, the release must not be a draft, and it must carry `VisionClaw-<version>.nvda-addon`. Put what is
    new under a heading that begins "New in": that part is read out to users who are offered the version.
