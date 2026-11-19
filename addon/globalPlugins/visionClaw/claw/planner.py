@@ -11,7 +11,7 @@
 
 import re
 
-from . import computer, controls, debuglog, direct, gamepad, memories, pointer, policy, router, touch
+from . import computer, controls, dates, debuglog, direct, gamepad, guide, memories, partners, pointer, policy, profiles, router, touch
 from .llm import LLMError, clip
 from .task import Step
 from .tools import ANSWER
@@ -19,6 +19,11 @@ from .tools import ANSWER
 # --- Recipes ---
 
 OTHER = "other"
+# Words that point to a setting of NVDA.
+_SETTING_WORDS = (
+	r"speed|rate\b|faster|slower|louder|quieter|volume|pitch|voice|punctuation|echo|braille|setting|turn (on|off)|"
+	r"switch (on|off)|enable|disable|stop (saying|reading|announcing|speaking)|as i type|typed (words|characters|letters)|"
+	r"capital letters|capitals\b|\b(speak|say|announce|read) (words|characters|letters|capitals|punctuation)\b")
 # name: (a few words for the user; what the user wants, for the model that chooses; the tools, in order)
 RECIPES = {
 	"change_setting": (
@@ -153,6 +158,18 @@ RECIPES = {
 		"say what VisionClaw has changed",
 		"say which settings VisionClaw has changed",
 		("list_changes",)),
+	# NVDA settings that one program has for itself (claw/profiles.py). Changing one is change_setting: plain
+	# code reads "only in this program" from the user's words.
+	"program_settings": (
+		"say which programs have NVDA settings of their own",
+		"say which programs have NVDA settings of their own, kept in NVDA's configuration profiles, or whether the "
+		"program in front has; not for changing a setting",
+		("program_settings",)),
+	"remove_program_settings": (
+		"remove a program's own NVDA settings",
+		"delete the NVDA settings one program has for itself, its configuration profile, so that NVDA behaves there "
+		"as it does everywhere else",
+		("remove_program_settings",)),
 	"save_addon": (
 		"save an add-on as a file",
 		"save an add-on VisionClaw wrote as a file that can be installed for good or shared",
@@ -408,6 +425,50 @@ RECIPES = {
 		"make a new folder or text file, rename, move or copy a file or folder of the user's, or delete one by moving "
 		"it to the Recycle Bin, in their Desktop, Documents, Downloads, Pictures, Music or Videos folders",
 		("change_file",)),
+	# A date chosen in a calendar that takes no keys (claw/dates.py). The date is read from the user's own words.
+	"pick_date": (
+		"choose a date in a calendar",
+		"choose a date the user names in a calendar or date picker that is showing in the web page or window in "
+		"front, by pressing the calendar's buttons for the month and the day",
+		("pick_date",)),
+	# Two add-ons VisionClaw works together with when they are running (claw/partners.py).
+	"classic_speech": (
+		"work the add-on ClassicSpeech for you",
+		"with the add-on ClassicSpeech: change how much NVDA says about each control, the verbosity level Beginner, "
+		"Intermediate or Advanced; list or switch its speech and sound schemes, or turn them on or off; open its voice "
+		"profiles, schemes or settings window; or say how it is set",
+		("classic_speech",)),
+	"jaws_help": (
+		"say what a JAWS keystroke or command is in NVDA",
+		"with the add-on JAWS Migration Assistant: say what a JAWS keystroke or a JAWS command is in NVDA, what was "
+		"brought over from JAWS, or which commands that add-on has; only when the user names JAWS",
+		("jaws_help",)),
+	# Working through a task when the usual path is not clear (claw/guide.py), in the program in front.
+	"work_through": (
+		"work through a task with you, step by step",
+		"work through a task with the user in the program or web page in front when they are stuck, cannot find how "
+		"to do something, or the usual way does not work: finds the next thing to press, says its key, presses it if "
+		"they say yes, and goes on step by step",
+		("work_through",)),
+	"own_voice": (
+		"give VisionClaw a voice of its own",
+		"give VisionClaw a voice of its own, set in NVDA's Speech settings, so that it can be told from NVDA: customise "
+		"it, turn it on or off, remove it, or say whether it has one; not NVDA's own voice",
+		("own_voice",)),
+	# Asking by voice (claw/voice.py): whether it is set up, getting the speech model, deleting it.
+	"voice_info": (
+		"say whether you can ask by voice",
+		"say whether asking VisionClaw by voice, by speaking into the microphone, is set up, which speech model it "
+		"listens with, and how to speak a request; not about NVDA's own voice",
+		("voice_info",)),
+	"get_voice": (
+		"download the speech model for asking by voice",
+		"download the speech model that lets the user ask VisionClaw by voice, or set asking by voice up",
+		("get_voice",)),
+	"remove_voice": (
+		"delete the speech model for asking by voice",
+		"delete the speech model for asking by voice from this computer",
+		("remove_voice",)),
 	"power": (
 		"lock, restart or shut down the computer",
 		"lock the computer, put it to sleep, restart it, shut it down or sign out of Windows, or call off a restart "
@@ -424,6 +485,38 @@ _HINTS = (
 	# speak of a file, a folder or a document, or write a name with its ending, and then "delete the file
 	# notes.txt" is not about VisionClaw's notes on a program.
 	("file_task", lambda part: computer.fileTask(part) is not None),
+	# The settings a program has for itself, in NVDA's configuration profiles: taking them away, and which
+	# programs have some. Changing one is change_setting, below, with "only in this program" in the words.
+	# A date to be chosen in a calendar: the words name a calendar or a date field, and a date. Before everything
+	# that the words set, click, next and open would otherwise start.
+	("pick_date", lambda part: dates.wish(part) is not None),
+	# ClassicSpeech and the JAWS Migration Assistant: only where the add-on is running, and the words are about it.
+	("classic_speech", lambda part: partners.has(partners.CLASSIC) and partners.classicWish(part) is not None),
+	("jaws_help", lambda part: partners.has(partners.JAWS) and partners.jawsWish(part) is not None),
+	# VisionClaw's own voice. Before NVDA's own voice and pitch, which are settings.
+	("own_voice", r"\b(visionclaw'?s?|your|its) own (voice|pitch)\b|\b(voice|pitch) of (your|its|visionclaw'?s) own\b"
+		r"|\b(visionclaw'?s|your) (voice|pitch)\b.{0,40}\b(lower|different|deeper|same|normal|on|off)\b"
+		r"|\b(customi[sz]e|change|choose|set up|pick|adjust|configure|select|remove|delete|reset)\b.{0,30}\b(visionclaw'?s?|your) (own )?voice\b"
+		r"|\b(give|make)\b.{0,12}\b(visionclaw|you|yourself)\b.{0,20}\b(a |its |an? )?(own |different |another |new )?voice\b"
+		r"|\ba (different|another|separate) voice for (you|visionclaw)\b"
+		r"|\b(lower|deeper|different|own) (voice|pitch) (when|while|for) (you|visionclaw)\b"
+		r"|\b(tell|telling|distinguish)\b.{0,30}\b(you|visionclaw)\b.{0,20}\b(apart|from nvda)\b"),
+	# Being stuck, or asking to be led through something, in the program in front.
+	("work_through", guide.asks),
+	# Asking by voice. NVDA's own voice is a setting, and "which voices" is asked of NVDA: these need the
+	# microphone, speaking to VisionClaw, dictating, or the speech model named.
+	("remove_voice", r"\b(delete|remove|get rid of|erase|uninstall)\b.{0,30}\b(speech|asr|speech[- ]recognition|voice[- ]input) model\b"
+		r"|\b(delete|remove|get rid of|erase)\b.{0,20}\bspeech recognition\b"),
+	("get_voice", r"\b(download|get|install|fetch|set up)\b.{0,30}\b(speech|asr|speech[- ]recognition|voice[- ]input) model\b"
+		r"|\bset up\b.{0,30}\b(asking|requests?|talking|speaking|dictat\w+)\b.{0,20}\b(by|with) (my )?voice\b"
+		r"|\bset up (voice input|dictation|speech recognition)\b"),
+	("voice_info", r"\b(ask|asking|talk|talking|speak|speaking|tell|say)\b.{0,40}\b(you|visionclaw|requests?|things)\b.{0,20}"
+		r"\b(by|with|using) (my )?voice\b"
+		r"|\b(can|could|may) i (just )?(speak|talk|dictate)\b.{0,30}\b(to you|to visionclaw|my requests?|instead of typing)\b"
+		r"|\b(voice input|speech recognition|dictation|dictate)\b|\bspeech model\b|\bmicrophone\b"
+		r"|\b(listen|hear)\b.{0,20}\b(to )?(me|my voice)\b"),
+	("remove_program_settings", profiles.removes),
+	("program_settings", profiles.asks),
 	# Skills. First: the word "skill" can hardly mean anything else.
 	("manage_skill", r"\b(delete|remove|forget|erase|get rid of|turn off|turn on|switch off|switch on|disable|enable|stop using|start using)\b.*\bskills?\b"),
 	("show_skill", r"\b(read|show|explain|describe|tell me about|what does|what is)\b.*\b(the|my) [\w' -]{1,60} skill\b|\bskill (called|named)\b"),
@@ -483,7 +576,8 @@ _HINTS = (
 	("recycle_bin", computer.asksAboutBin),
 	("note_page", r"\b(add|put|save|keep)\b.*\b(page|site|article)\b.*\bnotes?\b"
 		r"|\bnotes?\b.*\bfrom (this|the) (web ?page|page|web ?site|site|article)\b"),
-	("app_notes", r"\b(which|what|list|show|open|read)\b.*\bnotes\b"),
+	("app_notes", lambda part: bool(re.search(r"\b(which|what|list|show|open|read)\b.*\bnotes\b", part.lower()))
+		and not computer.namesFile(part)),
 	("learn_app", r"\b(learn|study|research|read up)\b.*\b(app|application|program|game|utility|software|tool|this|it)\b"
 		r"|\b(make|take|write|create)\b.*\bnotes\b|\blearn (about|how to use)\b"),
 	# A game controller. A button of it as a hotkey first; then the mode; then anything asked about it. Before
@@ -612,7 +706,9 @@ _HINTS = (
 	("page_outline", r"\b(headings|outline)\b"),
 	("go_to", r"\b(go|jump|move|take me|skip)\b.*\b(to|down to)\b.*\b(heading|section|part|link|field|box|form|main content|comments?)\b"),
 	("search_web", r"\b(search|look up|google)\b.*\b(web|internet|online|for)\b"),
-	("open_website", r"\b(open|go to|visit|load|browse to)\b.*(\w\.[a-z]{2,}\b|web ?site|web ?page|\burl\b)"),
+	("open_website", lambda part: bool(re.search(
+		r"\b(open|go to|visit|load|browse to)\b.*(\w\.[a-z]{2,}\b|web ?site|web ?page|\burl\b)", part.lower()))
+		and not (computer.namesFile(part) and not re.search(r"web ?site|web ?page|\burl\b|\bwww\.|https?:", part.lower()))),
 	("fill_field", r"\b(type|enter|write|fill|put)\b.*\b(in|into)\b.*\b(field|box|form|search)\b"),
 	# One add-on, named: "the Clock add-on". Questions about add-ons in general stay with nvda_info below.
 	# Being coached, taught or trained in NVDA, with the add-on NVDA Coach where it is installed. Only where the
@@ -650,7 +746,7 @@ _HINTS = (
 	# Settings button" is a click, though the word setting is in it. Finding one points the mouse at it.
 	("click", r"\b(click|double[- ]click|press|push|activate|find and click)\b (on )?(the |a |an |my |that |this )?[\w' -]{1,40}?\b(button|link|tab|icon)\b"
 		r"|^\s*(please )?(can you )?(find|locate|where is|where's|point (at|to))\b (me )?(the |a |an |my )?[\w' -]{1,40}?\b(button|link|tab|icon)\b"),
-	("change_setting", r"speed|rate\b|faster|slower|louder|quieter|volume|pitch|voice|punctuation|echo|braille|setting|turn (on|off)|switch (on|off)|enable|disable|stop (saying|reading|announcing|speaking)"),
+	("change_setting", _SETTING_WORDS),
 	("click", r"\bright[- ]click\b|\bdouble[- ]click\b|\bhover\b|\bpoint (at|to)\b"),
 	("click", r"\b(click|press|push|activate|select|choose|start|open)\b.*\b(button|link|item|menu|tab|icon|game|option)|\bclick\b"),
 	# A program, folder or file opened by its name. After everything above that the word open also starts, and
@@ -678,6 +774,9 @@ _HINTS = (
 	# Any other question is looked up, not planned freely: a small model plans a question badly.
 	("nvda_question", r"^(what|which|who|where|when|how)\b|^(can|could|does|do|is|are|should|will)\b.*\?\s*$"),
 )
+# An NVDA setting changed for one program only stays with change_setting: "turn off the typing echo only in this
+# program" is no control inside the program.
+_FOR_ONE_PROGRAM = (OTHER, "change_setting", "nvda_question", "explain_keys", "work_control", "drag", "scroll")
 _CONNECTORS = re.compile(r"\b(and|then|also|after that|afterwards|plus)\b|[;]|,\s*(and|then)?", re.IGNORECASE)
 MAX_PARTS = 8
 # A part that speaks of "it" cannot be understood without the part before it.
@@ -728,10 +827,17 @@ def hint(part, before=None):
 			break
 	if before in _ON_THE_WEB and found in (OTHER, "nvda_question") and _ONLY_ASKS.match(computer.own(part)):
 		return "web_page"
+	# A setting of NVDA for one program only: the words narrow it down ("only in", "when I'm in"), or name
+	# something that is NVDA's own to set. Then it is no control of the program.
+	if found in _FOR_ONE_PROGRAM and profiles.scopeOf(part) is not None:
+		rest = profiles.without(computer.own(part))
+		if re.search(_SETTING_WORDS, rest.lower()) and (profiles.restricts(part) or _NVDAS_OWN.search(rest)):
+			return "change_setting"
 	# A named control of the program in front: where the words say "in this program", or right after a click or
 	# another control there. What can hardly mean anything else, as the computer's own volume, stays what it is.
 	if (found in (OTHER, "change_setting", "click", "drag", "work_control", "nvda_question", "scroll")
-			and (controls.inApp(part) or before in _INSIDE) and controls.wish(part) is not None):
+			and (controls.inApp(part) or before in _INSIDE) and controls.wish(part) is not None
+			and not profiles.everywhere(part)):
 		return "set_control"
 	return found
 
@@ -918,6 +1024,25 @@ def conditional(part, registry):
 def split(llm, role, request, note=""):
 	"""The separate things a request asks for, in order."""
 	request = " ".join(request.split())
+	# "Make NVDA speak faster, only in this program": the words that say for which program are no thing to do of
+	# their own. Split off after a comma, they were taken for a request to describe the screen, and the setting
+	# was changed in every program (measured with Qwen3.5 9B on 2026-11-18). So they are put aside before the
+	# request is split, and given back to every part that changes a setting of NVDA.
+	# "I'm stuck, I want to attach a file to this email" is one thing: being stuck is no thing to do of its own.
+	# Split at its comma by a model, "I'm stuck" was taken for a question and the rest was planned freely, and a
+	# button was clicked that nobody asked for (measured with Qwen3.5 9B on 2026-11-18).
+	if guide.asks(request):
+		return [request]
+	scope = profiles.scopeOf(request)
+	if scope is not None:
+		rest = profiles.without(request)
+		parts = split(llm, role, rest, note) if rest and rest != request else []
+		if len(parts) == 1 and hint(parts[0]) == "change_setting":
+			return [request]  # one thing: it stays in the user's own words
+		if any(hint(part) == "change_setting" for part in parts):
+			words = scope["words"]
+			words = words if words.startswith("I ") or words.startswith("I'") else words[:1].lower() + words[1:]
+			return [f"{part.rstrip(' .!?,;')} {words}" if hint(part) == "change_setting" else part for part in parts]
 	plain = plainSplit(request)
 	if plain:
 		return plain[:MAX_PARTS]
@@ -1063,6 +1188,12 @@ _NEEDS = {
 	"set_control": controls.wish,
 	"file_task": computer.fileTask,
 	"empty_bin": lambda part: computer.emptiesBin(part) or None,
+	"remove_program_settings": lambda part: profiles.removes(part) or None,
+	"pick_date": dates.wish,
+	"work_through": lambda part: guide.asks(part) or None,
+	"classic_speech": lambda part: partners.classicWish(part) if partners.has(partners.CLASSIC) else None,
+	"jaws_help": lambda part: partners.jawsWish(part) if partners.has(partners.JAWS) else None,
+	"program_settings": lambda part: profiles.asks(part) or None,
 	"recycle_bin": lambda part: computer.asksAboutBin(part) or None,
 	# Remembering is only meant where the words ask for it or say something lasting about the user. A real
 	# model sent "see if it needs to be emptied or not" there, and the request was kept as a memory.
@@ -1070,7 +1201,7 @@ _NEEDS = {
 # Recipes the words point to that can hardly mean anything else: locking and shutting down, the Recycle Bin, the
 # computer's own volume. Where the words point to one of them, it is taken, whatever a model chose. Each of
 # their tools asks the user before it changes anything.
-_SURE = ("power", "empty_bin", "recycle_bin", "system_volume", "file_task")
+_SURE = ("power", "empty_bin", "recycle_bin", "system_volume", "file_task", "pick_date", "work_through")
 
 
 def fitted(choice, part, guess):

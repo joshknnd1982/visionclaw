@@ -35,7 +35,7 @@ from scriptHandler import script
 from speech import extensions as speechExtensions
 
 from . import autodescribe, clawui, controlkeys, curtain, dialogs, explorer, followup, hardware, helpers, imaging, labels, localmedia, mousetools, nvdatools, ocr, sounds, updater, viewers, winzapp
-from . import asktools, memorytools, padtools, touchinput
+from . import asktools, memorytools, ownvoice, padtools, touchinput, voiceui
 from .claw import catalog, direct, drivers, guides, learn, offers, portable, prompts, training
 from .claw.changes import ChangeLog
 from .claw import debuglog
@@ -158,6 +158,10 @@ confspec = {
 	"remember": 'option("auto", "asked", "off", default="auto")',
 	# A game controller: noticed and announced, noticed without a word, or not looked for at all.
 	"controller": 'option("announce", "quiet", "off", default="announce")',
+	# The speech model for asking by voice (claw/voice.py); "" is the suggested one.
+	"speechModel": 'string(default="")',
+	# Whether VisionClaw speaks with the voice of its own that the user set in NVDA's Speech settings (ownvoice.py).
+	"ownVoice": "boolean(default=True)",
 	"sideBySide": "boolean(default=True)",
 	"searchEngine": 'option("duckduckgo", "google", "bing", default="duckduckgo")',
 	"autoFixAddons": "boolean(default=True)",
@@ -345,7 +349,13 @@ def _windowBox(fg):
 
 
 def _speak(text):
-	queueHandler.queueFunction(queueHandler.eventQueue, ui.message, text)
+	"""Say something of VisionClaw's: with the voice of its own that the user set, where they set one and have
+	it on, so that it can be told from what NVDA itself says; else exactly as NVDA speaks."""
+	try:
+		own = bool(conf()["ownVoice"])
+	except Exception:
+		own = False
+	queueHandler.queueFunction(queueHandler.eventQueue, ownvoice.say, text, own)
 
 
 def _sound(name):
@@ -525,6 +535,8 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		self.updater.startLater()
 		self.controlKeys = controlkeys.ControlKeys(self)
 		self.controller.start()
+		# Asking by voice, with a speech model on this computer (claw/voice.py, voiceinput.py, voiceui.py).
+		self.voice = voiceui.Voice(self, ENGINE_DIR, DATA_DIR, lambda: conf()["speechModel"])
 		self.clawTask = None
 		self._askDialog = None
 		registry = nvdatools.build(self)
@@ -650,6 +662,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			"devGuide": self.devGuides.has("nvda-developer-guide"),
 			"addonGuide": self.devGuides.has("nvda-addon-development-guide"),
 			"training": training.here(self.trainingDir),
+			"speech": self.voice.ready(),
 		}
 
 	def showDownloads(self):
@@ -683,6 +696,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		if getattr(self, "_debugTask", None) is not None:
 			self._debugTask.stop()
 		self.controller.stop()
+		self.voice.terminate()
 		self.pointerMode.stop(say=False)
 		touchinput.close()
 		self.updater.stop()
@@ -1025,6 +1039,12 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			facts[router.CONTROLLER] = self.controller.device is not None
 		except Exception:
 			pass
+		# Which of the add-ons VisionClaw works together with are running now (claw/partners.py).
+		try:
+			from . import partnertools
+			partnertools.refresh()
+		except Exception:
+			pass
 		return facts
 
 	def _onClawEvent(self, task, kind, text):
@@ -1075,11 +1095,55 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		gesture="kb:NVDA+alt+c",
 	)
 	def script_askVisionClaw(self, gesture):
+		self._openAsk()
+
+	def _openAsk(self, listenNow=False):
+		"""The Ask VisionClaw window. listenNow: begin to listen to a spoken request at once."""
 		if self._askDialog:
 			self._askDialog.Raise()
+			if listenNow:
+				self._askDialog.speak()
 			return
-		self._askDialog = clawui.AskDialog(gui.mainFrame, self.startClawTask, self.clawTask, conf()["reasoning"])
+		# The names of the program in front may be said in the request; the speech model is told them.
+		try:
+			where = asktools.programNow()
+			names = [name for name in (where.get("product"), where.get("app")) if name and name != "unknown"]
+		except Exception:
+			names = []
+		self._askDialog = clawui.AskDialog(
+			gui.mainFrame, self.startClawTask, self.clawTask, conf()["reasoning"], voice=self.voice, listenNow=listenNow,
+			names=names)
 		dialogs.show(self._askDialog)
+
+	@script(
+		# Translators: Description of a command in the Input Gestures dialog.
+		description=_(
+			"Opens the Ask VisionClaw window and listens to a request you speak. What was heard is put into the box "
+			"and read to you; Enter sends it."),
+		gesture="kb:NVDA+alt+v",
+	)
+	def script_askByVoice(self, gesture):
+		self._openAsk(listenNow=True)
+
+	@script(
+		# Translators: Description of a command in the Input Gestures dialog. It has no key until the user gives it one.
+		description=_(
+			"Opens NVDA's Speech settings for VisionClaw's own voice: the synthesizer, voice, rate, pitch and volume "
+			"you choose there are used only for what VisionClaw says."),
+	)
+	def script_customiseVoice(self, gesture):
+		def ask():
+			problem = ownvoice.check()
+			if problem:
+				ui.message(problem)
+				return
+			question = ownvoice.QUESTION.format(name=ownvoice.profileName() or ownvoice.PROFILE)
+			# Translators: Title of the question before NVDA's Speech settings are opened for VisionClaw's own voice.
+			if gui.messageBox(question, _("VisionClaw's own voice"), wx.YES_NO | wx.ICON_QUESTION) == wx.YES:
+				conf()["ownVoice"] = True
+				ui.message(ownvoice.customise())
+		# A question is never opened from inside NVDA's handling of a key press.
+		wx.CallAfter(ask)
 
 	@script(
 		# Translators: Description of a command in the Input Gestures dialog.

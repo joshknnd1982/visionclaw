@@ -9,12 +9,18 @@ import threading
 
 import addonHandler
 import gui
+import ui
 import wx
 
 from .claw import policy
+from .claw import voice as voiceWords
 from .claw import task as taskModule
 
 addonHandler.initTranslation()
+
+
+# When the Ask window is opened to listen at once, how long NVDA is given to begin saying that it has opened.
+LISTEN_AFTER_MS = 900
 
 
 def reasoningLabels():
@@ -168,10 +174,13 @@ class AskDialog(wx.Dialog):
 	"""Where the user types a request. Enter sends it and closes the window, so the program the request is
 	about has the focus again while VisionClaw works. onSend(request, reasoning) starts the task."""
 
-	def __init__(self, parent, onSend, lastTask=None, reasoning=policy.AUTO):
+	def __init__(self, parent, onSend, lastTask=None, reasoning=policy.AUTO, voice=None, listenNow=False, names=()):
+		"""voice: asking by voice (voiceui.Voice), or None for a window without it. listenNow: begin to listen as
+		soon as the window is there. names: names that may be said, such as the program in front."""
 		# Translators: Title of the window for asking VisionClaw to do something.
 		super().__init__(parent, title=_("Ask VisionClaw"))
 		self._onSend = onSend
+		self._voice, self._names = voice, tuple(names or ())
 		main = wx.BoxSizer(wx.VERTICAL)
 		# Translators: Label of the box where the user types a request.
 		main.Add(wx.StaticText(self, label=_("&What do you want VisionClaw to do?")), flag=wx.LEFT | wx.RIGHT | wx.TOP, border=10)
@@ -194,12 +203,23 @@ class AskDialog(wx.Dialog):
 			"How do I read the title of this window?\n"
 			"Press the Play button in this window.\n"
 			"Give this program a hotkey that clicks Send.\n"
-			"Write an add-on that beeps when a link gets the focus.\n\n"
+			"Write an add-on that beeps when a link gets the focus.\n"
+			"Make NVDA speak faster, only in this program.\n"
+			"Pick 14 March 2027 in this calendar.\n"
+			"After a request you can also say: do that again, a bit more, the other way, say that again.\n\n"
+			"To speak your request, press Alt+V here, or NVDA+Alt+V from anywhere.\n"
 			"While VisionClaw works: NVDA+Alt+P says the progress, NVDA+Alt+X stops the task."
 		)
 		self.log = wx.TextCtrl(self, value=last, size=(560, 220), style=wx.TE_MULTILINE | wx.TE_READONLY)
 		main.Add(self.log, proportion=1, flag=wx.ALL | wx.EXPAND, border=10)
 		buttons = wx.BoxSizer(wx.HORIZONTAL)
+		self.voiceBtn = None
+		if voice is not None:
+			# Translators: Button in the Ask VisionClaw window that listens to a request the user speaks.
+			self._speakLabel = _("Speak your request (&V)")
+			self.voiceBtn = wx.Button(self, label=self._speakLabel)
+			self.voiceBtn.Bind(wx.EVT_BUTTON, lambda e: self.speak())
+			buttons.Add(self.voiceBtn, flag=wx.RIGHT, border=10)
 		# Translators: Button that sends the request to VisionClaw.
 		sendBtn = wx.Button(self, label=_("&Send"))
 		# Translators: Button that closes the Ask VisionClaw window.
@@ -212,14 +232,69 @@ class AskDialog(wx.Dialog):
 		self.CentreOnScreen()
 		self.request.Bind(wx.EVT_TEXT_ENTER, lambda e: self._send())
 		sendBtn.Bind(wx.EVT_BUTTON, lambda e: self._send())
-		closeBtn.Bind(wx.EVT_BUTTON, lambda e: self.Destroy())
-		self.Bind(wx.EVT_CLOSE, lambda e: self.Destroy())
+		closeBtn.Bind(wx.EVT_BUTTON, lambda e: self._close())
+		self.Bind(wx.EVT_CLOSE, lambda e: self._close())
 		self.request.SetFocus()
+		if listenNow and voice is not None:
+			# NVDA first says that this window has opened. Listening begins a moment later and cuts that short, so
+			# that NVDA's own voice is not what the microphone hears.
+			wx.CallLater(LISTEN_AFTER_MS, lambda: self.speak() if self else None)
+
+	def _close(self):
+		if self._voice is not None:
+			self._voice.stop()
+		self.Destroy()
 
 	def _send(self):
 		request = self.request.GetValue().strip()
 		if not request:
 			return
 		reasoning = policy.REASONING_CHOICES[max(0, self.reasoning.GetSelection())]
-		self.Destroy()
+		self._close()
 		self._onSend(request, reasoning)
+
+	# --- Asking by voice ---
+
+	def speak(self):
+		"""The voice button: begin to listen; while listening, stop and use what was said; while the speech model
+		is being downloaded, stop the download. With no speech model yet, the user is asked whether to get one."""
+		voice = self._voice
+		if voice is None:
+			return
+		if voice.downloading():
+			voice.stopDownload()
+			return
+		if voice.listening():
+			voice.stop()
+			return
+		if not voice.ready():
+			voice.offer(self, then=lambda: self.speak() if self else None)
+			return
+		# While the microphone is open NVDA must say nothing. A button that has the focus is read out when its
+		# name changes, so the name is changed only when the focus is somewhere else.
+		if not self.voiceBtn.HasFocus():
+			# Translators: The voice button of the Ask VisionClaw window while VisionClaw listens.
+			self.voiceBtn.SetLabel(_("Stop listening (&V)"))
+		voice.start(self._voiceState, self._voiceDone, self._names)
+
+	def _voiceState(self, state):
+		if not self or self.voiceBtn is None:
+			return
+		if state == "thinking":
+			# Translators: The voice button of the Ask VisionClaw window while the spoken words are worked out.
+			self.voiceBtn.SetLabel(_("Working out what you said"))
+
+	def _voiceDone(self, text, problem):
+		"""What was heard is put into the box, where it can be read and changed, and is read out. Nothing is sent
+		until the user presses Enter."""
+		if not self:
+			return  # the window was closed meanwhile
+		self.voiceBtn.SetLabel(self._speakLabel)
+		if text:
+			before = self.request.GetValue().strip()
+			self.request.SetValue(f"{before} {text}" if before else text)
+			self.request.SetInsertionPointEnd()
+			self.request.SetFocus()
+			ui.message(voiceWords.saidText(text))
+		elif problem:
+			ui.message(problem)

@@ -34,6 +34,15 @@ for said, name in (
 ):
 	assert computer.wanted(said) == name, (said, computer.wanted(said))
 
+# A name with the ending of a file is a file, and no address of a website or VisionClaw's notes on a program.
+# Measured with Qwen3.5 9B on 2026-11-18: "Open report.pdf." ended in a question about opening a website.
+for said, recipe in (
+		("Open report.pdf.", "open_thing"), ("open notes.txt", "open_thing"), ("Open budget 2026.xlsx", "open_thing"),
+		("open bbc.co.uk", "open_website"), ("go to gmail.com", "open_website"), ("visit example.org", "open_website"),
+		("open report.pdf on the website example.com", "open_website"), ("open the notes on this program", "app_notes")):
+	assert planner.hint(said) == recipe, (said, planner.hint(said))
+assert computer.namesFile("Open report.pdf.") and not computer.namesFile("open bbc.co.uk") and not computer.namesFile("open notepad")
+
 PLACES = computer.places()
 assert len({item["id"] for item in PLACES}) == len(PLACES)
 for item in PLACES:

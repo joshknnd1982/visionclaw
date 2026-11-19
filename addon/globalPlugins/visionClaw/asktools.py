@@ -16,6 +16,7 @@ import time
 import addonHandler
 import api
 
+from .claw import partners
 from .claw import debuglog, helpfiles, learn, lookup, memories, policy, training
 from .claw import task as taskModule
 from .claw.catalog import VISION
@@ -364,7 +365,7 @@ def register(plugin, add, text, onMain, commandsNow):
 					task.emit(taskModule.DETAIL, (
 						f"The {policy.roleName(VISION, policy.isOneModel(plugin.runtime))} takes the question to be about "
 						f"{what}: {named}."))
-		found = lookup.about(question, passages, extra=extra, program=names + training.comesFrom(about))
+		found = lookup.about(question, passages, extra=extra, program=names + training.comesFrom(about + (["I come from JAWS"] if partners.has(partners.JAWS) else [])))
 		debuglog.log("lookup", (
 			f"Asked {len(passages)} passages about \"{question}\". Telling words: {sorted(lookup.asked(question)[0])}. "
 			f"Found: {[(passage.origin, passage.title or passage.text[:50]) for passage in found]}"))

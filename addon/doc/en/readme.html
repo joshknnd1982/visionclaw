@@ -98,6 +98,59 @@ a setting your request says nothing about is refused. Every change is written do
 to hear the changes, and "undo that" or "put the speech rate back" to put a setting back to what it was.
 Installing or updating VisionClaw changes no NVDA setting.</p>
 
+<h2>A setting only for one program</h2>
+<p>Say what you want and add where: "make NVDA speak a little faster, only in this program", "turn off the typing
+echo just in Notepad", "when I'm in Word, set punctuation to all". NVDA keeps such a setting in a configuration
+profile, which it turns on by itself whenever that program is in front. Where the program has none yet, VisionClaw
+says so and always asks before it makes one. The setting is changed only while that program is in front; other
+programs stay as they were. Say "undo that" while you are in that program to put it back. "Which programs have
+their own settings?" lists them, and "remove the settings for this program" deletes the program's profile after a
+question. NVDA's own window for profiles is NVDA+Control+P.</p>
+
+<h2>Everywhere, or only here</h2>
+<p>Say "everywhere" or "in every application" to change NVDA's normal setting for all programs, also while the
+program in front has settings of its own. "Stop announcing capital letters in Word" is enough to mean Word. Where
+the program in front has settings of its own and you say neither, VisionClaw asks: only in this program, or
+everywhere? After a change it names the programs that keep a value of their own for that setting.</p>
+
+<h2>Working through a task when the usual path isn't clear</h2>
+<p>Say what you want and that you are stuck: "I'm stuck, I want to attach a file to this email", "walk me through
+exporting this as a PDF". VisionClaw finds the thing in the program that leads there, tells you what it is and its
+key, and asks whether to press it, only tell you where it is, or stop. It asks before every step, checks in after
+three, stays in this one program, never works its own windows, and tells you what it did.</p>
+
+<h2>A voice of its own</h2>
+<p>Say "customise VisionClaw's voice". NVDA's Speech settings open, and the synthesizer, voice, rate, pitch and
+volume you choose there are used only for what VisionClaw says. While that window is open NVDA speaks with that
+voice too; when you close it, your own voice is back. "Turn off your own voice" makes VisionClaw speak like NVDA
+again; "remove VisionClaw's voice" deletes it after a question.</p>
+
+<h2>With the JAWS Migration Assistant and ClassicSpeech</h2>
+<p>With the JAWS Migration Assistant running: "what is JAWS's Insert+F7 in NVDA?", "what is the JAWS say line
+command in NVDA?", "what did the JAWS migration bring over?". With ClassicSpeech running: "set ClassicSpeech to
+Advanced", "say less about each control", "which speech schemes do I have?", "switch to the scheme" and its name,
+"turn sound schemes off", "open voice profiles". VisionClaw asks before it changes anything in ClassicSpeech, and
+"undo that" puts it back. Without these add-ons, these jobs are not offered.</p>
+
+<h2>Requests that follow the one before</h2>
+<p>After a request you can say: do that again; a bit more; the other way, too much or too fast; say that again;
+the same in Word; and the pitch?; open the second one. VisionClaw writes such a request out in full and tells you
+how it understood you: the answer begins "Understood as". Everything that changes something still asks first.</p>
+
+<h2>A date in a calendar that takes no keys</h2>
+<p>Have the calendar showing and say: "pick 14 March 2027 in this calendar", or "choose next Friday in the date
+picker". VisionClaw asks, presses the calendar's own button for the next or previous month until the right month
+shows, then presses the day, and tells you what it did. A calendar that is only drawn is read from the window's
+picture; then check the date field afterwards.</p>
+
+<h2>Asking by voice</h2>
+<p>Press NVDA+Alt+V, or Alt+V in the Ask VisionClaw window, and speak after the high beep. VisionClaw stops
+listening when you stop speaking; a lower beep means it is working out your words. What it heard is put into the
+box and read to you. Press Enter to send it, or correct it first: nothing is done before you send it. Your words
+are turned into text on this computer by the speech model Qwen3-ASR and are sent nowhere. The first time,
+VisionClaw asks whether to download that model, about 1 GB. A larger one can be chosen in the settings. "Delete
+the speech model" removes it.</p>
+
 <h2>Programs and games NVDA cannot read</h2>
 <ul>
 <li>NVDA+Alt+O opens the overlay: the window as a list of its texts and icons. Enter clicks an item.</li>
@@ -393,8 +446,9 @@ starts on "Only when I ask". Nothing about you or your computer is sent; GitHub 
 any website does.</p>
 
 <h2>Privacy</h2>
-<p>VisionClaw does not collect any information. It connects to the internet only to download the models you
-choose; when you press Look for newer models in the models window and say yes, to read the list of models
+<p>VisionClaw does not collect any information. What you say when you ask by voice is turned into text on your
+own computer and is not kept or sent anywhere. It connects to the internet only to download the models you
+choose, and the speech model after a question; when you press Look for newer models in the models window and say yes, to read the list of models
 from its own page on GitHub; and when you ask for the latest developer guides and say yes, to download those
 two guides; and when you ask it to learn about a program and say yes, to read about it on Wikipedia, Wikidata
 and the program's own website. None of these happens by itself. It reads the list of its own versions from GitHub when you ask it to look for a newer version, and by itself only if you turn that on in the settings. Screens, photos, requests and generated code never

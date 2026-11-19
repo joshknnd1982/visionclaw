@@ -116,6 +116,66 @@ VisionClaw changes an NVDA setting only when you ask it to, and only the setting
 
 Installing or updating VisionClaw changes no NVDA setting.
 
+### A setting only for one program
+
+*"Make NVDA speak a little faster, only in this program."* *"Turn off the typing echo just in Notepad."* *"When
+I'm in Word, set punctuation to all."* Say what you want and add where: only in this program, just in this app,
+only here, or the program's name while you are in it. Plain code reads that from your own words; no model
+decides it.
+
+NVDA does this with a configuration profile, which it turns on by itself whenever that program is in front.
+Where the program has none yet, VisionClaw tells you so and always asks before it makes one, whatever your
+settings say. The profile is named after the program, as NVDA itself would name it. The answer says what the
+setting was and what it is now in that program, and that other programs are as they were.
+
+- **Only while that program is in front.** If you name a program that is not the one in front, nothing is
+  changed and you are told to switch to it first. That way a setting is never changed in the wrong place.
+- **"Undo that"** puts the setting back, while you are in that program. From elsewhere VisionClaw changes
+  nothing and tells you where to say it.
+- **"Which programs have their own settings?"** names each program, its profile, and what VisionClaw changed
+  there. **"Remove the settings for this program"** deletes the program's profile after a question, because NVDA
+  cannot bring a deleted profile back.
+- **When it cannot be done, nothing is changed, and you are told why**: a setting NVDA keeps the same for every
+  program, a profile you turned on by hand (it counts before every program's profile, and takes every change),
+  profile triggers switched off, or an NVDA that keeps nothing on this computer.
+- If your words narrow a request down and no program can be read from them, as in "only in my browser", the
+  question says "This will apply in every program" before anything changes.
+
+NVDA's own window for profiles is NVDA+Control+P.
+
+**Everywhere, or only here.** NVDA writes a change to whichever profile is on. So once a program has settings
+of its own, a plain "make NVDA speak faster", said in that program, would quietly land in that program alone.
+VisionClaw does not leave that to chance:
+
+- *"Speak words as I type in every application"*, *"make NVDA speak faster everywhere"*: NVDA's normal
+  configuration is changed, also while the program in front has a profile of its own. If that program keeps a
+  value of its own for the setting, you are told so, and how to change that too.
+- *"Stop announcing capital letters in Word"*: a program named with "in" alone is enough, where it is a program
+  everybody knows or the one in front.
+- You say neither, and the program in front has settings of its own: VisionClaw asks, "only in Word, or
+  everywhere?"
+- After any change, it names the programs that have a value of their own for that setting and keep it.
+- "Undo that" puts each change back where it was made.
+
+### Requests that follow the one before
+
+After a request you can lean on it, in the same session of NVDA:
+
+| You say | What happens |
+|---|---|
+| do that again, again, try again | The request before is done again, also one that failed or was stopped. |
+| a bit more, more, keep going | The same once more. |
+| the other way, too much, too fast, slower | The request before with its direction turned round, or set to the one you name. |
+| say that again, what did you say | The last answer is said again; nothing is done. |
+| the same in Word, do that again in Notepad | A question is asked about that program; anything else is done after switching to it. |
+| and the pitch? open the second one, delete the last one | Written out in full first, from the request before and its answer. |
+
+Plain code writes the first five out by itself. The last kind a model writes out, and plain code checks that
+every word it wrote was said by you or by VisionClaw; if not, the model's words are not used. You are always
+told how you were understood: the answer begins "Understood as: ...". Everything that changes something still
+asks first. "Open it" may mean what has the focus, so it leans on the request before for three minutes only;
+the others for ten. Nothing of this is written to the disk.
+
 ## Models
 
 Every model is always offered, whatever your computer is. Your computer only decides which one is suggested.
@@ -275,6 +335,21 @@ number, through the control's own action where the program offers one, with the 
 mouse last. You are asked first and told what it was and what it is now. Where the control is only in the
 picture, VisionClaw says that its reading is from the picture and can be wrong.
 
+### A date in a calendar that takes no keys
+
+*"Pick 14 March 2027 in this calendar."* *"Choose next Friday in the date picker."* *"Set the departure date to
+January 5."* Have the calendar showing. The date is read from your own words by plain code, also when it was
+spoken and its numbers came as words ("the fourteenth of March twenty twenty-seven"). A date in numbers that
+can be read two ways (3/4/2027), and "next Friday", are asked about. A date without a year is the next one.
+
+VisionClaw looks for the calendar in the web page, then in the window as NVDA knows it, then in the window's
+picture, for a calendar that is only drawn. It asks, presses the calendar's own button for the next or previous
+month until the right month shows, then presses the day. After every press the calendar is read again; nothing
+is counted blind. You are told the date with its weekday, how many months it went, and what the calendar shows
+afterwards. A day that is greyed out is not pressed. Where the arrows have no names, which one goes forward is
+found by trying one press, and that is said. For a calendar read from a picture you are told to check the date
+field. At most 60 months are gone by pressing.
+
 ### The router: fewer choices for the model
 
 A small model chooses well among a dozen things and badly among eighty. So before a model is asked what to do,
@@ -283,6 +358,89 @@ name no page, what needs a game controller when none is connected, and what read
 when your words do not say it. What your own words point to is always offered. Where the words can hardly mean
 anything else, as with the Recycle Bin or a shutdown, no model is asked at all. And when a model finds nothing
 that fits among what it was offered, it is offered everything, once.
+
+## Working through a task when the usual path isn't clear
+
+*"I'm stuck, I want to attach a file to this email."* *"Walk me through exporting this as a PDF."* *"I can't find
+how to change the font here."* *"The usual way doesn't work, I want to print this."* Say what you want and that
+you are stuck. VisionClaw looks at what the program in front offers: the web page as NVDA keeps it, the
+window's controls as NVDA knows them, and, where NVDA knows next to nothing, the texts and icons in the window's
+picture. It finds the thing that leads to what you want, tells you what it is and its key, and asks:
+
+- **Yes, press it**: it is pressed, VisionClaw looks again, tells you what that brought up, and goes on from there.
+- **No, only tell me where it is**: nothing is pressed; you get the thing and its key, to do it yourself.
+- **Stop here**.
+
+The rules it keeps, which are the ones JAWS's Companion names for itself:
+
+- **Every step is asked about**, and a step that may not be possible to take back (Send, Delete, Pay) says so.
+- **It checks in on a longer task**: after three steps it asks whether to go on. At most eight steps in one go.
+- **It stays in one program.** When a step brings another program to the front, it stops and tells you that the
+  next step is there.
+- **Its own windows are off limits.** VisionClaw never clicks, types or presses keys in its own windows; their
+  controls are yours. This holds for every tool that works the window in front, not only for this one.
+- **It tells you what it did**, step by step, and what is in front at the end.
+
+Plain code ranks the things in the window by your own words, with the words menus use for the same thing
+(attach and insert, save and export, settings and options). A model is asked only to choose among the few that
+were found, and only where plain code is not sure.
+
+## A voice of its own
+
+*"Customise VisionClaw's voice."* NVDA's own Speech settings open, and whatever you choose there, the
+synthesizer, the voice, its rate, pitch and volume, is used for what VisionClaw says and for nothing else. While
+that window is open NVDA itself speaks with that voice, so that you hear what you choose; when you close it, your
+own voice is back. *"Turn off your own voice"* makes VisionClaw speak like NVDA again and keeps the voice for
+later; *"remove VisionClaw's voice"* deletes it after a question. There is also a command without a key, under
+VisionClaw in NVDA's Input Gestures.
+
+It is done the way NVDA gives "say all" a voice of its own: one configuration profile, called VisionClaw voice,
+that NVDA applies only to VisionClaw's words. None of your own settings is changed. Braille is the same either way.
+
+## With the JAWS Migration Assistant and ClassicSpeech
+
+Two other add-ons by the same author make VisionClaw do more when they are running in the same NVDA. Without
+them, these jobs are simply not offered.
+
+**[JAWS Migration Assistant](https://github.com/joshknnd1982/jawsMigrator).** *"What is JAWS's Insert+F7 in
+NVDA?"* VisionClaw looks the keystroke up in JAWS's own key map on your computer, through the assistant, and
+tells you what it does in JAWS and which NVDA command, with which key, does the same. *"What is the JAWS say line
+command in NVDA?"* works by the command's name and needs no JAWS on the computer. *"What did the JAWS migration
+bring over?"* says when the last migration was, from which JAWS, and lists the keys of the assistant's layer
+(NVDA+Shift+J). And whoever has it installed is taken to come from JAWS, so the page for people from JAWS, if you
+downloaded the training material, is asked with every question. Nothing of the assistant's is ever written.
+
+**[ClassicSpeech](https://github.com/joshknnd1982/classicspeech-nvda).** *"Set ClassicSpeech to Advanced."* *"Say
+less about each control."* *"Which speech schemes do I have?"* *"Switch to the scheme JAWS Sounds."* *"Turn sound
+schemes off."* *"Open voice profiles."* VisionClaw asks first, uses ClassicSpeech's own calls, tells you what it
+was and what it is now, and "undo that" puts it back. JAWS's own Companion says of its Speech and Sound Schemes
+and Voice Profiles that it cannot change them yet.
+
+Neither add-on has an interface for other add-ons; VisionClaw uses names read from their source (JAWS Migration
+Assistant 1.63, ClassicSpeech 1.16). Where a newer version keeps something differently, VisionClaw says so and
+changes nothing. Neither was installed on the computer this was written on, so both were tested only against
+stand-ins built from their source.
+
+## Asking by voice
+
+Press **NVDA+Alt+V**, or Alt+V in the Ask VisionClaw window, and speak after the high beep. VisionClaw stops
+listening by itself when you stop speaking (or press the button again); a lower beep means it is working out
+your words. What it heard is put into the request box and read to you: "You said: ... Press Enter to send it, or
+change it first." Nothing is ever done before you send it. While the microphone is open NVDA says nothing,
+because the microphone would hear it; the beeps tell you what is going on.
+
+The words are turned into text on this computer, by the speech model **Qwen3-ASR** from the Qwen team (Apache
+2.0), in the same bundled engine, on the processor alone. What you say is not kept and is sent nowhere. The
+model is not part of the add-on: the first time you ask by voice, VisionClaw asks whether to download it,
+about 1 GB, from Hugging Face, where the llama.cpp project (ggml-org) publishes it in the engine's format; it
+comes only as Q8_0. In the settings you can choose the larger Qwen3-ASR 1.7B (2.3 GB) instead. "Can I ask you by
+voice?" says whether it is set up, "download the speech model" gets it after a question, and "delete the speech
+model" removes it after a question.
+
+Measured on the developer's computer on 2026-11-18 with Qwen3-ASR 0.6B: 24 of 24 requests spoken by Windows'
+two built-in voices were heard word for word, each about 1.7 seconds from start to text. It writes "NVDA" as
+"Nvidia" unless it is told the name beforehand, so VisionClaw tells it a few names, among them the program in
+front. A person speaking into a real microphone has not been tried yet.
 
 ## Programs and games NVDA cannot read
 
@@ -937,6 +1095,7 @@ add-on. Small models make mistakes; read the code or ask someone you trust if an
 | Keys | What it does |
 |---|---|
 | NVDA+Alt+C | Ask VisionClaw |
+| NVDA+Alt+V | Ask VisionClaw by voice: opens the same window and listens |
 | NVDA+Alt+P | Say the progress of the current request |
 | NVDA+Alt+X | Stop the current request |
 | NVDA+Alt+M | See, remove or swap the models on this computer |
@@ -1053,8 +1212,10 @@ Nothing about you or your computer is sent. GitHub sees your internet address, a
 
 ## Privacy
 
-VisionClaw does not collect any information. Its own code connects to the internet only to download the
-models you choose, from Hugging Face; when you press Look for newer models and say yes, to read the list
+VisionClaw does not collect any information. What you say when you ask by voice is recorded into memory, turned
+into text on your own computer, and thrown away: no recording is written to the disk and nothing of it is sent
+anywhere. Its own code connects to the internet only to download the
+models you choose, from Hugging Face, and the speech model after a question; when you press Look for newer models and say yes, to read the list
 of models from its own page on GitHub; and when you ask for the latest developer guides and say yes, to
 download those two guides from NV Access and GitHub; and when you ask it to learn about a program and say yes,
 to read about that program on Wikipedia, Wikidata and the program's own website, sending the program's name

@@ -364,7 +364,7 @@ assert instance.dataDir == DATA and instance.portableSettings()["searchEngine"] 
 instance.controller._stopped.set()
 instance.controller._thread.join(5)
 registry = instance.orchestrator.registry
-assert len(registry.names()) == 91, registry.names()
+assert len(registry.names()) == 101, registry.names()
 # Lessons from searches that happened to find something misled; they are dropped when VisionClaw starts.
 assert instance.memory.all() == ["Tool set_setting: this form failed: {} (x). This form worked: {}."], instance.memory.all()
 assert set(planner.available(registry)) == set(planner.RECIPES), set(planner.RECIPES) - set(planner.available(registry))
@@ -3688,7 +3688,7 @@ shippedGuides.SHIPPED = SHIPPED_GUIDES
 worked, result = registry.call(taskModule.Task("test"), "downloads_info", {})
 assert worked and result == offersModule.overview({"devGuide": True, "addonGuide": False, "training": False}), result
 assert registry.get("downloads_info").tell == "verbatim" and "downloads_info" in planner.RECIPES
-assert instance.downloadState() == {"devGuide": True, "addonGuide": False, "training": False}
+assert instance.downloadState() == {"devGuide": True, "addonGuide": False, "training": False, "speech": False}
 # The orchestrator is given the sentences, and says each once after a request that was done.
 assert instance.orchestrator.offer is not None
 doneTask = taskModule.Task("Write an add-on that beeps when a link gets the focus")
@@ -4185,6 +4185,520 @@ assert task.answer == "The Recycle Bin is empty. There is nothing to empty.", ta
 instance.runtime = realRuntime
 apiStub.getFocusObject = realFocus
 computertools.ocr.recognize = nvdatools.ocr.recognize = realRecognize
+
+# --- An NVDA setting only for the program in front (claw/profiles.py, profiletools.py) ---
+# NVDA's configuration is stood in for by one that keeps profiles the way NVDA's own source says it does
+# (tests/profilestandin.py). The normal configuration underneath is the one of all the tests above.
+
+import profilestandin  # noqa: E402
+from visionClaw import profiletools  # noqa: E402
+from visionClaw.claw import profiles  # noqa: E402
+
+configModule = sys.modules["config"]
+profiletools.SETTLE_SECONDS = 0
+profiled = profilestandin.Manager(conf)
+configModule.conf = profiled
+stub("NVDAState", shouldWriteToDisk=lambda: profiled.canWrite)
+AppTrigger = profilestandin.triggerClass(lambda: configModule.conf)
+sys.modules["appModuleHandler"].AppProfileTrigger = AppTrigger
+inFront = {"module": None, "title": ""}
+focusBefore, foregroundBefore = apiStub.getFocusObject, sys.modules["api"].getForegroundObject
+apiStub.getFocusObject = lambda: types.SimpleNamespace(appModule=inFront["module"])
+apiStub.getForegroundObject = lambda: types.SimpleNamespace(appModule=inFront["module"], name=inFront["title"])
+
+
+def bringToFront(module, title):
+	profilestandin.switch(AppTrigger, inFront["module"], module)
+	inFront["module"], inFront["title"] = module, title
+
+
+def settingNow(ident):
+	return nvdatools._resolveSetting(ident).read()
+
+
+notepadApp = profilestandin.Module("notepad", "Notepad")
+wordApp = profilestandin.Module("winword", "Microsoft Office")
+bringToFront(notepadApp, "Untitled - Notepad")
+ECHO = "keyboard.speakTypedCharacters"
+echoEverywhere = settingNow(ECHO)
+other = "off" if echoEverywhere else "on"
+instance.changes.pending()
+instance.changes._changes = []
+conf["visionClaw"]["confirmChanges"] = False
+questions = []
+instance.clawAsk = lambda question, choices: questions.append(question) or 0
+task = taskModule.Task("test")
+# The words that say for which program are no part of what the setting is looked up with: "Word" is in the name
+# of another setting.
+assert registry.get("find_setting").autoForm("Turn off the typing echo only in Word.")["words"] == "Turn off the typing echo."
+SAID = f"turn {other} the typing echo only in this program"
+worked, result = registry.call(task, "set_setting", {"setting": ECHO, "value": other, "asked": SAID})
+assert worked and result.startswith(
+	f"Only in Notepad: Keyboard speak typed characters was {'on' if echoEverywhere else 'off'} and is now {other}. "
+	"In other programs it is as it was. NVDA keeps this in a new configuration profile called notepad"), result
+# A new profile is always asked about, whatever the settings say, and the question says what will be made.
+assert len(questions) == 1 and questions[0].startswith(f"You asked: {SAID}. This is only for Notepad."), questions
+assert "There is none for Notepad yet, so VisionClaw will make one." in questions[0], questions
+assert profiled.triggersToProfiles == {"app:notepad": "notepad"} and list(profiled.listProfiles()) == ["notepad"]
+assert settingNow(ECHO) is (not echoEverywhere)
+assert conf["keyboard"]["speakTypedCharacters"] is echoEverywhere  # the normal configuration was not touched
+assert profiled.writes[-1] == ("notepad", ECHO, not echoEverywhere), profiled.writes[-1]
+# In another program the setting is as it was, and in Notepad it is Notepad's own.
+bringToFront(wordApp, "Letter.docx - Word")
+assert settingNow(ECHO) is echoEverywhere
+bringToFront(notepadApp, "Untitled - Notepad")
+assert settingNow(ECHO) is (not echoEverywhere)
+# A second setting for the same program: no new profile, so with confirmations off nothing is asked.
+levelBefore = settingNow("speech.symbolLevel")
+worked, result = registry.call(task, "set_setting", {
+	"setting": "speech.symbolLevel", "value": "all", "asked": "When I'm in Notepad, set punctuation to all"})
+assert worked and result.startswith("Only in Notepad: Speech symbol level was") and "It is kept in the configuration profile notepad." in result, result
+assert len(questions) == 1 and settingNow("speech.symbolLevel") == 300 and conf["speech"]["symbolLevel"] == levelBefore
+worked, result = registry.call(task, "list_changes", {})
+assert worked and "Speech symbol level, only in Notepad: from" in result and "Keyboard speak typed characters, only in Notepad" in result, result
+# With confirmations on, the question says that it is only for this program.
+conf["visionClaw"]["confirmChanges"] = True
+worked, result = registry.call(task, "set_setting", {
+	"setting": "speech.symbolLevel", "value": "none", "asked": "set punctuation to none just in this app"})
+assert worked and settingNow("speech.symbolLevel") == 0 and conf["speech"]["symbolLevel"] == levelBefore, result
+assert "This is only for Notepad, in the configuration profile NVDA already has for it." in questions[-1], questions[-1]
+conf["visionClaw"]["confirmChanges"] = False
+
+# A program that is named and is not the one in front: nothing is changed, nothing is asked, and the user is told.
+asked = len(questions)
+worked, result = registry.call(task, "set_setting", {
+	"setting": "speech.symbolLevel", "value": "all", "asked": "set punctuation to all only in Word"})
+assert worked and result == profiles.notHere("Word", "Notepad") and len(questions) == asked, result
+assert settingNow("speech.symbolLevel") == 0
+# A setting NVDA keeps the same everywhere is not changed for one program.
+assert profiletools.baseOnly("general.language") and not profiletools.baseOnly(ECHO)
+# Words that narrow the request down, from which no program can be read: the user is told that the change is for
+# every program, whatever the settings say; a no changes nothing.
+# Notepad has settings of its own by now, so a change that does not say where is asked about: only in Notepad,
+# or everywhere? Leaving it changes nothing.
+profiletools._profileData = lambda name: profiled._files[name]
+
+
+def answering(wanted):
+	"""A user who picks the choice that begins with these words; for a yes or no question, yes."""
+	def ask(question, choices):
+		questions.append(question)
+		return next((at for at, choice in enumerate(choices) if choice.startswith(wanted)), 0)
+	return ask
+
+
+instance.clawAsk = answering("Nothing")
+worked, result = registry.call(task, "set_setting", {
+	"setting": "speech.symbolLevel", "value": "all", "asked": "set punctuation to all only in my browser"})
+assert worked and result == "You said no, so nothing was changed.", result
+assert questions[-1] == (
+	"You asked: set punctuation to all only in my browser. Notepad has NVDA settings of its own. Change speech symbol "
+	"level from none to all only in Notepad, or everywhere?"), questions[-1]
+assert conf["speech"]["symbolLevel"] == levelBefore and settingNow("speech.symbolLevel") == 0
+# "Everywhere" chosen: NVDA's normal configuration is changed, Notepad keeps its own value, and that is said.
+instance.clawAsk = answering("Everywhere")
+worked, result = registry.call(task, "set_setting", {"setting": "speech.symbolLevel", "value": "most", "asked": "set punctuation to most"})
+assert worked and result == (
+	"Everywhere: Speech symbol level was " + nvdatools._resolveSetting("speech.symbolLevel").shown(levelBefore) + " and is now most. "
+	"Notepad has a value of its own for this, none, and keeps it. To change that too, say it again and add: only in "
+	"this program."), result
+assert conf["speech"]["symbolLevel"] == 200 and settingNow("speech.symbolLevel") == 0 and profiletools.top() == "notepad"
+assert profiled.writes[-1] == (None, "speech.symbolLevel", 200), profiled.writes[-1]
+# The words say "everywhere": nobody is asked which, and with confirmations off nothing is asked at all.
+asked = len(questions)
+worked, result = registry.call(task, "set_setting", {
+	"setting": "speech.symbolLevel", "value": "some", "asked": "set punctuation to some in every application"})
+assert worked and result.startswith("Everywhere: Speech symbol level was most and is now some."), result
+assert len(questions) == asked and conf["speech"]["symbolLevel"] == 100 and settingNow("speech.symbolLevel") == 0
+# "Only in Notepad" chosen: the same as saying it, without a second question.
+instance.clawAsk = answering("Only in")
+worked, result = registry.call(task, "set_setting", {"setting": "speech.symbolLevel", "value": "all", "asked": "set punctuation to all"})
+assert worked and result.startswith("Only in Notepad: Speech symbol level was none and is now all."), result
+assert len(questions) == asked + 1 and settingNow("speech.symbolLevel") == 300 and conf["speech"]["symbolLevel"] == 100
+# Undone one after the other, in Notepad: Notepad's own value first, then the two changes made everywhere, each
+# put back where it was made.
+instance.clawAsk = answering("Yes")
+worked, result = registry.call(task, "undo_change", {"what": "undo that"})
+assert worked and result == "Speech symbol level in Notepad was all and is back to none, as it was before.", result
+worked, result = registry.call(task, "undo_change", {"what": "undo that"})
+assert worked and conf["speech"]["symbolLevel"] == 200 and settingNow("speech.symbolLevel") == 0, result
+worked, result = registry.call(task, "undo_change", {"what": "undo that"})
+assert worked and conf["speech"]["symbolLevel"] == levelBefore and profiletools.top() == "notepad", result
+# From a program without settings of its own, a change is made as always, and the answer says that Notepad keeps
+# its own value.
+bringToFront(wordApp, "Letter.docx - Word")
+worked, result = registry.call(task, "set_setting", {"setting": "speech.symbolLevel", "value": "most", "asked": "set punctuation to most"})
+assert worked and result.endswith("is now most. Notepad has a value of its own for this and keeps it."), result
+worked, result = registry.call(task, "undo_change", {"what": "undo that"})
+assert worked and conf["speech"]["symbolLevel"] == levelBefore, result
+bringToFront(notepadApp, "Untitled - Notepad")
+instance.clawAsk = lambda question, choices: questions.append(question) or 0
+
+# Putting it back. From another program nothing is changed, and the user is told where to say it.
+bringToFront(wordApp, "Letter.docx - Word")
+worked, result = registry.call(task, "undo_change", {"what": "undo that"})
+assert worked and result == profiles.undoElsewhere("speech symbol level", "Notepad"), result
+assert len(instance.changes.pending()) == 3
+bringToFront(notepadApp, "Untitled - Notepad")
+assert settingNow("speech.symbolLevel") == 0
+worked, result = registry.call(task, "undo_change", {"what": "undo that"})
+assert worked and result == "Speech symbol level in Notepad was none and is back to all, as it was before.", result
+assert settingNow("speech.symbolLevel") == 300 and conf["speech"]["symbolLevel"] == levelBefore
+worked, result = registry.call(task, "undo_change", {"what": "put the typing echo back"})
+assert worked and result.startswith("Keyboard speak typed characters in Notepad was"), result
+assert settingNow(ECHO) is echoEverywhere and conf["keyboard"]["speakTypedCharacters"] is echoEverywhere
+
+# Which programs have settings of their own.
+worked, result = registry.call(task, "program_settings", {"asked": "which programs have their own settings"})
+assert worked and result.startswith("One program has NVDA settings of its own.\nnotepad: its own settings are in the "
+	"configuration profile notepad, which is on now."), result
+assert "VisionClaw changed there: speech symbol level from" in result, result
+assert registry.get("program_settings").tell == "verbatim"
+# Taking them away is always asked about; a no leaves everything.
+instance.clawAsk = lambda question, choices: questions.append(question) or 1
+worked, result = registry.call(task, "remove_program_settings", {"asked": "remove the settings for this program"})
+assert worked and result == "You said no, so nothing was changed." and list(profiled.listProfiles()) == ["notepad"], result
+assert questions[-1] == profiles.removeQuestion("Notepad", "notepad"), questions[-1]
+instance.clawAsk = lambda question, choices: questions.append(question) or 0
+worked, result = registry.call(task, "remove_program_settings", {"asked": "remove the settings for this program"})
+assert worked and result == profiles.removed("Notepad", "notepad"), result
+assert list(profiled.listProfiles()) == [] and profiled.triggersToProfiles == {} and profiletools.top() is None
+assert settingNow("speech.symbolLevel") == levelBefore and instance.changes.pending() == []
+worked, result = registry.call(task, "remove_program_settings", {"asked": "remove the settings for this program"})
+assert worked and result == profiles.noProfile("Notepad"), result
+worked, result = registry.call(task, "program_settings", {"asked": "which programs have their own settings"})
+assert worked and result.startswith("No program has NVDA settings of its own"), result
+# NVDA's own window in front: no program to keep a setting for.
+bringToFront(profilestandin.Module("nvda", "NVDA"), "NVDA")
+worked, result = registry.call(task, "set_setting", {"setting": ECHO, "value": other, "asked": "turn the typing echo " + other + " only here"})
+assert worked and result == profiles.NO_PROGRAM and settingNow(ECHO) is echoEverywhere, result
+configModule.conf = conf
+apiStub.getFocusObject, apiStub.getForegroundObject = focusBefore, foregroundBefore
+
+# --- A date chosen in a calendar that cannot be worked with the keyboard (claw/dates.py, datetools.py) ---
+# The calendars are made up by the test and answer to presses as real ones do (tests/calendarstandin.py).
+
+import datetime as datetimeForTest  # noqa: E402
+
+from calendarstandin import Drawn, Made  # noqa: E402
+from visionClaw import datetools, imaging as imagingForDates  # noqa: E402
+from visionClaw.claw import dates  # noqa: E402
+
+datetools.SETTLE_SECONDS = datetools.BACK_SECONDS = 0
+# "Today" is fixed, so that a date without a year means the same whenever the test runs.
+
+
+class FixedDate(datetimeForTest.date):
+	@classmethod
+	def today(cls):
+		return cls(2026, 11, 18)
+
+
+datetools.datetime = types.SimpleNamespace(date=FixedDate)
+realPage, realWindowNodes = datetools._page, datetools._windowNodes
+datetools._page = lambda: None
+conf["visionClaw"]["confirmChanges"] = True
+questions = []
+instance.clawAsk = lambda question, choices: questions.append((question, list(choices))) or 0
+task = taskModule.Task("test")
+
+
+def calendarNodes(made):
+	"""The made-up calendar as NVDA would know a window's controls: each with a name, states, and an action."""
+	nodes, byRef = [], {}
+	for control in made.controls():
+		ref = control["ref"]
+		node = {
+			"role": "BUTTON", "name": control["label"], "text": "", "value": "", "hidden": False,
+			"states": (["UNAVAILABLE"] if control.get("usable") is False else []) + (["SELECTED"] if control.get("marked") else []),
+			"obj": types.SimpleNamespace(doAction=lambda ref=ref: made.press(ref)), "up": byRef.get(control.get("inside"))}
+		byRef[ref] = node
+		nodes.append(node)
+	return nodes
+
+
+# 1. A calendar of controls with names, four months before the date.
+made = Made(2026, 11)
+datetools._windowNodes = lambda: calendarNodes(made)
+SAID_DATE = "Pick the fourteenth of March twenty twenty-seven in this calendar."
+worked, result = registry.call(task, "pick_date", {"asked": SAID_DATE})
+assert worked and made.chosen == (2027, 3, 14), result
+assert result == (
+	"Chose Sunday, 14 March 2027 in the calendar, after going 4 months to March 2027. The calendar marks that day as "
+	"chosen."), result
+assert questions == [(
+	"Choose Sunday, 14 March 2027 in the calendar in this window? It shows November 2026. VisionClaw will press the "
+	"calendar's own buttons.", ["Yes, do it", "No, leave it"])], questions
+assert made.pressed == [("next",)] * 4 + [("day", 2027, 3, 14)], made.pressed
+# The user says no: nothing is pressed.
+made = Made(2026, 11)
+instance.clawAsk = lambda question, choices: 1
+worked, result = registry.call(task, "pick_date", {"asked": SAID_DATE})
+assert worked and result == "You said no, so nothing was changed." and made.pressed == [], result
+instance.clawAsk = lambda question, choices: questions.append((question, list(choices))) or 0
+# A calendar that closes when a day is chosen: that is said.
+made = Made(2027, 3, closes=True)
+worked, result = registry.call(task, "pick_date", {"asked": "choose 14 March 2027 in the date picker"})
+assert worked and result == (
+	"Chose Sunday, 14 March 2027 in the calendar. The calendar is gone now, as most are once a day is chosen."), result
+# A date in numbers that can be read two ways: the user is asked which, and the second is taken here.
+made = Made(2027, 3)
+del questions[:]
+instance.clawAsk = lambda question, choices: questions.append((question, list(choices))) or (1 if "two ways" in question else 0)
+worked, result = registry.call(task, "pick_date", {"asked": "set the date to 3/4/2027"})
+assert questions[0] == ("That date can be read two ways. Which do you mean?", ["Thursday, 4 March 2027", "Saturday, 3 April 2027"]), questions
+assert worked and made.chosen == (2027, 4, 3) and "Chose Saturday, 3 April 2027" in result, result
+instance.clawAsk = lambda question, choices: questions.append((question, list(choices))) or 0
+# A date without a year is the next one; "today" is the 18th of November 2026 here.
+made = Made(2026, 11)
+worked, result = registry.call(task, "pick_date", {"asked": "pick tomorrow in this date picker"})
+assert worked and made.chosen == (2026, 11, 19), result
+# A day that is greyed out, and no date in the words.
+made = Made(2027, 3, greyed=[(2027, 3, 14)])
+worked, result = registry.call(task, "pick_date", {"asked": SAID_DATE})
+assert worked and "greyed out" in result and made.chosen is None, result
+worked, result = registry.call(task, "pick_date", {"asked": "pick a date in the calendar"})
+assert not worked and "names no date" in result, result
+
+# 2. A calendar that is only drawn: read from the window's picture, and clicked with the mouse, which is put back.
+drawn = Drawn(2026, 11, flipped=True)
+datetools._windowNodes = lambda: []
+BOX = (300, 200, 600, 500)
+realPicture = instance.clawScreen.picture
+instance.clawScreen.picture = lambda target: ("picture", BOX)
+realDateRecognize, realFindIcons, realClick = datetools.ocr.recognize, imagingForDates.findIcons, mousetools.click
+datetools.ocr.recognize = lambda image: drawn.picture()[0]
+imagingForDates.findIcons = lambda image, textBoxes=(), scale=1.0: drawn.picture()[1]
+clicked = []
+
+
+def clickDrawn(x, y, action="click", move=True):
+	clicked.append((x, y))
+	drawn.press((x - BOX[0], y - BOX[1]))
+
+
+mousetools.click = clickDrawn
+del moves[:], questions[:]
+worked, result = registry.call(task, "pick_date", {"asked": SAID_DATE})
+assert worked and drawn.chosen == (2027, 3, 14), (result, drawn.pressed)
+assert result == (
+	"Chose Sunday, 14 March 2027 in the calendar, after going 6 months to March 2027. The calendar was read from the "
+	"window's picture, so check that the date field now says this date: which arrow goes forward was found by trying."), result
+assert "in this window, read from its picture" in questions[0][0], questions
+# Every click was inside the window, and the mouse is back where it was.
+assert all(BOX[0] <= x <= BOX[2] and BOX[1] <= y <= BOX[3] for x, y in clicked) and moves[-1] == mousetools.position(), (clicked, moves)
+# With the text in pictures switched off, a drawn calendar is not looked for, and the user is told what to do.
+conf["visionClaw"]["useOcr"] = False
+worked, result = registry.call(task, "pick_date", {"asked": SAID_DATE})
+assert worked and result == dates.NO_CALENDAR, result
+conf["visionClaw"]["useOcr"] = True
+# A window with text and no calendar.
+datetools.ocr.recognize = lambda image: [[{"text": "Hello", "x": 5, "y": 5, "width": 40, "height": 12}]]
+worked, result = registry.call(task, "pick_date", {"asked": SAID_DATE})
+assert worked and result == dates.NO_CALENDAR, result
+datetools.ocr.recognize, imagingForDates.findIcons, mousetools.click = realDateRecognize, realFindIcons, realClick
+instance.clawScreen.picture = realPicture
+datetools._page, datetools._windowNodes = realPage, realWindowNodes
+conf["visionClaw"]["confirmChanges"] = False
+assert registry.get("pick_date").changes and planner.RECIPES["pick_date"][2] == ("pick_date",)
+
+# --- Asking by voice: whether it is set up, getting the speech model, deleting it (claw/voice.py, voiceui.py) ---
+# No microphone is opened and nothing is downloaded: the download is stood in for.
+
+from visionClaw.claw import voice as voiceWords  # noqa: E402
+
+speech = instance.voice
+assert speech.store.folder == os.path.join(DATA, "speech") and not speech.ready() and not speech.listening()
+task = taskModule.Task("test")
+worked, result = registry.call(task, "voice_info", {"asked": "can I ask you by voice"})
+assert worked and result.startswith("Asking by voice is not set up yet: no speech model is on this computer."), result
+assert registry.get("voice_info").tell == "verbatim"
+assert instance.downloadState()["speech"] is False
+worked, result = registry.call(task, "remove_voice", {"asked": "delete the speech model"})
+assert worked and result == "No speech model is on this computer, so there is nothing to delete.", result
+fetched = []
+
+
+def fakeSpeechDownload(url, dest, size=None, sha256=None, onProgress=None, cancel=None):
+	fetched.append(url)
+	for part in range(1, 11):
+		if onProgress:
+			onProgress(size * part // 10, size)
+	with open(dest, "wb") as f:
+		f.truncate(size)
+
+
+realSpeechDownload = voiceWords.net.download
+voiceWords.net.download = fakeSpeechDownload
+# A download is always asked about, whatever the settings say; a no downloads nothing.
+conf["visionClaw"]["confirmChanges"] = False
+questions = []
+instance.clawAsk = lambda question, choices: questions.append(question) or 1
+worked, result = registry.call(task, "get_voice", {"asked": "download the speech model"})
+assert worked and result == "You said no, so nothing was changed." and fetched == [] and not speech.ready(), result
+assert questions[0].startswith("Asking by voice needs a speech model on this computer. VisionClaw can download Qwen3-ASR 0.6B")
+assert "972 MB" in questions[0] and "huggingface.co/ggml-org/Qwen3-ASR-0.6B-GGUF" in questions[0], questions[0]
+instance.clawAsk = lambda question, choices: questions.append(question) or 0
+said = []
+task = taskModule.Task("download the speech model", lambda task, kind, text: said.append(text) if kind == taskModule.STATE else None)
+worked, result = registry.call(task, "get_voice", {"asked": "download the speech model"})
+assert worked and result.startswith("The speech model Qwen3-ASR 0.6B is on this computer now. To ask by voice, press NVDA+Alt+V"), result
+assert len(fetched) == 2 and all(url.startswith("https://huggingface.co/ggml-org/Qwen3-ASR-0.6B-GGUF/resolve/") for url in fetched)
+# How far it is, is said every ten percent, and not more often.
+assert said[0] == "Downloading the speech model: 0 percent." and 5 <= len(said) <= 11 and len(set(said)) == len(said), said
+assert speech.ready() and instance.downloadState()["speech"] is True
+worked, result = registry.call(task, "voice_info", {"asked": "is voice input set up"})
+assert worked and result.startswith("Asking by voice is ready. VisionClaw listens with the speech model Qwen3-ASR 0.6B"), result
+# Asked for again: nothing is downloaded twice.
+del fetched[:]
+worked, result = registry.call(task, "get_voice", {"asked": "download the speech model"})
+assert worked and fetched == [] and result.startswith("Asking by voice is ready."), result
+# The user chose the larger one, which is not here: the one that is here is listened with.
+conf["visionClaw"]["speechModel"] = "qwen3-asr-1.7b"
+assert speech.ears.model()["id"] == "qwen3-asr-0.6b" and speech.wanted()["id"] == "qwen3-asr-1.7b"
+conf["visionClaw"]["speechModel"] = ""
+# Deleting it is always asked about.
+del questions[:]
+worked, result = registry.call(task, "remove_voice", {"asked": "delete the speech model"})
+assert worked and result == "Deleted the speech model Qwen3-ASR 0.6B. That freed 972 MB.", result
+assert questions == [
+	"Delete the speech model Qwen3-ASR 0.6B from this computer, 972 MB? Asking by voice then needs it downloaded again."], questions
+assert not speech.ready() and not os.path.exists(os.path.join(DATA, "speech", "qwen3-asr-0.6b"))
+voiceWords.net.download = realSpeechDownload
+# The whole of VisionClaw's data is carried by a portable copy; the speech model's folder is inside it.
+assert os.path.commonpath([speech.store.folder, DATA]) == DATA
+assert "speechModel" in instance.portableSettings()
+
+# --- Working through a task, VisionClaw's own windows off limits, and a voice of its own ---
+
+from visionClaw import guidetools, ownvoice, pagetools as pagetoolsForGuide  # noqa: E402
+from visionClaw.claw import guide  # noqa: E402
+
+guidetools.SETTLE_SECONDS = 0
+realWhere, realInFront, realThings, realPress = (
+	pagetoolsForGuide._where, guidetools.inFront, guidetools._windowThings, guidetools._pressObject)
+pagetoolsForGuide._where = lambda: None
+front = {"program": "winword", "title": "Letter.docx - Word", "things": [
+	guide.Thing("File", "menu item", ("window", "File"), "Alt+F"), guide.Thing("Home", "tab", ("window", "Home")),
+	guide.Thing("Print", "button", ("window", "Print"), "Control+P"), guide.Thing("Bold", "button", ("window", "Bold"))]}
+pressedThings = []
+
+
+def pressThing(name):
+	pressedThings.append(name)
+	if name == "Print":
+		front["title"] = "Print"
+		front["things"] = [guide.Thing("Printer", "combo box", ("window", "Printer")), guide.Thing("Cancel", "button", ("window", "Cancel"))]
+
+
+guidetools.inFront = lambda: (front["program"], front["title"])
+guidetools._windowThings = lambda: list(front["things"])
+guidetools._pressObject = pressThing
+task = taskModule.Task("test")
+asked = []
+instance.clawAsk = lambda question, choices: asked.append((question, list(choices))) or 0
+worked, result = registry.call(task, "work_through", {"asked": "I'm stuck, I want to print this letter"})
+# Print is plain code's own choice; the window that opens has a Printer box, which is about printing too, and
+# is offered next. Each was asked about before it was pressed.
+assert worked and pressedThings == ["Print", "Printer"], (result, pressedThings)
+assert len(asked) == 2 and asked[1][0].startswith("Step 2: Printer combo box looks like the way to print this letter."), asked
+assert asked[0] == (
+	"Step 1: Print button looks like the way to print this letter. Its key is Control+P. Press it for you?",
+	["Yes, press it", "No, only tell me where it is", "Stop here"]), asked[0]
+assert result.startswith("Step 1: pressed Print button. The window in front is now Print. New here: Printer combo box, Cancel button."), result
+assert "VisionClaw finds nothing here that is about this: print this letter." in result, result
+# Only told: nothing is pressed.
+front["title"], front["things"] = "Letter.docx - Word", [guide.Thing("Print", "button", ("window", "Print"), "Control+P")]
+del pressedThings[:]
+instance.clawAsk = lambda question, choices: 1
+worked, result = registry.call(task, "work_through", {"asked": "walk me through printing this"})
+assert worked and pressedThings == [] and result == "The next step is Print button: its key is Control+P.", result
+# No task named.
+worked, result = registry.call(task, "work_through", {"asked": "I'm stuck"})
+assert worked and result == guide.NO_GOAL
+# VisionClaw's own windows are off limits: nothing that works the window in front is used on them.
+front["program"], front["title"] = "nvda", "Ask VisionClaw"
+for name, form in (
+		("work_through", {"asked": "I'm stuck, I want to print this letter"}), ("type_text", {"text": "hello"}),
+		("press_keys", {"keys": "enter"}), ("click_item", {"item": "Send", "action": "click", "asked": ""}),
+		("pick_date", {"asked": "pick 14 March 2027 in this calendar"})):
+	worked, result = registry.call(task, name, form)
+	assert worked and result == guide.NOT_OWN, (name, result)
+assert pressedThings == [] and "hello" not in typed
+# NVDA's own windows, such as its settings, are not VisionClaw's.
+front["title"] = "NVDA Settings: Speech (normal configuration)"
+assert guidetools.ownWindow() is False
+front["program"], front["title"] = "winword", "Letter.docx - Word"
+assert guidetools.ownWindow() is False
+pagetoolsForGuide._where, guidetools.inFront, guidetools._windowThings, guidetools._pressObject = (
+	realWhere, realInFront, realThings, realPress)
+
+# A voice of its own, set in NVDA's Speech settings: one configuration profile, used only for what VisionClaw says.
+configModule.conf = profiled
+spoken, uiSaid, openedSettings = [], [], []
+realSpeak, realUiMessage, realMainFrame = sys.modules["speech"].speak, sys.modules["ui"].message, sys.modules["gui"].mainFrame
+sys.modules["speech"].speak = spoken.append
+sys.modules["ui"].message = uiSaid.append
+stub("speech.commands", ConfigProfileTriggerCommand=lambda trigger, enter=True: ("voice of its own", trigger.spec, enter))
+sys.modules["gui"].mainFrame = types.SimpleNamespace(
+	popupSettingsDialog=lambda *panels: openedSettings.append(panels), prePopup=lambda: None, postPopup=lambda: None)
+conf["visionClaw"]["ownVoice"] = True
+assert ownvoice.profileName() == "" and ownvoice.check() == ""
+# No voice set yet: VisionClaw speaks exactly as NVDA does.
+ownvoice.say("Hello", True)
+assert uiSaid == ["Hello"] and spoken == []
+worked, result = registry.call(task, "own_voice", {"asked": "is your own voice on?"})
+assert worked and result.startswith("VisionClaw speaks with NVDA's own voice now.") and "customise VisionClaw's voice" in result, result
+# Customising is always asked about; a no makes nothing.
+conf["visionClaw"]["confirmChanges"] = False
+questions = []
+instance.clawAsk = lambda question, choices: questions.append(question) or 1
+worked, result = registry.call(task, "own_voice", {"asked": "customise VisionClaw's voice"})
+assert worked and result == "You said no, so nothing was changed." and list(profiled.listProfiles()) == [] and openedSettings == []
+assert "NVDA's Speech settings will open" in questions[0] and "VisionClaw voice" in questions[0], questions[0]
+# A yes: the profile is made, tied to VisionClaw's own trigger, turned on by hand, and NVDA's Speech settings open.
+instance.clawAsk = lambda question, choices: questions.append(question) or 0
+worked, result = registry.call(task, "own_voice", {"asked": "customise VisionClaw's voice"})
+assert worked and result == ownvoice.OPENED, result
+assert list(profiled.listProfiles()) == ["VisionClaw voice"] and profiled.triggersToProfiles == {ownvoice.SPEC: "VisionClaw voice"}
+assert ownvoice._byHand() == "VisionClaw voice" and len(openedSettings) == 1 and len(openedSettings[0]) == 2
+# What is chosen in that window goes into that profile, and nowhere else: here, as the settings window would write it.
+profiled["speech"]["symbolLevel"] = 0
+assert profiled.writes[-1] == ("VisionClaw voice", "speech.symbolLevel", 0) and conf["speech"]["symbolLevel"] != 0
+# The window is closed: the profile is turned off again, the user's own voice is back, and that is said.
+ownvoice._watch("VisionClaw voice", uiSaid.append)
+assert ownvoice._byHand() == "" and profiletools.top() is None and uiSaid[-1] == ownvoice.CLOSED
+# From now on VisionClaw's words carry its own trigger, and NVDA applies the profile to them alone.
+ownvoice.say("Finished.", True)
+assert spoken[-1] == [("voice of its own", ownvoice.SPEC, True), "Finished."], spoken[-1]
+# It is no program's own settings, and is not listed among them.
+worked, result = registry.call(task, "program_settings", {"asked": "which programs have their own settings"})
+assert worked and result.startswith("No program has NVDA settings of its own"), result
+# Turned off in words: VisionClaw speaks as NVDA does, and the profile stays for later.
+worked, result = registry.call(task, "own_voice", {"asked": "turn off your own voice"})
+assert worked and "it is turned off" in result and conf["visionClaw"]["ownVoice"] is False, result
+before = len(spoken)
+ownvoice.say("Plain.", conf["visionClaw"]["ownVoice"])
+assert len(spoken) == before and uiSaid[-1] == "Plain."
+worked, result = registry.call(task, "own_voice", {"asked": "turn VisionClaw's own voice on"})
+assert worked and conf["visionClaw"]["ownVoice"] is True and result.startswith("VisionClaw speaks with a voice of its own"), result
+# While NVDA's settings window is open, or another profile is on by hand, it is not begun.
+profiled.createProfile("quiet")
+profiled.manualActivateProfile("quiet")
+assert "The configuration profile quiet is turned on by hand." in ownvoice.check()
+profiled.manualActivateProfile(None)
+profiled.deleteProfile("quiet")
+# Removed after a question.
+worked, result = registry.call(task, "own_voice", {"asked": "remove VisionClaw's voice"})
+assert worked and result == "The configuration profile VisionClaw voice was deleted. VisionClaw speaks with NVDA's own voice again.", result
+assert list(profiled.listProfiles()) == [] and profiled.triggersToProfiles == {} and ownvoice.profileName() == ""
+for said, wish in {
+		"customise VisionClaw's voice": ownvoice.CUSTOMISE, "change your voice": ownvoice.CUSTOMISE, "give yourself a different voice": ownvoice.CUSTOMISE,
+		"turn off your own voice": False, "turn VisionClaw's own voice on": True, "remove VisionClaw's voice": ownvoice.REMOVE,
+		"is your own voice on?": None, "do you have a voice of your own": None}.items():
+	assert ownvoice.wish(said) == wish, (said, ownvoice.wish(said))
+sys.modules["speech"].speak, sys.modules["ui"].message, sys.modules["gui"].mainFrame = realSpeak, realUiMessage, realMainFrame
+configModule.conf = conf
 
 instance.terminate()
 print("OK")

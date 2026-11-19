@@ -46,14 +46,19 @@ class ChangeLog:
 		except OSError:
 			pass
 
-	def add(self, setting, label, old, new, oldShown, newShown, request=""):
-		"""Record a change. old and new are the values as the setting stores them; the shown ones are for people."""
+	def add(self, setting, label, old, new, oldShown, newShown, request="", profile="", program=""):
+		"""Record a change. old and new are the values as the setting stores them; the shown ones are for people.
+		profile and program: for a setting changed for one program only, NVDA's configuration profile that holds
+		it and what the program is called (claw/profiles.py)."""
 		with self._lock:
 			changes = self._load()
-			changes.append({
+			entry = {
 				"setting": setting, "label": label, "old": old, "new": new, "oldShown": str(oldShown),
 				"newShown": str(newShown), "request": request[:200], "time": time.time(), "undone": False,
-			})
+			}
+			if profile:
+				entry["profile"], entry["program"] = profile, program or profile
+			changes.append(entry)
 			del changes[:-MAX_CHANGES]
 			self._save()
 
@@ -61,6 +66,14 @@ class ChangeLog:
 		"""The changes that have not been undone, newest first."""
 		with self._lock:
 			return [dict(c) for c in reversed(self._load()) if not c.get("undone")]
+
+	def markProfileGone(self, profile):
+		"""A program's configuration profile was deleted: what was changed in it is gone with it."""
+		with self._lock:
+			for stored in self._load():
+				if stored.get("profile") == profile:
+					stored["undone"] = True
+			self._save()
 
 	def markUndone(self, change):
 		with self._lock:
@@ -76,7 +89,8 @@ class ChangeLog:
 			when = time.strftime("%d %B at %H:%M", time.localtime(change["time"]))
 			# A capital at the start only: the name of a file keeps its own capitals.
 			label = change["label"][:1].upper() + change["label"][1:]
-			lines.append(f"{label}: from {change['oldShown']} to {change['newShown']}, on {when}.")
+			where = f", only in {change.get('program') or change['profile']}" if change.get("profile") else ""
+			lines.append(f"{label}{where}: from {change['oldShown']} to {change['newShown']}, on {when}.")
 		return "\n".join(lines)
 
 

@@ -15,6 +15,7 @@ from gui import guiHelper
 
 from . import clawui, padtools
 from .claw import backend, debuglog, memories, policy, updates
+from .claw import voice as voiceWords
 
 addonHandler.initTranslation()
 
@@ -100,6 +101,13 @@ class VisionClawPanel(gui.settingsDialogs.SettingsPanel):
 				_("Do not look for a game controller"),
 			])
 		self.controller.SetSelection(padtools.CHOICES.index(c["controller"]) if c["controller"] in padtools.CHOICES else 0)
+		self.speechModel = helper.addLabeledControl(
+			# Translators: Label of the choice of the speech model that listens when the user asks by voice.
+			_("Speech model for asking by voice (NVDA+Alt+&V listens; it is downloaded when you first use it, after a question):"),
+			wx.Choice, choices=[voiceWords.label(entry) for entry in voiceWords.MODELS])
+		speechIds = [entry["id"] for entry in voiceWords.MODELS]
+		self.speechModel.SetSelection(
+			speechIds.index(c["speechModel"]) if c["speechModel"] in speechIds else speechIds.index(voiceWords.SUGGESTED))
 		self.autoFixAddons = checkbox(
 			# Translators: Checkbox in settings.
 			_("When an add-on VisionClaw wrote fails, have the models debug and correct it b&y themselves"),
@@ -110,6 +118,10 @@ class VisionClawPanel(gui.settingsDialogs.SettingsPanel):
 		self.speakProgress = checkbox(
 			# Translators: Checkbox in settings.
 			_("Say each step while VisionClaw works on a re&quest"), "speakProgress")
+		self.ownVoice = checkbox(
+			# Translators: Checkbox in settings.
+			_("Speak with VisionClaw's o&wn voice, once you have set one. To set it, close this window and ask "
+				"VisionClaw: customise your voice"), "ownVoice")
 		if self.plugin is not None:
 			# Translators: Label of the box in settings that lists the models on this computer.
 			self.modelsText = helper.addLabeledControl(
@@ -219,11 +231,13 @@ class VisionClawPanel(gui.settingsDialogs.SettingsPanel):
 		c["debugLog"] = debuglog.LEVELS[max(0, self.debugLog.GetSelection())]
 		c["remember"] = memories.WHEN[max(0, self.remember.GetSelection())]
 		c["controller"] = padtools.CHOICES[max(0, self.controller.GetSelection())]
+		c["speechModel"] = voiceWords.MODELS[max(0, self.speechModel.GetSelection())]["id"]
 		c["sideBySide"] = self.sideBySide.GetValue()
 		c["autoFixAddons"] = self.autoFixAddons.GetValue()
 		c["searchEngine"] = SEARCH_IDS[max(0, self.searchEngine.GetSelection())]
 		c["confirmChanges"] = self.confirmChanges.GetValue()
 		c["speakProgress"] = self.speakProgress.GetValue()
+		c["ownVoice"] = self.ownVoice.GetValue()
 		c["readAhead"] = self.readAhead.GetValue()
 		c["iconLabeler"] = self.iconLabeler.GetValue()
 		c["useOcr"] = self.useOcr.GetValue()

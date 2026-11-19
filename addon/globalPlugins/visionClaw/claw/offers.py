@@ -30,10 +30,11 @@ GUIDES, TRAINING, OVERVIEW = "guides", "training", "overview"
 ASK_OVERVIEW = "what can you download for me"
 ASK_GUIDES = "get the latest NVDA developer guides"
 ASK_TRAINING = "get the free NVDA training material"
+ASK_VOICE = "download the speech model"
 # Requests that are about downloading or about what is here already: nothing is offered after them.
 ABOUT_DOWNLOADS = frozenset((
 	"downloads_info", "update_guides", "guides_info", "remove_guides", "update_training", "training_info", "remove_training",
-	"learn_app", "update_visionclaw"))
+	"learn_app", "update_visionclaw", "voice_info", "get_voice", "remove_voice"))
 WRITES_ADDONS = frozenset(("write_addon", "fix_addon"))
 QUESTIONS = frozenset(("explain_keys", "nvda_question", "addon_question", "coach"))
 _OTHER_READER = re.compile(r"\b(jaws|window[- ]?eyes)\b", re.IGNORECASE)
@@ -61,6 +62,9 @@ def overview(have):
 	else:
 		guides = "Neither is on this computer yet."
 	lessons = "It is on this computer; asking again gets the latest." if have.get("training") else "It is not on this computer yet."
+	speechLine = (
+		"It is on this computer: press NVDA+Alt+V to speak a request." if have.get("speech")
+		else "It is not on this computer yet; it is about 1 GB.")
 	return "\n".join((
 		"VisionClaw can get these for you from the internet. Each is downloaded only when you ask for it, and it asks "
 		"you first.",
@@ -73,6 +77,7 @@ def overview(have):
 		"this program.",
 		"A newer version of VisionClaw. Say: check for updates.",
 		"Newer AI models: in the models window, the button Look for newer models.",
+		f"A speech model, so that you can speak your requests. {speechLine} Say: {ASK_VOICE}.",
 		"To hear what is on this computer already, say: which developer guides do I have, or: which training material "
 		"do I have.",
 	))

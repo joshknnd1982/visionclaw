@@ -63,6 +63,19 @@ _COMPUTER = re.compile(
 	r"if you see|check ?box|slider|option|switch)\b"
 	r"|\b(can|could|will|does) (you|visionclaw)\b.{0,40}\b(open|close|find|empty|start|launch|turn|set|do)\b"
 	r"|\bwhat can (you|visionclaw) do\b", re.IGNORECASE)
+# A setting for one program, a request that follows another, a date in a calendar, and asking by voice: asked only
+# when the question names one of these.
+_ASKING_NOTES = re.compile(
+	r"\b(only in (this|one|that|a) (program|app)|(one|a single|each) (program|app)\b.{0,20}\bsettings?|settings? for (one|a|this|each) "
+	r"(program|app)|configuration profiles?|own settings|do that again|say that again|follow[- ]?ups?|calendars?|date ?pickers?|"
+	r"pick(ing)? a date|by voice|with my voice|voice input|speech model|speech recognition|dictat\w+|microphone|"
+	r"speak (my|a|the) requests?|talk to (you|visionclaw)|stuck|step by step|work(ing)? through|usual way|"
+	r"(your|visionclaw'?s?) (own )?voice|voice of (your|its) own|every (application|program|app)|everywhere|"
+	r"jaws migrat\w+|migration assistant|jaws\b.{0,30}\b(keys?|keystrokes?|commands?|hot ?keys?|shortcuts?)|"
+	r"classic ?speech|verbosity|(speech|sound) schemes?|voice profiles?)\b"
+	# JAWS with a written-out key, as in "JAWS's Insert+F7". JAWS alone is not enough: "what is the JAWS cursor
+	# called in NVDA" was answered with the note on the JAWS Migration Assistant (measured on 2026-11-18).
+	r"|\bjaws\b.{0,20}\w\+\w", re.IGNORECASE)
 # NVDA's own list of what is new in its newest versions. Every line of it names something NVDA does, so it is
 # asked only when the question is about what is new, what changed or was fixed, or a version.
 _NEWS = re.compile(
@@ -90,6 +103,8 @@ NOTES = {
 	"app-office": (APP, "VisionClaw's notes on Word, Excel and Outlook", _OFFICE),
 	"visionclaw-inputs": (NVDA, "VisionClaw's notes on game controllers, touch, pressure and games", _INPUTS),
 	"visionclaw-computer": (NVDA, "VisionClaw's notes on what it does on the computer for you", _COMPUTER),
+	"visionclaw-asking": (
+		NVDA, "VisionClaw's notes on settings for one program, follow-up requests, calendars and asking by voice", _ASKING_NOTES),
 }
 # Written for people who write add-ons. Left out unless the question is about that.
 DEVELOPER_NOTES = frozenset(("addon-development", "objects-and-events", "nvda-inside", "guides"))

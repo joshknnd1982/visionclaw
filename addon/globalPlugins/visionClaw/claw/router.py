@@ -42,6 +42,10 @@ _DEVELOPER = (
 	r"|\bnvda know\b|\b[a-z_]\w*\.[a-z_]\w+")
 _MADE = r"\b(add-?ons?|plug-?ins?|helpers?|hot ?keys?|shortcuts?|made|wrote|written|created|built)\b"
 _CHANGES = r"\b(undo|revert|restore|back|before|changed?|changes|was)\b"
+_PROFILES = (
+	r"\bprofiles?\b|\b(own|different|special|separate) (nvda )?settings?\b|\bsettings? (for|of|in|from)\b|\beverywhere\b"
+	r"|\b(other|every other) programs?\b")
+_VOICE = r"\b(voice|speech|speak\w*|talk\w*|dictat\w*|microphone|out loud|asr|listen\w*|hear)\b"
 _DRIVERS = r"\b(synth\w*|voices?|braille|drivers?|displays?|version|add-?ons?|espeak|one ?core|sapi\w*|eloquence|cells)\b"
 _ACCESS = (
 	r"\b(accessib\w*|inspect\w*|audit|fix\w*|repair\w*|scan|check|usab\w*|unlabell?ed|unnamed|labels?|names?|keys?|"
@@ -72,6 +76,9 @@ GATES = {
 	"make_hotkey": (None, r"\b(hot ?keys?|shortcuts?|keys?|buttons?)\b"),
 	"name_button": (None, r"\b(name|label|call|unlabell?ed|unnamed)\b"),
 	"undo_change": (None, _CHANGES), "list_changes": (None, _CHANGES),
+	"program_settings": (None, _PROFILES), "remove_program_settings": (None, _PROFILES),
+	"voice_info": (None, _VOICE), "get_voice": (None, _VOICE), "remove_voice": (None, _VOICE),
+	"own_voice": (None, r"\b(voice|pitch)\b"),
 	"switch_driver": (None, _DRIVERS), "nvda_info": (None, _DRIVERS),
 	"check_access": (None, _ACCESS), "fix_access": (None, _ACCESS), "add_fix": (None, _ACCESS),
 	"drag": (None, r"\b(drag\w*|sliders?|drop)\b"),

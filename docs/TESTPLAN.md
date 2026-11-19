@@ -574,5 +574,111 @@ Use test files you can afford to lose.
 - [ ] A word that several files have: a question lists them; "None of these" changes nothing.
 - [ ] "Delete this file" says to give the name, and names F2 and Delete for the file selected in File Explorer.
 
+## A setting only for one program (1.7.0)
+Do this in a program you do not mind NVDA behaving differently in, such as Notepad. Afterwards "remove the
+settings for this program" takes it all away again.
+- [ ] In Notepad: "make NVDA speak a little faster, only in this program". The question says that this is only
+      for Notepad and that a configuration profile will be made, also with confirmations turned off. After Yes
+      the answer says what the rate was and is, and names the profile. **NVDA speaks faster at once, in Notepad.**
+      This is the first thing to find out: whether the profile applies without leaving the program.
+- [ ] Alt+Tab to another program: the old rate. Back to Notepad: the faster one.
+- [ ] NVDA+Control+P: the profile is in the list, named after the program, and marked as triggered while Notepad
+      was in front. NVDA menu, Configuration profiles, Triggers: "Current application (notepad)" has it.
+- [ ] In Notepad: "turn off the typing echo just in this app": no new profile is made, and the question says so.
+- [ ] In Notepad: "undo that": the typing echo is back in Notepad. From another program: "undo that" changes
+      nothing and says to switch to Notepad.
+- [ ] From another program: "set punctuation to all only in Notepad": nothing changes, and it says to switch.
+- [ ] "Which programs have their own settings?" names Notepad, its profile, and what VisionClaw changed.
+- [ ] Turn a profile on by hand (NVDA+Control+P, Manual activate), then ask for a setting only in this program:
+      refused, with how to turn the manual profile off. Turn it off again.
+- [ ] "Make NVDA speak faster, only in my browser" in Notepad: the question ends "This will apply in every
+      program". Answer No.
+- [ ] Restart NVDA: Notepad still has its own rate. Then "remove the settings for this program": asked, and
+      Notepad speaks like everything else again; the profile is gone from NVDA+Control+P.
+
+## Requests that follow the one before (1.7.0)
+- [ ] "Turn the computer's volume up a bit", then "do that again", then "the other way", then "say that again":
+      each answer begins "Understood as" and says what was done; the last repeats the answer and changes nothing.
+- [ ] "Make NVDA speak a little faster", then "a bit more", then "too fast".
+- [ ] "What is in my downloads folder", then "open the second one": the question names the second file.
+- [ ] "How do I read the title of this window?", then "and the status bar?": the answer is about the status bar,
+      and begins with the question written out in full.
+- [ ] "Open Notepad", then "and maximize it".
+- [ ] After a pause of more than ten minutes, "a bit more" is taken as a request of its own.
+- [ ] Restart NVDA, then "do that again": it says there is no earlier request.
+
+## A date in a calendar (1.7.0)
+- [ ] On a web page with a date picker whose calendar is open (a flight or hotel search): "pick" a date four
+      months ahead "in this calendar". The question names the date with its weekday and the month showing. After
+      Yes the calendar goes month by month and the day is chosen; check the date field.
+- [ ] The same with a date in the month showing, and with a date last month.
+- [ ] "Set the date to 3/4/2027": a question asks which of the two readings is meant.
+- [ ] "Pick next Friday in the calendar": a question asks which Friday.
+- [ ] With no calendar showing: it says so, and says how to open one.
+- [ ] In a program whose calendar NVDA cannot read: the same request; the answer says the calendar was read from
+      the picture and to check the date field.
+- [ ] A day that is greyed out, such as a date in the past on a booking site: not pressed, and that is said.
+
+## Asking by voice (1.7.0)
+- [ ] NVDA+Alt+V with no speech model: a question names Qwen3-ASR 0.6B, its size and Hugging Face. No downloads
+      nothing. Yes downloads it and says how far it is every ten percent; pressing the button again stops it,
+      and asking again goes on from where it stopped.
+- [ ] NVDA+Alt+V: a high beep, then say "what is on my screen". Stop speaking: a lower beep, then NVDA says "You
+      said: ..." and the words are in the box. NVDA says nothing between the two beeps. Enter sends it.
+- [ ] Say "make NVDA speak a little faster, only in this program": NVDA is written NVDA, not Nvidia.
+- [ ] Say a date: "pick the fourteenth of March twenty twenty-seven in this calendar".
+- [ ] NVDA+Alt+V and say nothing: after about eight seconds, "Nothing was heard".
+- [ ] NVDA+Alt+V, start a long sentence and press Alt+V in the middle: what was said so far is in the box.
+- [ ] In the Ask window, Alt+V does the same as the button. With text already in the box, what is said is added.
+- [ ] With no microphone, or the microphone turned off in Windows' privacy settings: it says so plainly.
+- [ ] "Can I ask you by voice?" says that it is ready and names the keys. "Delete the speech model": asked, then
+      gone. VisionClaw's settings offer both speech models.
+- [ ] After a spoken request, no `vcengine.exe` for the speech model is left running (Task Manager shows at most
+      the engines of the other models).
+
+## Everywhere, or only here (1.7.0)
+Do this after "A setting only for one program", while Notepad still has settings of its own.
+- [ ] In Notepad: "make NVDA speak a little faster". A question asks: only in Notepad, or everywhere? Choose
+      Everywhere: the answer begins "Everywhere", and says that Notepad keeps its own value. In another program
+      NVDA is faster; in Notepad it is as before.
+- [ ] In Notepad: "speak words as I type in every application": no question about where, and other programs change.
+- [ ] In Word: "stop announcing capital letters in Word": taken for Word alone, with no "only".
+- [ ] In a program without settings of its own: "set punctuation to all": changed as always, and the answer names
+      the programs that keep a value of their own, if any.
+- [ ] "Undo that" after each: it is put back where it was made, also from inside Notepad.
+
+## Working through a task (1.7.0)
+- [ ] In a mail program or Word: "I'm stuck, I want to" and something its menus or ribbon can do. The question
+      names a thing and its key. "No, only tell me where it is": nothing is pressed. Again, "Yes, press it": it is
+      pressed, and the answer says what that brought up.
+- [ ] A task that takes more than three steps: after the third, it asks whether to go on.
+- [ ] A step that opens another program (a link that opens the browser): it stops and says so.
+- [ ] A thing called Send or Delete as the next step: the question says it may not be possible to take back.
+- [ ] In a program NVDA cannot read: the things are found in the window's picture and clicked with the mouse.
+- [ ] With the Ask VisionClaw window left open in front: "click the Send button" is refused, with the reason.
+
+## A voice of its own (1.7.0)
+- [ ] "Customise VisionClaw's voice": a question explains what will happen. After Yes, NVDA's Speech settings open,
+      and their title names the profile VisionClaw voice. Choose another voice or rate and press OK.
+- [ ] Within a few seconds of closing the window NVDA says that VisionClaw's voice is set, in your own voice again.
+- [ ] Ask VisionClaw anything: its progress and its answer are in the voice you chose; NVDA's own speech (keys,
+      focus) is in yours. Braille shows the same as before.
+- [ ] Choose another synthesizer for VisionClaw's voice: its words come from that one, and NVDA's own from yours,
+      without NVDA getting stuck on the other synthesizer.
+- [ ] "Turn off your own voice": VisionClaw speaks like NVDA. "Turn it on" again. "Remove VisionClaw's voice":
+      asked, then the profile is gone from NVDA+Control+P.
+- [ ] Press Escape in the Speech settings instead of OK: your own voice is back, and nothing was kept.
+
+## The JAWS Migration Assistant and ClassicSpeech (1.7.0)
+Only with these add-ons installed. Neither was installed where VisionClaw's code for them was written.
+- [ ] With the JAWS Migration Assistant, on a computer that has JAWS: "what is JAWS's Insert+F7 in NVDA?" says
+      what the key does in JAWS and names the NVDA command with its key. Compare with NVDA+Shift+J, K, Insert+F7.
+- [ ] "What is the JAWS say line command in NVDA?" and "what did the JAWS migration bring over?".
+- [ ] With ClassicSpeech: "set ClassicSpeech to Advanced": asked, changed, and NVDA says less about each control at
+      once. "Undo that" brings Beginner back.
+- [ ] "Which speech schemes do I have?", "switch to the scheme" and a name, "turn sound schemes off", "open voice
+      profiles".
+- [ ] Without either add-on: the same requests are answered as questions, and nothing claims the add-on is there.
+
 ## Stopping NVDA
 - [ ] NVDA exits without an error, and no `vcengine.exe` is left running (Task Manager).

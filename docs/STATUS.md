@@ -1,6 +1,6 @@
 # VisionClaw status
 
-Updated 2026-11-18, version 1.6.0.
+Updated 2026-11-18, version 1.7.0.
 
 ## What exists
 
@@ -1461,14 +1461,14 @@ see "What was not tested".
 | JAWS 2027 | VisionClaw |
 |---|---|
 | Vispero Companion answers questions about JAWS, Windows, web browsing, Microsoft Office and Google Workspace, with keystrokes. Through Vispero's cloud. | `look_up` answers from NVDA's own user guide and commands, the program in front, its window, Windows' keys, notes on common programs, free training material, the user's library and memories. On this computer. Thinner than JAWS on Office and Google Workspace: `app-office.md` and `app-browsers.md` are short notes, where Vispero has years of training material. |
-| The new Companion (Early Adopter Program, United States only, needs a Vispero account and the internet): one conversation; no list of earlier conversations. | No account, no country, no internet. Memories are kept between sessions as files the user can read and delete. A request that follows another in one sentence is understood; a follow-up as a new request does not yet know the one before it. |
+| The new Companion (Early Adopter Program, United States only, needs a Vispero account and the internet): one conversation; no list of earlier conversations. | No account, no country, no internet. Memories are kept between sessions as files the user can read and delete. A request that follows another in one sentence is understood, and since 1.7.0 a request that follows the one before it as a new request too: "do that again", "the other way", "and the pitch?", "open the second one" (`claw/followups.py`); the user is told how it was understood. Kept while NVDA runs, not between sessions. |
 | Page Explorer: a summary of a web page, its important links, and tips for moving on it. | New: `explore_page` (below), with only those NVDA keys that fit the page; `read_page` answers and summarizes; `page_outline`, `go_to`. No model is needed for the layout. |
 | Picture Smart: describes a picture file, a control, the window, the screen, a slide or a video frame; two services to compare; follow-up questions; a scanner or camera. | Describing the focus, window, screen, pictures in File Explorer and chat photos, with follow-up questions, from VisionMate. One local model, so no second opinion from another service. No scanner or camera. |
 | Companion Actions: finds an unlabelled button, makes sense of an error message, explains a cluttered screen, works through a task. Stays in one application. | Clicking by name from the window's picture, naming controls for good, the deep inspection, lasting fixes, add-ons written on request, the mouse, touch, pen and controller from the keyboard, and since 1.5.0 the computer itself across programs. New: `form_trouble` (below). |
-| Changes JAWS settings by asking, everywhere or only for the application in use. Not yet: advanced braille settings, Speech and Sound Schemes, Voice Profiles. | Changes any NVDA setting by asking, the settings of the synthesizer and braille display in use, switches drivers safely, and undoes every change. **Missing: "only in this program"**, which NVDA does with configuration profiles. |
+| Changes JAWS settings by asking, everywhere or only for the application in use. Not yet: advanced braille settings, Speech and Sound Schemes, Voice Profiles. | Changes any NVDA setting by asking, the settings of the synthesizer and braille display in use, switches drivers safely, and undoes every change. Since 1.7.0 also only for the program in front, kept in NVDA's own configuration profile for it, which VisionClaw makes after a question; listed, undone and removed in words. Not run in NVDA. |
 | Asks before important steps; Escape stops; checks in on long tasks. | Asks before every change unless the user turned that off, always before what could silence NVDA; the stop command; progress spoken at every step. |
-| A voice of its own for the Companion. | Missing. Answers come in NVDA's own voice. |
-| Dictation in the Companion; the voice assistant "Hey Sharky" (Microsoft's cloud). | Missing (phase 6.2). |
+| A voice of its own for the Companion. | Since 1.7.0: "customise VisionClaw's voice" opens NVDA's own Speech settings for it; any synthesizer, voice, rate, pitch and volume, used for VisionClaw's words alone. Not heard in NVDA yet. |
+| Dictation in the Companion; the voice assistant "Hey Sharky" (Microsoft's cloud). | Since 1.7.0: NVDA+Alt+V, with the speech model Qwen3-ASR on this computer; nothing that is said leaves it. What was heard is read back before anything is done. No wake word: a key starts it. Tested with synthetic voices only. |
 | Face in View: whether the face is in the camera's picture and well lit. | Missing. |
 | Auto Graphics Labeler: names graphics from their tooltips. | Names from the page's or program's own code, or from the picture, kept for good as data. |
 
@@ -1477,7 +1477,22 @@ nothing sent anywhere; add-ons written, checked and repaired on request; fixes f
 stay; arrow keys for dragged controls; fingers, pressure, games that read the mouse directly and a game
 controller; learning about a program and keeping notes; skills the user makes in words; a portable copy.
 
+**Built on 2026-11-18 for 1.7.0**, the first four points of the list below as it stood for 1.6.0: a setting for
+one program, follow-up requests, a date in a calendar, and asking by voice; and, asked for the same day,
+everywhere or only here, working through a task, a voice of its own, and two add-ons used. See the section "A setting for one
+program, follow-up requests, a date in a calendar, asking by voice". Vispero's example of an action was
+"selecting a date in an inaccessible calendar date picker"; `pick_date` is VisionClaw's answer to it.
+
 **Still to build to be ahead on every point**, in the order of how much each matters against JAWS:
+- Everything of 1.7.0 run inside NVDA, the setting for one program first (`docs/TESTPLAN.md`).
+- Deeper notes on Word, Excel, Outlook, PowerPoint and Google's programs, from sources that may be used.
+- A camera's picture described before a call.
+- The JAWS Migration Assistant and ClassicSpeech installed, and VisionClaw's tools for them run for real.
+- A wake word, as JAWS's "Hey Sharky" has; today a key starts listening.
+- Follow-ups that know more than the one request before, and that are kept between sessions if the user wants.
+- A date control that opens no calendar, and a calendar whose month is chosen in a combo box.
+
+The list as it stood for 1.6.0, kept for what was read from NVDA's source then:
 1. A setting changed only in the program in front, through NVDA's configuration profiles. Read from
    `config/__init__.py` of NVDA's release-2026.3 branch on 2026-11-18, and to be read again before building:
    a change (`config.conf[...][...] = value`) is written to the profile activated last (`self.profiles[-1]`,
@@ -1542,6 +1557,158 @@ Tested, and how:
   deep query of this control and tell me how a sighted person works it"), and the two weak answers named there
   are unchanged (the JAWS cursor, the inbox count). No run without today's changes was made to set beside it,
   so "no older request got worse" rests on reading the answers and on the notes of the earlier run.
+
+## A setting for one program, follow-up requests, a date in a calendar, asking by voice (1.7.0, 2026-11-18)
+
+The owner asked for the four things that were listed as still missing against JAWS 2027 ("add all that stuff into
+visionclaw as well. I want it to be better than jaws2027"). What was built, what it rests on, and what was tested.
+
+**An NVDA setting only for one program** (`claw/profiles.py`, `profiletools.py`; phase 3.50).
+
+- The two parts of NVDA's source that had not been read were read on 2026-11-18, branch release-2026.3:
+  `appModuleHandler.py` (a program's trigger is `AppProfileTrigger(appName)`, whose spec is "app:" and the name of
+  the program's file; `handleAppSwitch` makes one and calls `enter()` when the program gets the focus, keeps it on
+  the program's module as `_configProfileTrigger`, and calls `exit()` on it when the program loses the focus) and
+  `gui/configProfiles.py` (NVDA's own New Profile window calls `createProfile`, sets `triggersToProfiles[spec]`,
+  calls `saveProfileTriggers` and `enableProfileTriggers`, and then relies on the program getting the focus
+  again). With `config/__init__.py`, read again: a triggered profile does not apply while triggers are disabled
+  or suspended; a profile turned on by hand always stays on top.
+- So the two open questions have these answers from the source: a profile that was only just made does not apply
+  until its program gets the focus again, and VisionClaw therefore enters the program's trigger itself, as
+  `handleAppSwitch` does; and undoing is done only while the program's profile is the one NVDA writes to, with the
+  profile's name kept in `changes.json`.
+- "Only in this program", "just in this app", "only here", "when I'm in Word", "in Notepad only" are read from the
+  user's own words by plain code; the recipe stays `change_setting`. Two new jobs: `program_settings` (which
+  programs have settings of their own) and `remove_program_settings` (always asked about).
+- Before a profile is made the user is told and always asked. Nothing is written unless the program's profile is
+  the one NVDA writes to at that moment. Refused with a reason, and nothing changed: a named program that is not
+  in front, a setting NVDA keeps the same everywhere, a profile turned on by hand, triggers switched off, an NVDA
+  that keeps nothing on the computer, NVDA's own window in front.
+
+**Requests that follow the one before** (`claw/followups.py`, `orchestrator._follow`; phase 3.51). Plain code
+writes out: the same again, a bit more, the other way and "too fast", the last answer said again, the same in
+another program, "the second one" from the numbered list of the last answer, and "and maximize it". A model
+writes out the rest ("and the pitch?", "click the third one", "open it"), with a question of its own for each kind,
+and plain code checks every word against what was said. The answer begins "Understood as: ...". Kept only while
+NVDA runs.
+
+**A date in a calendar that takes no keys** (`claw/dates.py`, `datetools.py`; phase 3.52). `pick_date` reads the
+date from the user's words, typed or spoken; finds the calendar in the web page, the window, or the window's
+picture; presses its button for the next or previous month until the right month shows, reading the calendar again
+after every press; presses the day; and says what happened.
+
+**Asking by voice** (`claw/voice.py`, `voiceinput.py`, `voiceui.py`; phase 6.2). NVDA+Alt+V, or Alt+V in the Ask
+window. The microphone is read through Windows' waveform-audio functions into memory; plain code tells when the
+person has finished; the speech model Qwen3-ASR turns the recording into text in an engine of its own on the
+processor, which is started for the recording and stopped again; the text is put into the request box and read
+out, and only Enter sends it.
+
+- The speech model. Read from Hugging Face's own listing on 2026-11-18: `Qwen/Qwen3-ASR-0.6B` and
+  `Qwen/Qwen3-ASR-1.7B` are under Apache 2.0. Neither Qwen nor Unsloth publishes them as GGUF; `ggml-org`, the
+  llama.cpp project, does (`ggml-org/Qwen3-ASR-0.6B-GGUF` at revision 928ab958, `ggml-org/Qwen3-ASR-1.7B-GGUF` at
+  36a67868), as Q8_0 and bf16 only: **there is no Q4_K_M and no Q6_K**. The owner was asked "May VisionClaw offer it
+  from ggml-org, and may I download the small one (about 1 GB) to this computer to test it?" and chose "Yes to
+  both". ggml-org is allowed for the speech model only; `catalog.PUBLISHERS` is unchanged.
+- The engine that is bundled (VisionMate 5.0.1's build of llama.cpp) took the model as it is: no newer engine is
+  needed. Its own log says "audio input is in experimental stage and may have reduced quality".
+
+The owner then asked for more, the same day, and it is in the same version:
+
+**Everywhere, or only here** (phase 3.53). JAWS's help says its Companion "understands the difference between
+changing a setting everywhere and changing it only for the application you're using", with the examples "Speak
+words as I type in every application" and "Stop announcing capital letters in Word". Reading NVDA's source showed
+what that means for NVDA: a change is written to the profile that is on, so once a program has settings of its
+own, a change said there without a place lands in that program alone. Now "everywhere" writes NVDA's normal
+configuration also while a program's profile is on, a program named with "in" alone is understood, the user is
+asked where the words say neither, and the programs that keep a value of their own are named.
+
+**Working through a task when the usual path is not clear** (`claw/guide.py`, `guidetools.py`; phase 3.54). JAWS's
+What's New page, read again on 2026-11-18: the Companion can "work through a task when the usual path isn't
+clear", only works when asked, asks before important steps, checks in on longer tasks, stays in one application,
+and cannot operate its own window. `work_through` does this for NVDA: it reads what the program in front offers
+(web page, window, or picture), ranks it by the user's own words, asks before every step with "only tell me" and
+"stop" as choices, checks in after three steps, stops when another program comes to the front, and says what it
+did. VisionClaw's own windows are off limits to every tool that works the window in front.
+
+**A voice of its own** (`ownvoice.py`; phase 3.55). First built as a lower pitch; the owner asked instead to be
+dropped into NVDA's Speech settings. Read from NVDA's source: `ConfigProfileTriggerCommand` applies a
+configuration profile to a stretch of speech, as say all's own profile is applied. VisionClaw's voice is one
+profile tied to a trigger of its own; "customise VisionClaw's voice" turns it on by hand, opens NVDA's Speech
+settings, and turns it off again when they are closed.
+
+**The JAWS Migration Assistant and ClassicSpeech** (`claw/partners.py`, `partnertools.py`; phase 3.56). Their
+source was read on 2026-11-18 (jawsMigrator 1.63, MIT; ClassicSpeech 1.16, GPL v2). With the first, VisionClaw
+says what a JAWS keystroke or command is in NVDA; with the second, it changes the verbosity level and the speech
+and sound schemes by asking, which JAWS's help says its own Companion cannot do yet for JAWS's schemes and voice
+profiles. Neither add-on has an interface for other add-ons, and neither was installed on this computer.
+
+Tested, and how:
+
+| Test | What it shows | Result |
+|---|---|---|
+| `tests/test_profiles.py` | 16 sentences that ask for one program and what is left of each without those words; 18 that narrow down something else and must not be taken for a program ("speak typed characters only in edit fields", "beep when I use caps lock"); whether a named program is the one in front; the profile's name; which requests remove or list; where 18 requests are sent and that each is offered; six requests kept whole or split with the scope words on every part that changes a setting; then `profiletools.py` against a stand-in that keeps profiles as NVDA's source says (`tests/profilestandin.py`): no program in front, a profile made and on top at once, the normal configuration untouched, the setting as it was in another program and the program's own on coming back, nothing written while another program is in front, a profile turned on by hand, triggers off, an NVDA that keeps nothing, a profile that NVDA does not turn on taken away again, a name that is taken, listing and removing | passes |
+| `tests/test_nvda_stub.py`, new part | The real `set_setting`, `undo_change`, `list_changes`, `program_settings` and `remove_program_settings` through VisionClaw's registry on the same stand-in: the question before a new profile, asked with confirmations off; a second setting without a new profile; "only in Word" with Notepad in front; "only in my browser" ending in "This will apply in every program"; undo refused from another program and done in the right one; removing asked about | passes |
+| `tests/test_followups.py` | 18 follow-ups plain code writes out and 11 it leaves to a model; 23 requests with "that", "it" or "and" that stand alone; the three time limits; turning a request round and towards a direction; things by their place in a numbered list, and a place the list does not have; what a model wrote, accepted and refused; six sessions of whole requests through the orchestrator with stand-in tools and a scripted model, one with a model that makes a file name up, one with a very small model that is never asked, one that does a stopped request again | passes |
+| `tests/test_dates.py` | 26 ways of saying a date, typed and spoken, with "today" fixed, and 18 requests that name no date or no calendar; headings, days and buttons by their names; then calendars made up by the test that answer to presses (`tests/calendarstandin.py`): forward and backward and across a year, the right 30 where two are shown, days that say their whole date, a heading in three forms and in two places, a greyed-out day, a button that does nothing, a button that goes the wrong way, too far, no buttons, no heading, no calendar, a stopped request; the same calendar as a picture with the days given column by column, arrows on both sides, both at the right, both at the left, the wrong way round, and arrows that are text | passes |
+| `tests/test_nvda_stub.py`, new part | The real `pick_date` through the registry: on a calendar of controls as NVDA would know a window's, and on one that is only drawn, read from stand-in text recognition and clicked with a stand-in mouse; the question; a no; a calendar that closes; a date that can be read two ways put to the user; a greyed-out day; no date; text recognition switched off; a window with no calendar; the mouse put back | passes |
+| `tests/test_voice.py` | When speech begins and ends, on sound made up by the test: a pause that ends a request and one that does not, nobody speaking, someone who never stops, thirty seconds of speech in one piece, a click, a noisy room, a quiet voice, someone already speaking; the WAVE file; what is made of the model's answer; the two speech models with their pinned files, and that a fetched list can add neither a speech model nor ggml-org; keeping, choosing and removing them with a stand-in download; Windows' structures by their sizes; a whole spoken request with a stand-in microphone and engine, with nobody speaking, stopped early, not understood, no microphone, a failed engine; where 17 requests are sent | passes |
+| `tests/test_nvda_stub.py`, new part | The real `voice_info`, `get_voice` and `remove_voice`: the question before a download, asked with confirmations off; progress said every ten percent; nothing downloaded twice; the model that is here used when the other was chosen; deleting asked about | passes; nothing was downloaded |
+| `tests/test_ask_window.py`, with the real wxPython | The Ask window's voice button with a stand-in for asking by voice: the speech model offered when there is none, listening begun and stopped, what was heard put into the box and read out without being sent, a second go added to the first, a problem said as it is, a download stopped, and the window without asking by voice | passes; no microphone, no model, nothing shown on the screen |
+| `tests/test_profiles.py` and `tests/test_nvda_stub.py`, for everywhere or only here | Seven ways of naming a program with "in" alone or not; six ways of saying every program; the write into the normal configuration while a program's profile is on, with "+10" read against the value everywhere and the program keeping its own; nothing written under a profile turned on by hand; which programs hold a value of their own; then the real tools: the question "only in Notepad, or everywhere?", each of its three answers, "in every application" without a question, three changes undone where each was made, and the sentence that Notepad keeps its own value | passes |
+| `tests/test_guide.py` | Eight requests and what the user wants in each; five that are something else; ranking with the words menus use; then a mail program made up by the test: a model choosing between two ways and plain code sure of the next, "only tell me", "stop", a model saying none leads there, another program coming to the front, nothing about it, presses that bring up nothing, a check-in after three steps, the most steps, a stopped request | passes |
+| `tests/test_nvda_stub.py`, new part | The real `work_through` on stand-in things of a window; five tools refused while VisionClaw's Ask window is in front, and NVDA's own settings window not taken for VisionClaw's; `own_voice`: no voice yet, the question, a no, the profile made and turned on by hand with NVDA's Speech settings opened, a setting written into that profile alone, the profile turned off when the window closes, VisionClaw's words carrying the trigger, turned off and on in words, removed after a question | passes |
+| `tests/test_partners.py` | What the words ask of each add-on; neither job hinted at or offered without its add-on; then both tools against stand-ins with the names and shapes the add-ons' source has: the verbosity level changed, refused beyond the last level, a no; schemes listed, switched by name, the next one, turned off, a name that is none; a window opened; each change put back; a newer ClassicSpeech that keeps the level differently; a JAWS keystroke through to NVDA's command and keys; a key the map does not have; a command by name; what was brought over; no JAWS on the computer; a newer assistant | passes; the real add-ons were never called |
+| `tests/live_voice.py`, Qwen3-ASR 0.6B Q8_0 in the bundled engine, on the processor alone, through `voiceinput.Ears` | 24 recordings: twelve requests, each spoken by Windows' own voices David and Zira at 16 kHz | 24 of 24 heard word for word, 1.4 to 1.9 seconds each from starting the engine to the text. Before it was told the name, it wrote "NVDA" as "Nvidia" |
+| `tests/live_voice.py --mic`, on the owner's computer | `voiceinput.chunks` opened the default microphone for three seconds | Windows gave 29 pieces of a tenth of a second; all were silent (loudness 0 or 1). Nothing was kept or turned into text |
+| `tests/live_followups.py`, Qwen3.5 9B | 13 follow-ups after a request and its answer | Four were written out by plain code (three by their place in a numbered list, "and maximize it" by the planner's rules) and one was taken to stand alone ("and open notepad"), so no model was asked for those five. Of the eight put to the model, seven were written out as wanted: "How do I read the status bar of this window?", "What is the pitch?", "Make NVDA speak a little louder.", "Turn off the typed words echo.", "click the Options", "What does NVDA+F12 do?", and "open budget old.xlsx" for "open it", which was a guess between two files. "read it" after a description of the window was written as "read The window". Before the questions were made smaller, the same model had copied 8 of 11 follow-ups back unchanged |
+| `tests/live_orchestrator.py`, Qwen3.5 9B for both jobs, one small question at a time (the owner's settings), GeForce RTX 5060, stand-in tools | All 196 requests of the list, run once on 2026-11-18: the 38 new ones (a setting for one program, everywhere, a date, voice, working through a task, a voice of its own, the two add-ons taken to be running, and five sessions of requests that follow one another) and the 158 older ones. The jobs of the 180 requests that were also in a run before the two add-ons were added were compared with that run by a script | 196 of 196 were carried out, 0.0 to 29.1 seconds each. Every new request went to the job its words point to; the three that say the user is stuck, the dates and the computer's volume took no model call. The user was asked 5 times: what was meant by "How do I bake a cake?", "Name the focused button Share on this website.", "Give me a hotkey for the gain knob." and the second half of the deep-query request, the same four as in the runs for 1.5.0 and 1.6.0; and once about a step of a stand-in tool that could not find a file the test has no stand-in for ("Open report.pdf.", written out from "open the second one"). One older request went elsewhere than before: "I'm coming from JAWS. What is the JAWS cursor called in NVDA?" was sent to the JAWS Migration Assistant's job, which answers with keystrokes. Corrected after the run (`partners.jawsWish` wants a keystroke, the word command or the migration; the gate of VisionClaw's notes no longer opens for JAWS alone) and measured again with the three requests that name JAWS only: it is looked up as before, and the two about a JAWS keystroke and a JAWS command still go to the add-on's job. The whole list was not run again after that correction |
+
+What measuring with the real model changed, the same day:
+
+- "Make NVDA speak a little faster, only in this program." was split at its comma; "only in this program" was
+  taken for a request to describe the screen, and the stand-in setting was changed for every program. Now the
+  words that say for which program are put aside before a request is split (`planner.split`).
+- Given one question for every kind of follow-up, with leave to copy a request that stands alone, the model
+  copied 8 of 11 follow-ups unchanged ("And the status bar?" stayed "And the status bar?"). Now ordinals are
+  plain code's, and the model gets a question of its own for "the same about another thing" and for "a thing the
+  answer names", and a copy is refused where the follow-up cannot stand alone.
+- "Open report.pdf.", written out from "open the second one", ended in a question whether to open a website.
+  A name with a file's ending is a file now (`computer.namesFile`); "open notes.txt" no longer points at
+  VisionClaw's notes on a program.
+- "Read it" was taken for "say the last answer again". That needs "again" now.
+
+**Not tested.**
+
+- **The JAWS Migration Assistant and ClassicSpeech were not installed on this computer.** Everything VisionClaw
+  does with them rests on names read from their source and on stand-ins made to match. One wrong name and the tool
+  says that this version keeps it differently; that it works with the real add-ons is not known.
+- **A voice of its own has not been heard.** Whether NVDA applies the profile to VisionClaw's words as it does for
+  say all, how a profile with another synthesizer behaves between VisionClaw's words and NVDA's own, and whether
+  the profile is turned off when the settings window is closed with Escape, are known only from NVDA's source.
+- **Working through a task in a real program.** Which controls NVDA reports for a ribbon, a menu bar or a web
+  application, whether pressing them through NVDA opens what a click would, and how long a program needs before it
+  can be looked at again (0.8 seconds is waited) were not tried.
+
+- **Nothing of this has run inside NVDA.** For a setting for one program that matters most: the stand-in was
+  written from NVDA's source, but whether entering the trigger makes a new profile apply at once, how NVDA's
+  speech reloads its settings at that moment, and what happens when NVDA's own Settings window is open (it
+  suspends triggers) are only known from reading. `docs/TESTPLAN.md` has the steps, the first of them first.
+- **No person has spoken into a real microphone.** The 24 recordings were Windows' synthetic voices, clean and
+  at an even loudness; the microphone on this computer gave only silence in the check, so whether it is muted or
+  the room was silent is not known. When speech begins and ends was tested on tones, not voices. Accents, a noisy
+  room, a headset, another language than English, and Qwen3-ASR 1.7B were not tried.
+- **NVDA+Alt+V, the beeps, the download question and its progress, and the choice in the settings** were not run;
+  the Ask window's voice button was, with a stand-in for the voice. Whether NVDA's own speech, coming from
+  loudspeakers, gets into a recording is not known: VisionClaw cuts NVDA's speech short, beeps, and opens the
+  microphone a quarter of a second later, and when the window was opened to listen at once it waits 0.9 seconds
+  first; none of that has been heard by anyone.
+- **A calendar in a real browser or program.** How Chrome, Edge and Firefox name the days and buttons of real date
+  pickers, a calendar inside a frame, one that shows two months, one whose month is a combo box, and a native
+  Windows date control were not tried. From a picture, days are found as text; a calendar whose numbers the text
+  recognition misreads is not found or is found short.
+- **A follow-up after an answer that names several things**: "open it" after two files were found was written out
+  with the second file's name by the real model. That is a guess. The user is told what it was taken as and the
+  tool asks before it opens anything, but nothing checks that the right one was meant.
 
 ## What was not tested
 
@@ -1676,6 +1843,13 @@ Tested, and how:
   asked instead.
 
 ## Next session
+
+1.7.0 added four things, and none of them has run inside NVDA. With the owner's yes, in this order: the first
+item of "A setting only for one program" in `docs/TESTPLAN.md` (does a profile that was only just made apply at
+once?), because everything about that feature rests on it; then "Asking by voice" with a person speaking into a
+real microphone, since only Windows' synthetic voices were tried and the microphone gave silence in the check; then
+a date picker on a real booking site. If the profile does not apply at once, read `appModuleHandler.py` and
+`config/__init__.py` of the installed NVDA's version again before changing `profiletools._enter`.
 
 1.5.0 added twelve tools that act on the computer and none of them has run inside NVDA. First of all, with the
 owner's yes: the new section "Working the computer itself" of `docs/TESTPLAN.md`, starting with the two

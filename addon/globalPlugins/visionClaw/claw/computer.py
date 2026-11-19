@@ -687,6 +687,12 @@ _FILE_NOUN = re.compile(
 ENDINGS = tuple(sorted({ending for endings in KINDS.values() for ending in endings} | {
 	".html", ".htm", ".json", ".xml", ".ini", ".py", ".lnk", ".url", ".bat", ".ps1", ".pptx", ".jpg"}))
 _FILE_NAME = re.compile(r"\S+(?:" + "|".join(re.escape(ending) for ending in ENDINGS) + r")(?=$|[\s,;!?])", re.IGNORECASE)
+
+
+def namesFile(part):
+	"""Whether the words write the name of a file with its ending, as in "open report.pdf": that is a file, and no
+	address of a website."""
+	return bool(_FILE_NAME.search(str(part or "").rstrip(" .!?")))
 _TASK_START = rf"^\s*{_POLITE}(?:(?:first|then|next|now|and|also|just)[, ]+)*"
 _MAKE = re.compile(
 	_TASK_START + r"(?:create|make|add)\s+(?:me\s+)?(?:an?\s+)?(?:new\s+)?(?:empty\s+|blank\s+)?"

@@ -26,8 +26,9 @@ import ui
 import wx
 from .vclog import log
 
-from . import computertools, mousetools, net, nvdainfo, ocr, webtools
-from .claw import changes, commands, computer, debuglog, drivers, fixes, gamepad, guides, helpfiles, inside, lookup, match, microaddons, offers, pointer, policy, prompts, training, web
+from . import computertools, mousetools, net, nvdainfo, ocr, profiletools, webtools
+from .claw import changes, commands, computer, debuglog, drivers, fixes, gamepad, guides, helpfiles, inside, lookup, match, microaddons, offers, pointer, policy, profiles, prompts, training, web
+from .claw import guide
 from .claw.catalog import CODER, VISION
 from .claw.llm import LLM, clip
 from .claw.memory import score, wordList, words as wordsOf
@@ -283,6 +284,8 @@ class UserSaidNo(Exception):
 
 class _Setting:
 	def __init__(self, ident, label, kind, read, write, low=None, high=None, options=None):
+		# Where the setting is in NVDA's configuration, as its sections and its key; None where that is not known.
+		self.path = None
 		self.id = ident
 		self.label = label
 		self.kind = kind  # "bool", "number", "option"
@@ -322,6 +325,13 @@ class _Setting:
 
 def _confSetting(path, spec):
 	"""A setting from NVDA's own configuration, or None if it is not a kind a model should change."""
+	setting = _confSettingOf(path, spec)
+	if setting is not None:
+		setting.path = tuple(path)
+	return setting
+
+
+def _confSettingOf(path, spec):
 	ident = ".".join(path)
 	section, key = path[:-1], path[-1]
 
@@ -401,6 +411,8 @@ def _driverSettings(driver, prefix, label, section):
 				lambda n=name, names=names: next((d for d, k in names.items() if k == getattr(driver, n)), getattr(driver, n)),
 				lambda v, n=name, names=names: save(n, names.get(v, v)), options=list(names)[:40],
 			))
+	for setting in found:
+		setting.path = (section, _safe(lambda: driver.name) or "", setting.id.split(".", 1)[1])
 	return found
 
 
@@ -1299,7 +1311,19 @@ def build(plugin):
 				raise ToolError(str(e))
 		return run
 
+	def notOwn(fn):
+		"""A tool that works the window in front, kept away from VisionClaw's own windows: their controls always
+		belong to the user."""
+		def run(task, **form):
+			from . import guidetools
+			if _safe(lambda: onMain(guidetools.ownWindow), False) is True:
+				return guide.NOT_OWN
+			return fn(task, **form)
+		return run
+
 	def add(name, description, fn, fields=None, **options):
+		if name in guide.OFF_LIMITS:
+			fn = notOwn(fn)
 		registry.add(Tool(name, description, guarded(fn, name in mousetools.DIRECT_TOOLS), fields, **options))
 
 	def text(description, **extra):
@@ -1487,7 +1511,7 @@ def build(plugin):
 		onMain(typeUnicode, textToType)
 		return f"Typed: {clip(textToType, 80)}"
 
-	registry.add(Tool("type_text", "type text into the program in front", guarded(lambda task, text: typeText(task, text)),
+	registry.add(Tool("type_text", "type text into the program in front", guarded(notOwn(lambda task, text: typeText(task, text))),
 		{"text": text("the text to type", maxLength=400)}, changes=True, title="Typing"))
 
 	def nameControl(task, name):
@@ -1514,16 +1538,26 @@ def build(plugin):
 		return "\n".join(found)
 
 	add("find_setting", "find NVDA settings by describing them; gives each setting's id, value now and allowed values",
-		findSetting, {"words": text("2 to 4 keywords for the setting, like: speech rate", maxLength=80, auto=True)},
+		findSetting, {"words": text("2 to 4 keywords for the setting, like: speech rate", maxLength=80,
+			auto=lambda part: clip(profiles.without(part), 80).replace(" ...[cut]", ""))},
 		looks=True, title="Finding the setting")
 
 	def setSetting(task, setting, value, asked):
+		# "Only in this program": read from the user's own words by plain code (claw/profiles.py). The words
+		# that say so name no setting, and are left out when the setting is compared with the request.
+		words = computer.own(asked or task.request)
+		# The program in front, so that "in" and its name alone says for which program: "in Space Trader".
+		here = _safe(lambda: onMain(profiletools.front)[1]) or {}
+		scope = profiles.scopeOf(words, here)
+		everywhere = profiles.everywhere(words)
+		about = profiles.without(computer.own(asked), here) if asked else ""
+
 		def work():
 			found = _resolveSetting(setting)
 			if found is None:
 				raise ToolError(f"There is no setting with the id {setting}. Copy an id exactly from find_setting.")
 			# Only the setting the user asked about may be changed, whatever a model decided.
-			if asked and not related(asked, found.id, found.label):
+			if about and not related(about, found.id, found.label):
 				raise ToolError(
 					f"The user asked: \"{clip(asked, 200)}\". That says nothing about {found.label}. "
 					"Choose the setting from find_setting that the request is about. If none is, this cannot be done.")
@@ -1540,6 +1574,52 @@ def build(plugin):
 			return found, new, old, found.read(), _("Change {setting} from {old} to {new}?").format(
 				setting=found.label, old=old, new=found.shown(new)), False
 		found, new, old, before, question, risky = onMain(work)
+		if scope is not None:
+			return setForProgram(task, scope, found, new, question, risky, words)
+		# Everywhere, or only in the program in front? NVDA writes a change to the profile that is on. So where the
+		# program in front has settings of its own, the user's words decide, and where they do not say, the user is
+		# asked: the difference between everywhere and here is never left to chance.
+		own, byHand, module, facts = _safe(lambda: onMain(profiletools.onTop)) or ("", "", None, {})
+		if byHand and everywhere:
+			return profiles.manualOn(byHand)
+		if own:
+			program = profiles.shown(facts)
+			if not everywhere:
+				# Translators: Put before the question about a change, so the user can tell if it is what they asked for.
+				said = (_("You asked: {request}").format(request=clip(asked, 160)).rstrip(".") + ". ") if asked else ""
+				chosen = plugin.clawAsk(
+					said + profiles.whichQuestion(found.label, old, found.shown(new), program), profiles.whichChoices(program))
+				if chosen == 0:
+					return setForProgram(task, {"program": "", "words": ""}, found, new, question, risky, words, agreed=True)
+				if chosen != 1:
+					raise UserSaidNo()
+			else:
+				whole = question.rstrip("?") + ", everywhere?"
+				if asked:
+					whole = _("You asked: {request}").format(request=clip(asked, 160)).rstrip(".") + ". " + whole
+				mustAgree(whole) if risky else confirm(whole)
+			app = (facts.get("app") or "").lower()
+			profiletools.settle(lambda: onMain(profiletools.front)[1]["app"].lower() == app, task.check)
+
+			def everywhereWork():
+				_own, _byHand, module, _facts = profiletools.onTop()
+				return profiletools.writeBase(module, found, raw=value)
+			try:
+				was, beforeBase, newBase, nowBase, kept = onMain(everywhereWork)
+			except profiletools.NotPossible as e:
+				return str(e)
+			plugin.changes.add(found.id, found.label, beforeBase, newBase, was, nowBase, asked or task.request)
+			return profiles.everywhereDone(found.label.capitalize(), was, nowBase, program, kept) + profiles.othersKeep(
+				[name for name in _safe(lambda: onMain(profiletools.holders, found.path, own), []) or [] if name != program])
+		if byHand:
+			question += " " + profiles.manualTakes(byHand)
+			risky = True
+		if profiles.NARROWS.search(words):
+			# The words narrow the request down, and no program could be read from them. The user is told what
+			# will happen, whatever the settings say, before anything is changed everywhere.
+			# Translators: Added to the question about a change when the user's words seem to narrow it down.
+			question += " " + _("This will apply in every program.")
+			risky = True
 		if asked:
 			# Translators: Put before the question about a change, so the user can tell if it is what they asked for.
 			question = _("You asked: {request}").format(request=clip(asked, 160)).rstrip(".") + ". " + question
@@ -1548,7 +1628,51 @@ def build(plugin):
 		now = onMain(found.shown)
 		# Every change is written down, so that it can be put back.
 		plugin.changes.add(found.id, found.label, before, new, old, now, asked or task.request)
-		return f"{found.label.capitalize()} was {old} and is now {now}."
+		said = f"{found.label.capitalize()} was {old} and is now {now}."
+		if byHand:
+			return f"{said} {profiles.manualTakes(byHand)}"
+		# Programs that have a value of their own for this keep it: said, so that "it did not change in Word" is
+		# no surprise.
+		return said + profiles.othersKeep(_safe(lambda: onMain(profiletools.holders, found.path), []) or [])
+
+	def setForProgram(task, scope, found, new, question, risky, words, agreed=False):
+		"""Change a setting for the program in front only, in NVDA's configuration profile for it."""
+		try:
+			_module, facts, profile = onMain(profiletools.check, scope["program"], found.id)
+		except profiletools.NotPossible as e:
+			return str(e)
+		program = profiles.shown(facts)
+		question = (
+			# Translators: Put before the question about a change, so the user can tell if it is what they asked for.
+			_("You asked: {request}").format(request=clip(words, 160)).rstrip(".") + ". "
+			+ profiles.question(program, profile is None) + " " + question)
+		# A new profile changes how NVDA behaves in a program from now on: always asked about. Where the user has
+		# just chosen "only in this program" in a question, that was the asking.
+		if not agreed:
+			mustAgree(question) if (risky or profile is None) else confirm(question)
+		# The question was a window of NVDA. NVDA needs a moment to see that the program is in front again.
+		app = facts["app"].lower()
+		profiletools.settle(lambda: onMain(profiletools.front)[1]["app"].lower() == app, task.check)
+
+		def work():
+			# The question was a window of NVDA; the program is in front again now. Everything from here to the
+			# write happens in one go on NVDA's main thread, so that nothing can come in between.
+			module, facts, _profile = profiletools.check(scope["program"], found.id)
+			name, created = profiletools.activate(module)
+			try:
+				old, before = found.shown(), found.read()
+				profiletools.write(name, found, new)
+			except Exception:
+				if created:
+					profiletools.forget(name)
+				raise
+			return name, created, old, before, found.shown(), profiles.shown(facts)
+		try:
+			name, created, old, before, now, program = onMain(work)
+		except profiletools.NotPossible as e:
+			return str(e)
+		plugin.changes.add(found.id, found.label, before, new, old, now, words, profile=name, program=program)
+		return profiles.done(found.label.capitalize(), old, now, program, name, created)
 
 	add("set_setting", "change one NVDA setting", setSetting, {
 		"setting": text("the id of the setting, copied from find_setting", maxLength=80),
@@ -1569,6 +1693,10 @@ def build(plugin):
 				"VisionClaw has not changed that, so it cannot put it back. What it has changed, and can put back:\n"
 				+ plugin.changes.text())
 
+		if str(change["setting"]).startswith("classicspeech:"):
+			# What VisionClaw changed in the add-on ClassicSpeech: put back with that add-on's own calls.
+			from . import partnertools
+			return partnertools.undoClassic(plugin, change, confirm)
 		if str(change["setting"]).startswith("file:"):
 			# What VisionClaw did to a file of the user's: turned round by the tool that did it.
 			try:
@@ -1576,21 +1704,52 @@ def build(plugin):
 			except OSError as e:
 				raise ToolError(f"It could not be put back. {e}")
 
+		profile = change.get("profile") or ""
+
 		def work():
 			found = _resolveSetting(change["setting"])
 			if found is None:
 				raise ToolError(f"The setting {change['label']} is not there any more, so it cannot be put back.")
+			# A setting that was changed for one program is put back while that program's profile is the one
+			# NVDA writes to, and never anywhere else.
+			if profile and profiletools.top() != profile:
+				return found, None, None
 			return found, found.shown(), found.shown(change["old"])
 		found, now, back = onMain(work)
+		program = change.get("program") or profile
+		if profile and now is None:
+			return profiles.undoElsewhere(found.label, program)
+		where = f" in {program}" if profile else ""
 		if now == back:
 			plugin.changes.markUndone(change)
-			return f"{found.label.capitalize()} is already {back}, as it was before VisionClaw changed it."
-		# Translators: Asked before VisionClaw puts a setting back to what it was.
-		confirm(_("Put {setting} back from {now} to {old}, as it was before VisionClaw changed it?").format(
-			setting=found.label, now=now, old=back))
-		onMain(found.write, change["old"])
+			return f"{found.label.capitalize()}{where} is already {back}, as it was before VisionClaw changed it."
+		# Translators: Asked before VisionClaw puts a setting back to what it was. {where} is empty, or says in which program.
+		confirm(_("Put {setting}{where} back from {now} to {old}, as it was before VisionClaw changed it?").format(
+			setting=found.label, where=where, now=now, old=back))
+		if profile:
+			# While the question was open NVDA had the program's profile turned off; it is on again a moment
+			# after the program is in front.
+			profiletools.settle(lambda: onMain(profiletools.top) == profile, task.check)
+
+		def putBack():
+			if profile:
+				profiletools.write(profile, found, change["old"])
+				return found.shown()
+			# A change that was made everywhere is put back in NVDA's normal configuration, also while the program
+			# in front has a profile of its own that is on.
+			own, byHand, module, _facts = profiletools.onTop()
+			if byHand:
+				raise profiletools.NotPossible(profiles.manualOn(byHand))
+			if own:
+				return profiletools.writeBase(module, found, value=change["old"])[3]
+			found.write(change["old"])
+			return found.shown()
+		try:
+			after = onMain(putBack)
+		except profiletools.NotPossible as e:
+			return profiles.undoElsewhere(found.label, program) if profile else str(e)
 		plugin.changes.markUndone(change)
-		return f"{found.label.capitalize()} was {now} and is back to {onMain(found.shown)}, as it was before."
+		return f"{found.label.capitalize()}{where} was {now} and is back to {after}, as it was before."
 
 	add("undo_change", "put a setting back to what it was before VisionClaw changed it", undoChange,
 		{"what": text("which change to undo, in the user's words", maxLength=300, auto=True)},
@@ -1599,6 +1758,32 @@ def build(plugin):
 	add("list_changes", "say which settings VisionClaw has changed, and from what to what",
 		lambda task: plugin.changes.text() or "VisionClaw has not changed any setting.",
 		looks=True, title="Looking up what was changed", tell=VERBATIM)
+
+	# Settings that one program has for itself, in NVDA's configuration profiles (claw/profiles.py).
+	def programSettings(task, asked):
+		return profiles.listText(onMain(profiletools.listed, plugin.changes.pending()))
+
+	add("program_settings", "say which programs have NVDA settings of their own, kept in NVDA's configuration profiles",
+		programSettings, {"asked": text("what the user asked for, in their own words", maxLength=300, auto=True)},
+		looks=True, title="Looking up which programs have their own settings", tell=VERBATIM)
+
+	def removeProgramSettings(task, asked):
+		program, profile = onMain(profiletools.profileFor, profiles.namedIn(asked or task.request))
+		if profile is None:
+			return profiles.noProfile(program)
+		# It cannot be undone, so it is always asked about, whatever the settings say.
+		mustAgree(profiles.removeQuestion(program, profile))
+		try:
+			onMain(profiletools.remove, profile)
+		except profiletools.NotPossible as e:
+			return str(e)
+		plugin.changes.markProfileGone(profile)
+		return profiles.removed(program, profile)
+
+	add("remove_program_settings",
+		"delete the NVDA settings one program has for itself, so that NVDA behaves there as it does everywhere else",
+		removeProgramSettings, {"asked": text("what the user asked for, in their own words", maxLength=300, auto=True)},
+		changes=True, title="Removing the program's own settings")
 
 	# Commands.
 	def findCommand(task, words):
@@ -2340,6 +2525,51 @@ def build(plugin):
 	# A web page as a whole, and what stops a form on it (pagetools.py). Imported here for the same reason.
 	from . import pagetools
 	pagetools.register(add, plugin, text, onMain)
+	# A date chosen in a calendar that cannot be worked with the keyboard (datetools.py).
+	from . import datetools
+	datetools.register(add, plugin, text, onMain, confirm, screen)
+	# Asking by voice: whether it is set up, getting the speech model, deleting it (voiceui.py).
+	from . import voiceui
+	voiceui.register(add, plugin, text, mustAgree)
+	# The JAWS Migration Assistant and ClassicSpeech, where they are running in this NVDA (partnertools.py).
+	from . import partnertools
+	partnertools.register(add, plugin, text, onMain, confirm, lambda: onMain(_commands))
+	# Working through a task with the user when the usual path is not clear (guidetools.py).
+	from . import guidetools
+	guidetools.register(add, plugin, text, onMain, screen)
+
+	# VisionClaw's own voice, which the user sets in NVDA's own Speech settings (ownvoice.py).
+	def ownVoice(task, asked):
+		from . import ownvoice
+		wanted = ownvoice.wish(asked or task.request)
+		now = bool(config.conf["visionClaw"]["ownVoice"])
+		if wanted == ownvoice.CUSTOMISE:
+			problem = onMain(ownvoice.check)
+			if problem:
+				return problem
+			# A profile is made and NVDA's settings are opened: always asked about.
+			mustAgree(ownvoice.QUESTION.format(name=onMain(ownvoice.profileName) or ownvoice.PROFILE))
+			config.conf["visionClaw"]["ownVoice"] = True
+			return onMain(ownvoice.customise)
+		if wanted == ownvoice.REMOVE:
+			name = onMain(ownvoice.profileName)
+			if not name:
+				return "VisionClaw has no voice of its own, so there is nothing to remove. It speaks as NVDA does."
+			mustAgree(
+				f"Delete the configuration profile {name}, which holds VisionClaw's own voice? VisionClaw then speaks as "
+				"NVDA does. This cannot be undone.")
+			onMain(ownvoice.remove)
+			return f"The configuration profile {name} was deleted. VisionClaw speaks with NVDA's own voice again."
+		if wanted is None or wanted == now:
+			return onMain(ownvoice.stateText, now)
+		config.conf["visionClaw"]["ownVoice"] = wanted
+		return onMain(ownvoice.stateText, wanted)
+
+	add("own_voice",
+		"give VisionClaw a voice of its own by opening NVDA's Speech settings for it, turn that voice on or off, remove "
+		"it, or say whether it has one",
+		ownVoice, {"asked": text("what the user asked for, in their own words", maxLength=300, auto=True)},
+		title="Looking at VisionClaw's own voice", tell=VERBATIM)
 
 	registry.add(Tool(ANSWER, "tell the user the result in plain words; always the last step", lambda task: ""))
 	return registry

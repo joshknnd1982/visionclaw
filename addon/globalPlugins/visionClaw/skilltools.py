@@ -140,7 +140,8 @@ def register(plugin, add, text, onMain, confirm):
 			return "VisionClaw has no skills."
 		words = set(wordList(asked)) - _ABOUT
 		named = [s for s in every if words & set(wordList(s.name))] if words else []
-		shown = named or every
+		# The user's own skills first: the list is long, and what is cut off at its end must never be theirs.
+		shown = named or sorted(every, key=lambda s: s.source != skillsModule.YOURS)
 		yours = sum(1 for s in every if s.source == skillsModule.YOURS)
 		off = sum(1 for s in every if not s.on)
 		head = (f"{len(named)} of VisionClaw's {len(every)} skills fit those words:" if named else

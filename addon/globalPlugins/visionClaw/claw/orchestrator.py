@@ -7,7 +7,9 @@
 # time, check the result, tell the user what really happened, and remember what was learned.
 # No NVDA dependencies.
 
-from . import agent, consensus, debuglog, lookup, pageview, planner, policy, prompts, shapes
+import time
+
+from . import agent, consensus, debuglog, followups, lookup, pageview, planner, policy, prompts, shapes
 from . import memories as memoriesModule
 from . import skills as skillsModule
 from . import task as taskModule
@@ -80,6 +82,10 @@ class Orchestrator:
 		self.skills = None
 		# facts() gives where the user is as plain facts for the router (router.WEB and so on); set by the add-on.
 		self.facts = lambda: {}
+		# The request before this one, for a request that follows it (claw/followups.py): "do that again",
+		# "and the pitch?". Kept while NVDA runs, and nowhere else.
+		self.last = None
+		self.clock = time.monotonic
 
 	def _oneByOne(self):
 		try:
@@ -118,6 +124,13 @@ class Orchestrator:
 			debuglog.log("task", (
 				f"Request ended as {task.state} after {task.seconds()} seconds. "
 				f"Steps: {[(step.tool, step.status) for step in task.steps]}. Answer: {task.answer!r}"))
+			# What a next request may lean on. A request that only had the last answer said again changes nothing.
+			if not getattr(task, "keepLast", False):
+				try:
+					self.last = followups.Last(
+						task.request, getattr(task, "plainAnswer", "") or task.answer, self.clock(), task.state == taskModule.DONE)
+				except Exception as e:
+					debuglog.error("followups", "The request could not be kept for the next one", e)
 		return task
 
 	# --- The stages ---
@@ -130,6 +143,10 @@ class Orchestrator:
 		request = " ".join(task.request.split())
 
 		task.setState(taskModule.UNDERSTANDING, "Understanding your request.")
+		# A request that follows the one before it is written out in full first, or answered at once.
+		request, background = self._follow(llm, task, request)
+		if request is None:
+			return
 		# A first idea of how hard this is, from its words; corrected once the plan is known.
 		small = self._oneByOne()
 		# One model for both jobs: then nothing may be called an agreement between two models.
@@ -137,6 +154,8 @@ class Orchestrator:
 		params = task.params = policy.select(planner.quickTriage(request), task.reasoning)._replace(
 			oneByOne=small, oneModel=one)
 		context = self._context(request)
+		if background:
+			context = f"{context}\n{background}" if context else background
 		# Where the user is, as plain facts for the router (claw/router.py). Unknown hides nothing.
 		try:
 			task.facts = dict(self.facts() or {})
@@ -188,6 +207,11 @@ class Orchestrator:
 		if params.verify and planner.OTHER in recipes and not self._allFailed(task):
 			answer = self._verify(llm, task, request, params, answer)
 
+		# What the next request may lean on is the answer itself, without what is added to it below.
+		task.plainAnswer = answer
+		# A request that followed the one before it: the user is told what it was taken as.
+		if getattr(task, "said", ""):
+			answer = f"{followups.taken(task.said, request)} {answer}"
 		self._learn(task)
 		kept = self._keep(task)
 		if kept:
@@ -199,6 +223,61 @@ class Orchestrator:
 		task.answer = answer
 		task.emit(taskModule.ANSWER, answer)
 		task.setState(taskModule.DONE, "Finished.")
+
+	def _follow(self, llm, task, request):
+		"""For a request that follows the one before it (claw/followups.py): (the request written out in full,
+		what the planner is told besides). A request that stands alone comes back as it is. (None, "") when the
+		request was answered at once: the last answer said again, or nothing to do again. Plain code decides what
+		kind of follow-up it is and writes it out where it can; else a model does, and plain code checks every
+		word. A fault here never ends the request: it is then taken as the user said it."""
+		try:
+			last = self.last
+			age = None if last is None else max(0.0, self.clock() - last.when)
+			found, full, tell = followups.resolve(request, last, age)
+		except Exception as e:
+			debuglog.error("followups", "The request before could not be looked at", e)
+			return request, ""
+		if found is None:
+			return request, ""
+		debuglog.log("followups", f"{request!r} follows the request before ({found}). Plain code makes of it: {full!r}")
+		if tell:
+			task.keepLast = True
+			task.steps = [planner.answerStep()]
+			task.steps[0].status, task.steps[0].result = taskModule.STEP_DONE, tell
+			task.answer = tell
+			task.emit(taskModule.ANSWER, tell)
+			task.setState(taskModule.DONE, "Finished.")
+			return None, ""
+		if full is None:
+			full = self._written(llm, request, last, found)
+		if full is None or full.lower().rstrip(" .!?") == request.lower().rstrip(" .!?"):
+			# Nobody could write it out for certain. The request stays as it was said, and the one before it is
+			# given as what is known.
+			return followups.bare(request), (followups.background(last) if full is None else "")
+		task.said = request
+		task.request = full
+		task.emit(taskModule.TALK, (
+			f"You said: \"{request}\". The request before was: \"{last.request}\". So this is taken as: {full}"))
+		task.setState(taskModule.UNDERSTANDING, followups.taken(request, full))
+		return full, ""
+
+	def _written(self, llm, request, last, found=None):
+		"""A follow-up written out in full by a model that is not one of the very smallest, if every word of it
+		was said before; else None. The model gets the smallest question that fits the kind of follow-up."""
+		try:
+			entry = self.runtime.entry(self.lead) or {}
+		except Exception:
+			entry = {}
+		if entry.get("suggest") is False:
+			return None
+		system, question = followups.ask(request, last, found)
+		try:
+			written = llm.json(self.lead, system, question, followups.SCHEMA, maxTokens=120).get("request")
+		except (LLMError, AttributeError):
+			return None
+		full = followups.checked(written, request, last, mustChange=followups.strong(request))
+		debuglog.log("followups", f"The model wrote {written!r}; plain code " + ("stands behind it." if full else "does not use it."))
+		return full
 
 	def _chooseSkills(self, task, request):
 		"""The skills that fit a request, by its words. A skill only helps, so a fault here never ends the request."""

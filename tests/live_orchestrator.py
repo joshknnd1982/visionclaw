@@ -19,7 +19,8 @@ import time
 
 import harness
 from visionClaw.claw import audit, catalog, commands, fixes, library, lookup, match, memories, orchestrator, pointer, runtime, scrolling, tools, web
-from visionClaw.claw import computer, controls, planner, prompts, router, skills
+from visionClaw.claw import computer, controls, dates, partners, planner, profiles, prompts, router, skills
+from visionClaw.claw import guide as walking
 from visionClaw.claw.knowledge import Knowledge
 from visionClaw.claw import task as taskModule
 from visionClaw.claw.catalog import CODER, VISION
@@ -83,7 +84,7 @@ def makeRegistry(rt, state):
 			raise tools.ToolError("No setting matches those words. Try other words, like speech rate.")
 		return "\n".join(found)
 
-	def setSetting(task, setting, value):
+	def setSetting(task, setting, value, asked):
 		if setting not in settings:
 			# Like the real tool: the setting's name instead of its id is understood too.
 			named = [k for k, v in settings.items() if match.plain(v[0]) == match.plain(setting)]
@@ -93,6 +94,16 @@ def makeRegistry(rt, state):
 		old = settings[setting][1]
 		if setting == "speech.rate":
 			value = match.toNumber(value, int(old), 0, 100)
+		# Like the real tool: "only in this program" is read from the user's own words, and the words that say so
+		# are no part of what the setting is compared with.
+		scope = profiles.scopeOf(asked, {"app": "spacetrader", "product": "Space Trader", "title": "Space Trader - Main Menu"})
+		if profiles.everywhere(asked):
+			settings[setting][1] = value
+			state["everywhere"] = (setting, value)
+			return profiles.everywhereDone(settings[setting][0].capitalize(), old, value)
+		if scope is not None:
+			state.setdefault("only in", []).append((scope["program"] or "the program in front", setting, value))
+			return profiles.done(settings[setting][0].capitalize(), old, value, scope["program"] or "Space Trader", "spacetrader", True)
 		settings[setting][1] = value
 		state[setting] = value
 		return f"{settings[setting][0]} was {old} and is now {value}."
@@ -249,12 +260,14 @@ def makeRegistry(rt, state):
 			"action": text("what to do with the mouse", enum=pointer.ACTIONS, auto=pointer.actionOf)},
 		changes=True, before="list_items", title="Clicking the item"))
 	reg.add(tools.Tool("find_setting", "find NVDA settings by describing them; gives each setting's id, value now and allowed values",
-		findSetting, {"words": text("2 to 4 keywords for the setting, like: speech rate", maxLength=80, auto=True)},
+		findSetting, {"words": text("2 to 4 keywords for the setting, like: speech rate", maxLength=80,
+			auto=lambda part: profiles.without(part)[:80])},
 		looks=True, title="Finding the setting"))
 	reg.add(tools.Tool("set_setting", "change one NVDA setting", setSetting, {
 		"setting": text("the id of the setting, copied from find_setting", maxLength=80),
 		"value": text("the new value: on, off, a number, +10 or -10 to change a number, or one of the allowed values",
 			maxLength=60),
+		"asked": text("what the user asked for, in their own words", maxLength=300, auto=True),
 	}, changes=True, before="find_setting", title="Changing the setting"))
 	reg.add(tools.Tool("find_command", "find NVDA commands by describing what they do; gives each command's id and its keys",
 		findCommand, {"words": text("2 to 4 keywords for what the command does", maxLength=80, auto=True)},
@@ -751,6 +764,71 @@ def makeRegistry(rt, state):
 	reg.add(tools.Tool("set_control",
 		"turn a named option, check box or switch of the program in front on or off, or turn a named slider or value "
 		"up or down or to a number", setControl, dict(askedField), changes=True, title="Setting the control", tell=V))
+	# A setting for one program, a date in a calendar, and asking by voice (2026-11-18).
+	simple("program_settings", "say which programs have NVDA settings of their own, kept in NVDA's configuration profiles",
+		profiles.listText([("spacetrader", "spacetrader", True, ["speech rate from 50 to 60."])]),
+		"Looking up which programs have their own settings", dict(askedField), looks=True, tell=V)
+	simple("remove_program_settings",
+		"delete the NVDA settings one program has for itself, so that NVDA behaves there as it does everywhere else",
+		profiles.removed("Space Trader", "spacetrader"), "Removing the program's own settings", dict(askedField), changes=True, tell=V)
+
+	def pickDate(task, asked):
+		wish = dates.wish(asked, __import__("datetime").date(2026, 11, 18))
+		if wish is None:
+			raise tools.ToolError("The request names no date.")
+		state["date"] = wish["dates"]
+		return f"Chose {dates.said(wish['dates'][0])} in the calendar; the test presses nothing."
+
+	reg.add(tools.Tool("pick_date",
+		"choose a date in a calendar or date picker that is showing in the web page or window in front, by pressing its "
+		"buttons for the month and the day; for a calendar that cannot be worked with the keyboard",
+		pickDate, dict(askedField), changes=True, title="Choosing the date in the calendar", tell=V))
+	simple("voice_info", "say whether asking VisionClaw by voice is set up, which speech model it listens with, and how to speak a request",
+		"Asking by voice is ready. VisionClaw listens with the speech model Qwen3-ASR 0.6B, which runs on this computer's "
+		"processor. To ask by voice, press NVDA+Alt+V.", "Looking up asking by voice", dict(askedField), looks=True, tell=V)
+	simple("get_voice", "download the speech model for asking VisionClaw by voice, after a question",
+		"The speech model Qwen3-ASR 0.6B is on this computer now; the test downloads nothing.", "Getting the speech model",
+		dict(askedField), tell=V)
+	simple("remove_voice", "delete the speech model for asking by voice from this computer",
+		"Deleted the speech model Qwen3-ASR 0.6B; the test deletes nothing.", "Deleting the speech model", dict(askedField),
+		changes=True, tell=V)
+	# Working through a task, VisionClaw's own voice, and the two add-ons it works together with (2026-11-18).
+	def workThrough(task, asked):
+		goal = walking.goalOf(asked)
+		if len(goal.split()) < 2:
+			return walking.NO_GOAL
+		state["worked through"] = goal
+		return f"Step 1: pressed Insert tab. New here: Attach File button. The test presses nothing; it was asked to: {goal}."
+
+	reg.add(tools.Tool("work_through",
+		"work through a task with the user in the program or web page in front when they are stuck or the usual way "
+		"does not work: finds the thing that leads to what they want, says its key, presses it if they say yes, and "
+		"goes on step by step", workThrough, dict(askedField), changes=True, title="Working through it with you", tell=V))
+	simple("own_voice",
+		"give VisionClaw a voice of its own by opening NVDA's Speech settings for it, turn that voice on or off, remove "
+		"it, or say whether it has one",
+		"NVDA's Speech settings are open, for VisionClaw's voice; the test opens nothing.", "Looking at VisionClaw's own voice",
+		dict(askedField), tell=V)
+
+	def classicSpeech(task, asked):
+		wish = partners.classicWish(asked) or {"what": partners.INFO}
+		state["classic"] = wish
+		return f"ClassicSpeech: {wish['what']}; the test changes nothing."
+
+	reg.add(tools.Tool("classic_speech",
+		"with the add-on ClassicSpeech: change how much NVDA says about each control (Beginner, Intermediate, "
+		"Advanced), list or switch its speech and sound schemes or turn them on or off, open its windows, or say how "
+		"it is set", classicSpeech, dict(askedField), title="Working ClassicSpeech", tell=V))
+
+	def jawsHelp(task, asked):
+		wish = partners.jawsWish(asked) or {"what": partners.INFO}
+		state["jaws"] = wish
+		return "In JAWS, Insert+F7 is: Displays a list of links on the page. In NVDA that is: Open the Elements List, with NVDA+f7."
+
+	reg.add(tools.Tool("jaws_help",
+		"with the add-on JAWS Migration Assistant: say what a JAWS keystroke or a JAWS command is in NVDA, what was "
+		"brought over from JAWS, or which commands that add-on has", jawsHelp, dict(askedField), looks=True,
+		title="Asking the JAWS Migration Assistant", tell=V))
 	reg.add(tools.Tool(tools.ANSWER, "tell the user the result in plain words; always the last step", lambda task: ""))
 	return reg
 
@@ -766,6 +844,40 @@ with open(os.path.join(SHELF.folder, "Space Trader manual.txt"), "w", encoding="
 	_f.write("TRADING\nPress T to open the market. Buy low and sell high.\n\nSAVING\nSaving is done with Control+S.\n")
 
 REQUESTS = (
+	# A setting for one program only, a date in a calendar, asking by voice, and requests that follow the one
+	# before them (2026-11-18). Requests joined by " >> " are asked one after the other of the same VisionClaw.
+	"Make NVDA speak a little faster, only in this program.",
+	"Turn off the typing echo just in this app.",
+	"When I'm in Space Trader, set punctuation to all.",
+	"Turn off the typing echo in this program.",
+	"Which programs have their own settings?",
+	"Remove the settings for this program.",
+	"Pick the fourteenth of March twenty twenty-seven in this calendar.",
+	"Choose next Friday in the date picker.",
+	"Can I ask you by voice?",
+	"Download the speech model.",
+	"Delete the speech model.",
+	"Turn the computer's volume up a bit. >> Do that again. >> The other way. >> Say that again.",
+	"Make NVDA speak a little faster. >> A bit more. >> Too fast.",
+	"Look through my downloads folder. >> Open the second one.",
+	"How do I read the title of this window? >> And the status bar?",
+	"Turn off the typing echo. >> The same in Word.",
+	# Everywhere or only here in JAWS's own words, working through a task, a voice of its own, and the two add-ons,
+	# which the test takes to be running (2026-11-18).
+	"Speak words as I type in every application.",
+	"Stop announcing capital letters in Space Trader.",
+	"Make NVDA speak a little faster everywhere.",
+	"I'm stuck, I want to attach a file to this email.",
+	"Walk me through exporting this as a PDF.",
+	"I can't find how to change the font here.",
+	"Customise your voice.",
+	"Turn off your own voice.",
+	"What is JAWS's Insert+F7 in NVDA?",
+	"What is the JAWS say line command in NVDA?",
+	"Set ClassicSpeech to advanced.",
+	"Which speech schemes do I have?",
+	"Switch to the scheme Classic.",
+	"Open voice profiles.",
 	# Working the computer itself, several things in one request, things that depend on something, and a named
 	# control of the program in front (2026-11-18). The first five are the owner's own words.
 	"first, look at my screen. If you see recycle bin, open it.",
@@ -951,6 +1063,8 @@ def main():
 	chosen = {"backend": "auto", "visionModel": sys.argv[3] if len(sys.argv) > 3 else "",
 		"coderModel": sys.argv[4] if len(sys.argv) > 4 else ""}
 	rt = runtime.ModelRuntime(harness.ENGINE_DIR, cat, lambda: chosen)
+	# The two add-ons VisionClaw works together with are taken to be running, unless VC_NO_PARTNERS is set.
+	partners.setInstalled([] if os.environ.get("VC_NO_PARTNERS") else [partners.JAWS, partners.CLASSIC])
 	print("vision:", rt.entry(VISION)["name"], "| coder:", rt.entry(CODER)["name"])
 	asked = []
 
@@ -962,28 +1076,38 @@ def main():
 	try:
 		# With VC_ONLY set, only the requests that contain one of its parts (separated by |) are run.
 		only = [part.lower() for part in os.environ.get("VC_ONLY", "").split("|") if part]
-		for request in REQUESTS:
-			if only and not any(part in request.lower() for part in only):
+		for session in REQUESTS:
+			if only and not any(part in session.lower() for part in only):
 				continue
 			state = {}
 			orch = orchestrator.Orchestrator(rt, makeRegistry(rt, state), askUser, lambda: "Program: spacetrader. Window title: Space Trader - Main Menu. Focused control: button, New Game.", Memory("nul"))
-			# A fifth argument says whether the model is asked one small question at a time: auto, always or never.
-			orch.stepwise = lambda: sys.argv[5] if len(sys.argv) > 5 else "auto"
-			orch.memories = KEPT
-			orch.program = lambda: "spacetrader"
-			orch.skills = SKILLS
-			# Where the user is, for the router: a game in front, no web page, no controller.
-			orch.facts = lambda: {router.WEB: False, router.CONTROLLER: False, router.DIRECT: False}
-			task = taskModule.Task(request, reasoning=reasoning)
-			start = time.time()
-			orch.run(task)
-			print(f"\n=== {request}  -> {task.state} in {time.time() - start:.1f}s, changed: {state}")
-			for _seconds, kind, text in task.log:
-				if kind in (taskModule.TALK, taskModule.DETAIL, taskModule.ERROR, taskModule.THINK):
-					print(f"   [{kind}] {text}")
-			print("   ANSWER:", task.answer)
+			following = session.split(" >> ")
+			for request in following:
+				runOne(orch, request, reasoning, state, len(following) > 1)
 	finally:
 		rt.stop()
+
+
+def runOne(orch, request, reasoning, state, follows):
+	"""One request of a session. The requests of a session are asked of the same VisionClaw, one after the other,
+	so that one can follow the one before it."""
+	# A fifth argument says whether the model is asked one small question at a time: auto, always or never.
+	orch.stepwise = lambda: sys.argv[5] if len(sys.argv) > 5 else "auto"
+	orch.memories = KEPT
+	orch.program = lambda: "spacetrader"
+	orch.skills = SKILLS
+	# Where the user is, for the router: a game in front, no web page, no controller.
+	orch.facts = lambda: {router.WEB: False, router.CONTROLLER: False, router.DIRECT: False}
+	task = taskModule.Task(request, reasoning=reasoning)
+	start = time.time()
+	orch.run(task)
+	print(f"\n=== {request}  -> {task.state} in {time.time() - start:.1f}s, changed: {state}")
+	for _seconds, kind, text in task.log:
+		if kind in (taskModule.TALK, taskModule.DETAIL, taskModule.ERROR, taskModule.THINK):
+			print(f"   [{kind}] {text}")
+	if follows and task.request != request:
+		print(f"   TAKEN AS: {task.request}")
+	print("   ANSWER:", task.answer)
 
 
 if __name__ == "__main__":
