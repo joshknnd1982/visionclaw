@@ -1,6 +1,6 @@
 # VisionClaw status
 
-Updated 2026-11-18, version 1.7.1.
+Updated 2026-11-18, version 1.8.0.
 
 ## What exists
 
@@ -1893,6 +1893,61 @@ its download link was for 0.11.0, and it had no part for skills, memories, the l
 
 Tested: `python tests/test_help.py` and `python tests/run_all.py`. The page has not been opened from NVDA's
 Add-on Store yet; that it reads well with NVDA's browse mode is to be checked there.
+
+## The Start menu, parts of Windows, the click that must fit, and smarter planning (1.8.0, 2026-11-18)
+
+The owner: "I asked visionclaw to open the start menu, click the start button in windows. I asked several different
+ways and visionclaw fails to do this. Fix this problem. You must make visionclaw much smarter, more context aware,
+more adaptable, more flexible." Then, while it was being done: "make planning smarter across all aspects",
+"combine smart planning python module or modules, plus skills, rag, system prompts, memory", and "if there are
+extra python modules, math formulas, etcetera that will make planning smarter too, use them".
+
+What VisionClaw's own log showed (the owner's NVDA, Qwen3.5 9B for both jobs, one question at a time, the desktop
+in front):
+- "click the start button." was a click; `list_items` listed the desktop's 41 icons; the Start button is on the
+  taskbar, so it was not among them; the model chose "Settings button", the user said yes, and it was clicked.
+- "click the windows start button using the mouse." went the same way; after two refused names the model chose
+  "10", the Brave icon, and the user said no.
+- "open the windows start menu." The model chose to press keys, rightly; the plain hint said click ("open ...
+  menu"), the model kept its choice, the user had to choose; with click, the model wrote "None of the items in the
+  list is the Windows Start menu.", and `match.best` found the item "te" inside that sentence. "Clicked te."
+- The README and the help page already described "open the Start menu", but no code did it.
+
+What was changed:
+- **The parts of Windows itself** (`computer.WINDOWS_PARTS`, tool and recipe `windows_part`): the Start menu
+  (Control+Escape), search, the taskbar, the notification area, quick settings, the notification center, Task
+  View, the Run dialog, the Quick Link menu (also "right-click the start button"), clipboard history, the emoji
+  panel. Keys from `windows-keyboard.md`. Sure words are decided without a model; "the start button" alone stays a
+  click, and the click opens the Start menu after a question, or without one where Windows' own shell is in front
+  (`router.SHELL`). A new skill, `parts-of-windows`, and a section in `visionclaw-computer.md`.
+- **The click must fit the words** (`match.fits`, `telling`, `saysNone`, `nvdatools.clickItem`/`elsewhere`): see
+  CLAUDE.md. `match.best` no longer finds a short name inside a long sentence.
+- **`claw/planning.py`**: where the user is in plain words (added to every `situation()`), planning notes called
+  up by the words and ranked by BM25, plans counted as they went well or not with Laplace's rule and a half-life
+  of 90 days (`plans.json`), and the jobs of the skills that fit always offered. Only the standard library.
+
+What was tested, and how:
+- `tests/test_planning.py` (new, in `run_all.py`): every one of the owner's requests and 25 more, which part of
+  Windows they mean and which job; that the keys are those of Microsoft's page; the click checks; BM25 against
+  hand-worked cases; Laplace's rule, ageing and the most weight winning, read back from the file; that a fault in
+  the brief never ends a request; that with the shell in front no model is asked.
+- `tests/test_nvda_stub.py`: the real `click_item` and `windows_part` against stand-ins for NVDA and the keyboard:
+  the owner's two failing forms open the Start menu (the stand-in records Control+Escape and that no mouse button
+  was pressed); "click the start button" asks first and does nothing on no; an item that has none of the words is
+  asked about and not clicked on no; "not found" clicks nothing; "click the recycle bin" offers the Recycle Bin.
+- `python tests/run_all.py`: all pass.
+- **The real model**: `tests/live_orchestrator.py` with Qwen3.5 9B for both jobs, one question at a time (the
+  owner's own settings), now 202 requests with six new ones; every request is carried out (202 of 202 done) in at
+  most 8.9 seconds. "click the windows start button using the mouse.", "open the windows start menu.", the split
+  "look at the current screen, then click the windows start button with the mouse.", "Go to the system tray." and
+  "Open quick settings." go to the part of Windows by plain code. "click the start button." with the test's game
+  in front: the model chose the part of Windows (with the brief), the plain hint said click, and the user is asked;
+  that is meant, since a game can have a Start button. "How do I bake a cake?", which ended in a question to the
+  user in every earlier run, now goes to explain_keys and is answered that nothing is about it. The questions that
+  were there before are still there ("Name the focused button Share on this website", "Give me a hotkey for the
+  gain knob", the second half of the deep query). 89 of the 202 got a brief.
+- **Not run inside NVDA.** First to try: does Control+Escape sent by VisionClaw open the Start menu, and is NVDA's
+  focus there when the answer is said; then "click the start button" with the desktop in front (no question).
 
 ## Next session
 

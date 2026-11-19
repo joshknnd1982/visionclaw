@@ -264,6 +264,137 @@ def nothingFound(words):
 		"in the window in front, ask to click it instead.")
 
 
+# --- Parts of Windows itself ---
+
+# The parts of Windows that are not in any program's window and that Windows opens with a key of its own: the
+# Start menu, search, the taskbar, the notification area and the rest. They are opened with that key, by plain
+# code, and the user is told the key for next time. The keys are from claw/knowledge/windows-keyboard.md, which
+# was written from Microsoft's page "Keyboard shortcuts in Windows", read on 2026-11-17; when a key is changed,
+# read that page again, do not write a key from memory. Asked for on 2026-11-18, after "click the start button",
+# "click the windows start button using the mouse" and "open the windows start menu" all failed: the Start
+# button is on the taskbar, not in the window in front, so it was never among the items, and a small model then
+# chose another item.
+# (id, name, keys sent, keys said to the user, what to do once there, words that are sure, words that need
+# nothing else in the window to fit them)
+WINDOWS_PARTS = (
+	("start", "the Start menu", "control+escape", "the Windows key, or Control+Escape",
+		"Type the name of a program, file or setting and press Enter. The arrow keys and Tab move through it, and "
+		"Escape closes it.",
+		(r"start ?menu", r"windows start( button| screen)?", r"start button (of|in|on) windows", r"start screen",
+			r"start button (on|in) the task ?bar", r"task ?bar'?s? start button", r"start button of the task ?bar",
+			r"windows (logo )?(key )?menu"),
+		(r"start button", r"start", r"start icon")),
+	("quick-link", "the Quick Link menu", "windows+x", "Windows+X",
+		"It is what a right-click on the Start button shows. The arrow keys move through it, Enter chooses, and "
+		"Escape closes it.",
+		(r"quick ?link menu", r"power ?user menu", r"win(dows)? ?\+? ?x menu", r"right[- ]?click(ing)? (on )?(the )?(windows )?start( button| menu)?"),
+		()),
+	("search", "Windows search", "windows+s", "Windows+S",
+		"Type what you are looking for, use the arrow keys to move through the results, and press Enter.",
+		(r"windows search", r"search (box|bar|field|button) (of|in|on) (windows|the task ?bar)", r"task ?bar search",
+			r"start (menu )?search"),
+		(r"search button", r"search box", r"search")),
+	("taskbar", "the taskbar", "windows+t", "Windows+T",
+		"Windows+T again goes to the next program, Windows+Shift+T to the one before, and Enter opens the one you "
+		"are on.",
+		(r"task ?bar",),
+		()),
+	("tray", "the notification area", "windows+b", "Windows+B",
+		"The arrow keys move between its icons, Enter opens one, and Shift+F10 opens its menu.",
+		(r"system ?tray", r"notification area", r"tray icons?", r"hidden icons", r"show hidden icons", r"systray"),
+		()),
+	("quick-settings", "quick settings", "windows+a", "Windows+A",
+		"Tab and the arrow keys move between its buttons and sliders, such as volume, Wi-Fi and Bluetooth, and "
+		"Escape closes it.",
+		(r"quick settings", r"action cent(er|re)", r"control cent(er|re)"),
+		()),
+	("notifications", "the notification center", "windows+n", "Windows+N",
+		"The arrow keys and Tab move through the notifications and the calendar, and Escape closes it.",
+		(r"notification (center|centre|panel|list|pane)", r"(my |the |all )?notifications"),
+		()),
+	("task-view", "Task View", "windows+tab", "Windows+Tab",
+		"The arrow keys move between the open windows, Enter switches to one, and Escape closes it.",
+		(r"task ?view", r"virtual desktops"),
+		()),
+	("run", "the Run dialog", "windows+r", "Windows+R",
+		"Type the name of a program, folder or web address and press Enter.",
+		(r"run (dialog|box|window|command|prompt)", r"windows run"),
+		()),
+	("clipboard", "clipboard history", "windows+v", "Windows+V",
+		"The arrow keys move through what was copied, and Enter pastes it. The first time, Windows offers to turn "
+		"clipboard history on.",
+		(r"clipboard (history|manager)",),
+		()),
+	("emoji", "the emoji panel", "windows+period", "Windows+period",
+		"Type to search for an emoji, use the arrow keys to choose, and press Enter to type it.",
+		(r"emoji (panel|picker|keyboard|menu|window)", r"emojis? (and|or) symbols"),
+		()),
+)
+# Words that ask for something to be opened, gone to, shown or clicked. A part named with nothing else is meant too.
+_PART_ACTS = re.compile(
+	rf"^\s*{_POLITE}(?:(?:i want you to|i need you to|i'd like you to|i would like to|i want to|let me|help me)\s+)?"
+	r"(?:(?:first|then|next|now|and|also|just|please)[, ]+)*"
+	r"(?:open(?: up)?|launch|start|bring up|pull up|show(?: me)?|display|go (?:in)?to|get (?:in)?to|take me (?:in)?to|"
+	r"move (?:in)?to|jump to|switch to|focus(?: on)?|put me (?:in|on|at)|(?:double[- ]|left[- ]|right[- ])?click(?: on)?|"
+	r"press|push|hit|tap|select|activate|use|get|give me|find)\b", re.IGNORECASE)
+# Words around the name of a part that say nothing about which part it is.
+_PART_FILL = re.compile(
+	r"^(?:(?:the|my|on|in|at|to|of|up)\s+)*|\s*(?:\b(?:button|icon|key)\b)?(?:\s*\b(?:with|using|by) (?:the |my |a )?"
+	r"(?:mouse|keyboard|pointer)\b)?(?:\s*\b(?:please|for me|now|again)\b)*\s*[.!]*\s*$", re.IGNORECASE)
+# What is not a part of Windows to be opened: a question about how, its settings, NVDA's own, or closing it.
+_PART_NOT = re.compile(
+	r"\b(settings?|options|preferences)\b(?<!quick settings)|\b(close|hide|turn off|disable|remove|unpin|pin|"
+	r"customi[sz]e|change|resize|move the|nvda|visionclaw|add-?ons?)\b|\?\s*$", re.IGNORECASE)
+
+
+def windowsPart(part, loose=False):
+	"""The part of Windows itself that the user's words ask to have opened, as its id, or None. loose: also the
+	words that only say it where nothing in the window in front fits them, as "click the start button", for a
+	program can have a Start button of its own."""
+	text = " ".join(own(part).lower().replace("’", "'").split())
+	if not text or _ASKS_HOW.search(text) or _PART_NOT.search(text.replace("quick settings", "quick")):
+		return None
+	# A part named with nothing else ("start menu"): its name must be all there is, so that a question that names
+	# it is not taken for a wish.
+	alone = _PART_FILL.sub("", text.strip()).strip()
+	for ident, _name, _keys, _said, _next, sure, _maybe in WINDOWS_PARTS:
+		if any(re.fullmatch(rf"(?:windows'?s? )?{words}", alone) for words in sure):
+			return ident
+	acts = _PART_ACTS.match(text)
+	if not acts:
+		return None
+	# What is to be opened: the words after the verb, without what says nothing about which part it is.
+	rest = _PART_FILL.sub("", text[acts.end():].strip()).strip()
+	if not rest:
+		return None
+	# A right-click on the Start button shows the Quick Link menu.
+	rightClick = re.search(r"right[- ]?click", acts.group(0))
+	for ident, _name, _keys, _said, _next, sure, maybe in WINDOWS_PARTS:
+		# After a verb the name may stand among other words: "the start menu on my computer".
+		if any(re.search(rf"\b{words}\b", rest) for words in sure) or (loose and any(re.fullmatch(rf"(?:windows'?s? )?{words}", rest) for words in maybe)):
+			return "quick-link" if rightClick and ident == "start" else ident
+	return None
+
+
+def windowsPartOf(ident):
+	"""(name, keys sent, keys said, what to do there) of a part of Windows, by its id."""
+	for one, name, keys, said, there, _sure, _maybe in WINDOWS_PARTS:
+		if one == ident:
+			return name, keys, said, there
+	raise KeyError(ident)
+
+
+def windowsPartText(ident, focus="", notInWindow=False):
+	"""What the user is told after a part of Windows was opened: what it is, where NVDA is, the key for next
+	time, and what to do there. notInWindow: the user asked to click it, and it was not in the window in front."""
+	name, _keys, said, there = windowsPartOf(ident)
+	start = (
+		f"That is not in the window in front: it is part of Windows itself. VisionClaw opened {name} with {said}, "
+		"which does the same as clicking it." if notInWindow else f"Opened {name} with {said}.")
+	where = f" NVDA is now on: {focus}." if focus else ""
+	return f"{start}{where} Next time you can press {said} yourself. {there}"
+
+
 # A browser the user names for a web address.
 BROWSERS = (
 	("chrome.exe", "Google Chrome", r"\b(google )?chrome\b"),

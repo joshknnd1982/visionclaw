@@ -22,6 +22,9 @@ import re
 
 # Facts about where the user is. True, False, or missing when it could not be found out.
 WEB, CONTROLLER, DIRECT = "web", "controller", "direct"
+# Windows' own shell is in front: the desktop, the taskbar, the Start menu or a folder window of File Explorer.
+# None of them has a Start button or a taskbar of its own (claw/planning.py, SHELL_PLACES).
+SHELL = "shell"
 # What the part of the request before this one did, when that opens a place: after a web page was opened, the
 # next part may ask about it, though no browser was in front when the request was planned.
 _OPENS_WEB = ("open_website", "search_web", "page_navigate", "go_to", "fill_field", "web_page")

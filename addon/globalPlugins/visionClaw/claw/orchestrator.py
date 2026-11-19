@@ -9,7 +9,7 @@
 
 import time
 
-from . import agent, consensus, debuglog, followups, lookup, pageview, planner, policy, prompts, shapes
+from . import agent, consensus, debuglog, followups, lookup, pageview, planner, planning, policy, prompts, shapes
 from . import memories as memoriesModule
 from . import skills as skillsModule
 from . import task as taskModule
@@ -86,6 +86,8 @@ class Orchestrator:
 		# "and the pitch?". Kept while NVDA runs, and nowhere else.
 		self.last = None
 		self.clock = time.monotonic
+		# How requests were done well on this computer (claw/planning.py), or None; set by the add-on.
+		self.plans = None
 
 	def _oneByOne(self):
 		try:
@@ -165,6 +167,7 @@ class Orchestrator:
 		# The skills that fit the request, chosen by plain code from its words. One with steps of its own, whose
 		# starting words the request has word for word, is the plan: the user's own, or one VisionClaw ships.
 		task.skills = self._chooseSkills(task, request)
+		task.plans = self.plans
 		ownPlan = skillsModule.planned(task.skills, request)
 		found = self._skillPlan(task, ownPlan, request) if ownPlan is not None else None
 		if found is not None:
@@ -213,6 +216,7 @@ class Orchestrator:
 		if getattr(task, "said", ""):
 			answer = f"{followups.taken(task.said, request)} {answer}"
 		self._learn(task)
+		self._keepPlan(task, request, recipes, how)
 		kept = self._keep(task)
 		if kept:
 			answer = f"{answer.rstrip()}\n{kept}" if answer else kept
@@ -649,6 +653,19 @@ class Orchestrator:
 			return bool(self.registry.get(tool).changes)
 		except Exception:
 			return False
+
+	def _keepPlan(self, task, request, recipes, how):
+		"""Keep how a request of one part was done, when it went well (claw/planning.py). Never a plan a model
+		wrote itself, a skill's own plan, or one that depended on a check. This only helps, so a fault here is
+		no fault."""
+		if self.plans is None or how == "skill" or len(recipes) != 1 or recipes[0] in (planner.OTHER, planner.IF):
+			return
+		try:
+			went = planning.outcome(task)
+			if went is not None:
+				self.plans.keep(getattr(task, "said", "") or request, recipes[0], good=went)
+		except Exception as e:
+			debuglog.error("planning", "How the request was done could not be kept", e)
 
 	def _learn(self, task):
 		if self.memory is None:

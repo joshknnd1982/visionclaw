@@ -13,7 +13,7 @@
 # the user decides; and it checks a plan it wrote itself with the reviewer's question, which is a different
 # one. No NVDA dependencies.
 
-from . import planner, policy, router
+from . import computer, debuglog, planner, planning, policy, router
 from . import task as taskModule
 from .llm import LLMError, clip
 
@@ -53,19 +53,45 @@ def review(llm, role, request, steps, registry, params):
 	return bool(found.get("agree")) or not problem, problem
 
 
+def _brief(task, part, registry):
+	"""(what the model that chooses is told besides the request, the recipes it is offered whatever the router
+	says), from claw/planning.py. ("", ()) when nothing helps or something went wrong."""
+	try:
+		available = planner.available(registry)
+		brief, before = planning.brief(part, available, getattr(task, "plans", None), planner.label)
+		also = planning.skillJobs(getattr(task, "skills", None), available)
+		if before and before not in also:
+			also.append(before)
+		if brief:
+			task.emit(taskModule.DETAIL, "Also told to the model: " + brief)
+		return brief, tuple(also)
+	except Exception as e:
+		debuglog.error("planning", "The brief for the model could not be made", e)
+		return "", ()
+
+
 def _onRecipe(llm, task, part, context, registry, askUser, lead, other, single=False, before=None):
 	"""Both models choose how to handle one part. Returns (recipe, how). before: the recipe of the part before."""
 	leadName, otherName = policy.ROLE_NAMES[lead], policy.ROLE_NAMES[other]
 	facts = getattr(task, "facts", None)
 	# Where the words can hardly mean anything else, no model is asked.
 	sure = planner.decided(part, registry, before)
+	# Where Windows' own shell is in front, nothing there has a Start button or a taskbar of its own: words that
+	# name one mean that of Windows. Measured with Qwen3.5 9B on 2026-11-18: for "click the start button." the
+	# model chose the part of Windows and the words' plain hint said click, so the user had to choose.
+	if sure is None and (facts or {}).get(router.SHELL) and "windows_part" in planner.available(registry) \
+			and computer.windowsPart(part, loose=True) is not None:
+		sure = "windows_part"
 	if sure is not None:
 		task.emit(taskModule.TALK, f"\"{part}\": your words say it: {planner.label(sure)}.")
 		return sure, AGREED
-	told = router.offeredText(len(planner.offered(part, registry, facts, before)), len(planner.available(registry)))
+	# What plain code found that helps the choice (claw/planning.py): planning notes the words call up, what worked
+	# before for a request like it, and the jobs of the skills that fit. It only helps: a fault here is no fault.
+	brief, also = _brief(task, part, registry)
+	told = router.offeredText(len(planner.offered(part, registry, facts, before, also)), len(planner.available(registry)))
 	if told:
 		task.emit(taskModule.DETAIL, told)
-	mine = planner.classify(llm, lead, part, context, registry, before=before, facts=facts)
+	mine = planner.classify(llm, lead, part, context, registry, before=before, facts=facts, brief=brief, also=also)
 	task.check()
 	if single:
 		# One model does both jobs. Its second answer to the same question would be the same as its first, so
@@ -81,7 +107,7 @@ def _onRecipe(llm, task, part, context, registry, askUser, lead, other, single=F
 		note = (
 			f"The user's words point to: {guess} ({planner.label(guess)}). You chose {mine}. Read the request again, "
 			"word by word, and choose the one that fits what the user asked.")
-		again = planner.classify(llm, lead, part, context, registry, note, before=before, facts=facts)
+		again = planner.classify(llm, lead, part, context, registry, note, before=before, facts=facts, brief=brief, also=also)
 		if again == guess:
 			task.emit(taskModule.TALK, f"After checking against your words, the model chose to {planner.label(again)}.")
 			return again, REVISED
@@ -98,7 +124,7 @@ def _onRecipe(llm, task, part, context, registry, askUser, lead, other, single=F
 			raise Declined()
 		task.emit(taskModule.TALK, f"You chose: {choices[picked]}")
 		return ways[picked], USER_CHOSE
-	theirs = planner.classify(llm, other, part, context, registry, before=before, facts=facts)
+	theirs = planner.classify(llm, other, part, context, registry, before=before, facts=facts, brief=brief, also=also)
 	if mine == theirs:
 		task.emit(taskModule.TALK, f"\"{part}\": both models chose to {planner.label(mine)}.")
 		return mine, AGREED
@@ -110,9 +136,11 @@ def _onRecipe(llm, task, part, context, registry, askUser, lead, other, single=F
 	task.check()
 	note = "Another model chose: {choice} ({text}). If that fits better than your choice, choose it."
 	mineAgain = planner.classify(
-		llm, lead, part, context, registry, note.format(choice=theirs, text=planner.label(theirs)), before=before, facts=facts)
+		llm, lead, part, context, registry, note.format(choice=theirs, text=planner.label(theirs)), before=before, facts=facts,
+		brief=brief, also=also)
 	theirsAgain = planner.classify(
-		llm, other, part, context, registry, note.format(choice=mine, text=planner.label(mine)), before=before, facts=facts)
+		llm, other, part, context, registry, note.format(choice=mine, text=planner.label(mine)), before=before, facts=facts,
+		brief=brief, also=also)
 	if mineAgain == theirsAgain:
 		task.emit(taskModule.TALK, f"After looking again, both models chose to {planner.label(mineAgain)}.")
 		return mineAgain, REVISED

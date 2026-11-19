@@ -13,6 +13,11 @@ empties the Recycle Bin, changes the computer's volume, works windows, looks thr
 options inside a program. Several things can be asked at once, joined with commas or then; each is done in
 order and announced as a step.
 
+## The Start menu, the Start button, the taskbar, the system tray and quick settings
+Say: open the Start menu, click the Start button, go to the system tray, open quick settings. These are parts of
+Windows itself, in no program's window. VisionClaw opens each with Windows' own key, such as Control+Escape for
+the Start menu or Windows+B for the system tray, and tells you that key for next time.
+
 ## Opening a program, a folder, the Recycle Bin, Control Panel or Windows Settings by name
 Say open, and the name: open Notepad, open my Downloads folder, open the Recycle Bin, open Bluetooth settings.
 VisionClaw finds it among the programs of the Start menu, the things on your desktop, the places and settings

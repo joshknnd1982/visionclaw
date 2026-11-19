@@ -23,9 +23,22 @@ chat apps, and names for unlabelled buttons.
 > [docs/STATUS.md](docs/STATUS.md) for exactly what was tested.
 
 <!-- news: written by tools/write_help.py from manifest.ini; do not change it by hand -->
-This README is for VisionClaw 1.7.1.
+This README is for VisionClaw 1.8.0.
 
-## What is new in 1.7.1
+## What is new in 1.8.0
+
+- The Start menu works. "Click the start button", "click the windows start button using the mouse" and "open the windows start menu" all failed before: the Start button is on the taskbar, not in the window in front, so it was never found there. Now VisionClaw opens the Start menu with Control+Escape, which does the same as clicking the Start button, says where NVDA is, and tells you the key for next time.
+- The other parts of Windows itself work the same way, each with its own key: Windows search, the taskbar, the notification area or system tray, quick settings, the notification center, Task View, the Run dialog, the Quick Link menu (what a right-click on the Start button shows), clipboard history and the emoji panel. Say "go to the system tray" or "open quick settings".
+- Where a program could have a Start button of its own, as a game can, and nothing in its window is called Start, VisionClaw asks whether to open the Start menu of Windows instead. On the desktop, the taskbar or in a folder window it does not need to ask.
+- A click never lands on the wrong thing in silence. When the item a model picked has none of the words you said, VisionClaw asks "Nothing in this window is called ... The closest found is ... Use it anyway?". When the model says the thing is not there, nothing is clicked, and you are told so. Before, "click the start button" clicked a Settings button, and a sentence the model wrote was matched to an item called "te".
+- When what you named is not in the window but is a program, folder or place of Windows, VisionClaw offers to open it by its name instead.
+- Smarter planning. Before a model chooses how to do a request, plain code now tells it where you are in plain words (the desktop, the taskbar, a dialog box, a web browser, a folder window), one or two short planning notes that your own words call up, how a request in nearly the same words went well before on this computer, and the jobs of the skills that fit. A model still chooses, and plain code still checks.
+- The planning notes are ranked with BM25, the way search engines rank pages, so that the note sharing the rarest words with your request comes first.
+- How a request was done is counted on this computer, as it went well or not, in the file plans.json in VisionClaw's data folder. A way of doing it is mentioned to the model only when it has proved itself, by Laplace's rule of succession, and what worked lately counts for more than what worked long ago. It is data, never code, and nothing leaves the computer.
+- A new skill, Parts of Windows itself, for the Start menu, the taskbar and the notification area.
+- Stated plainly: tested with stand-ins for NVDA, Windows and the keyboard, and with the real Qwen3.5 9B model choosing the job. Not run inside NVDA yet: whether Control+Escape sent by VisionClaw opens the Start menu on your computer is the first thing to try.
+
+## What was new in 1.7.1
 
 - Pointer mode no longer needs a key your keyboard may not have. Small and laptop keyboards often have no Applications key, no Page Up and Page Down, no Home and End, and no function keys. Every job of pointer mode now has a key that every keyboard has, and the spoken help names only those.
 - A right-clicks, in pointer mode and in the overlay.
@@ -35,22 +48,6 @@ This README is for VisionClaw 1.7.1.
 - The keys you may have learned still work on a keyboard that has them: the Applications key and Shift+F10, Page Down and Page Up, Home and End.
 - A click or a turn of the wheel in pointer mode now waits until you have let go of Shift, Control and Alt. Held down, these keys change what the mouse does in most programs: with Shift the wheel scrolls sideways and a double click selects everything in between, with Control the wheel zooms. If a key stays down, nothing is done and you are told.
 - Stated plainly: tested with stand-ins for NVDA, the mouse and the keyboard. Not run inside NVDA yet.
-
-## What was new in 1.7.0
-
-- A setting only for one program: "make NVDA speak a little faster, only in this program", "turn off the typing echo just in Notepad", "when I'm in Word, set punctuation to all". NVDA keeps it in a configuration profile that it turns on by itself whenever that program is in front. VisionClaw says so and always asks before it makes a profile. Other programs stay as they were.
-- Such a setting is changed only while that program is in front, so it is never changed in the wrong place. "Undo that", said in that program, puts it back. "Which programs have their own settings" lists them, and "remove the settings for this program" deletes the program's profile after a question.
-- Requests that follow the one before: "do that again", "a bit more", "the other way", "too fast", "say that again", "the same in Word", "and the pitch?", "open the second one". VisionClaw writes such a request out in full and tells you how it understood you: the answer begins "Understood as". Everything that changes something still asks first.
-- A date in a calendar that takes no keys: have the calendar showing and say "pick 14 March 2027 in this calendar" or "choose next Friday in the date picker". VisionClaw asks, presses the calendar's own button for the next or previous month until the right month shows, then presses the day, and tells you what it did. A calendar that is only drawn is read from the window's picture.
-- Asking by voice: press NVDA+Alt+V, or Alt+V in the Ask VisionClaw window, and speak after the high beep. VisionClaw stops listening when you stop speaking. What it heard is put into the box and read to you; Enter sends it, and nothing is done before that.
-- Your words are turned into text on this computer, by the speech model Qwen3-ASR from the Qwen team, and are sent nowhere. The first time, VisionClaw asks whether to download that model, about 1 GB, from Hugging Face. A larger one can be chosen in the settings. "Delete the speech model" removes it.
-- Everywhere, or only here: "speak words as I type in every application", "stop announcing capital letters in Word". Where the program in front has settings of its own and you say neither, VisionClaw asks which you mean. After a change it names the programs that keep a value of their own.
-- Working through a task when the usual path isn't clear: "I'm stuck, I want to attach a file to this email", "walk me through exporting this as a PDF". VisionClaw finds the thing in the program that leads there, tells you its key, and asks whether to press it, only tell you, or stop. It asks before every step, checks in after three, stays in this one program, and tells you what it did.
-- VisionClaw's own windows are off limits to it: it never clicks, types or presses keys in them. Their controls are yours.
-- A voice of its own: say "customise VisionClaw's voice". NVDA's Speech settings open, and the synthesizer, voice, rate, pitch and volume you choose there are used only for what VisionClaw says. When you close that window, your own voice is back.
-- With the JAWS Migration Assistant running: "what is JAWS's Insert+F7 in NVDA?" tells you what the keystroke does in JAWS and which NVDA command and key does the same.
-- With ClassicSpeech running: "set ClassicSpeech to Advanced", "which speech schemes do I have", "switch to the scheme" and its name, "turn sound schemes off", "open voice profiles". Asked first, and "undo that" puts it back.
-- Stated plainly: everything here was tested with stand-ins for NVDA, with programs and calendars made up by the tests, and with the real 9B model choosing what to do. The speech model heard 24 of 24 requests spoken by Windows' own two voices; a person speaking into a real microphone has not been tried. The JAWS Migration Assistant and ClassicSpeech were not installed where this was written, so they were tried only against stand-ins built from their source. None of this has been run inside NVDA yet.
 
 How to use each of these is explained in its own part of this README, further down.
 <!-- /news -->
@@ -322,7 +319,8 @@ settings; what cannot be undone is always asked about.
 | You say | What happens |
 |---|---|
 | *Open Notepad. Open my Downloads folder. Open the Recycle Bin. Go into my Windows settings. Open Bluetooth settings.* | The thing is found by its name among the programs of the Start menu, what is on your desktop, the folders, tools and settings pages of Windows, and your own files, and opened as a double click would. When several things have the name, you are asked which. |
-| *Open the Start menu. Open the notification center. Open Task View. Open the Run dialog. Open clipboard history. Open the emoji panel.* | The part of Windows itself is opened with Windows' own key, and you are told that key for next time and how to move inside it. |
+| *Open the Start menu. Click the Start button. Go to the system tray. Open quick settings. Go to the taskbar. Open the notification center. Open Task View. Open the Run dialog. Open clipboard history. Open the emoji panel.* | The part of Windows itself is opened with Windows' own key, and you are told that key for next time and how to move inside it. These are in no program's window, so they are never among a window's items. Where a program could have a Start button of its own and nothing in its window is called Start, you are asked whether the Start menu of Windows is meant. |
+| *Click the recycle bin* (while another program is in front) | When nothing in the window has the name you said, and it is a program, folder or place of Windows, VisionClaw offers to open it by its name instead. When the item a model picked has none of your words, you are asked before anything is clicked. |
 | *Check my recycle bin. Is my recycle bin full?* | How many items it holds, how much room they take, and whether emptying is worth it for the room left on your drive. Answered at once; no model is asked. |
 | *Empty the recycle bin.* | Always asks first, with the number of items and their size: what is emptied is deleted for good. |
 | *Turn down my system volume. Set the computer's volume to 40 percent. What is the volume of my computer?* | The volume of the whole computer, not of NVDA's voice. Turning it down stops at 10 percent so that NVDA can still be heard. Muting, or a number below 10, is refused when no braille display is in use, and asked about when one is. |

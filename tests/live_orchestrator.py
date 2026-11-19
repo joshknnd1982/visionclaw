@@ -719,6 +719,11 @@ def makeRegistry(rt, state):
 		"thing": text("the id of the thing to open, from find_thing", maxLength=120),
 		"asked": text("what the user asked for, in their own words", maxLength=300, auto=True),
 	}, changes=True, before="find_thing", title="Opening it", tell=V))
+	simple("windows_part", "open a part of Windows itself with its own key: the Start menu (the Start button), Windows "
+		"search, the taskbar, the notification area (system tray), quick settings, the notification center, Task View, the "
+		"Run dialog, the Quick Link menu, clipboard history or the emoji panel; says where NVDA is and the key",
+		"Opened the Start menu with the Windows key, or Control+Escape. NVDA is now on: Search box, edit.",
+		"Opening a part of Windows", dict(askedField), tell=V)
 	simple("recycle_bin", "say how many things the Recycle Bin holds, how much room they take, and whether it is worth emptying",
 		computer.binText(12, 5 << 20, 200 << 30, 500 << 30), "Checking the Recycle Bin", looks=True, tell=V)
 	simple("empty_recycle_bin", "empty the Recycle Bin, which deletes what is in it for good; always asks first",
@@ -889,6 +894,13 @@ REQUESTS = (
 	"find the settings button, and then in this multipage dialog, turn on my nvidia gpu for this program, and turn off the "
 	"media keys on my keyboard.",
 	"Open Notepad.",
+	# The parts of Windows itself (2026-11-18). The first four are the owner's own words, which all failed in 1.7.1.
+	"click the start button.",
+	"click the windows start button using the mouse.",
+	"look at the current screen, then click the windows start button with the mouse.",
+	"open the windows start menu.",
+	"Go to the system tray.",
+	"Open quick settings.",
 	"Launch Steam.",
 	"Open my downloads folder.",
 	"Open the Recycle Bin.",

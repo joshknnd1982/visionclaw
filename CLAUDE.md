@@ -740,6 +740,59 @@ keyboard and speech alone.
   - **Still to do, and said so to the user**: choosing from a
     combo box by the option's name; a dialog whose pages are a list or a tree and not tabs; a volume for one
     program; Wi-Fi and Bluetooth turned on and off without the Settings page.
+- **The parts of Windows itself are opened with Windows' own keys, by plain code** (`computer.WINDOWS_PARTS`,
+  `windowsPart`, the tool `windows_part`, `computertools.openWindowsPart`). The owner said on 2026-11-18, after
+  "click the start button", "click the windows start button using the mouse" and "open the windows start menu"
+  all failed: "Fix this problem. You must make visionclaw much smarter, more context aware, more adaptable, more
+  flexible." The Start button, the taskbar, the notification area, quick settings, the notification center, Task
+  View, the Run dialog, the Quick Link menu, clipboard history and the emoji panel are in no program's window, so
+  `list_items` never has them.
+  - **Their keys are read from `claw/knowledge/windows-keyboard.md`** (Microsoft's page); never write a key from
+    memory. The Start menu is Control+Escape: a lone Windows key sent by a program is not relied on.
+  - **Sure words** ("start menu", "windows start button", "system tray", "quick settings") are decided without a
+    model (`_SURE`). **Loose words** ("the start button", "search") could be a program's own: they are a click,
+    and `click_item` opens the part of Windows after a question when nothing in the window has that name;
+    without a question where Windows' own shell is in front (`router.SHELL`, `planning.isShell`).
+  - Settings of a part ("taskbar settings") stay a settings page; questions about how stay `explain_keys`;
+    "close the start menu" is not opened. Opening changes nothing and Escape closes it, so nothing is asked.
+  - Tests never press the real keys: `tests/test_nvda_stub.py` stands in for `computertools.pressShortcut`.
+- **A click lands only on what the user's words name** (`match.fits`, `telling`, `saysNone`; `nvdatools.clickItem`,
+  `elsewhere`). Measured in the owner's log on 2026-11-18: asked to click the start button, the real 9B model
+  chose "Settings button", then "10" (Brave icon), and a sentence it wrote, "None of the items in the list is the
+  Windows Start menu.", was matched to an item called "te". So: an answer that says there is none names no item;
+  `match.best` matches a contained name only as whole words and never a short name inside a long sentence; an
+  item that has none of the words the user said (in the step's own `asked`, never the whole request) is clicked
+  only after a question that says so, always asked (`plugin.clawAsk`), whatever the settings say. Before that
+  question, what the user named is looked for elsewhere: a part of Windows, then a program, folder or place of
+  Windows by its name (`computer.find`), offered after a question. Nothing found ends the step with "Nothing was
+  clicked", never a retry with another item. Words that pick by place ("the second button", "it") are not checked.
+- **Smarter planning: what helps the model that chooses is found by plain code and given as a brief**
+  (`claw/planning.py`). The owner asked on 2026-11-18 to "combine smart planning python module or modules, plus
+  skills, rag, system prompts, memory to greatly enhance the planning", and to use "extra python modules, math
+  formulas" that make planning smarter. Only Python's standard library is used: NVDA's Python has nothing else,
+  and nothing may be downloaded for it.
+  - **Where the user is, in plain words** (`planning.place`, `placeText`): the Windows desktop, the taskbar, a
+    dialog box, a web browser, a folder window, what may be a game. Added to `situation()` and so to every model
+    call that is told where the user is.
+  - **Planning notes, chosen by the words** (`planning.NOTES`, `notesFor`): a note is called up only by the words
+    its pattern names and only when a recipe it names can be used here; among those, BM25 (`planning.bm25`) puts
+    first the one sharing the rarest words; at most `MAX_NOTES`. Each note is a fact about doing a blind person's
+    request with the keyboard and NVDA, names the job that fits, and has no example (`tests/test_planning.py`).
+  - **What worked before** (`planning.Plans`, `plans.json` in the data folder): for each request of one part and
+    its recipe, how often it went well and how often not (`planning.outcome`: a "You said no" counts neither
+    way; "Nothing was ..." counts as not well). Named to the model only when Laplace's rule,
+    (good + 1) / (good + bad + 2), is at least `SURE_ENOUGH`, for a request whose telling words are at least
+    `ALIKE` the same (Jaccard); the weight halves every `HALF_LIFE_DAYS`. Never a plan a model wrote itself, a
+    skill's plan, or one with a condition. It is data, never code, and only ever told to the model and offered:
+    **a remembered plan never decides alone.** A single success is not proof: in 1.7.1 the wrong click on
+    "Settings button" ended as done.
+  - **Skills reach planning by their jobs, not their sentences**: the jobs (`uses`) of the skills that fit are
+    always offered to the model that chooses (`planning.skillJobs`, `planner.offered(also=)`). The rule that
+    skills' sentences never go to the model that chooses the recipe stands.
+  - The brief goes after "What is known" in the chooser's question (`planner._choose(brief=)`), is logged as
+    "Also told to the model", and a fault in making it is no fault (`consensus._brief`).
+  - Add a note to `NOTES` when the real model sends a kind of request to the wrong job and the words can call
+    the note up; measure with `tests/live_orchestrator.py` before and after.
 - **An NVDA setting for one program only is NVDA's own configuration profile, and is changed only while that
   program is in front.** Built on 2026-11-18 against what JAWS's Companion does ("only for the application in
   use"); `claw/profiles.py`, `profiletools.py`. What follows from it:
@@ -1046,6 +1099,9 @@ addon/
       gamepad.py             a game controller as one plain state, what changed since the last look, which
                              button does what, how far a stick moves the pointer, a button named in words
       changes.py             every setting VisionClaw changed, so that it can be listed and put back
+      planning.py            smarter planning: where the user is in plain words, planning notes the words call
+                             up ranked by BM25, how requests went before counted with Laplace's rule and ageing,
+                             the jobs of the skills that fit; the brief for the model that chooses
       prompts.py             what every answer and description is told about the blind user, the user's own
                              instructions and wording
       fixmatch.py            controls as plain data and the rules that find them; copied into fixes add-ons
@@ -1294,6 +1350,10 @@ A session is done only when its "Done when" line is true.
 - [x] **3.55 A voice of its own**, set in NVDA's Speech settings. Tested against the stand-in; not run in NVDA.
 - [x] **3.56 The JAWS Migration Assistant and ClassicSpeech.** Tested against stand-ins built from their source;
   neither was installed where this was written.
+- [x] **3.57 The parts of Windows itself, and smarter planning.** The Start menu, the taskbar, the notification
+  area and eight more opened with Windows' own keys; a click only on what the words name, else elsewhere or a
+  question; a brief for the model that chooses (where the user is, notes by BM25, plans by Laplace's rule, the
+  skills' jobs). Tested with stand-ins and with the real Qwen3.5 9B choosing; not run in NVDA.
 - [ ] **3.5 Test inside NVDA.** Install the build in NVDA (ask the user first) and walk through
   `docs/TESTPLAN.md`. Fix what breaks. *Done when:* every item in the test plan is ticked by a real run.
 
@@ -1349,6 +1409,8 @@ python tests/test_gamepad.py             a game controller's states, buttons and
 python tests/test_computer.py            working the computer itself, requests that depend on something, long requests
                                          split by plain rules, a named control, the router; whole requests with
                                          stand-in tools and a scripted model
+python tests/test_planning.py            the parts of Windows itself from the words, the click that must fit the words,
+                                         where the user is, planning notes by BM25, plans by Laplace's rule and ageing
 python tests/test_profiles.py            an NVDA setting for one program: what the words ask, and NVDA's profiles
                                          against a stand-in written from NVDA's source
 python tests/test_followups.py           requests that follow the one before: kinds, what plain code writes out, the

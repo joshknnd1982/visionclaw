@@ -17,7 +17,8 @@
 # IAudioEndpointVolume, and their ids). When they are changed, read those again; do not write one from memory.
 #
 # What tests must never do for real is in functions of their own, which tests/test_nvda_stub.py replaces:
-# shellOpen, emptyBin, setVolume, setMute, focusWindow, closeWindow, showWindow, power, minimizeAll, recycle.
+# shellOpen, emptyBin, setVolume, setMute, focusWindow, closeWindow, showWindow, power, minimizeAll, recycle,
+# pressShortcut.
 # SHFILEOPSTRUCTW and the FO_ and FOF_ numbers for moving a file to the Recycle Bin are from the same shellapi.h.
 
 import ctypes
@@ -414,6 +415,35 @@ def pressEscape():
 	KeyboardInputGesture.fromName("escape").send()
 
 
+def pressShortcut(keys):
+	"""Press one of Windows' own keys, as "control+escape" or "windows+b". Tests stand in for it."""
+	from keyboardHandler import KeyboardInputGesture
+	KeyboardInputGesture.fromName(keys).send()
+
+
+def focusText():
+	"""What NVDA's focus is on, in a few words: its name and its kind. Main thread."""
+	focus = api.getFocusObject()
+	name = _safe(lambda: focus.name) or ""
+	role = _safe(lambda: focus.role.displayString) or ""
+	return clip(", ".join(part for part in (name, role) if part), 100)
+
+
+# How long Windows is given to open one of its own parts before VisionClaw reads where NVDA is.
+PART_SETTLE_SECONDS = 0.8
+
+
+def openWindowsPart(ident, onMain, notInWindow=False):
+	"""Open a part of Windows itself with its own key (claw/computer.py, WINDOWS_PARTS), and say where NVDA is
+	now and the key for next time."""
+	_name, keys, _said, _there = computer.windowsPartOf(ident)
+	debuglog.log("computer", f"Opening the part of Windows {ident} with {keys}.")
+	onMain(pressShortcut, keys)
+	time.sleep(PART_SETTLE_SECONDS)
+	focus = _safe(lambda: onMain(focusText), "") or ""
+	return computer.windowsPartText(ident, focus, notInWindow)
+
+
 def minimizeAll():
 	"""Show the desktop, as Windows+D does."""
 	from keyboardHandler import KeyboardInputGesture
@@ -744,6 +774,23 @@ def register(add, plugin, text, onMain, confirm, mustAgree, Refused, screen):
 			"thing": text("the id of the thing to open, from find_thing", maxLength=120),
 			"asked": text("what the user asked for, in their own words", maxLength=300, auto=True),
 		}, changes=True, before="find_thing", title="Opening it", tell=VERBATIM)
+
+	# A part of Windows itself: the Start menu, search, the taskbar, the notification area and the rest. Opening
+	# one changes nothing and is closed with Escape, so nothing is asked.
+	def windowsPartTool(task, asked):
+		ident = computer.windowsPart(asked, loose=True) or computer.windowsPart(task.request, loose=True)
+		if ident is None:
+			raise ToolError(
+				"The request does not name a part of Windows that has a key of its own, such as the Start menu, "
+				"search, the taskbar, the notification area, quick settings or the notification center.")
+		return openWindowsPart(ident, onMain)
+
+	add("windows_part",
+		"open a part of Windows itself with its own key: the Start menu (the Start button), Windows search, the "
+		"taskbar, the notification area (system tray), quick settings, the notification center, Task View, the Run "
+		"dialog, the Quick Link menu, clipboard history or the emoji panel; says where NVDA is and the key",
+		windowsPartTool, {"asked": text("what the user asked for, in their own words", maxLength=300, auto=True)},
+		title="Opening a part of Windows", tell=VERBATIM)
 
 	# The Recycle Bin.
 	def binNow():

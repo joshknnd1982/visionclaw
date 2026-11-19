@@ -387,6 +387,12 @@ RECIPES = {
 		"as Documents or Downloads, a file, the Recycle Bin, Control Panel, or Windows Settings and its pages; not "
 		"a button or item in the window in front, and not a website",
 		("find_thing", "open_thing")),
+	"windows_part": (
+		"open the Start menu or another part of Windows",
+		"open a part of Windows itself that is in no program's window: the Start menu or Start button, Windows "
+		"search, the taskbar, the notification area or system tray, quick settings, the notification center, Task "
+		"View, the Run dialog, the Quick Link menu, clipboard history or the emoji panel",
+		("windows_part",)),
 	"recycle_bin": (
 		"check the Recycle Bin",
 		"say how full the Recycle Bin is, how much it holds, and whether it needs to be emptied",
@@ -569,6 +575,10 @@ _HINTS = (
 	# shutting down first; emptying the Recycle Bin before opening it and before asking about it; the computer's
 	# own volume before NVDA's, which is a setting.
 	("power", lambda part: computer.powerOf(part) is not None),
+	# A part of Windows itself, opened with its own key: the Start menu, the taskbar, the notification area. Before
+	# the click, which "click the windows start button" would otherwise set off, and before the settings pages of
+	# Windows, which "notifications" and "taskbar" also name. Only where the words are sure.
+	("windows_part", lambda part: computer.windowsPart(part) is not None),
 	("empty_bin", computer.emptiesBin),
 	("system_volume", lambda part: computer.volumeOf(part) is not None),
 	("window", lambda part: computer.allWindows(part) and computer.aboutWindow(part)),
@@ -1118,11 +1128,12 @@ _NVDAS_OWN = re.compile(
 	r"say\w*|announc\w*|read\w*|beep\w*|add-?ons?)\b", re.IGNORECASE)
 
 
-def offered(part, registry, facts=None, before=None):
+def offered(part, registry, facts=None, before=None, also=()):
 	"""The recipes a model is given to choose from for a part: those that fit where the user is and what they
-	said (claw/router.py)."""
+	said (claw/router.py). also: recipes that are offered whatever the router says: the jobs of the skills that
+	fit, and what worked before for a request like it (claw/planning.py)."""
 	recipes = available(registry)
-	return router.route(part, list(recipes), facts, before, hinted(part, before), needsFor(part, before))
+	return router.route(part, list(recipes), facts, before, hinted(part, before) | set(also), needsFor(part, before))
 
 
 def needsFor(part, before=None):
@@ -1133,7 +1144,7 @@ def needsFor(part, before=None):
 	return dict(_NEEDS, set_control=lambda part: controls.wish(part) if inside else None)
 
 
-def _choose(llm, role, part, context, recipes, names, guess, note):
+def _choose(llm, role, part, context, recipes, names, guess, note, brief=""):
 	lines = "\n".join(f"- {name}: {recipes[name][1]}" for name in names)
 	system = (
 		"You choose how VisionClaw, an assistant inside the NVDA screen reader for a blind person, should handle "
@@ -1148,6 +1159,8 @@ def _choose(llm, role, part, context, recipes, names, guess, note):
 	user = f"The user asked: \"{clip(part, 400)}\"\n"
 	if context:
 		user += f"What is known: {clip(context, 400)}\n"
+	if brief:
+		user += f"{clip(brief, 600)}\n"
 	if guess != OTHER:
 		user += f"Its words suggest: {guess}.\n"
 	if note:
@@ -1156,10 +1169,11 @@ def _choose(llm, role, part, context, recipes, names, guess, note):
 	return llm.json(role, system, user, schema, maxTokens=40)["choice"]
 
 
-def classify(llm, role, part, context, registry, note="", before=None, facts=None):
+def classify(llm, role, part, context, registry, note="", before=None, facts=None, brief="", also=()):
 	"""The recipe that fits a part of the request, or OTHER. before: the recipe of the part before it.
 	facts: where the user is, for the router. The model is given only what fits there and what the words name;
-	when it finds nothing among that, it is given everything, once."""
+	when it finds nothing among that, it is given everything, once. brief: what plain code found that helps
+	(claw/planning.py); also: recipes offered whatever the router says."""
 	recipes = available(registry)
 	guess = hint(part, before)
 	if guess not in recipes:
@@ -1167,14 +1181,14 @@ def classify(llm, role, part, context, registry, note="", before=None, facts=Non
 	sure = decided(part, registry, before)
 	if sure is not None:
 		return sure
-	names = offered(part, registry, facts, before)
+	names = offered(part, registry, facts, before, also)
 	if guess != OTHER and guess not in names:
 		names.append(guess)
 	try:
-		choice = _choose(llm, role, part, context, recipes, names, guess, note)
+		choice = _choose(llm, role, part, context, recipes, names, guess, note, brief)
 		if choice == OTHER and len(names) < len(recipes):
 			debuglog.log("router", f"Nothing among {len(names)} offered kinds fit {part!r}; all {len(recipes)} are offered once.")
-			choice = _choose(llm, role, part, context, recipes, list(recipes), guess, note)
+			choice = _choose(llm, role, part, context, recipes, list(recipes), guess, note, brief)
 		return fitted(choice, part, guess)
 	except (LLMError, KeyError):
 		return guess
@@ -1185,6 +1199,7 @@ def classify(llm, role, part, context, registry, note="", before=None, facts=Non
 _NEEDS = {
 	"timed_click": pointer.timingOf, "gesture": pointer.gestureOf, "touch": touch.touchOf, "pressure": touch.penOf,
 	"turn_view": direct.turnOf, "power": computer.powerOf, "system_volume": computer.volumeOf,
+	"windows_part": lambda part: computer.windowsPart(part, loose=True),
 	"set_control": controls.wish,
 	"file_task": computer.fileTask,
 	"empty_bin": lambda part: computer.emptiesBin(part) or None,
@@ -1201,7 +1216,7 @@ _NEEDS = {
 # Recipes the words point to that can hardly mean anything else: locking and shutting down, the Recycle Bin, the
 # computer's own volume. Where the words point to one of them, it is taken, whatever a model chose. Each of
 # their tools asks the user before it changes anything.
-_SURE = ("power", "empty_bin", "recycle_bin", "system_volume", "file_task", "pick_date", "work_through")
+_SURE = ("power", "windows_part", "empty_bin", "recycle_bin", "system_volume", "file_task", "pick_date", "work_through")
 
 
 def fitted(choice, part, guess):

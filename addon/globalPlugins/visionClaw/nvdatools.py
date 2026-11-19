@@ -28,7 +28,7 @@ from .vclog import log
 
 from . import computertools, mousetools, net, nvdainfo, ocr, profiletools, webtools
 from .claw import changes, commands, computer, debuglog, drivers, fixes, gamepad, guides, helpfiles, inside, lookup, match, microaddons, offers, pointer, policy, profiles, prompts, training, web
-from .claw import guide
+from .claw import guide, planning
 from .claw.catalog import CODER, VISION
 from .claw.llm import LLM, clip
 from .claw.memory import score, wordList, words as wordsOf
@@ -789,10 +789,12 @@ class Screen:
 		return "\n".join(lines)
 
 	def situation(self):
-		app, title, _fg, focus = self.where()
+		app, title, fg, focus = self.where()
 		role = _safe(lambda: focus.role.displayString) or ""
 		name = _safe(lambda: focus.name) or "no name"
-		return f"Program: {app}. Window title: {title or 'none'}. Focused control: {role}, {name}."
+		# Where that is, in plain words, by plain code (claw/planning.py): the desktop, the taskbar, a dialog.
+		where = planning.placeText(app, title, _safe(lambda: fg.windowClassName) or "")
+		return f"Program: {app}. Window title: {title or 'none'}. Focused control: {role}, {name}." + (f" {where}" if where else "")
 
 	def box(self, target):
 		"""The screen rectangle of a target as (left, top, right, bottom), or None for the whole screen. Main thread."""
@@ -1390,13 +1392,70 @@ def build(plugin):
 		listItems, {"about": text("what is being looked for, in a few words", maxLength=120, auto=True)},
 		looks=True, title="Listing what is there")
 
+	def elsewhere(task, words, chosen=None):
+		"""Where the thing the user named is not in the window in front: a part of Windows itself, or a program,
+		folder or place of Windows that is opened by its name. Each is asked about, except a part of Windows the
+		words are sure of. Returns the result, or None when nothing else fits."""
+		from . import computertools
+		part = computer.windowsPart(words) or computer.windowsPart(words, loose=True)
+		if part is not None:
+			if computer.windowsPart(words) is None:
+				name = computer.windowsPartOf(part)[0]
+				named = " ".join(match.telling(words)) or "that"
+				# Translators: Asked when what the user named is not in the window in front, and is perhaps a part of Windows. {named} is what the user said, {part} the part of Windows.
+				if plugin.clawAsk(_("Nothing in this window is called {named}. Open {part} of Windows instead?").format(
+						named=named, part=name), [_("Yes, do it"), _("No, leave it")]) != 0:
+					raise UserSaidNo()
+			task.items = None
+			return computertools.openWindowsPart(part, onMain, notInWindow=True)
+		named = " ".join(match.telling(words))
+		if len(named) < 3:
+			return None
+		found, sure = computer.find(named, computer.places())
+		if not found:
+			found, sure = computer.find(named, _safe(computertools.gather, []) or [])
+		if not (sure or len(found) == 1):
+			return None
+		thing = found[0]
+		# Translators: Asked when what the user named is not in the window in front, and a program or place of that name was found. {named} is what the user said, {name} and {kind} what was found.
+		if plugin.clawAsk(_("Nothing in this window is called {named}. Open {name}, {kind}, instead?").format(
+				named=named, name=thing["name"], kind=thing["kind"]), [_("Yes, do it"), _("No, leave it")]) != 0:
+			raise UserSaidNo()
+		try:
+			computertools.shellOpen(thing["target"])
+		except OSError as e:
+			raise ToolError(f"{thing['name']} could not be opened. {e}")
+		task.items = None
+		return f"Nothing in the window in front was called {named}, so VisionClaw opened {thing['name']}, {thing['kind']}."
+
 	def clickItem(task, item, action, asked):
 		result = getattr(task, "items", None)
 		if result is None or not result.items:
 			raise ToolError("Use list_items first.")
-		index = pickItem(meant(asked, result.items, item), result.items, ("link", "button"))
-		if index is None:
-			raise ToolError(f"There is no item called \"{item}\". Use a number or a name from list_items.")
+		# The part of the request this step is for, in the user's own words; a model that left it empty is not
+		# checked against the whole request, which may be about other things too.
+		words = asked or ""
+		reference = meant(asked, result.items, item)
+		# A model that writes that the item is not there names no item, whatever its sentence shares with one.
+		none = match.saysNone(reference)
+		index = None if none else pickItem(reference, result.items, ("link", "button"))
+		# What the user's own words name decides: an item that has none of its words is not taken for it.
+		if index is None or not match.fits(words, result.items[index]["text"]):
+			other = elsewhere(task, words)
+			if other is not None:
+				return other
+			named = " ".join(match.telling(words))
+			where = f"on the web page {result.title}" if getattr(result, "web", False) else "in the window in front"
+			if index is None and (none or named):
+				return (
+					f"Nothing was clicked: nothing {where} is called {named or item}, and it is not a part of Windows "
+					"or a program that VisionClaw can open by its name.")
+			if index is None:
+				raise ToolError(f"There is no item called \"{item}\". Use a number or a name from list_items.")
+			# Translators: Asked when the item a model chose does not have the name the user said. {named} is what the user said, {item} the item that was chosen.
+			if plugin.clawAsk(_("Nothing in this window is called {named}. The closest found is {item}. Use it anyway?").format(
+					named=named, item=result.items[index]["text"]), [_("Yes, do it"), _("No, leave it")]) != 0:
+				return f"Nothing was clicked: nothing {where} is called {named}, and you did not want {result.items[index]['text']}."
 		found = result.items[index]
 		if action not in pointer.ACTIONS:
 			action = pointer.CLICK

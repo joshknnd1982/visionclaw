@@ -307,6 +307,8 @@ computertools.closeWindow = lambda hwnd: did.append(("close", hwnd)) or hwnd != 
 computertools.showWindow = lambda hwnd, action: did.append((action, hwnd))
 computertools.minimizeAll = lambda: did.append(("minimize all",))
 computertools.pressEscape = lambda: did.append(("escape",))
+computertools.pressShortcut = lambda keys: did.append(("keys", keys))
+computertools.PART_SETTLE_SECONDS = 0
 computertools.power = lambda what: did.append(("power", what))
 computertools.drives = lambda: [("C:", "System", 200 << 30, 500 << 30)]
 computertools.memory = lambda: (21 << 30, 31 << 30)
@@ -367,7 +369,7 @@ assert instance.dataDir == DATA and instance.portableSettings()["searchEngine"] 
 instance.controller._stopped.set()
 instance.controller._thread.join(5)
 registry = instance.orchestrator.registry
-assert len(registry.names()) == 101, registry.names()
+assert len(registry.names()) == 102, registry.names()
 # Lessons from searches that happened to find something misled; they are dropped when VisionClaw starts.
 assert instance.memory.all() == ["Tool set_setting: this form failed: {} (x). This form worked: {}."], instance.memory.all()
 assert set(planner.available(registry)) == set(planner.RECIPES), set(planner.RECIPES) - set(planner.available(registry))
@@ -1124,6 +1126,46 @@ assert worked and result == "Dragged Volume slider 64 pixels to the left.", resu
 fresh()
 worked, result = registry.call(task, "click_item", {"item": ", ", "action": "click", "asked": "Click the trash icon"})
 assert worked and result == "Clicked Trash icon.", result
+# The Start button is on the taskbar, not in the window in front. The owner's requests of 2026-11-18: the model
+# chose an unrelated item, or wrote a sentence that "te" was found in. Now the Start menu is opened with its key.
+del did[:]
+for asked, reference in (("click the windows start button using the mouse.", "10"),
+		("open the windows start menu.", "None of the items in the list is the Windows Start menu.")):
+	fresh()
+	before = len(questions)
+	worked, result = registry.call(task, "click_item", {"item": reference, "action": "click", "asked": asked})
+	assert worked and result.startswith("That is not in the window in front: it is part of Windows itself. VisionClaw "
+		"opened the Start menu with the Windows key, or Control+Escape"), result
+	assert did[-1] == ("keys", "control+escape") and buttons == [] and len(questions) == before, (did, questions)
+# Where the words could also mean a Start button of the program in front, the user is asked first.
+fresh()
+worked, result = registry.call(task, "click_item", {"item": "Volume", "action": "click", "asked": "click the start button."})
+assert questions[-1] == "Nothing in this window is called start. Open the Start menu of Windows instead?", questions[-1]
+assert worked and did[-1] == ("keys", "control+escape") and buttons == [], result
+instance.clawAsk = lambda question, choices: questions.append(question) or 1
+fresh()
+worked, result = registry.call(task, "click_item", {"item": "Volume", "action": "click", "asked": "click the start button."})
+assert worked and result == "You said no, so nothing was changed." and buttons == [], result
+# An item that has none of the words the user said is never clicked without a question that says so.
+fresh()
+worked, result = registry.call(task, "click_item", {"item": "Volume", "action": "click", "asked": "click the zebra button"})
+assert questions[-1] == "Nothing in this window is called zebra. The closest found is Volume slider. Use it anyway?", questions[-1]
+assert worked and result.startswith("Nothing was clicked: nothing in the window in front is called zebra") and buttons == [], result
+instance.clawAsk = lambda question, choices: questions.append(question) or 0
+fresh()
+worked, result = registry.call(task, "click_item", {"item": "not found", "action": "click", "asked": "click the zebra button"})
+assert worked and result.startswith("Nothing was clicked: nothing in the window in front is called zebra") and buttons == [], result
+# A program or place of Windows that is named and is not in the window is offered to be opened by its name.
+fresh()
+worked, result = registry.call(task, "click_item", {"item": "File", "action": "click", "asked": "click the recycle bin"})
+assert questions[-1] == "Nothing in this window is called recycle bin. Open Recycle Bin, a place of Windows, instead?", questions[-1]
+assert worked and result.startswith("Nothing in the window in front was called recycle bin, so VisionClaw opened Recycle Bin"), result
+assert buttons == []
+# The part of Windows by its own tool.
+worked, result = registry.call(task, "windows_part", {"asked": "go to the system tray"})
+assert worked and did[-1] == ("keys", "windows+b") and result.startswith("Opened the notification area with Windows+B."), result
+worked, result = registry.call(task, "windows_part", {"asked": "make nvda speak faster"})
+assert not worked and "does not name a part of Windows" in result, result
 assert nvdatools.mentioned("Drag the file icon onto the trash icon", window.items) == ["file", "trash"]
 assert nvdatools.mentioned("press the big red button", window.items) == []
 assert nvdatools.meant("click something", window.items, "Trash") == "Trash"

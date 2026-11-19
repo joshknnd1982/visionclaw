@@ -36,7 +36,7 @@ from speech import extensions as speechExtensions
 
 from . import autodescribe, clawui, controlkeys, curtain, dialogs, explorer, followup, hardware, helpers, imaging, labels, localmedia, mousetools, nvdatools, ocr, sounds, updater, viewers, winzapp
 from . import asktools, memorytools, ownvoice, padtools, touchinput, voiceui
-from .claw import catalog, direct, drivers, guides, learn, offers, portable, prompts, training
+from .claw import catalog, direct, drivers, guides, learn, offers, planning, portable, prompts, training
 from .claw.changes import ChangeLog
 from .claw import debuglog
 from .claw import task as clawTask
@@ -549,6 +549,8 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		self.orchestrator.program = lambda: nvdatools.onMain(asktools.programNow)["app"]
 		self.orchestrator.remembering = memorytools.when
 		self.orchestrator.skills = self.skills
+		# How requests were done well on this computer, as data, for planning the next ones (claw/planning.py).
+		self.orchestrator.plans = planning.Plans(os.path.join(DATA_DIR, "plans.json"))
 		self.orchestrator.facts = self._clawFacts
 		# Telling the user, once, what can be downloaded for them (claw/offers.py).
 		self.offers = offers.Offers(os.path.join(DATA_DIR, "offered.json"))
@@ -1030,6 +1032,9 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			facts[router.WEB] = webtools.page() is not None or app in (
 				"chrome", "firefox", "msedge", "brave", "opera", "vivaldi", "iexplore")
 			facts[router.DIRECT] = self.appWays.mouse(app) != direct.PLAIN
+			foreground = api.getForegroundObject()
+			facts[router.SHELL] = planning.isShell(
+				app, getattr(foreground, "name", "") or "", getattr(foreground, "windowClassName", "") or "")
 
 		try:
 			nvdatools.onMain(look)
