@@ -1308,6 +1308,32 @@ keyboard and speech alone.
     run. Both are spent for the five rules that were corrected against them; write another before measuring a new
     rule.
   - None of this has run inside NVDA, in a real browser, in Word, in a real installer or a real plug-in.
+- **Object names: every object without a name, or with a vague one, is named on the fly, however the user moves**
+  (`claw/naming.py`, `nametools.py`, `namesui.py`). The owner said on 2026-11-19: "any object that has no name, no
+  matter how the user is navigating, will be identified and named using AI and that name is saved and can also be
+  shared with other visionclaw users. If AI is unsure, it should put the word probably before the name", "this should
+  work even if the user is in browse mode", and that these are "on-the-fly dynamic accessibility fixes that are
+  simple". What follows from it:
+  - **Every role NVDA has is sorted** (`naming.NAMED`, `WHEN_CLICKABLE`, `LEFT`) against `tests/nvda_objects.json`,
+    which `tools/write_nvda_objects.py` wrote from NVDA 2026.3.1's source, with `docs/NVDA-OBJECTS.md` for the owner.
+    For a newer NVDA, run the tool on its source again and sort what is new; never write a role from memory.
+  - **Vague is plain code's** (`naming.vague`): a file name, an address, a code, a word that only names the kind,
+    only symbols or an icon font's signs, one letter on an icon, a name from code. A real name such as Edit,
+    Picture or Download is never vague on a button; the picture words count only on pictures. Add a case to
+    `tests/test_naming.py` for every name the owner finds wrongly taken or left.
+  - **Where NVDA asks for a name, VisionClaw answers**: outside browse mode an overlay class from the plugin's own
+    chooseNVDAObjectOverlayClasses; in browse mode the page's TextInfo wrapped at `_normalizeControlField`, as
+    fixruntime.py does. Both call the object's own name first and never let an error reach NVDA. What was read from
+    NVDA's source is at the top of `nametools.py`; read it again before changing this.
+  - **"probably" is plain code's** (`naming.sure`, `decide`, `spoken`): a name is sure only where the text read in
+    the object's own picture or the words of its own code agree with the model. Never ask a model how sure it is.
+  - **What tells an object apart is what belongs to it alone** (`naming.ruleFor`): an id, an automation id, a
+    picture's file, a control number inside a titled dialog; else its picture. Never a class name.
+  - **A shared file is data, checked line by line** (`naming.readShared`), and never replaces the user's own name.
+    Sharing goes through a file the user saves and gives; never add a server or a download for names without the
+    owner's yes.
+  - **The beep and the sentence said once** come from the owner's words and stay: one short, soft beep with the
+    setting for the soft tick, and "a small model, 7B or smaller, is best" said the first time (`naming.SMALL_ENOUGH`).
 - **Never commit** model files (`*.gguf`, `*.bin`), `dist/`, tokens, or the `SmallClaw/` reference clone.
 
 ## Layout
@@ -1372,6 +1398,9 @@ addon/
     followup.py              questions in the description window: all are answered; a question about a key is
                              given the one NVDA command it is about
     helpers.py               app helpers and generated add-ons: loading them live, their hotkeys
+    nametools.py             object names: the class that gives an object its saved name, the page in browse mode
+                             given its names, naming where the user is in the background, NVDA+Alt+N
+    namesui.py               the window of saved object names: change, forget, share, add shared names
     profiletools.py          an NVDA setting for the program in front only: NVDA's configuration profile for it
                              made, turned on, written to only while it is the one NVDA writes to, listed, deleted
     guidetools.py            working through a task: what the program in front offers, read from the web page, the
@@ -1472,6 +1501,8 @@ addon/
                              sight, what the user's words ask, the squares; the person answers it
       shopping.py            what buys and what is to be paid, what is never typed, a product's options
       seats.py               a seat map from the names of its seats or from its picture; which seats fit a wish
+      naming.py              object names as plain logic: every role of NVDA sorted, vague names, what tells an
+                             object apart, how sure a name is, the names kept and shared
       busy.py                what VisionClaw is busy with for the user, and a status update when it has been quiet
                              too long: when one is due, what it says, when nothing is said
       router.py              which kinds of request and which tools a model is offered: by where the user is,
@@ -1776,6 +1807,10 @@ A session is done only when its "Done when" line is true.
   question before anything is bought. Tested on pictures and programs made up by the tests, with stand-ins for
   NVDA and for Word, and with the real Qwen3.5 9B choosing the job; not run inside NVDA, a browser, Word, an
   installer or a plug-in.
+- [x] **3.64 Object names, wherever the user moves.** Every object without a name, or with a vague one, named by
+  the model that sees as the user reaches it: focus, browse mode, object navigation, review, the mouse; saved, said
+  with probably where not sure, shared as a file; every role of NVDA 2026.3.1 sorted. Tested with stand-ins; not
+  run inside NVDA or with a real model.
 - [ ] **3.5 Test inside NVDA.** Install the build in NVDA (ask the user first) and walk through
   `docs/TESTPLAN.md`. Fix what breaks. *Done when:* every item in the test plan is ticked by a real run.
 
@@ -1847,6 +1882,10 @@ python -u tests/live_hard.py FOLDER9 coderId FOLDER14 hardId   an everyday model
 VC_HARD=qwen3-14b python -u tests/live_codeplan.py FOLDER   the model for hard cases writes and reviews the nine add-ons
 python tests/test_codeplan.py            an add-on read into pieces, its frame, run against stand-ins for NVDA; pieces
                                          written, corrected and reviewed one at a time; the work sheet; one method fixed
+python tests/test_naming.py              object names: every role sorted, vague names, sure or probably, the store,
+                                         sharing; the NVDA side with stand-ins for objects, a page and the model
+python tools/write_nvda_objects.py SRC VERSION   writes docs/NVDA-OBJECTS.md and tests/nvda_objects.json from NVDA's
+                                         source
 python tests/test_ten.py                 colours and places measured in drawn pictures, a form that is only a picture, a
                                          picture on a page, a knob set to a number, an installer, which job each of the
                                          article's sentences goes to, and what the new jobs must leave alone

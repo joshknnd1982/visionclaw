@@ -194,7 +194,11 @@ class VisionClawPanel(gui.settingsDialogs.SettingsPanel):
 			_("Describe images further down the page in the bac&kground, so they are ready sooner"), "readAhead")
 		self.iconLabeler = checkbox(
 			# Translators: Checkbox in settings.
-			_("Name buttons that have no &name, from their icon (NVDA+Alt+B)"), "iconLabeler")
+			_("Object &names: name every object without a name or with a vague one, wherever you move (NVDA+Alt+B)"),
+			"iconLabeler")
+		# Translators: Button in settings that opens the window of saved object names.
+		self.namesBtn = helper.addItem(wx.Button(self, label=_("Saved object names: change, forget or share them...")))
+		self.namesBtn.Bind(wx.EVT_BUTTON, lambda e: self.plugin.showNames(self) if self.plugin else None)
 		self.useOcr = checkbox(
 			# Translators: Checkbox in settings.
 			_("Use Windows &OCR to read screen text exactly"), "useOcr")

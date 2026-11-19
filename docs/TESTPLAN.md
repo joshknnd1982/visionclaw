@@ -843,5 +843,31 @@ None of these has run inside NVDA. Each is one real run; say what you hear.
 - [ ] An airline's seat map: "find a free window seat near the front". The best few are said with reasons; say no
       to the question, and no seat is taken.
 
+## Object names, wherever you move (1.13.0)
+- [ ] NVDA+Alt+B says "Object names on", and the first time also the sentence about a small model, 7B or smaller,
+      naming the model in use if it is larger. Pressed again: "Object names off". Pressed on again: only "Object
+      names on".
+- [ ] A program with a button that has only an icon: Tab to it. NVDA says "button", a short soft beep follows, then
+      "probably" and a name. Tab away and back: NVDA says the name with the button, without a beep. Restart NVDA:
+      the name is still said.
+- [ ] The same button reached by object navigation (NVDA+Numpad 6, or NVDA+Shift+Right Arrow on a laptop) and with
+      the review cursor: the name is said. Move the mouse onto it with mouse tracking on: the name is said.
+- [ ] Braille: the button's name is shown on the display, after the name came, without moving away.
+- [ ] A web page in browse mode with a link or button that is only an icon (for example a page's search or menu
+      button): arrow onto it, then press B or K to reach it. The beep, then "probably" and a name, without leaving
+      browse mode. Press NVDA+F7: the elements list shows the name. Reload the page and arrow to it again.
+- [ ] Tab to that link in focus mode on the same page: the same name is said.
+- [ ] A button whose text is drawn into its picture: the name is said without "probably".
+- [ ] NVDA+Alt+N on a named object: the window has the name in it; change it; NVDA says your name from then on,
+      without "probably". NVDA+Alt+N in browse mode on a picture names that picture. NVDA+Alt+N on a heading says
+      it is read from its own text.
+- [ ] NVDA+Alt+N pressed twice: the window of saved object names opens; the programs and websites, their names with
+      who gave each; Change, Forget checked names (asks first), Forget all names of this place (asks first).
+- [ ] Share names: check one program, save the file; open it in Notepad: it names that program and the names, and
+      nothing else. Add shared names with that file on another NVDA or after forgetting: the names come back; your
+      own names are kept.
+- [ ] Turn off "Play a soft tick while waiting for a description": no beep before a name.
+- [ ] A busy program (File Explorer, Outlook) with names on: NVDA is as quick as before when arrowing through lists.
+
 ## Stopping NVDA
 - [ ] NVDA exits without an error, and no `vcengine.exe` is left running (Task Manager).

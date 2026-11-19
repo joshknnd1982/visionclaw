@@ -211,6 +211,14 @@ assert len(keys) >= 17, keys
 for key in keys:
 	for name, text in files.items():
 		assert f"nvda+alt+{key}" in text, (name, key)
+# The read-only box "How to use VisionClaw" in the models window names every key too.
+usage = re.search(r"\nUSAGE = _\((.*?)\n\)", read(os.path.join(PLUGIN, "dialogs.py")), re.S)
+assert usage, "USAGE was not found in dialogs.py"
+usage = usage.group(1).lower()
+for key in keys:
+	assert f"nvda+alt+{key}" in usage, f"the models window's How to use VisionClaw does not name NVDA+Alt+{key.upper()}"
+# The commands without a key are named there, with where a key is given.
+assert "input gestures" in usage and "own voice" in usage and "remembers" in usage, usage
 
 
 def letters(table, extra=()):

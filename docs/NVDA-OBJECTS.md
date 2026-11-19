@@ -1,0 +1,871 @@
+# Everything NVDA knows about objects, and every way of moving among them
+
+Read from the source of NVDA 2026.3.1 by `tools/write_nvda_objects.py`; nothing here was written from memory. The words NVDA says for each role, state and command are NV Access's own (GPL v2 or later). VisionClaw's naming of objects without a name sorts every role below (`claw/naming.py`), and `tests/test_naming.py` fails when NVDA has a role it has not sorted. Run the tool again for a newer NVDA.
+
+## What an object is to NVDA
+
+Every control, window, document part and picture NVDA can reach is an object (an NVDAObject). NVDA asks each one for its name, its role (what kind of control it is), its states (checked, expanded, unavailable and so on), its value, its description and where it is on the screen. An object without a name is one whose program gives NVDA nothing to call it: NVDA then says only its role, such as "button", or a file name, such as "icon_close.svg". That is what VisionClaw names.
+
+NVDA reaches objects through these accessibility interfaces, each with its own family of classes below: IAccessible and IAccessible2 (most programs, Chrome, Edge, Firefox), UI Automation (Windows 10 and 11, Office, modern apps), Java Access Bridge (Java programs), and the window itself (Window: programs that tell NVDA nothing more).
+
+## Roles: 156 kinds of object
+
+The name in capitals is NVDA's own (`controlTypes.Role`); after it, the words NVDA says. Silent on focus (NVDA does not say the role when it gets the focus): PANE, ROOTPANE, FRAME, UNKNOWN, APPLICATION, TABLECELL, LISTITEM, MENUITEM, CHECKMENUITEM, TREEVIEWITEM, STATICTEXT, BORDER. Clickable (NVDA knows how to press them): LINK, BUTTON, CHECKBOX, RADIOBUTTON, TOGGLEBUTTON, MENUITEM, TAB, SLIDER, DOCUMENT, CHECKMENUITEM, RADIOMENUITEM.
+
+- UNKNOWN: unknown
+- WINDOW: window
+- TITLEBAR: title bar
+- PANE: pane
+- DIALOG: dialog
+- CHECKBOX: check box
+- RADIOBUTTON: radio button
+- STATICTEXT: text
+- EDITABLETEXT: edit
+- BUTTON: button
+- MENUBAR: menu bar
+- MENUITEM: menu item
+- POPUPMENU: menu
+- COMBOBOX: combo box
+- LIST: list
+- LISTITEM: list item
+- GRAPHIC: graphic
+- HELPBALLOON: help balloon
+- TOOLTIP: tool tip
+- LINK: link
+- TREEVIEW: tree view
+- TREEVIEWITEM: tree view item
+- TAB: tab
+- TABCONTROL: tab control
+- SLIDER: slider
+- PROGRESSBAR: progress bar
+- SCROLLBAR: scroll bar
+- STATUSBAR: status bar
+- TABLE: table
+- TABLECELL: cell
+- TABLECOLUMN: column
+- TABLEROW: row
+- TABLECOLUMNHEADER: column header
+- TABLEROWHEADER: row header
+- FRAME: frame
+- TOOLBAR: tool bar
+- DROPDOWNBUTTON: drop down button
+- CLOCK: clock
+- SEPARATOR: separator
+- FORM: form
+- HEADING: heading
+- HEADING1: heading 1
+- HEADING2: heading 2
+- HEADING3: heading 3
+- HEADING4: heading 4
+- HEADING5: heading 5
+- HEADING6: heading 6
+- PARAGRAPH: paragraph
+- BLOCKQUOTE: block quote
+- TABLEHEADER: table header
+- TABLEBODY: table body
+- TABLEFOOTER: table footer
+- DOCUMENT: document
+- ANIMATION: animation
+- APPLICATION: application
+- BOX: box
+- GROUPING: grouping
+- PROPERTYPAGE: property page
+- CANVAS: canvas
+- CAPTION: caption
+- CHECKMENUITEM: check menu item
+- DATEEDITOR: date edit
+- ICON: icon
+- DIRECTORYPANE: directory pane
+- EMBEDDEDOBJECT: embedded object
+- ENDNOTE: end note
+- FOOTER: footer
+- FOOTNOTE: foot note
+- GLASSPANE: glass pane
+- HEADER: header
+- IMAGEMAP: image map
+- INPUTWINDOW: input window
+- LABEL: label
+- NOTE: note
+- PAGE: page
+- RADIOMENUITEM: radio menu item
+- LAYEREDPANE: layered pane
+- REDUNDANTOBJECT: redundant object
+- ROOTPANE: root pane
+- EDITBAR: edit bar
+- TERMINAL: terminal
+- RICHEDIT: rich edit
+- RULER: ruler
+- SCROLLPANE: scroll pane
+- SECTION: section
+- SHAPE: shape
+- SPLITPANE: split pane
+- VIEWPORT: view port
+- TEAROFFMENU: tear off menu
+- TEXTFRAME: text frame
+- TOGGLEBUTTON: toggle button
+- BORDER: border
+- CARET: caret
+- CHARACTER: character
+- CHART: chart
+- CURSOR: cursor
+- DIAGRAM: diagram
+- DIAL: dial
+- DROPLIST: drop list
+- SPLITBUTTON: split button
+- MENUBUTTON: menu button
+- DROPDOWNBUTTONGRID: drop down button grid
+- MATH: math
+- GRIP: grip
+- HOTKEYFIELD: hot key field
+- INDICATOR: indicator
+- SPINBUTTON: spin button
+- SOUND: sound
+- WHITESPACE: white space
+- TREEVIEWBUTTON: tree view button
+- IPADDRESS: IP address
+- DESKTOPICON: desktop icon
+- INTERNALFRAME: frame
+- DESKTOPPANE: desktop pane
+- OPTIONPANE: option pane
+- COLORCHOOSER: color chooser
+- FILECHOOSER: file chooser
+- FILLER: filler
+- MENU: menu
+- PANEL: panel
+- PASSWORDEDIT: password edit
+- FONTCHOOSER: font chooser
+- LINE: line
+- FONTNAME: font name
+- FONTSIZE: font size
+- BOLD: bold
+- ITALIC: italic
+- UNDERLINE: underline
+- FGCOLOR: foreground color
+- BGCOLOR: background color
+- SUPERSCRIPT: superscript
+- SUBSCRIPT: subscript
+- STYLE: style
+- INDENT: indent
+- ALIGNMENT: alignment
+- ALERT: alert
+- DATAGRID: data grid
+- DATAITEM: data item
+- HEADERITEM: header item
+- THUMB: thumb control
+- CALENDAR: calendar
+- VIDEO: video
+- AUDIO: audio
+- CHARTELEMENT: chart element
+- DELETED_CONTENT: deleted
+- INSERTED_CONTENT: inserted
+- LANDMARK: landmark
+- ARTICLE: article
+- REGION: region
+- FIGURE: figure
+- MARKED_CONTENT: highlighted
+- BUSY_INDICATOR: busy indicator
+- COMMENT: comment
+- SUGGESTION: suggestion
+- DEFINITION: definition
+- SWITCH: switch
+
+## States: 53
+
+NVDA's own name (`controlTypes.State`); the words NVDA says; and, where NVDA has them, the words for the opposite.
+
+- UNAVAILABLE: unavailable
+- FOCUSED: focused
+- SELECTED: selected; opposite: not selected
+- BUSY: busy
+- PRESSED: pressed; opposite: not pressed
+- CHECKED: checked; opposite: not checked
+- HALFCHECKED: half checked
+- READONLY: read only
+- EXPANDED: expanded
+- COLLAPSED: collapsed
+- INVISIBLE: invisible
+- VISITED: visited
+- LINKED: linked
+- HASPOPUP: subMenu
+- PROTECTED: protected
+- REQUIRED: required
+- DEFUNCT: defunct
+- INVALID_ENTRY: invalid entry
+- MODAL: modal
+- AUTOCOMPLETE: has auto complete
+- MULTILINE: multi line
+- ICONIFIED: iconified
+- OFFSCREEN: off screen
+- SELECTABLE: selectable
+- FOCUSABLE: focusable
+- CLICKABLE: clickable
+- EDITABLE: editable
+- CHECKABLE: checkable
+- DRAGGABLE: draggable
+- DRAGGING: dragging
+- DROPTARGET: drop target; opposite: done dragging
+- SORTED: sorted
+- SORTED_ASCENDING: sorted ascending
+- SORTED_DESCENDING: sorted descending
+- HASLONGDESC: has long description
+- PINNED: pinned
+- HASFORMULA: has formula
+- HASCOMMENT: has comment
+- OBSCURED: obscured
+- CROPPED: cropped
+- OVERFLOWING: overflowing
+- UNLOCKED: unlocked
+- HAS_ARIA_DETAILS: (not said)
+- HASNOTE: has note
+- INDETERMINATE: (not said)
+- HALF_PRESSED: half pressed
+- ON: on; opposite: off
+- HASPOPUP_DIALOG: opens dialog
+- HASPOPUP_GRID: opens grid
+- HASPOPUP_LIST: opens list
+- HASPOPUP_TREE: opens tree
+- INTERNAL_LINK: same page
+- MULTISELECTABLE: multi-select
+
+## Why NVDA says something: 10 reasons
+
+Every time NVDA reports an object or a stretch of text it gives a reason (`controlTypes.OutputReason`). VisionClaw names an object without a name when it is reported for focus, the caret, quick navigation, the mouse, the review cursor and object navigation.
+
+FOCUS, FOCUSENTERED, MOUSE, QUERY, CHANGE, MESSAGE, SAYALL, CARET, ONLYCACHE, QUICKNAV.
+
+## Ways of moving, and their keys
+
+From NVDA's `globalCommands.py`, the commands of the categories that move or read where one is. Keys are the desktop layout's where a command has several; the laptop layout and touch gestures are listed too.
+
+### System focus
+
+- Copies content of the status bar  of current application to the clipboard. (no key)
+- Moves the focus out of the current embedded object and into the document that contains it (NVDA+Control+space)
+- Reads the current application status bar. (no key)
+- Reports the object with focus. If pressed twice, spells the information. Pressing three times spells it using character descriptions. (NVDA+tab)
+- Reports the shortcut key of the currently focused object (Shift+numpad2, NVDA+Control+Shift+. on a laptop)
+- Reports information about the location of the currently focused object. (no key)
+- Reads the current application status bar. If pressed twice, spells the information. If pressed three times, copies the status bar to the clipboard (NVDA+end, NVDA+Shift+end on a laptop)
+- Reads all controls in the active window (NVDA+B)
+- Spells the current application status bar. (no key)
+- Reports the title of the current application or foreground window. If pressed twice, spells the title. If pressed three times, copies the title to the clipboard (NVDA+T)
+
+### Object navigation
+
+- Reports the current navigator object. Pressing twice spells this information, and pressing three times Copies name and value of this object to the clipboard (NVDA+numpad5, NVDA+Shift+O on a laptop)
+- Reports information about the location of the text or object at the review cursor. Pressing twice may provide further detail. (NVDA+Shift+numpadDelete, NVDA+Shift+delete on a laptop)
+- Moves the navigator object to the first object inside it (NVDA+numpad2, NVDA+Shift+downArrow on a laptop, touch in object mode: flickdown)
+- Pressed once sets the keyboard focus to the navigator object, pressed twice sets the system caret to the position of the review cursor (NVDA+Shift+numpadMinus, NVDA+Shift+backspace on a laptop)
+- Moves the navigator object to the next object (NVDA+numpad6, NVDA+Shift+rightArrow on a laptop, touch in object mode: 2finger_flickright)
+- Moves to the next object in a flattened view of the object navigation hierarchy (touch in object mode: flickright, NVDA+numpad3, Shift+NVDA+] on a laptop)
+- Moves the navigator object to the object containing it (NVDA+numpad8, NVDA+Shift+upArrow on a laptop, touch in object mode: flickup)
+- Moves the navigator object to the previous object (NVDA+numpad4, NVDA+Shift+leftArrow on a laptop, touch in object mode: 2finger_flickleft)
+- Moves to the previous object in a flattened view of the object navigation hierarchy (touch in object mode: flickleft, NVDA+numpad9, Shift+NVDA+[ on a laptop)
+- Sets the navigator object to the current focus, and the review cursor to the position of the caret inside it, if possible. (NVDA+numpadMinus, NVDA+backspace on a laptop)
+- Reports information about the location of the current navigator object. (no key)
+- Reports information about the location of the text at the review cursor, or location of the navigator object if there is no text under review cursor. (no key)
+- Reads the current application status bar and moves navigator object into it. (no key)
+- Performs the default action on the current navigator object (example: presses it if it is a button). (NVDA+numpadEnter, NVDA+enter on a laptop, touch: double_tap)
+- Toggles on and off the movement of the navigator object due to focus changes (NVDA+7)
+- Toggles simple review mode on and off (no key)
+
+### Text review
+
+- Reports formatting info for the current review cursor position. If pressed twice, presents the information in browse mode (NVDA+Shift+F)
+- Reports formatting info for the current review cursor position. (no key)
+- Switches to the next review mode (e.g. object, document or screen) and positions the review position at the point of the navigator object (NVDA+numpad7, NVDA+pageUp on a laptop, touch in object mode: 2finger_flickUp)
+- Switches to the previous review mode (e.g. object, document or screen) and positions the review position at the point of the navigator object (NVDA+numpad1, NVDA+pageDown on a laptop, touch in object mode: 2finger_flickDown)
+- Moves the review cursor to the bottom line of the current navigator object and speaks it (Shift+numpad9, NVDA+Control+end on a laptop)
+- If pressed once, the text from the previously set start marker up to and including the current position of the review cursor is selected. If pressed twice, the text is copied to the clipboard (NVDA+f10)
+- Reports the character of the current navigator object where the review cursor is situated. Pressing twice reports a description or example of that character. Pressing three times reports the numeric value of the character in decimal and hexadecimal (numpad2, NVDA+. on a laptop)
+- Reports the line of the current navigator object where the review cursor is situated. If this key is pressed twice, the current line will be spelled. Pressing three times will spell the line using character descriptions. (numpad8, NVDA+Shift+. on a laptop)
+- Reports the symbol where the review cursor is positioned. Pressed twice, shows the symbol and the text used to speak it in browse mode (no key)
+- Speaks the word of the current navigator object where the review cursor is situated. Pressing twice spells the word. Pressing three times spells the word using character descriptions (numpad5, NVDA+Control+. on a laptop, touch in text mode: hoverUp)
+- Moves the review cursor to the last character of the line where it is situated in the current navigator object and speaks it (Shift+numpad3, NVDA+end on a laptop)
+- Moves the review cursor to the last character of the selection, and speaks it (NVDA+Alt+end)
+- Marks the current position of the review cursor as the start of text to be selected or copied (NVDA+f9)
+- Move the review cursor to the position marked as the start of text to be selected or copied (NVDA+Shift+F9)
+- Moves the review cursor to the next character of the current navigator object and speaks it (numpad3, NVDA+rightArrow on a laptop, touch in text mode: flickRight)
+- Moves the review cursor to the next line of the current navigator object and speaks it (numpad9, NVDA+downArrow on a laptop, touch in text mode: flickDown)
+- Moves the review cursor to the next page of the current navigator object and speaks it (NVDA+pageDown, NVDA+Shift+pageDown on a laptop)
+- Moves the review cursor to the next word of the current navigator object and speaks it (numpad6, NVDA+Control+rightArrow on a laptop, touch in text mode: 2finger_flickRight)
+- Moves the review cursor to the previous character of the current navigator object and speaks it (numpad1, NVDA+leftArrow on a laptop, touch in text mode: flickLeft)
+- Moves the review cursor to the previous line of the current navigator object and speaks it (numpad7, NVDA+upArrow on a laptop, touch in text mode: flickUp)
+- Moves the review cursor to the previous page of the current navigator object and speaks it (NVDA+pageUp, NVDA+Shift+pageUp on a laptop)
+- Moves the review cursor to the previous word of the current navigator object and speaks it (numpad4, NVDA+Control+leftArrow on a laptop, touch in text mode: 2finger_flickLeft)
+- Reads from the review cursor up to the end of the current text, moving the review cursor as it goes (numpadPlus, NVDA+Shift+A on a laptop, touch in text mode: 3finger_flickDown)
+- Moves the review cursor to the first character of the line where it is situated in the current navigator object and speaks it (Shift+numpad1, NVDA+home on a laptop)
+- Moves the review cursor to the first character of the selection, and speaks it (NVDA+Alt+home)
+- Moves the review cursor to the top line of the current navigator object and speaks it (Shift+numpad7, NVDA+Control+home on a laptop)
+- Presents, in browse mode, formatting info for the current review cursor position. (no key)
+- Toggles on and off the movement of the review cursor due to the caret moving. (NVDA+6)
+
+### System caret
+
+- Reports information about the location of the text or object at the position of system caret. Pressing twice may provide further detail. (NVDA+numpadDelete, NVDA+delete on a laptop)
+- Cycles through paragraph navigation styles (no key)
+- Reports the language for the text under the caret. If pressed twice, presents the information in browse mode (no key)
+- Reports information about the location of the text at the caret, or location of the currently focused object if there is no caret. (no key)
+- Reports the current line under the application cursor. Pressing this key twice will spell the current line. Pressing three times will spell the line using character descriptions. (NVDA+upArrow, NVDA+L on a laptop)
+- Announces the current selection in edit controls and documents. Pressing twice spells this information. Pressing three times spells it using character descriptions. Pressing four times shows it in a browsable message.  (NVDA+Shift+upArrow, NVDA+Shift+S on a laptop)
+- Report summary of any annotation details at the system caret. (NVDA+D)
+- Reports formatting info for the text under the caret. (no key)
+- Reports formatting info for the text under the caret. If pressed twice, presents the information in browse mode (NVDA+F)
+- Reads from the system caret up to the end of the text, moving the caret as it goes (NVDA+downArrow, NVDA+A on a laptop)
+- Presents, in browse mode, formatting info for the text under the caret. (no key)
+
+### Mouse
+
+- Clicks the left mouse button once at the current mouse position (numpadDivide, NVDA+[ on a laptop)
+- Scroll down at the mouse position (no key)
+- Scroll left at the mouse position (no key)
+- Scroll right at the mouse position (no key)
+- Scroll up at the mouse position (no key)
+- Moves the mouse pointer to the current navigator object (NVDA+numpadDivide, NVDA+Shift+M on a laptop)
+- Sets the navigator object to the current object under the mouse pointer and speaks it (NVDA+numpadMultiply, NVDA+Shift+N on a laptop)
+- Clicks the right mouse button once at the current mouse position (numpadMultiply, NVDA+] on a laptop)
+- Locks or unlocks the left mouse button (Shift+numpadDivide, NVDA+Control+[ on a laptop)
+- Toggles beeps that report mouse coordinates as the mouse moves (no key)
+- Toggles how much text will be spoken when the mouse moves (no key)
+- Toggles the reporting of information as the mouse moves (NVDA+M)
+- Locks or unlocks the right mouse button (Shift+numpadMultiply, NVDA+Control+] on a laptop)
+
+### Touch screen
+
+- Toggles the support of touch interaction (NVDA+Control+Alt+T)
+- Cycles between available touch modes (touch: 3finger_tap)
+- Reports the new object or content under your finger if different to where your finger was last (touch: hover)
+- Touch, hover up (touch: hoverUp)
+- Reports the object and content directly under your finger (touch: tap, touch: hoverDown)
+- Clicks the right mouse button at the current touch position. This is generally used to activate a context menu. (touch: tapAndHold)
+
+### Math navigation
+
+- Begins interaction with math content (NVDA+Alt+M)
+
+### Browse mode quick navigation
+
+A letter moves to the next one, Shift and the letter to the one before (`browseMode.py`). Kinds without a letter have a key only when one is given in NVDA's Input Gestures dialog.
+
+- heading: H, moves to the next heading
+- table: T, moves to the next table
+- link: K, moves to the next link
+- visitedLink: V, moves to the next visited link
+- unvisitedLink: U, moves to the next unvisited link
+- formField: F, moves to the next form field
+- list: L, moves to the next list
+- listItem: I, moves to the next list item
+- button: B, moves to the next button
+- edit: E, moves to the next edit field
+- frame: M, moves to the next frame
+- separator: S, moves to the next separator
+- radioButton: R, moves to the next radio button
+- comboBox: C, moves to the next combo box
+- checkBox: X, moves to the next check box
+- graphic: G, moves to the next graphic
+- blockQuote: Q, moves to the next block quote
+- notLinkBlock: N, skips forward past a block of links
+- landmark: D, moves to the next landmark
+- embeddedObject: O, moves to the next embedded object
+- annotation: A, moves to the next annotation
+- error: W, moves to the next error
+- slider: no key, moves to the next slider
+- clickable: no key, moves to the next clickable element
+- article: no key, moves to the next article
+- grouping: no key, moves to the next grouping
+- tab: no key, moves to the next tab
+- figure: no key, moves to the next figure
+- menuItem: no key, moves to the next menu item
+- toggleButton: no key, moves to the next toggle button
+- progressBar: no key, moves to the next progress bar
+- math: no key, moves to the next math formula
+- textParagraph: P, moves to the next text paragraph
+- verticalParagraph: no key, moves to the next vertically aligned paragraph
+- sameStyle: no key, moves to the next same style text
+- differentStyle: no key, moves to the next different style text
+- reference: no key, moves to the next reference
+
+### Browse mode and focus mode
+
+- Activates the current object in the document: enter, numpadEnter, space
+- Disable pass through: escape
+- Lists various types of elements in this document: NVDA+f7
+- Moves past the end of the container element, such as a list or table: ,
+- Moves to the start of the container element, such as a list or table: Shift+,
+- Selects the next element type for browse mode touch navigation: touch in browse mode: flickDown
+- Moves to the next element of the selected type in browse mode touch navigation: touch in browse mode: flickRight
+- Pass through: Control+enter, Control+numpadEnter, Shift+enter, Shift+numpadEnter, Control+Shift+enter, Control+Shift+numpadEnter, Alt+enter, Alt+numpadEnter, applications, Shift+applications, Shift+f10
+- Selects the previous element type for browse mode touch navigation: touch in browse mode: flickUp
+- Moves to the previous element of the selected type in browse mode touch navigation: touch in browse mode: flickLeft
+- Shift tab: Shift+tab
+- Tab: tab
+- Toggles native selection mode on and off: NVDA+Shift+f10
+- Toggles on and off if the screen layout is preserved while rendering the document content: NVDA+V
+- Toggles single letter navigation on and off. When on, single letter keys in browse mode jump to various kinds of elements on the page. When off, these keys are passed to the application: NVDA+Shift+space
+
+### Reading a document with the arrow keys
+
+- Bottom of document: Control+end
+- Copy to clipboard: Control+C
+- End of line: end
+- find a text string from the current cursor position: NVDA+Control+F
+- find the next occurrence of the previously entered text string from the current cursor's position: NVDA+f3
+- find the previous occurrence of the previously entered text string from the current cursor's position: NVDA+Shift+f3
+- Move by character, back: leftArrow
+- Move by character, forward: rightArrow
+- Move by line, back: upArrow
+- Move by line, forward: downArrow
+- Move by page, back: pageUp
+- Move by page, forward: pageDown
+- Move by paragraph, back: Control+upArrow
+- Move by paragraph, forward: Control+downArrow
+- Move by sentence, back: Alt+upArrow
+- Move by sentence, forward: Alt+downArrow
+- Move by word, back: Control+leftArrow
+- Move by word, forward: Control+rightArrow
+- Select all: Control+A
+- Select character, back: Shift+leftArrow
+- Select character, forward: Shift+rightArrow
+- Select line, back: Shift+upArrow
+- Select line, forward: Shift+downArrow
+- Select page, back: Shift+pageUp
+- Select page, forward: Shift+pageDown
+- Select paragraph, back: Shift+Control+upArrow
+- Select paragraph, forward: Shift+Control+downArrow
+- Select to beginning of line: Shift+home
+- Select to bottom of document: Shift+Control+end
+- Select to end of line: Shift+end
+- Select to top of document: Shift+Control+home
+- Select word, back: Shift+Control+leftArrow
+- Select word, forward: Shift+Control+rightArrow
+- Start of line: home
+- Top of document: Control+home
+
+### Tables in documents
+
+- moves to the first table column: Control+Alt+home
+- moves to the first table row: Control+Alt+pageUp
+- moves to the last table column: Control+Alt+end
+- moves to the last table row: Control+Alt+pageDown
+- moves to the next table column: Control+Alt+rightArrow
+- moves to the next table row: Control+Alt+downArrow
+- moves to the previous table column: Control+Alt+leftArrow
+- moves to the previous table row: Control+Alt+upArrow
+- Reads the column vertically from the current cell downwards to the last cell in the column.: NVDA+Control+Alt+downArrow
+- Reads the row horizontally from the current cell rightwards to the last cell in the row.: NVDA+Control+Alt+rightArrow
+- Reads the current column vertically from top to bottom without moving the system caret.: NVDA+Control+Alt+upArrow
+- Reads the current row horizontally from left to right without moving the system caret.: NVDA+Control+Alt+leftArrow
+
+### Edit fields and documents with a caret
+
+- Caret, backspace character: backspace, Shift+backspace
+- Caret, backspace word: Control+backspace
+- Caret, delete character: delete, Shift+delete, numpadDelete, Shift+numpadDelete
+- Caret, delete word: Control+delete, Control+numpadDelete
+- Caret, move by character: leftArrow, rightArrow, home, end
+- Caret, move by line: upArrow, downArrow, pageUp, pageDown, Control+home, Control+end
+- Caret, move by word: Control+leftArrow, Control+rightArrow
+- Caret, next paragraph: Control+downArrow
+- Caret, next sentence: Alt+downArrow
+- Caret, previous paragraph: Control+upArrow
+- Caret, previous sentence: Alt+upArrow
+
+### Moving that belongs to Windows and the program
+
+Tab and Shift+Tab move the focus to the next and the one before; Control+Tab and Control+Shift+Tab move between tabs of a window; Alt+Tab between windows; the arrow keys inside lists, trees, menus and grids. NVDA does not handle these keys: the program moves the focus and NVDA reports the object that gets it, so for NVDA they are all focus moves. In browse mode NVDA handles the arrow keys itself, and Tab moves the focus inside the page.
+
+## Browse mode documents: 23 classes
+
+Browse mode reads a page or document from NVDA's own copy of it (a virtual buffer), or straight from UI Automation. VisionClaw gives names to NVDA's copy of a page, so they are read without leaving browse mode.
+
+- virtualBuffers.VBufStorage_findMatch_word (str)
+- virtualBuffers.VirtualBuffer (browseMode.BrowseModeDocumentTreeInterceptor)
+- virtualBuffers.VirtualBufferQuickNavItem (browseMode.TextInfoQuickNavItem)
+- virtualBuffers.VirtualBufferTextInfo (browseMode.BrowseModeDocumentTextInfo, textInfos.offsets.OffsetsTextInfo)
+- virtualBuffers.MSHTML.MSHTML (VirtualBuffer)
+- virtualBuffers.MSHTML.MSHTMLTextInfo (VirtualBufferTextInfo)
+- virtualBuffers.adobeAcrobat.AdobeAcrobat (VirtualBuffer)
+- virtualBuffers.adobeAcrobat.AdobeAcrobat_TextInfo (VirtualBufferTextInfo)
+- virtualBuffers.adobeAcrobat.ElementsListDialog (browseMode.ElementsListDialog)
+- virtualBuffers.gecko_ia2.Gecko_ia2 (VirtualBuffer)
+- virtualBuffers.gecko_ia2.Gecko_ia2_TextInfo (VirtualBufferTextInfo)
+- virtualBuffers.gecko_ia2._Ia2Selection
+- virtualBuffers.lotusNotes.LotusNotesRichText (VirtualBuffer)
+- virtualBuffers.lotusNotes.LotusNotesRichText_TextInfo (VirtualBufferTextInfo)
+- virtualBuffers.webKit.WebKit (VirtualBuffer)
+- virtualBuffers.webKit.WebKit_TextInfo (VirtualBufferTextInfo)
+- UIAHandler.browseMode.ErrorUIATextInfoQuickNavItem (TextAttribUIATextInfoQuickNavItem)
+- UIAHandler.browseMode.HeadingUIATextInfoQuickNavItem (browseMode.TextInfoQuickNavItem)
+- UIAHandler.browseMode.TextAttribUIATextInfoQuickNavItem (browseMode.TextInfoQuickNavItem)
+- UIAHandler.browseMode.UIABrowseModeDocument (UIADocumentWithTableNavigation, browseMode.BrowseModeDocumentTreeInterceptor)
+- UIAHandler.browseMode.UIABrowseModeDocumentTextInfo (browseMode.BrowseModeDocumentTextInfo, treeInterceptorHandler.RootProxyTextInfo)
+- UIAHandler.browseMode.UIADocumentWithTableNavigation (documentBase.DocumentWithTableNavigation)
+- UIAHandler.browseMode.UIATextRangeQuickNavItem (browseMode.TextInfoQuickNavItem)
+
+## Classes of objects: 357
+
+Every class in NVDA's `NVDAObjects` package, with the classes it is built on. NVDA chooses several of them for one object, and add-ons, VisionClaw among them, can add their own (an overlay class).
+
+- NVDAObjects.DynamicNVDAObjectType (baseObject.ScriptableObject.__class__)
+- NVDAObjects.InvalidNVDAObject (RuntimeError): Raised by NVDAObjects during construction to inform that this object is invalid.
+- NVDAObjects.NVDAObject (documentBase.TextContainerObject, baseObject.ScriptableObject): NVDA's representation of a single control/widget.
+- NVDAObjects.NVDAObjectTextInfo (textInfos.offsets.OffsetsTextInfo): A default TextInfo which is used to enable text review of information about widgets that don't support text content.
+- NVDAObjects.IAccessible.Button (IAccessible)
+- NVDAObjects.IAccessible.ContentGenericClient (IAccessible)
+- NVDAObjects.IAccessible.GenericWindow (IAccessible)
+- NVDAObjects.IAccessible.Groupbox (IAccessible)
+- NVDAObjects.IAccessible.IA2TextTextInfo (textInfos.offsets.OffsetsTextInfo)
+- NVDAObjects.IAccessible.IAccessible (Window): the NVDAObject for IAccessible
+- NVDAObjects.IAccessible.IEFrameNotificationBar (IAccessible)
+- NVDAObjects.IAccessible.IENotificationBar (Dialog, IAccessible)
+- NVDAObjects.IAccessible.InaccessibleComboBox (IAccessible): Used for inaccessible owner drawn ComboBox controls.
+- NVDAObjects.IAccessible.InaccessibleListBoxItem (IAccessible): Used for list item IAccessibles in inaccessible owner drawn ListBox controls.
+- NVDAObjects.IAccessible.JavaVMRoot (IAccessible)
+- NVDAObjects.IAccessible.List (IAccessible)
+- NVDAObjects.IAccessible.ListviewPane (IAccessible)
+- NVDAObjects.IAccessible.MenuItem (IAccessible)
+- NVDAObjects.IAccessible.NUIDialogClient (Dialog)
+- NVDAObjects.IAccessible.OutlineItem (IAccessible)
+- NVDAObjects.IAccessible.ReBarWindow32Client (IAccessible): The client IAccessible for a ReBarWindow32 window.
+- NVDAObjects.IAccessible.ShellDocObjectView (IAccessible)
+- NVDAObjects.IAccessible.StaticText (IAccessible): Support for owner-drawn staticText controls where accName is empty.
+- NVDAObjects.IAccessible.SysLink (IAccessible)
+- NVDAObjects.IAccessible.SysLinkClient (IAccessible)
+- NVDAObjects.IAccessible.TaskList (IAccessible)
+- NVDAObjects.IAccessible.TaskListIcon (IAccessible)
+- NVDAObjects.IAccessible.Taskbar (IAccessible)
+- NVDAObjects.IAccessible.Titlebar (IAccessible): A class for the standard MSAA titlebar, which shortcuts presentationType to be layout (for performance) and  makes the description property empty, as the standard accDescription is rather annoying.
+- NVDAObjects.IAccessible.TrayClockWClass (IAccessible): Based on NVDAObject but the role is changed to clock.
+- NVDAObjects.IAccessible.UIItem (IAccessible): List items in Windows Explorer repeat the name as the value
+- NVDAObjects.IAccessible.WindowRoot (GenericWindow)
+- NVDAObjects.IAccessible.MSHTML.Body (MSHTML)
+- NVDAObjects.IAccessible.MSHTML.Fieldset (MSHTML)
+- NVDAObjects.IAccessible.MSHTML.HTMLAttribCache
+- NVDAObjects.IAccessible.MSHTML.MSAATextLeaf (IAccessible)
+- NVDAObjects.IAccessible.MSHTML.MSHTML (IAccessible)
+- NVDAObjects.IAccessible.MSHTML.MSHTMLTextInfo (textInfos.TextInfo)
+- NVDAObjects.IAccessible.MSHTML.Math (MSHTML)
+- NVDAObjects.IAccessible.MSHTML.Object (MSHTML)
+- NVDAObjects.IAccessible.MSHTML.PluginWindow (IAccessible): A window for a plugin.
+- NVDAObjects.IAccessible.MSHTML.PopupList (MSHTML): Temporary popup lists created when expanding a combo box have a correct accParent which points back to the combobox, so use that. The parentElement  points to a temporary document fragment which is not useful.
+- NVDAObjects.IAccessible.MSHTML.RootClient (IAccessible): The top level client of an MSHTML control.
+- NVDAObjects.IAccessible.MSHTML.UIAMSHTMLTextInfo (UIATextInfo)
+- NVDAObjects.IAccessible.MSHTML.V6ComboBox (IAccessible): The object which receives value change events for combo boxes in MSHTML/IE 6.
+- NVDAObjects.IAccessible.SysMonthCal32.SysMonthCal32 (IAccessible)
+- NVDAObjects.IAccessible.adobeAcrobat.AcrobatNode (IAccessible)
+- NVDAObjects.IAccessible.adobeAcrobat.AcrobatSDIWindowClient (IAccessible)
+- NVDAObjects.IAccessible.adobeAcrobat.AcrobatTextInfo (NVDAObjectTextInfo)
+- NVDAObjects.IAccessible.adobeAcrobat.BadFocusStates (AcrobatNode): An object which reports focus states when it shouldn't.
+- NVDAObjects.IAccessible.adobeAcrobat.Document (RootNode)
+- NVDAObjects.IAccessible.adobeAcrobat.EditableTextNode (EditableText, AcrobatNode)
+- NVDAObjects.IAccessible.adobeAcrobat.RootNode (AcrobatNode)
+- NVDAObjects.IAccessible.adobeAcrobat.RootTextNode (RootNode): The message text node that appears instead of the document when the document is not available.
+- NVDAObjects.IAccessible.akelEdit.AkelEdit (IAccessible)
+- NVDAObjects.IAccessible.chromium.ChromeVBuf (GeckoVBuf)
+- NVDAObjects.IAccessible.chromium.ChromeVBufTextInfo (GeckoVBufTextInfo)
+- NVDAObjects.IAccessible.chromium.ComboboxListItem (IAccessible): Represents a list item inside a combo box.
+- NVDAObjects.IAccessible.chromium.Document (ia2Web.Document)
+- NVDAObjects.IAccessible.chromium.Editor (ia2Web.Editor): The NVDAObject for edit areas such as edit fields and documents in Chromium.
+- NVDAObjects.IAccessible.chromium.EditorTextInfo (ia2Web.MozillaCompoundTextInfo): The TextInfo for edit areas such as edit fields and documents in Chromium.
+- NVDAObjects.IAccessible.chromium.Figure (ia2Web.Ia2Web)
+- NVDAObjects.IAccessible.chromium.PresentationalList (ia2Web.Ia2Web): Ensures that lists like UL, DL and OL always have the readonly state.
+- NVDAObjects.IAccessible.chromium.ToggleButton (ia2Web.Ia2Web)
+- NVDAObjects.IAccessible.delphi.Form (behaviors.Dialog)
+- NVDAObjects.IAccessible.delphi.TGroupBox (IAccessible)
+- NVDAObjects.IAccessible.delphi.TRichView (IAccessible)
+- NVDAObjects.IAccessible.delphi.TRichViewEdit (IAccessible)
+- NVDAObjects.IAccessible.delphi.TRxRichEdit (IAccessible)
+- NVDAObjects.IAccessible.delphi.TabSheet (behaviors.Dialog)
+- NVDAObjects.IAccessible.hh.KeywordList (IAccessible)
+- NVDAObjects.IAccessible.ia2TextMozilla.MozillaCompoundTextInfo (CompoundTextInfo)
+- NVDAObjects.IAccessible.ia2Web.Application (Document)
+- NVDAObjects.IAccessible.ia2Web.Article (Ia2Web)
+- NVDAObjects.IAccessible.ia2Web.BlockQuote (Ia2Web)
+- NVDAObjects.IAccessible.ia2Web.Document (Ia2Web)
+- NVDAObjects.IAccessible.ia2Web.Editor (Ia2Web, DocumentWithTableNavigation)
+- NVDAObjects.IAccessible.ia2Web.EditorChunk (Ia2Web)
+- NVDAObjects.IAccessible.ia2Web.Figure (Ia2Web)
+- NVDAObjects.IAccessible.ia2Web.IA2WebAnnotation (AnnotationOrigin)
+- NVDAObjects.IAccessible.ia2Web.IA2WebAnnotationTarget (AnnotationTarget)
+- NVDAObjects.IAccessible.ia2Web.Ia2Web (IAccessible)
+- NVDAObjects.IAccessible.ia2Web.Math (Ia2Web)
+- NVDAObjects.IAccessible.ia2Web.Region (Ia2Web)
+- NVDAObjects.IAccessible.ia2Web.Switch (Ia2Web)
+- NVDAObjects.IAccessible.ia2Web.Treegrid (Ia2Web)
+- NVDAObjects.IAccessible.mozilla.Document (ia2Web.Document)
+- NVDAObjects.IAccessible.mozilla.EmbeddedObject (Mozilla)
+- NVDAObjects.IAccessible.mozilla.GeckoPluginWindowRoot (WindowRoot)
+- NVDAObjects.IAccessible.mozilla.MozAnnotation (AnnotationOrigin): Unlike base Ia2Web implementation, the details-roles IA2 attribute is not exposed in Firefox.
+- NVDAObjects.IAccessible.mozilla.MozAnnotationTarget (AnnotationTarget)
+- NVDAObjects.IAccessible.mozilla.Mozilla (ia2Web.Ia2Web)
+- NVDAObjects.IAccessible.mozilla.TextLeaf (Mozilla)
+- NVDAObjects.IAccessible.msOffice.BrokenMsoCommandBar (IAccessible): Work around broken IAccessible implementation for Microsoft Office XP-2003 toolbars.
+- NVDAObjects.IAccessible.msOffice.CommandBarListItem (IAccessible): A list item in an MSO commandbar, that may be part of a color palet.
+- NVDAObjects.IAccessible.msOffice.MSOUNISTAT (IAccessible)
+- NVDAObjects.IAccessible.msOffice.MsoCommandBarToolBar (IAccessible)
+- NVDAObjects.IAccessible.msOffice.RibbonSection (IAccessible)
+- NVDAObjects.IAccessible.msOffice.SDM (IAccessible)
+- NVDAObjects.IAccessible.msOffice.SDMSymbols (SDM)
+- NVDAObjects.IAccessible.msOffice.StatusBar (IAccessible)
+- NVDAObjects.IAccessible.mscandui.BaseCandidateItem (CandidateItemBehavior, IAccessible)
+- NVDAObjects.IAccessible.mscandui.MSCandUI21 (IAccessible)
+- NVDAObjects.IAccessible.mscandui.MSCandUI21_candidateMenuItem (BaseCandidateItem)
+- NVDAObjects.IAccessible.mscandui.MSCandUIWindow (IAccessible)
+- NVDAObjects.IAccessible.mscandui.MSCandUIWindow_candidateListItem (MSCandUI_candidateListItem)
+- NVDAObjects.IAccessible.mscandui.MSCandUI_candidateListItem (BaseCandidateItem)
+- NVDAObjects.IAccessible.mscandui.ModernCandidateUICandidateItem (BaseCandidateItem)
+- NVDAObjects.IAccessible.qt.Application (IAccessible)
+- NVDAObjects.IAccessible.qt.Client (IAccessible)
+- NVDAObjects.IAccessible.qt.Container (IAccessible)
+- NVDAObjects.IAccessible.qt.LayeredPane (IAccessible)
+- NVDAObjects.IAccessible.qt.Menu (IAccessible)
+- NVDAObjects.IAccessible.qt.TableCell (IAccessible)
+- NVDAObjects.IAccessible.qt.TableRow (Container)
+- NVDAObjects.IAccessible.qt.TreeViewItem (IAccessible)
+- NVDAObjects.IAccessible.scintilla.Scintilla (IAccessible)
+- NVDAObjects.IAccessible.sysListView32.AutoFreeBSTR (BSTR): A BSTR that *always* frees itself on deletion.
+- NVDAObjects.IAccessible.sysListView32.GroupingItem (Window)
+- NVDAObjects.IAccessible.sysListView32.LVCOLUMN (Structure)
+- NVDAObjects.IAccessible.sysListView32.LVCOLUMN64 (Structure)
+- NVDAObjects.IAccessible.sysListView32.LVITEM (Structure)
+- NVDAObjects.IAccessible.sysListView32.LVITEM64 (Structure)
+- NVDAObjects.IAccessible.sysListView32.List (List)
+- NVDAObjects.IAccessible.sysListView32.ListItem (RowWithFakeNavigation, RowWithoutCellObjects, ListItemWithoutColumnSupport)
+- NVDAObjects.IAccessible.sysListView32.ListItemWithoutColumnSupport (IAccessible)
+- NVDAObjects.IAccessible.sysListView32.ListViewWindowStyle (IntFlag): Window styles  specific to list-view controls.
+- NVDAObjects.IAccessible.sysTreeView32.BrokenCommctrl5Item (IAccessible): Handle broken CommCtrl v5 SysTreeView32 items in 64 bit applications.
+- NVDAObjects.IAccessible.sysTreeView32.TreeView (IAccessible)
+- NVDAObjects.IAccessible.sysTreeView32.TreeViewItem (IAccessible)
+- NVDAObjects.IAccessible.webKit.Document (IAccessible)
+- NVDAObjects.IAccessible.webKit.EditableText (Node)
+- NVDAObjects.IAccessible.webKit.Node (IAccessible)
+- NVDAObjects.IAccessible.winConsole.EnhancedLegacyWinConsole (KeyboardHandlerBasedTypedCharSupport, winConsole.WinConsole, IAccessible): A hybrid approach to console access, using legacy APIs to read output
+- NVDAObjects.IAccessible.winConsole.LegacyWinConsole (winConsole.WinConsole, IAccessible): NVDA's original console support, used by default on Windows versions
+- NVDAObjects.IAccessible.winword.ProtectedDocumentPane (IAccessible): The pane that directly contains a Word document control.
+- NVDAObjects.IAccessible.winword.SpellCheckErrorField (IAccessible, winWordWindowModule.WordDocument_WwN)
+- NVDAObjects.IAccessible.winword.WordDocument (IAccessible, EditableTextWithoutAutoSelectDetection, winWordWindowModule.WordDocument)
+- NVDAObjects.IAccessible.wx.WxWebView (IAccessible)
+- NVDAObjects.JAB.ComboBox (JAB)
+- NVDAObjects.JAB.JAB (Window)
+- NVDAObjects.JAB.JABTextInfo (textInfos.offsets.OffsetsTextInfo)
+- NVDAObjects.JAB.Table (JAB)
+- NVDAObjects.JAB.TableCell (JAB)
+- NVDAObjects.UIA.ComboBoxWithoutValuePattern (UIA): A combo box without the Value pattern.
+- NVDAObjects.UIA.ControlPanelLink (UIA)
+- NVDAObjects.UIA.DevExpressXtraRichEdit (UIA): "At least some versions of the DevExpress Xtra Rich Edit control
+- NVDAObjects.UIA.Dialog (Dialog)
+- NVDAObjects.UIA.ListItem (UIA)
+- NVDAObjects.UIA.MenuItem (UIA)
+- NVDAObjects.UIA.NetUIDropdownAnchor (UIA)
+- NVDAObjects.UIA.PlaceholderNetUITWMenuItem (UIA): Bounces focus from a netUI dead placeholder menu item when no item is selected up to the menu itself.
+- NVDAObjects.UIA.ProgressBar (UIA, ProgressBar): #12727: In the past, UIA progress bars could have a different range than what could be expected
+- NVDAObjects.UIA.SearchField (EditableTextWithSuggestions, UIA): An edit field that presents suggestions based on a search term.
+- NVDAObjects.UIA.SensitiveSlider (UIA): A slider that tends to give focus to its thumb control
+- NVDAObjects.UIA.SuggestionListItem (UIA): Recent Windows releases use suggestions lists for various things, including Start menu suggestions, Store, Settings app and so on.
+- NVDAObjects.UIA.SuggestionsList (UIA): A list of suggestions in response to search terms being entered.
+- NVDAObjects.UIA.Toast_win10 (Notification, UIA)
+- NVDAObjects.UIA.Toast_win8 (Notification, UIA)
+- NVDAObjects.UIA.ToolTip (ToolTip, UIA)
+- NVDAObjects.UIA.TreeviewItem (UIA)
+- NVDAObjects.UIA.UIA (Window)
+- NVDAObjects.UIA.UIATextInfo (textInfos.TextInfo)
+- NVDAObjects.UIA.UIColumnHeader (UIA)
+- NVDAObjects.UIA.UIItem (UIA): UIA list items in an Items View repeate the name as the value
+- NVDAObjects.UIA.WpfTextView (EditableTextBase, UIA): WpfTextView fires name state changes once a second,
+- NVDAObjects.UIA.XamlEditableText (EditableTextBase, UIA): An UIA element with editable text exposed by the XAML framework.
+- NVDAObjects.UIA._NetFrameworkWinFormsComboBox (UIA): A classic .NET Framework WinForms combo box that does not fire UIA value change events.
+- NVDAObjects.UIA.VisualStudio.CompletionToolTip (ToolTip): A tool tip for which duplicate open events can be fired.
+- NVDAObjects.UIA.VisualStudio.IntelliSenseItem (UIA)
+- NVDAObjects.UIA.VisualStudio.IntelliSenseList (UIA)
+- NVDAObjects.UIA.VisualStudio.IntelliSenseLiveRegion (UIA): Visual Studio uses both Intellisense menu item objects and a live region
+- NVDAObjects.UIA.chromium.ChromiumUIA (web.UIAWeb)
+- NVDAObjects.UIA.chromium.ChromiumUIADocument (ChromiumUIA)
+- NVDAObjects.UIA.chromium.ChromiumUIATextInfo (web.UIAWebTextInfo)
+- NVDAObjects.UIA.chromium.ChromiumUIATreeInterceptor (web.UIAWebTreeInterceptor)
+- NVDAObjects.UIA.excel.BadExcelFormulaEdit (ExcelObject): Suppresses focus events on the old formula bar, which does not have a usable UIA implementation.
+- NVDAObjects.UIA.excel.CellEdit (ExcelObject)
+- NVDAObjects.UIA.excel.ExcelCell (ExcelObject)
+- NVDAObjects.UIA.excel.ExcelCustomAnnotationTypes: UIA 'custom annotation types' specific to Excel.
+- NVDAObjects.UIA.excel.ExcelCustomProperties: UIA 'custom properties' specific to Excel.
+- NVDAObjects.UIA.excel.ExcelObject (UIA): Common base class for all Excel UIA objects
+- NVDAObjects.UIA.excel.ExcelTable (UIA): Represents a table within an Excel spreadsheet.
+- NVDAObjects.UIA.excel.ExcelWorksheet (ExcelObject)
+- NVDAObjects.UIA.spartanEdge.EdgeHTMLRoot (EdgeNode)
+- NVDAObjects.UIA.spartanEdge.EdgeHTMLRootContainer (EdgeNode)
+- NVDAObjects.UIA.spartanEdge.EdgeHTMLTreeInterceptor (web.UIAWebTreeInterceptor)
+- NVDAObjects.UIA.spartanEdge.EdgeList (web.List)
+- NVDAObjects.UIA.spartanEdge.EdgeNode (web.UIAWeb)
+- NVDAObjects.UIA.spartanEdge.EdgeTextInfo (web.UIAWebTextInfo)
+- NVDAObjects.UIA.spartanEdge.EdgeTextInfo_preGapRemoval (EdgeTextInfo)
+- NVDAObjects.UIA.sysListView32.SysListViewItem (ListItem)
+- NVDAObjects.UIA.sysListView32.SysListViewList (UIA)
+- NVDAObjects.UIA.web.HeadingControlQuickNavItem (UIATextRangeQuickNavItem)
+- NVDAObjects.UIA.web.List (UIAWeb)
+- NVDAObjects.UIA.web.UIAWeb (UIA)
+- NVDAObjects.UIA.web.UIAWebTextInfo (UIATextInfo)
+- NVDAObjects.UIA.web.UIAWebTreeInterceptor (cursorManager.ReviewCursorManager, UIABrowseModeDocument)
+- NVDAObjects.UIA.winConsoleUIA.ConsoleUIATextInfo (UIATextInfo): A TextInfo implementation for consoles with an IMPROVED, but not FORMATTED, API level.
+- NVDAObjects.UIA.winConsoleUIA.ConsoleUIATextInfoWorkaroundEndInclusive (ConsoleUIATextInfo): Implementation of various workarounds for pre-microsoft/terminal#4018
+- NVDAObjects.UIA.winConsoleUIA.WinConsoleUIA (KeyboardHandlerBasedTypedCharSupport)
+- NVDAObjects.UIA.winConsoleUIA._DiffBasedWinTerminalUIA (EnhancedTermTypedCharSupport): An overlay class for Windows Terminal (wt.exe) that uses diffing to speak
+- NVDAObjects.UIA.winConsoleUIA._NotificationsBasedWinTerminalUIA (UIA): An overlay class for Windows Terminal (wt.exe) that uses UIA notification
+- NVDAObjects.UIA.winConsoleUIA._WinTerminalUIATextInfo (UIATextInfo): A TextInfo for Windows Terminal that constrains mouse tracking to a single line.
+- NVDAObjects.UIA.winConsoleUIA.consoleUIAWindow (Window)
+- NVDAObjects.UIA.wordDocument.CommentUIATextInfoQuickNavItem (TextAttribUIATextInfoQuickNavItem)
+- NVDAObjects.UIA.wordDocument.EXPAND_COLLAPSE_STATE (enum.IntEnum)
+- NVDAObjects.UIA.wordDocument.ElementsListDialog (browseMode.ElementsListDialog)
+- NVDAObjects.UIA.wordDocument.ReferenceUIATextInfoQuickNavItem (TextAttribUIATextInfoQuickNavItem)
+- NVDAObjects.UIA.wordDocument.RevisionUIATextInfoQuickNavItem (TextAttribUIATextInfoQuickNavItem)
+- NVDAObjects.UIA.wordDocument.UIACustomAttributeID (enum.IntEnum)
+- NVDAObjects.UIA.wordDocument.WordBrowseModeDocument (UIABrowseModeDocument)
+- NVDAObjects.UIA.wordDocument.WordDocument (UIADocumentWithTableNavigation, WordDocumentNode, WordDocumentBase)
+- NVDAObjects.UIA.wordDocument.WordDocumentNode (UIA)
+- NVDAObjects.UIA.wordDocument.WordDocumentTextInfo (UIATextInfo)
+- NVDAObjects.behaviors.CandidateItem (NVDAObject)
+- NVDAObjects.behaviors.Dialog (NVDAObject): Overrides the description property to obtain dialog text.
+- NVDAObjects.behaviors.EditableText (EditableTextWithSuggestions, EditableTextBase): Represents an editable text field.
+- NVDAObjects.behaviors.EditableTextBase (editableText.EditableText, NVDAObject): Provides scripts to report appropriately when moving the caret in editable text fields.
+- NVDAObjects.behaviors.EditableTextWithAutoSelectDetection (EditableText): In addition to L{EditableText}, handles reporting of selection changes for objects which notify of them.
+- NVDAObjects.behaviors.EditableTextWithSuggestions (InputFieldWithSuggestions, EditableTextBase): Represents an editable text field that shows suggestions as you type.
+- NVDAObjects.behaviors.EditableTextWithoutAutoSelectDetection (editableText.EditableTextWithoutAutoSelectDetection, EditableText): In addition to L{EditableText}, provides scripts to report appropriately when the selection changes.
+- NVDAObjects.behaviors.EnhancedTermTypedCharSupport (Terminal): A Terminal object with keyboard support enhancements for console applications.
+- NVDAObjects.behaviors.FocusableUnfocusableContainer (NVDAObject): Makes an unfocusable container focusable using its first focusable descendant.
+- NVDAObjects.behaviors.InputFieldWithSuggestions (NVDAObject): Allows NVDA to announce appearance/disappearance of suggestions as content is entered.
+- NVDAObjects.behaviors.KeyboardHandlerBasedTypedCharSupport (EnhancedTermTypedCharSupport): An EnhancedTermTypedCharSupport object that provides typed character support for
+- NVDAObjects.behaviors.LiveText (NVDAObject): An object for which new text should be reported automatically.
+- NVDAObjects.behaviors.Notification (NVDAObject): Informs the user of non-critical information that does not require immediate action.
+- NVDAObjects.behaviors.ProgressBar (NVDAObject)
+- NVDAObjects.behaviors.RowWithFakeNavigation (NVDAObject): Provides table navigation commands for a row which doesn't support them natively.
+- NVDAObjects.behaviors.RowWithoutCellObjects (NVDAObject): An abstract class which creates cell objects for table rows which don't natively expose them.
+- NVDAObjects.behaviors.Terminal (LiveText, EditableText): An object which both accepts text input and outputs text which should be reported automatically.
+- NVDAObjects.behaviors.ToolTip (NVDAObject): Provides information about an item over which the user is hovering a cursor.
+- NVDAObjects.behaviors.WebDialog (NVDAObject): A dialog that will use a treeInterceptor if its parent currently does.
+- NVDAObjects.behaviors._FakeTableCell (NVDAObject)
+- NVDAObjects.inputComposition.CandidateItem (CandidateItemBehavior, Window)
+- NVDAObjects.inputComposition.CandidateList (Window)
+- NVDAObjects.inputComposition.InputComposition (EditableTextWithAutoSelectDetection, Window)
+- NVDAObjects.inputComposition.InputCompositionTextInfo (OffsetsTextInfo)
+- NVDAObjects.lockscreen.LockScreenObject (NVDAObject): Prevent users from object navigating outside of the lock screen.
+- NVDAObjects.window.Desktop (Window)
+- NVDAObjects.window.DisplayModelEditableText (EditableTextWithoutAutoSelectDetection, Window)
+- NVDAObjects.window.DisplayModelLiveText (LiveText, Window)
+- NVDAObjects.window.Window (NVDAObject): An NVDAObject for a window
+- NVDAObjects.window.WindowProcessHandleContainer: Manages a Windows process handle. On instanciation it retreaves an open process handle from the process of the provided window, and closes the handle on deletion.
+- NVDAObjects.window._msOffice.MsoHyperlink (IntEnum): Enumeration of hyperlink types in the Microsoft Office object model.
+- NVDAObjects.window._msOfficeChart.OfficeChart (OfficeChartElementList)
+- NVDAObjects.window._msOfficeChart.OfficeChartElementAxis (OfficeChartElementBase)
+- NVDAObjects.window._msOfficeChart.OfficeChartElementAxisTitle (OfficeChartElementAxis)
+- NVDAObjects.window._msOfficeChart.OfficeChartElementBase (Window)
+- NVDAObjects.window._msOfficeChart.OfficeChartElementChartArea (OfficeChartElementBase)
+- NVDAObjects.window._msOfficeChart.OfficeChartElementChartTitle (OfficeChartElementBase)
+- NVDAObjects.window._msOfficeChart.OfficeChartElementCollection (OfficeChartElementList)
+- NVDAObjects.window._msOfficeChart.OfficeChartElementDataTable (OfficeChartElementBase)
+- NVDAObjects.window._msOfficeChart.OfficeChartElementLegend (OfficeChartElementBase)
+- NVDAObjects.window._msOfficeChart.OfficeChartElementLegendEntry (OfficeChartElementBase)
+- NVDAObjects.window._msOfficeChart.OfficeChartElementLegendKey (OfficeChartElementBase)
+- NVDAObjects.window._msOfficeChart.OfficeChartElementList (Window)
+- NVDAObjects.window._msOfficeChart.OfficeChartElementPlotArea (OfficeChartElementBase)
+- NVDAObjects.window._msOfficeChart.OfficeChartElementPoint (OfficeChartElementBase)
+- NVDAObjects.window._msOfficeChart.OfficeChartElementSeries (OfficeChartElementList)
+- NVDAObjects.window._msOfficeChart.OfficeChartElementTrendline (OfficeChartElementBase)
+- NVDAObjects.window.akelEdit.AECHARINDEX (ctypes.Structure)
+- NVDAObjects.window.akelEdit.AELINEDATA (ctypes.Structure)
+- NVDAObjects.window.akelEdit.AkelEdit (edit.RichEdit20)
+- NVDAObjects.window.akelEdit.AkelEditTextInfo (edit.EditTextInfo)
+- NVDAObjects.window.edit.CharFormat2AStruct (ctypes.Structure)
+- NVDAObjects.window.edit.CharFormat2WStruct (ctypes.Structure)
+- NVDAObjects.window.edit.CharRangeStruct (ctypes.Structure)
+- NVDAObjects.window.edit.Edit (EditableTextWithAutoSelectDetection, EditBase)
+- NVDAObjects.window.edit.EditBase (Window): "Base class for Edit and Rich Edit controls, shared by legacy and UIA implementations.
+- NVDAObjects.window.edit.EditTextInfo (textInfos.offsets.OffsetsTextInfo)
+- NVDAObjects.window.edit.ITextDocumentTextInfo (textInfos.TextInfo)
+- NVDAObjects.window.edit.PointLStruct (ctypes.Structure)
+- NVDAObjects.window.edit.RichEdit (Edit)
+- NVDAObjects.window.edit.RichEdit20 (RichEdit)
+- NVDAObjects.window.edit.RichEdit30 (RichEdit)
+- NVDAObjects.window.edit.RichEdit50 (RichEdit)
+- NVDAObjects.window.edit.TextRangeStruct (ctypes.Structure)
+- NVDAObjects.window.edit.UnidentifiedEdit (RichEdit): An edit control for which the edit API version is unknown.
+- NVDAObjects.window.edit.getTextExStruct (ctypes.Structure)
+- NVDAObjects.window.edit.getTextLengthExStruct (ctypes.Structure): For documentation, see:
+- NVDAObjects.window.excel.ChartExcelCollectionQuicknavIterator (ExcelQuicknavIterator)
+- NVDAObjects.window.excel.CommentExcelCellInfoQuickNavItem (ExcelCellInfoQuickNavItem)
+- NVDAObjects.window.excel.CommentExcelCellInfoQuicknavIterator (ExcelCellInfoQuicknavIterator)
+- NVDAObjects.window.excel.CommentExcelCollectionQuicknavIterator (ExcelQuicknavIterator)
+- NVDAObjects.window.excel.EditCommentDialog (gui.contextHelp.ContextHelpMixin, wx.TextEntryDialog)
+- NVDAObjects.window.excel.ElementsListDialog (browseMode.ElementsListDialog)
+- NVDAObjects.window.excel.Excel7Window (ExcelBase): An overlay class for Window for the EXCEL7 window class, which simply bounces focus to the active excel cell.
+- NVDAObjects.window.excel.ExcelBase (Window): A base that all Excel NVDAObjects inherit from, which contains some useful methods.
+- NVDAObjects.window.excel.ExcelBrowseModeTreeInterceptor (browseMode.BrowseModeTreeInterceptor)
+- NVDAObjects.window.excel.ExcelCell (ExcelBase)
+- NVDAObjects.window.excel.ExcelCellInfoQuickNavItem (browseMode.QuickNavItem)
+- NVDAObjects.window.excel.ExcelCellInfoQuicknavIterator
+- NVDAObjects.window.excel.ExcelCellTextInfo (NVDAObjectTextInfo)
+- NVDAObjects.window.excel.ExcelChartQuickNavItem (ExcelQuickNavItem)
+- NVDAObjects.window.excel.ExcelCommentQuickNavItem (ExcelRangeBasedQuickNavItem)
+- NVDAObjects.window.excel.ExcelDropdown (Window)
+- NVDAObjects.window.excel.ExcelDropdownItem (Window)
+- NVDAObjects.window.excel.ExcelFormControl (ExcelBase)
+- NVDAObjects.window.excel.ExcelFormControlDropDown (ExcelFormControl)
+- NVDAObjects.window.excel.ExcelFormControlListBox (ExcelFormControl)
+- NVDAObjects.window.excel.ExcelFormControlQuickNavItem (ExcelQuickNavItem)
+- NVDAObjects.window.excel.ExcelFormControlQuicknavIterator (ExcelQuicknavIterator)
+- NVDAObjects.window.excel.ExcelFormControlScrollBar (ExcelFormControl)
+- NVDAObjects.window.excel.ExcelFormulaQuickNavItem (ExcelRangeBasedQuickNavItem)
+- NVDAObjects.window.excel.ExcelMergedCell (ExcelCell)
+- NVDAObjects.window.excel.ExcelQuickNavItem (browseMode.QuickNavItem)
+- NVDAObjects.window.excel.ExcelQuicknavIterator: Allows iterating over an MS excel collection
+- NVDAObjects.window.excel.ExcelRangeBasedQuickNavItem (ExcelQuickNavItem)
+- NVDAObjects.window.excel.ExcelSelection (ExcelBase)
+- NVDAObjects.window.excel.ExcelSheetQuickNavItem (ExcelQuickNavItem)
+- NVDAObjects.window.excel.ExcelWorksheet (ExcelBase)
+- NVDAObjects.window.excel.FormulaExcelCellInfoQuickNavItem (ExcelCellInfoQuickNavItem)
+- NVDAObjects.window.excel.FormulaExcelCellInfoQuicknavIterator (ExcelCellInfoQuicknavIterator)
+- NVDAObjects.window.excel.FormulaExcelCollectionQuicknavIterator (ExcelQuicknavIterator)
+- NVDAObjects.window.excel.NvCellState (enum.IntEnum)
+- NVDAObjects.window.excel.SheetsExcelCollectionQuicknavIterator (ExcelQuicknavIterator): Allows iterating over an MS excel Sheets collection emitting L{QuickNavItem} object.
+- NVDAObjects.window.excel.XlApplicationInternational (enum.IntEnum): Specifies country/region and international settings.
+- NVDAObjects.window.excel.XlHAlign (DisplayStringIntEnum)
+- NVDAObjects.window.excel.XlVAlign (DisplayStringIntEnum)
+- NVDAObjects.window.scintilla.CharacterRangeStruct (ctypes.Structure)
+- NVDAObjects.window.scintilla.Scintilla (EditableTextWithAutoSelectDetection, Window)
+- NVDAObjects.window.scintilla.ScintillaTextInfo (textInfos.offsets.OffsetsTextInfo)
+- NVDAObjects.window.winConsole.WinConsole (Terminal, EditableTextWithoutAutoSelectDetection, Window): Base class for NVDA's legacy Windows Console support.
+- NVDAObjects.window.winword.BrowseModeWordDocumentTextInfo (browseMode.BrowseModeDocumentTextInfo, treeInterceptorHandler.RootProxyTextInfo)
+- NVDAObjects.window.winword.ChartWinWordCollectionQuicknavIterator (WinWordCollectionQuicknavIterator)
+- NVDAObjects.window.winword.CommentWinWordCollectionQuicknavIterator (WinWordCollectionQuicknavIterator)
+- NVDAObjects.window.winword.ElementsListDialog (browseMode.ElementsListDialog)
+- NVDAObjects.window.winword.EndnoteWinWordCollectionQuicknavIterator (WinWordCollectionQuicknavIterator)
+- NVDAObjects.window.winword.FootnoteWinWordCollectionQuicknavIterator (WinWordCollectionQuicknavIterator)
+- NVDAObjects.window.winword.GraphicWinWordCollectionQuicknavIterator (WinWordCollectionQuicknavIterator)
+- NVDAObjects.window.winword.LazyControlField_RowAndColumnHeaderText (textInfos.ControlField)
+- NVDAObjects.window.winword.LinkWinWordCollectionQuicknavIterator (WinWordCollectionQuicknavIterator)
+- NVDAObjects.window.winword.RevisionWinWordCollectionQuicknavIterator (WinWordCollectionQuicknavIterator)
+- NVDAObjects.window.winword.SpellingErrorWinWordCollectionQuicknavIterator (WinWordCollectionQuicknavIterator)
+- NVDAObjects.window.winword.TableWinWordCollectionQuicknavIterator (WinWordCollectionQuicknavIterator)
+- NVDAObjects.window.winword.WdCharacterCase (DisplayStringIntEnum)
+- NVDAObjects.window.winword.WdOutlineLevel (IntEnum): Outline level of a paragraph.
+- NVDAObjects.window.winword.WdUnderline (DisplayStringIntEnum)
+- NVDAObjects.window.winword.WinWordCollectionQuicknavIterator: Allows iterating over an MS Word collection (e.g. HyperLinks) emitting L{QuickNavItem} objects.
+- NVDAObjects.window.winword.WinWordColor (IntEnum)
+- NVDAObjects.window.winword.WinWordColorIndex (IntEnum)
+- NVDAObjects.window.winword.WordDocument (Window, EditableTextBase)
+- NVDAObjects.window.winword.WordDocumentChartQuickNavItem (WordDocumentCollectionQuickNavItem)
+- NVDAObjects.window.winword.WordDocumentCollectionQuickNavItem (browseMode.TextInfoQuickNavItem): A QuickNavItem representing an item that MS Word stores as a collection (e.g. link, table etc).
+- NVDAObjects.window.winword.WordDocumentCommentQuickNavItem (WordDocumentCollectionQuickNavItem)
+- NVDAObjects.window.winword.WordDocumentEndnoteQuickNavItem (WordDocumentReferenceQuickNavItem)
+- NVDAObjects.window.winword.WordDocumentFieldQuickNavItem (WordDocumentCollectionQuickNavItem)
+- NVDAObjects.window.winword.WordDocumentFootnoteQuickNavItem (WordDocumentReferenceQuickNavItem)
+- NVDAObjects.window.winword.WordDocumentHeadingQuickNavItem (browseMode.TextInfoQuickNavItem)
+- NVDAObjects.window.winword.WordDocumentReferenceQuickNavItem (WordDocumentCollectionQuickNavItem)
+- NVDAObjects.window.winword.WordDocumentRevisionQuickNavItem (WordDocumentCollectionQuickNavItem)
+- NVDAObjects.window.winword.WordDocumentSpellingErrorQuickNavItem (WordDocumentCollectionQuickNavItem)
+- NVDAObjects.window.winword.WordDocumentTextInfo (textInfos.TextInfo)
+- NVDAObjects.window.winword.WordDocumentTreeInterceptor (browseMode.BrowseModeDocumentTreeInterceptor)
+- NVDAObjects.window.winword.WordDocument_WwN (WordDocument)
+
+## Programs NVDA has its own support for: 78
+
+NVDA's app modules (`appModules`), named by the program's file name. Other programs are read with the general support above. VisionClaw's names are kept for each program by this same name.
+
+1password, aim, audacity, azardi20, bookshelf, calc, calculator, cicero, code, csrss, devenv, digitaleditions, dllhost, doctts, dosvox, eclipse, egui, esysuite, excel, explorer, fastlogentry, foobar2000, hxmail, instantbird, itunes, javaw, kindle, lockapp, lockapphost, logonui, loudtalks, lync, microsoftedge, microsoftedgecp, mintty, miranda32, mirc, mmc, mplayerc, msedgewebview2, msimn, msnmsgr, nlnotes, notepad, notepadPlusPlus, nvda, obu, openwith, outlook, poedit, powerpnt, putty, searchui, securecrt, shellexperiencehost, skype, soffice, spotify, symphony, systemsettings, taskmgr, teams, teamtalk4classic, thunderbird, totalcmd, ttermpro, tween, utorrent, vipmud, voiceaccess, webconferenceplugin, whatsapp_root, winamp, windowsinternal_composableshell_experiences_textinput_inputapp, winword, wlmail, wwahost, zoom.

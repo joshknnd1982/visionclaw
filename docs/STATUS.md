@@ -1,6 +1,6 @@
 # VisionClaw status
 
-Updated 2026-11-19, version 1.12.1.
+Updated 2026-11-19, version 1.13.0.
 
 ## What exists
 
@@ -2500,6 +2500,66 @@ stood in (Cancel changes nothing, a checked purpose is suggested for); and no fi
 `checklist.py` names `wx.MultiChoiceDialog`, `wx.CheckListBox` or `CustomCheckListBox`. The skills and memories
 window tests pass. **Not run inside NVDA**: that NVDA says "check box, not checked" and "checked" in this
 window is what NVDA's control does in NVDA's own settings, not something tried here.
+
+## Object names, wherever the user moves (1.13.0, 2026-11-19)
+
+The owner asked on 2026-11-19 to keep NVDA+Alt+B and NVDA+Alt+N and widen them: "any object that has no name, no
+matter how the user is navigating, will be identified and named using AI and that name is saved and can also be
+shared with other visionclaw users. If AI is unsure, it should put the word probably before the name." Then: "this
+should work even if the user is in browse mode"; "when user presses nvda+b ... it should say: object names on, or
+object names off"; "all unknown objects or vague objects must be described on the fly and saved for sharing and
+recall by visionclaw, nvda and the models"; "the first time this is turned on, tell the user that because this is
+on-the-fly accessibility fixes, a small model, 7b or less is best"; and "user should hear a small beep so user knows an
+on-the-fly name is on the way". He also said these are for "on-the-fly dynamic accessibility fixes that are simple".
+
+What was there before: NVDA+Alt+B named only small buttons, menu items, links and tabs that got the focus, from
+their icon, through the vision model, and every name was said with Probably. Nothing in browse mode, object
+navigation, review or the mouse; nothing kept by what the program's code calls an object; nothing shared.
+
+What was built:
+- `tools/write_nvda_objects.py` read NVDA 2026.3.1's own source (the tag `release-2026.3.1` from GitHub, the version
+  installed here, 2026.3.1 by nvda.exe's own version) and wrote `docs/NVDA-OBJECTS.md` and `tests/nvda_objects.json`:
+  156 roles, 53 states, 10 reasons for output, 357 classes of objects, 23 classes of browse mode documents, 78 app
+  modules, 85 commands of the categories that move (focus, object navigation, text review, caret, mouse, touch, math)
+  and 37 quick navigation kinds, with the keys of browseMode, cursorManager, documentBase and editableText.
+- `claw/naming.py`: every role sorted into named, named when clickable or focusable and without text, or never
+  named (`tests/test_naming.py` fails on a role not sorted); which names are vague; what tells an object apart
+  (its id, automation id, picture's file, or a control number inside a dialog with a title; never class names);
+  how sure a name is (sure where the text in the object's own picture, read with Windows OCR, or the words of its
+  code agree with the model; otherwise "probably"); the store, which keeps labels.json readable by 1.12 and older;
+  sharing as plain checked data.
+- `nametools.py`: an overlay class from the global plugin's chooseNVDAObjectOverlayClasses that gives the saved name
+  wherever NVDA asks an object (focus, object navigation, review, mouse, braille); browse mode pages' TextInfo
+  wrapped at `_normalizeControlField`, as fixruntime.py does, so names are read without leaving browse mode, also in
+  quick navigation and the elements list; naming started from where NVDA is about to report (focus, navigator
+  object, mouse object) and from speakTextInfo's reasons caret, focus, quick navigation and mouse; the model asked
+  with the measured question of the inspection (`working.NAME_SYSTEM`, `nameQuestion`, `named`), one object at a
+  time in the background queue, the object reached last first; neighbours and the next lines of a page named
+  quietly ahead.
+- NVDA+Alt+B says "Object names on" or "Object names off", and the first time the sentence about a small model
+  (`naming.firstTimeText`, `SMALL_ENOUGH = 7`). NVDA+Alt+N names any object where the user is; twice opens the
+  window of saved names (`namesui.py`). A short, soft, high beep when a name for the object the user is on is on
+  its way, with the setting for the soft tick.
+
+How it was tested: `tests/test_naming.py`, plain Python. The roles against the list read from NVDA's source; vague and
+real names; which objects are wanted; rules; certainty; the store with a file as 1.12 wrote it; sharing, with a file
+that has code in a key, an unknown fact, a path as a place and an overlong name, all left out. Then the NVDA side
+with stand-ins for NVDA's objects, the screen, Windows OCR and the model: a focused button named "probably Settings"
+and the same button made again; a button whose automation id agrees, said without probably and found elsewhere
+by its id without the model; a list item reached by object navigation; a model that gives no name, not asked
+again; a request stopped while the model looks, named when the work goes on; the user's own name; a heading
+refused; text in the picture agreeing; names off; a page in browse mode with a link that holds only a picture and
+a button with an icon font's sign, both named in reading order with one beep, and the link's name read in the page
+afterwards; a picture's file known on the site named without the model; the page's own class put back when
+VisionClaw closes. `tests/run_all.py` passes.
+
+What was not tested: nothing of this has run inside NVDA, and no real model was asked. The question to the model is
+the one measured on 2026-11-19 with drawn buttons (9B 29 to 33 of 34, 2B 29 to 31, 0.8B 24 to 23); the sentence
+added for fields ("The words just before it or just above it usually say what it is for") was not measured. Whether
+NVDA's virtual buffer gives a link's picture its file in the field it reads, how often a UI Automation runtime id
+is asked for in a busy program, and how a real page feels with names arriving after NVDA has spoken, are the first
+things to try in NVDA (`docs/TESTPLAN.md`). A page NVDA reads through UI Automation (Word with UI Automation, the
+old Edge) has no `_normalizeControlField` and gets no names in its text yet; its objects outside browse mode do.
 
 ## Next session
 

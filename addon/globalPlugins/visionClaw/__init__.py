@@ -35,9 +35,9 @@ from scriptHandler import script
 from speech import extensions as speechExtensions
 
 from . import autodescribe, clawui, controlkeys, curtain, dialogs, explorer, followup, hardware, helpers, imaging, labels, localmedia, mousetools, nvdatools, ocr, sounds, updater, viewers, winzapp
-from . import asktools, memorytools, ownvoice, padtools, touchinput, voiceui
+from . import asktools, memorytools, nametools, ownvoice, padtools, touchinput, voiceui
 from .claw import busy, catalog, direct, drivers, guides, learn, offers, planning, policy, portable, prompts, training, understand, worksheet
-from .claw import modelpick
+from .claw import modelpick, naming
 from .claw.changes import ChangeLog
 from .claw import debuglog
 from .claw import task as clawTask
@@ -118,6 +118,12 @@ BACKGROUND_IDLE_SECONDS = 3
 # After a click in the overlay, wait this long for the window to react before reading it again.
 OVERLAY_REOPEN_MS = 700
 OVERLAY_FOLLOW_SECONDS = 3
+# NVDA+Alt+N pressed twice within NVDA's own time for a second press opens the window of saved names.
+NAME_TWICE_MS = 550
+# The beep that says a name for the object the user is on is on its way: high, short and soft.
+NAME_BEEP_HZ = 1320
+NAME_BEEP_MS = 18
+NAME_BEEP_VOLUME = 30
 # Modes of a description.
 QUICK, DETAILED, AUTO, ICON = "quick", "detailed", "auto", "icon"
 _ICON_ROLE_NAMES = (
@@ -199,6 +205,8 @@ confspec = {
 	"progressBeeps": "boolean(default=True)",
 	"useOcr": "boolean(default=True)",
 	"iconLabeler": "boolean(default=False)",
+	# Whether the user was told, the first time object names were turned on, that a small model is best for them.
+	"objectNamesTold": "boolean(default=False)",
 	"readAhead": "boolean(default=True)",
 	"overlayLive": "boolean(default=True)",
 	"quickSize": "integer(default=512, min=224, max=2048)",
@@ -380,6 +388,14 @@ def _speak(text):
 
 def _sound(name):
 	queueHandler.queueFunction(queueHandler.eventQueue, sounds.play, name)
+
+
+def _nameOnTheWay():
+	"""One short, soft, high beep: the model has been asked to name the object the user is on, and the name follows.
+	With the setting for the soft tick while waiting (progressBeeps), which turns this off too."""
+	if conf()["progressBeeps"]:
+		import tones
+		tones.beep(NAME_BEEP_HZ, NAME_BEEP_MS, NAME_BEEP_VOLUME, NAME_BEEP_VOLUME)
 
 
 class _VisionEngine:
@@ -620,6 +636,12 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		# True after the memory was given back because Windows ran low.
 		self._freedForMemory = False
 		self.labels = labels.LabelStore(os.path.join(DATA_DIR, "labels.json"))
+		# Object names: objects without a name, or with a vague one, named by the model that sees wherever the user
+		# moves (nametools.py, claw/naming.py).
+		self.namer = nametools.Namer(
+			# Translators: How a name the model is not sure of is said. {name} is the name, such as "Play".
+			self, _speak, lambda: conf()["iconLabeler"], probably=_("probably {name}"), onWay=_nameOnTheWay)
+		config.post_configProfileSwitch.register(self.namer.refresh)
 		self._focusGeneration = 0
 		# Background work: naming icons for the overlay and describing images ahead of the reader.
 		self._background = collections.deque()
@@ -742,6 +764,8 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		self._backgroundCancel.set()
 		self._backgroundWake.set()
 		self.labels.save()
+		self.namer.terminate()
+		config.post_configProfileSwitch.unregister(self.namer.refresh)
 		if speech.speakTextInfo == self._speakTextInfo:
 			speech.speakTextInfo = self._origSpeakTextInfo
 		speechExtensions.pre_speechCanceled.unregister(self._onSpeechCanceled)
@@ -816,6 +840,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	def onSettingsSaved(self):
 		debuglog.setLevel(conf()["debugLog"])
 		applyPrompts()
+		self.namer.refresh()
 		debuglog.log("start", f"Settings saved: { {key: conf()[key] for key in confspec} }")
 		self.runtime.resetFailures()
 		self._hasData = self.runtime.hasModel(VISION)
@@ -1642,12 +1667,16 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 
 	# --- Background work ---
 
-	def _queueBackground(self, job, key):
-		"""Returns whether the job was queued: not when the same work is queued already or there is no model."""
+	def _queueBackground(self, job, key, first=False):
+		"""Returns whether the job was queued: not when the same work is queued already or there is no model.
+		first: before the work already waiting, as for the name of the object the user has just reached."""
 		if key in self._backgroundKeys or not self._dataReady():
 			return False
 		self._backgroundKeys.add(key)
-		self._background.append((job, key))
+		if first:
+			self._background.appendleft((job, key))
+		else:
+			self._background.append((job, key))
 		self._backgroundWake.set()
 		return True
 
@@ -1806,9 +1835,22 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			self._autoCache.popitem(last=False)
 
 	def _speakTextInfo(self, info, *args, **kwargs):
+		namer = self.namer
+		if namer.on:
+			try:
+				namer.prepare(getattr(info, "obj", None))
+			except Exception:
+				log.debugWarning("VisionClaw: a page could not be given object names", exc_info=True)
 		result = self._origSpeakTextInfo(info, *args, **kwargs)
+		reason = kwargs.get("reason", args[3] if len(args) > 3 else None)
+		if namer.on and self._hasData and reason in (
+				OutputReason.CARET, OutputReason.FOCUS, OutputReason.QUICKNAV, OutputReason.MOUSE):
+			try:
+				namer.reachedText(info, reason)
+			except Exception:
+				# Never let this break NVDA's own reading.
+				log.debugWarning("VisionClaw: object names in browse mode failed", exc_info=True)
 		if conf()["autoDescribe"] and self._hasData:
-			reason = kwargs.get("reason", args[3] if len(args) > 3 else None)
 			if reason in (OutputReason.CARET, OutputReason.FOCUS, OutputReason.QUICKNAV):
 				try:
 					self._autoDescribeIn(info)
@@ -1927,7 +1969,14 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			else _("Automatic image descriptions off")
 		)
 
-	# --- Naming buttons from their icons, and images that get focus outside browse mode ---
+	# --- Object names, and images that get focus outside browse mode ---
+
+	def chooseNVDAObjectOverlayClasses(self, obj, clsList):
+		"""NVDA asks this for every object it makes (only of a plugin whose own class has this method). An object that
+		may need a name gets the class that gives its saved name (nametools.Namer)."""
+		namer = getattr(self, "namer", None)
+		if namer is not None and namer.on:
+			namer.chooseOverlay(obj, clsList)
 
 	def event_gainFocus(self, obj, nextHandler):
 		if self._overlayDoc is not None and self._holdOverlay(obj):
@@ -2101,12 +2150,11 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		c = conf()
 		if c["autoDescribe"] and self._autoPhoto(obj, generation):
 			return
-		if not (c["iconLabeler"] or c["autoDescribe"]) or not autodescribe.isUnlabeled(obj.name):
+		# Objects without a name are named by self.namer, which NVDA asks for the focused object's name.
+		if not c["autoDescribe"] or not autodescribe.isUnlabeled(obj.name):
 			return
 		role = obj.role
-		if c["iconLabeler"] and role in ICON_ROLES and not (obj.description or "").strip():
-			wx.CallLater(100, self._labelFocusedButton, obj, generation)
-		elif c["autoDescribe"] and role == controlTypes.Role.GRAPHIC:
+		if role == controlTypes.Role.GRAPHIC:
 			ti = obj.treeInterceptor
 			if ti is None or ti.passThrough:  # browse mode is handled while reading
 				wx.CallLater(150, self._autoCapture, lambda: obj.location, self._autoGeneration, None, None,
@@ -2269,59 +2317,65 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		except Exception:
 			log.debugWarning("VisionClaw: viewer title check failed", exc_info=True)
 
-	def _buttonImage(self, obj):
-		"""A picture of a small button, or None."""
-		loc = obj.location
-		if not loc or not (ICON_MIN_SIDE <= loc.width <= ICON_MAX_SIDE and ICON_MIN_SIDE <= loc.height <= ICON_MAX_SIDE):
-			return None
-		return self._grabOrReport(_bbox(loc), quiet=True)
-
-	def _labelFocusedButton(self, obj, generation):
-		if generation != self._focusGeneration or scriptHandler.isScriptWaiting():
-			return
-		image = self._buttonImage(obj)
-		if image is None:
-			return
-		app = _safe(lambda: obj.appModule.appName)
-		key = labels.imageKey(image)
-		name, byUser = self.labels.get(app, key)
-		if name:
-			# Translators: Spoken when a button without a name is focused. {name} is a guess from its icon.
-			ui.message(name if byUser else _("Probably {name}").format(name=name))
-			return
-
-		def onDone(text):
-			name = _iconName(text)
-			if name:
-				self.labels.setGuess(app, key, name)
-				if generation == self._focusGeneration:
-					_speak(_("Probably {name}").format(name=name))
-
-		self._describe(image, ICON, context=[("app", app)], onDone=onDone)
-
 	@script(
 		# Translators: Description of a command in the Input Gestures dialog.
-		description=_("Turns naming of buttons that have no name, from their icon, on or off."),
+		description=_(
+			"Turns object names on or off. When on, every object without a name, or with a vague one, is named by the "
+			"local model wherever you move, in browse mode too, and the name is saved."),
 		gesture="kb:NVDA+alt+b",
 	)
 	def script_toggleIconLabeler(self, gesture):
 		on = not conf()["iconLabeler"]
 		conf()["iconLabeler"] = on
+		self.namer.refresh()
 		if on and not self._dataReady():
 			self.showDataDialog()
-		ui.message(
-			# Translators: Reported when button naming is turned on.
-			_("Button names on") if on
-			# Translators: Reported when button naming is turned off.
-			else _("Button names off")
+		text = (
+			# Translators: Reported when object names are turned on.
+			_("Object names on") if on
+			# Translators: Reported when object names are turned off.
+			else _("Object names off")
 		)
+		if on and not conf()["objectNamesTold"]:
+			conf()["objectNamesTold"] = True
+			text += ". " + self._objectNamesAdvice()
+		ui.message(text)
+
+	def _objectNamesAdvice(self):
+		"""Said once, the first time object names are turned on: a small model is best for fixes made on the fly
+		(claw/naming.py firstTimeText). A suggestion; nothing is changed."""
+		entry = _safe(lambda: self.runtime.entry(VISION)) if self._dataReady() else None
+		return naming.firstTimeText(
+			(entry or {}).get("name", ""), policy.roleName(VISION, policy.isOneModel(self.runtime)),
+			# Translators: Said once, the first time object names are turned on. {size} is a number, such as 7.
+			said=_("This is said once: object names are accessibility fixes made on the fly, as you move, so a small "
+				"model, {size}B or smaller, is best for them: it names an object quickly."),
+			# Translators: Said after the sentence above when the model in use is larger. {model} is "vision model" or
+			# "model"; {name} is the model's name, such as "Qwen3.5 9B".
+			larger=_("The {model} you use now, {name}, is larger, so names may come slowly."),
+			# Translators: The last sentence said the first time object names are turned on.
+			choose=_("You can choose another model in the models window, NVDA+Alt+M."))
 
 	@script(
 		# Translators: Description of a command in the Input Gestures dialog.
-		description=_("Gives your own name to the current button, or to the current item in the overlay."),
+		description=_(
+			"Gives your own name to the object where you are, in browse mode to the control or picture at the cursor, "
+			"or to the current item in the overlay. Press twice to open the window of saved object names."),
 		gesture="kb:NVDA+alt+n",
 	)
 	def script_nameItem(self, gesture):
+		later = getattr(self, "_nameLater", None)
+		if scriptHandler.getLastScriptRepeatCount() > 0:
+			if later is not None:
+				later.Stop()
+			self._nameLater = None
+			self.showNames()
+			return
+		# Pressed once: wait for a second press before the naming window opens.
+		self._nameLater = wx.CallLater(NAME_TWICE_MS, self._nameHere)
+
+	def _nameHere(self):
+		self._nameLater = None
 		focus = api.getFocusObject()
 		recognizer = getattr(focus, "recognizer", None)
 		try:
@@ -2350,15 +2404,21 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 
 			self._askName(item["text"], onName)
 			return
-		image = self._buttonImage(focus)
-		if image is None:
-			# Translators: Reported when the focus is not a small button that can be named.
-			ui.message(_("Only buttons and items in the overlay can be named."))
+		try:
+			here = self.namer.current()
+		except Exception:
+			log.error("VisionClaw: the object here could not be read for naming", exc_info=True)
+			here = None
+		if not isinstance(here, dict):
+			# Translators: Reported when there is nothing at the review position that can be named.
+			ui.message(here or _("Nothing here can be named."))
 			return
-		app = _safe(lambda: focus.appModule.appName)
-		key = labels.imageKey(image)
-		current, _byUser = self.labels.get(app, key)
-		self._askName(current or focus.name or "", lambda name: self.labels.setUser(app, key, name))
+		self._askName(here["name"] or "", lambda name: self.namer.giveName(here, name))
+
+	def showNames(self, parent=None):
+		"""The window of saved object names: change, forget, share and add shared names (namesui.py)."""
+		from . import namesui
+		namesui.show(self, parent)
 
 	def _askName(self, current, onName):
 		def show():

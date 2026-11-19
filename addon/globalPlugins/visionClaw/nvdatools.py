@@ -1699,14 +1699,13 @@ def build(plugin):
 
 	def nameControl(task, name):
 		def work():
-			focus = api.getFocusObject()
-			image = plugin._buttonImage(focus)
-			if image is None:
-				raise ToolError("Only a focused button with an icon can be named this way. For other items, make an app helper.")
-			from . import labels
-			plugin.labels.setUser(_safe(lambda: focus.appModule.appName), labels.imageKey(image), name.strip())
+			# The object where the user is, or in browse mode the control at the cursor: the same as NVDA+Alt+N.
+			here = plugin.namer.current()
+			if not isinstance(here, dict):
+				raise ToolError(here or "Nothing here can be named.")
+			plugin.namer.giveName(here, name.strip())
 		onMain(work)
-		return f"The focused button is now called {name}."
+		return f"The object where you are is now called {name}. NVDA says that name from now on."
 
 	add("name_control", "give the focused button, which has no useful name, a name that NVDA will say from now on",
 		nameControl, {"name": text("the new name, 1 to 4 words", maxLength=40)}, changes=True,

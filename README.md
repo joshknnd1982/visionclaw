@@ -23,45 +23,26 @@ chat apps, and names for unlabelled buttons.
 > [docs/STATUS.md](docs/STATUS.md) for exactly what was tested.
 
 <!-- news: written by tools/write_help.py from manifest.ini; do not change it by hand -->
-This README is for VisionClaw 1.12.1.
+This README is for VisionClaw 1.13.0.
 
-## What is new in 1.12.1
+## What is new in 1.13.0
+
+- Object names. Press NVDA+Alt+B and VisionClaw says "Object names on". From then on, every object without a name, or with a vague one, is named by the local model that sees the moment you reach it, however you move: Tab, Shift+Tab, Control+Tab and the arrow keys; browse mode with the arrow keys, the quick navigation keys and the elements list, without leaving browse mode; object navigation; the review cursor; and the mouse. Vague means a file name such as icon_close.svg, a word such as button or image, only symbols or the signs of an icon font, a single letter on an icon, or a name from the program's code such as btnClose. Press NVDA+Alt+B again and it says "Object names off".
+- A short, soft, high beep says that a name for the object you are on is on its way, which helps on a slower computer. It goes with the setting "Play a soft tick while waiting for a description": turn that off and the beep is off too.
+- A name the model is not sure of is said with probably before it, as in "probably Settings button". A name is sure when the text written on the object, read exactly with Windows OCR, or what the program's own code calls it agrees with the model. Your own names and names a person shared are said as they are.
+- Names are saved, for each program and each website, and NVDA says them from then on, in speech and in braille, and VisionClaw's tools and models see them too. On a page, the objects a little further down and the ones next to the object you reach are named in the background, so that their names are ready when you get there.
+- NVDA+Alt+N now gives your own name to any object where you are, in browse mode to the control or picture at the cursor, as well as to an item of the overlay. Your own name always wins. You can also ask: "name this button Mute".
+- Press NVDA+Alt+N twice, or the new button "Saved object names: change, forget or share them" in VisionClaw's settings, for the window of saved object names: the programs and websites, the names of each with who gave them, and buttons to change a name, forget checked names or all of a place, share names, and add shared names. Share names saves the programs and websites you check to a file to give to other VisionClaw users; Add shared names takes such a file in, checks every line, and never replaces your own names.
+- The first time you turn object names on, VisionClaw says once that, because these are accessibility fixes made on the fly, a small model, 7B or smaller, is best for them, and names the model you use if it is larger. You choose: nothing is changed for you.
+- A list of everything NVDA knows about objects, read from the source of NVDA 2026.3.1: 156 roles, 53 states, 357 classes of objects, the browse mode documents, the 78 programs NVDA has its own support for, and every way of moving with its keys (focus, object navigation, review, the caret, browse mode quick navigation, tables, the mouse and touch). It is the file docs/NVDA-OBJECTS.md in VisionClaw's repository on GitHub, and object names sort every one of those roles.
+- The box "How to use VisionClaw", shown in the models window once the models are ready, now names every key of VisionClaw: NVDA+Alt+V to speak a request (Alt+V in the Ask VisionClaw window), NVDA+Alt+J for controller mode, NVDA+Alt+I for the skills window, NVDA+Alt+U to look for a newer version, all the keys of the overlay, and how to give a key in NVDA's Input Gestures dialog, under VisionClaw, to the two commands that have none.
+- Stated plainly: object names were tested with plain Python and stand-ins for NVDA, a page in browse mode, the screen and the model. They have not been run inside NVDA or with a real model yet, and a page that NVDA reads through UI Automation, such as a Word document, does not get names in its text yet.
+
+## What was new in 1.12.1
 
 - Fixed: the question before models are suggested could not be worked with NVDA. In the models window (NVDA+Alt+M), press "Suggest models for what I want to do": NVDA now says each choice as a check box, checked or not checked, and says it again when Space checks or unchecks it. Check one or more with Space, then press Enter. Before, NVDA said nothing about the check boxes, so Space seemed to do nothing.
 - The same for the list "Jobs it is for" when you make or change a skill in the skills window (NVDA+Alt+I): each job is said as a check box, checked or not checked.
 - Stated plainly: tested with the real wxPython and a stand-in for NVDA's own check list, the one VisionClaw's window for removing models and its memories window already use. Not run inside NVDA yet.
-
-## What was new in 1.12.0
-
-- A larger model for hard cases. VisionClaw's everyday models stay at 9B or smaller. Qwen3 14B, in Q4_K_M or Q6_K, is kept for what they could not do: an add-on that does not pass VisionClaw's checks, will not start, or fails again after it was corrected, and a control of a stubborn program where its picture and what is reported about it say different things. Then VisionClaw asks whether to try once more with the larger model. Choose it in the models window, NVDA+Alt+M, in the new list Model for hard cases; nothing is downloaded unless you choose it there, and you can uncheck "Ask me before the model for hard cases is used". Say "fix my add-on Beeper with the model for hard cases" to use it at once. It is slower and reads and writes text only: no Qwen model of that size sees pictures.
-- A model larger than your graphics card is shared between the card and the processor, instead of running on the processor alone. A model that should fit but does not start whole on the card is tried that way too before the card is given up.
-- Models suggested for what you want to do. In the models window, press "Suggest models for what I want to do", check with Space what you want VisionClaw for (planning, pictures, add-ons, quick answers, stubborn programs, hard cases, asking by voice) and press Enter: the reasons are in the box at the top and the suggested models in the lists. Nothing is downloaded until you press the first button. Or ask: "which model is best for stubborn programs", "should I get the model for hard cases", "which speech model should I use". The answer also says whether your graphics card has room for the Q6_K of the suggested model, and that the speech models come only as Q8_0.
-- VisionClaw keeps notes on stubborn programs and websites. After "check this program" or "check this page", how each control is worked, names read from pictures and what drew the window are kept in a Markdown file for that program or website, in the folder access of VisionClaw's data folder. A control agreed on before is not put to the models again. The file is yours to read, change or delete.
-- Better names for controls without one. Say "check this program", then "fix them". The model that sees answers in a short form with clear rules, and a larger model is also told the program, the window and the named controls around the control; a name that only copies one of them is not used, and "Play button" becomes Play. Measured on 34 drawn icon buttons: Qwen3.5 9B named 33 rightly where 29 before, Qwen3.5 2B 31 where 29; Qwen3.5 0.8B 23 where 24.
-- A state that may be missing is reported: tabs of which none says it is selected, and buttons that open something but do not say whether it is open. Say "check this page". Then ask "which tab is selected" and the model that sees reads it from the picture.
-- Asking by voice hears the names where you are. The speech model is told the program, the window's title, the focused control, a few controls and the words you taught VisionClaw, and a name it heard split in two, such as "wave table", is joined again. Measured with Windows' own voices: 53 of 54 requests that name things in a program heard rightly, where 36 before; it did not hear a name where none was said.
-- Five new skills: a control that does not say its state, a web page control built from plain parts, a window that is hidden or takes no focus, a control NVDA calls the wrong kind, and the model for hard cases; and notes VisionClaw looks things up in about all of it. Ask "what does VisionClaw remember about stubborn programs".
-- When a large model or high thinking keeps you waiting, VisionClaw tells you by itself how far it is, after 15 seconds of quiet and every 15 seconds while it lasts: "Still describing the screen, 30 seconds so far. The vision model is looking at the picture." It says which step a request is on, whether a model is still starting or thinking first, and how many of the overlay's icons are done. This works for requests (NVDA+Alt+C, NVDA+Alt+V), descriptions (NVDA+Alt+A, W, F, D), answers in the description window, the words you spoke, the overlay's icons (NVDA+Alt+O) and an add-on being corrected. The first update reminds you that NVDA+Alt+P says how far it is at any time, and NVDA+Alt+X stops it. Nothing is said while a question waits for you or the microphone is open. Choose 10, 15, 30 or 60 seconds, or turn the updates off, in VisionClaw's settings: Status updates while VisionClaw takes long. Tested with plain Python and stand-ins for NVDA; not yet heard inside NVDA.
-- NVDA+Alt+P now also says how far a description, an answer about a picture, the words you spoke or the overlay's icons are, and NVDA+Alt+X also stops a description or an answer that is still on its way. While you wait for a description, other keys no longer throw it away: read on, or press NVDA+Alt+P, and it still comes. Once it is spoken, Control stops it, as before.
-- Let VisionClaw pick the model for each job. In VisionClaw's settings, "Which model does each job" has two choices: the models you chose in the models window, which stays the default, or "VisionClaw picks from the models on this computer for each request, without asking". Then, before each request, VisionClaw picks among the models you have downloaded: for planning and pictures the largest that fits your graphics card; for writing an add-on the largest model for code that fits beside it, or the same model when it writes code too, so that nothing more is loaded; a faster one only when you said you want speed and the request is not a hard one. It never downloads anything and never picks the model for hard cases. Nothing is said while it picks: press NVDA+Alt+P to hear what it picked, or ask "which model are you using".
-- Keep your own choice and still hear VisionClaw's view. Ask "which model are you using", and VisionClaw also says which models on this computer it would pick for planning and for code, only where they differ from yours. It is never said by itself, and nothing changes until you choose.
-- Say once how fast you like answers, and it counts from then on. "The 9B is too slow for me", "I like quick answers" or "accuracy matters most to me" is kept as a memory without being asked, and the model VisionClaw picks or suggests follows it. Say "forget that" to undo it.
-- Memories are found by what they mean. A memory about the system tray is found when you ask about the notification area, and one about how fast your voice talks when you ask to make the speech quicker.
-- Say what you meant when VisionClaw got it wrong. Say "no, I meant turn off the typing echo", "not that, the notification area" or "that's not what I asked, I wanted the Start menu": VisionClaw does what you meant instead. When that went well, it asks once whether to understand your first words that way from now on; say yes, and they are kept with your own words. It asks only when "Remember things" is on its first choice. To undo it, say "forget the word" and the words.
-- The add-on writer and questions about a picture understand casual words too. "Make an add-on that chimes whenever focus hits a link" is read as "beeps whenever focus lands on a link", "yells 'new mail' when a dialog pops up" as "says 'new mail'"; "what's scribbled on the whiteboard" asks for what is written, "tally up the icons" for a count, "what's lit up" for what is highlighted. Words in quotes, the words an add-on is to say, and keys are never changed. The lines are in understanding.md, under headings that end ", in add-ons" and ", in questions about a picture".
-- A small model is asked a choice more than once. When Qwen3.5 2B, 0.8B or Qwen2.5 Coder 1.5B chooses among a few fixed answers, such as what kind of request this is, it is asked three times, and the answer most of them gave is taken. Larger models are asked once.
-- Stated plainly, for the seven points above: measured with the real Qwen3.5 2B, Qwen3.5 0.8B and Qwen2.5 Coder 1.5B on the built-in AMD Radeon 780M: the three answers changed little, because choosing the job is mostly done by plain code; on 202 requests with the 2B one more was right and one question to you fewer, none was worse, and choosing took a third longer; with the 0.8B nothing changed. The new words were measured by plain code on requests written for it before anything was run on them: add-on requests read rightly went from 3 to 11 of 20 not used to write the words, picture questions stayed at 12 of 16. Picking the model, the correction and its question were tested with stand-ins only. None of this was run inside NVDA yet.
-- Stated plainly: the naming, the speech model and the judging were measured with the real models. Qwen3 14B was measured too, in Q4_K_M, shared between an 8 GB graphics card and the processor: of nine add-ons written piece by piece, all nine did what was asked, where those of Qwen3.5 9B did eight, in about the same time; written as one piece, six where the 9B's did four. Of twelve controls a program draws itself, it told six rightly, as the 9B did, with fewer wrong guesses, at about 17 seconds each. Nothing of this was run inside NVDA yet. Tried and dropped: asking the smallest models how a control is worked in two small questions, which made them worse (Qwen3.5 0.8B 5 of 16 drawn controls to 3, 2B 13 to 9).
-- Ten things that used to need sighted help, each explained under that heading in the help. A picture in a chat or on a page: say "what does the latest picture in this chat say", "read the text in the latest image in this chat and explain the joke", or "look at the product photo, is this jacket navy blue or black"; VisionClaw finds that picture, cuts it out and asks the model that sees one question at a time, and a colour is measured from the pixels first.
-- A form that is only a picture, such as a scanned PDF. Say "click the line next to Full Name and type my name", "click the dotted line labelled Signature so I can sign", or "check the box next to Yes in this scanned form". The label is found in the picture's text and its line or box in the pixels. Your name comes from what you asked VisionClaw to remember, or you are asked. VisionClaw never signs for you.
-- An installer gone through page after page. Say "uncheck any bundled toolbars in this installer and click Next until the installation starts". Each page is said, boxes that offer extra software are unchecked and named, licence terms are never accepted without asking you, and the button that starts the installation is asked about.
-- A Word document formatted, and its layout checked. Say "format this document in APA style", or "double-space this document and set the font to Times New Roman 12 point"; one Control+Z in Word takes it all back. Say "does my resume fit on one page" or "are any text boxes overlapping" for the pages and what overlaps. In Google Docs VisionClaw tells you the keys instead.
-- Checks that ask whether you are a person. Say "what kind of check is this", "click the verify you are human box", "what do the squares show", then "select squares 1, 4 and 7, then verify", or "get an audio challenge". VisionClaw makes the check readable and workable and you answer it: it never chooses squares for you.
-- Shopping and booking. Say "select the dark blue colour option" (a swatch with no name is found by its measured colour), "is the 256GB option selected", or "find a free window seat near the front". Before a button that buys, books or pays is pressed, the page's own total is read to you and you are always asked. VisionClaw does not type card numbers, security codes or passwords.
-- A drawn knob set to a number. Say "turn the Mix knob down to 35 percent" in a program whose knobs NVDA cannot read: VisionClaw moves it a step at a time and reads the number shown at it after every step.
-- "Why won't this form submit" now also measures which fields are outlined in red in the page's picture and which lines are written in red, where the page itself tells NVDA nothing, and puts NVDA's reading position on the first of them.
-- Several things inside one program in one request: "click the Play button in this launcher, open the Settings menu, and turn on UI narration and subtitles" is four steps in that program, and both options are set. "Navigate this window and remap my function keys" works through it with you.
-- Stated plainly, for the nine points above: tested on forms, pictures, knobs, installers, pages and seat maps made up by the tests, with stand-ins for NVDA and for Word, and with the real Qwen3.5 9B choosing the job: 42 of 49 and 27 of 30 right on two sets of requests written before they were run, 47 and 30 after one rule was added against them. Not run inside NVDA, in Word, in a real browser, in a real installer or plug-in, or against a real check.
 
 How to use each of these is explained in its own part of this README, further down.
 <!-- /news -->
@@ -1557,6 +1538,59 @@ keys exactly, say places in words, and say what cannot be read instead of guessi
 "How VisionClaw answers, and your own instructions" lets you read and rewrite every instruction, add your own,
 and restore the original of one or all of them. They apply to whatever model you use.
 
+## Object names
+
+Many programs, games and web pages have buttons, pictures and other controls without a name, or with a name that
+says nothing: NVDA then says only "button", "graphic", a file name such as icon_close.svg, or the sign of an icon
+font. Press NVDA+Alt+B and VisionClaw says "Object names on". From then on every object without a name, or with a
+vague one, is named by the local model that sees, the moment you reach it, and the name is saved. Press NVDA+Alt+B
+again and it says "Object names off". These are accessibility fixes made on the fly, for the times you just want a
+control to say what it is: nothing is written, installed or asked.
+
+- **However you move**: Tab, Shift+Tab, Control+Tab and the arrow keys in lists and menus; in browse mode the arrow
+  keys, the quick navigation keys such as B for the next button and G for the next graphic, and NVDA+F7's elements
+  list, without leaving browse mode; object navigation, such as NVDA+Numpad 6 or NVDA+Shift+Right Arrow on a laptop;
+  the review cursor; and the mouse. NVDA asks the object for its name, and VisionClaw answers with the saved one.
+- **Vague names count as no name**: a file name, a web address or a code; a word that only says what kind of thing
+  it is, such as button, link, image or icon; only symbols, emoji or the signs of an icon font; a single letter on a
+  button or icon, such as X; and a name from the program's code, such as btnClose or ic_settings_24. A real name such
+  as Edit, Picture or Download is left as it is.
+- **A beep**: when a name for the object you are on is on its way, you hear a short, soft, high beep, then the name.
+  On a slower computer this tells you to wait a moment. The beep goes with the setting "Play a soft tick while
+  waiting for a description": turn that off and this beep is off too.
+- **Probably**: a name the model is not sure of is said with probably before it: "probably Settings button". A name
+  is sure when the text written on the object, read exactly with Windows OCR, or what the program's own code calls
+  it, agrees with the model. Your own names, and names a person shared, are said as they are.
+- **Saved**: names are kept for each program and each website, in the file labels.json of VisionClaw's data folder,
+  and NVDA says them from then on, in speech and braille. VisionClaw's tools and its models see them too, and a name
+  found in a program's code is added to VisionClaw's notes on that program or website. On a web page the controls a
+  little further down, and in a program the objects next to the one you reach, are named in the background, so that
+  their names are ready when you get there.
+- **Your own name**: NVDA+Alt+N gives your own name to the object where you are: in browse mode the control or
+  picture at the cursor, elsewhere the object at the review position, or the current item of the overlay. Leave the
+  name empty to take your name away. Your own name always wins. You can also ask: "call this button play".
+- **The window of saved names**: press NVDA+Alt+N twice, or the button "Saved object names: change, forget or share
+  them" in VisionClaw's settings: the programs and websites with names, the names of the one you choose with who gave
+  each and how sure it is, and the buttons Change the selected name, Forget checked names, Forget all names of this
+  place, Share names and Add shared names.
+- **Sharing**: Share names saves the names of the programs and websites you check to a file. Give it to another
+  VisionClaw user, who adds it with Add shared names. The file is plain data and names those programs and websites,
+  nothing else about you. Every line is checked before it is used, and a shared name never replaces your own; it
+  replaces only a guess of the model. A name kept by what the object's code calls it fits on every computer; one kept
+  by its picture fits only where the object looks exactly the same.
+- **A small model is best**: the first time you turn object names on, VisionClaw says once that, because these are
+  fixes made on the fly, a small model, 7B or smaller, is best for them: it names an object quickly. If the model you
+  use is larger, it is named. You choose the model in the models window, NVDA+Alt+M; nothing is changed for you.
+
+What object names cannot do: an object that is not on the screen, or while the screen curtain is on, has no picture
+and is not named. A page that NVDA reads through UI Automation, such as a Word document, does not get names in its
+text yet. The model can be wrong, which is why a name it is not sure of has probably. Text and headings are read
+from their own words and are never named.
+
+Which objects are named was decided for every kind of object NVDA has. The full list, read from the source of NVDA
+2026.3.1, with every role, every state, every class of object, the browse mode documents, the programs NVDA supports
+and every way of moving with its keys, is [docs/NVDA-OBJECTS.md](docs/NVDA-OBJECTS.md).
+
 ## Commands
 
 | Keys | What it does |
@@ -1576,8 +1610,8 @@ and restore the original of one or all of them. They apply to whatever model you
 | NVDA+Alt+D | Describe the image, or copied image file, on the clipboard |
 | NVDA+Alt+O | Open or close the overlay for the current window |
 | NVDA+Alt+G | Turn automatic descriptions of unlabeled images and photos on or off |
-| NVDA+Alt+B | Turn names for buttons that have no name on or off |
-| NVDA+Alt+N | Give your own name to the current button or overlay item |
+| NVDA+Alt+B | Turn object names on or off: every object without a name, or with a vague one, named by the local model wherever you move, in browse mode too |
+| NVDA+Alt+N | Give your own name to the object where you are, or to an overlay item; press twice for the window of saved object names |
 
 Press a describe command once for a quick spoken description, twice for a detailed one in a window where you
 can ask questions. Every question is answered there: what is highlighted or selected, where something is,
@@ -1676,8 +1710,7 @@ NVDA menu, Preferences, Settings, VisionClaw. In the order you meet them:
 - **Choose or download models.**
 - **Make a portable copy of VisionClaw with everything in it, for a flash drive or another computer.**
 - VisionMate's settings: **Automatically describe images without a label, photos in chats and photos in image
-  viewers**; **Describe images further down the page in the background, so they are ready sooner**; **Name
-  buttons that have no name, from their icon**; **Use Windows OCR to read screen text exactly**; **Keep the
+  viewers**; **Describe images further down the page in the background, so they are ready sooner**; **Object names: name every object without a name or with a vague one, wherever you move**; **Saved object names: change, forget or share them**; **Use Windows OCR to read screen text exactly**; **Keep the
   overlay up to date as the window changes**; **Get ready when NVDA starts**; **Answer in NVDA's language**;
   **Play a soft tick while waiting for a description**.
 

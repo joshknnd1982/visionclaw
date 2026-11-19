@@ -951,7 +951,7 @@ def makeRegistry(rt, state):
 		{"text": text("the text to type", maxLength=400)}, changes=True, tell=V)
 	simple("press_keys", "press keyboard keys in the program in front", "Pressed {keys}.", "Pressing keys",
 		{"keys": text("the keys, like control+s or alt+f4", maxLength=80)}, changes=True, tell=V)
-	simple("name_control", "give the focused button, which has no useful name, a name", "The focused button is now called {name}.",
+	simple("name_control", "give the focused button, which has no useful name, a name", "The object where you are is now called {name}. NVDA says that name from now on.",
 		"Naming the button", {"name": text("the name to give it", maxLength=60)}, changes=True, tell=V)
 	simple("create_addon", "write a small NVDA add-on for what the user asked, check it, and turn it on after asking",
 		"Wrote the add-on and turned it on after you said yes.", "Writing the add-on", dict(askedField), changes=True, tell=V)
