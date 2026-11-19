@@ -75,6 +75,10 @@ class Task:
 		self._onEvent = onEvent
 		# What the task is doing right now, in a few words, for "where are we?".
 		self.activity = ""
+		# What it waits for at this moment, such as a model that is starting or answering: a sentence, or a function
+		# that gives one as it is when it is asked for (claw/llm.py sets it for every question to a model). None
+		# when it waits for nothing.
+		self.now = None
 		# Set when the task could not start because a model has not been downloaded: "vision" or "coder".
 		self.missing = None
 		self.params = None
@@ -113,3 +117,15 @@ class Task:
 	def progress(self):
 		"""Where the task is, as (state, step number or 0, number of steps, activity, seconds)."""
 		return (self.state, self.current + 1 if self.steps else 0, len(self.steps), self.activity, self.seconds())
+
+	def nowText(self):
+		"""What the task waits for at this moment, in a sentence, or ""."""
+		now = self.now
+		try:
+			return str((now() if callable(now) else now) or "")
+		except Exception:
+			return ""
+
+	def statusText(self):
+		"""What it is doing and what it waits for, for a status update."""
+		return " ".join(part for part in (self.activity, self.nowText()) if part)

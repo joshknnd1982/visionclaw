@@ -4994,5 +4994,52 @@ for said, wish in {
 sys.modules["speech"].speak, sys.modules["ui"].message, sys.modules["gui"].mainFrame = realSpeak, realUiMessage, realMainFrame
 configModule.conf = conf
 
+# --- Status updates while VisionClaw takes long (claw/busy.py), with the real plugin ---
+from visionClaw import clawui  # noqa: E402
+from visionClaw.claw import busy  # noqa: E402
+
+assert plugin.conf()["statusUpdates"] == busy.SUGGESTED == "15" and instance.board.every() == 15
+plugin.conf()["statusUpdates"] = "off"
+assert instance.board.every() == 0
+plugin.conf()["statusUpdates"] = "30"
+assert instance.board.every() == 30
+plugin.conf()["statusUpdates"] = busy.SUGGESTED
+assert clawui.board is instance.board and len(clawui.statusLabels()) == len(busy.CHOICES)
+statusSaid = []
+sys.modules["ui"].message = statusSaid.append
+# Nothing running: NVDA+Alt+P and NVDA+Alt+X say so, as before.
+instance.clawTask = None
+instance.script_clawProgress(None)
+instance.script_clawStop(None)
+assert statusSaid == [
+	"VisionClaw is not working on anything. Press NVDA+Alt+C to ask for something.",
+	"VisionClaw is not working on anything."], statusSaid
+# A description on its way: NVDA+Alt+P says how far it is, and NVDA+Alt+X stops it.
+stopDescribing = threading.Event()
+describing = instance.board.begin(
+	"describing the screen", instance._seeing("The {model} is looking at the picture."), cancel=stopDescribing)
+instance.script_clawProgress(None)
+assert statusSaid[-1].startswith("Describing the screen, 0 seconds so far.") and statusSaid[-1].endswith((
+	"The vision model is looking at the picture.", "Starting the vision model.")), statusSaid[-1]
+instance.script_clawStop(None)
+assert stopDescribing.is_set() and statusSaid[-1] == "Stopping."
+instance.board.end(describing)
+# A question to the user: no update meanwhile.
+assert clawui._fromWorker(lambda: instance.board.isAsking) is True and not instance.board.isAsking
+# The icons of the overlay: counted as queued and done, ended when all are done or the overlay closes.
+instance._iconsCounted(added=3)
+instance.script_clawProgress(None)
+assert statusSaid[-1] == "Naming the icons in the overlay, 0 seconds so far. 0 of 3 icons done so far.", statusSaid[-1]
+instance._iconsCounted(done=2)
+assert "2 of 3 icons done so far." in instance.board.progressText()
+instance._iconsCounted(done=1)
+assert instance._iconStatus is None and instance.board.running() == []
+instance._iconsCounted(added=2)
+instance._iconsCounted(dropped=True)
+assert instance._iconStatus is None and instance.board.running() == []
+instance._iconsCounted(done=1)  # a batch that ends after the overlay closed changes nothing
+assert instance._iconStatus is None
+sys.modules["ui"].message = realUiMessage
+
 instance.terminate()
 print("OK")

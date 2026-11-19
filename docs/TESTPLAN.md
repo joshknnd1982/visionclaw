@@ -720,5 +720,28 @@ shown for a moment and hidden again.
 - [ ] On a photo or a window: "what is in this picture, and is there any text in it?": two answers, each after its
       own question.
 
+## Status updates while VisionClaw takes long (1.12.0)
+- [ ] With Qwen3.5 9B and "How much the models think before acting" set to High, NVDA+Alt+C: "write an add-on that
+      beeps when a link gets the focus". After 15 seconds without a spoken step: "Still working on your request, 15
+      seconds so far.", the step, and what the model is doing ("Starting the coder model." or "The coder model is
+      thinking before it answers; thinking is set to high."). The first update ends "Press NVDA+Alt+P at any time to
+      hear how far it is, or NVDA+Alt+X to stop it."; later ones do not.
+- [ ] NVDA+Alt+P during that request says how far it is; the next update comes 15 seconds after it, not sooner.
+- [ ] While VisionClaw asks a question (a setting change to confirm), no update is said until it is answered.
+- [ ] Right after NVDA starts, with the 9B not yet loaded, NVDA+Alt+F: "Still describing the screen, 15 seconds so
+      far. Starting the vision model." Press NVDA+Alt+P, then an arrow key, while waiting: the description still
+      comes. Again, and press NVDA+Alt+X while waiting: "Stopping.", and no description comes.
+- [ ] Once a quick description is being spoken, Control stops it, as before.
+- [ ] NVDA+Alt+F pressed twice: updates until the description window opens, none after.
+- [ ] In the description window, ask a question and arrow through the text while waiting: the answer still comes.
+- [ ] NVDA+Alt+O in a window with many unnamed icons, with the 9B: "Still naming the icons in the overlay, ... 3 of 16
+      icons done so far.", and at the end "Finished naming the icons in the overlay." Escape before the end: nothing
+      more is said about the icons.
+- [ ] NVDA+Alt+V: nothing is said while the microphone is open. With a long request spoken, if working out the words
+      takes over 15 seconds: "Still working out what you said".
+- [ ] Settings, "Status updates while VisionClaw takes long": Never, and no update is said, but NVDA+Alt+P still
+      answers; 10 seconds, and updates come every 10 seconds.
+- [ ] With a braille display: the updates are shown on it too.
+
 ## Stopping NVDA
 - [ ] NVDA exits without an error, and no `vcengine.exe` is left running (Task Manager).

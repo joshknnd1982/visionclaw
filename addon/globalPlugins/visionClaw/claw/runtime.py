@@ -94,6 +94,17 @@ class ModelRuntime:
 				return VISION
 		return role
 
+	def loaded(self, role):
+		"""Whether the model for a role is in memory now and answers without being started first. For what is said
+		while the user waits (claw/busy.py): a large model can take a minute to start."""
+		entry = self.entry(role)
+		if entry is None:
+			return False
+		slot = self._slot(role)
+		engine = self.engines[slot]
+		model = self.catalog.paths(entry if slot == role else self.entry(VISION))[0]
+		return bool(engine.running and engine.modelPath == model)
+
 	def oneModel(self):
 		"""Whether one model does both jobs: the same model file is chosen for vision and for code. Then there
 		are not two models that could agree, and the user must never be told that there are."""

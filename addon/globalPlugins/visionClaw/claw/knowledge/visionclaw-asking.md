@@ -3,7 +3,7 @@ one program only), claw/followups.py (a request that follows the one before it),
 (a date chosen in a calendar), claw/voice.py, voiceinput.py and voiceui.py (asking by voice), claw/advice.py (which
 model fits what you want to do); and on 2026-11-19 from claw/understand.py, wordtools.py, claw/worksheet.py,
 claw/codeplan.py and claw/pictures.py (how words are understood, your own words, the work sheet, an add-on written
-piece by piece, questions about a picture). When the code
+piece by piece, questions about a picture) and claw/busy.py (status updates while VisionClaw takes long). When the code
 changes, read it again and bring these up to date; do not write them from memory. Each section is short on
 purpose: one section is one answer, and it is given to the user word for word by the smallest models.
 Nothing may stand between this comment and the first heading but the title, or it becomes a section. -->
@@ -94,3 +94,8 @@ every hour, at NVDA's start or a settings panel is written as one piece, and you
 A question about the screen with several parts, such as what is in this photo and is there any text in it, is
 asked of the model that sees one part at a time, each with the rule of its kind. You hear each answer after its
 own question.
+
+## Status updates while VisionClaw takes long, how far it is, and turning them off
+When a large model or high thinking keeps you waiting, VisionClaw says how far it is after 15 seconds of quiet,
+and again every 15 seconds. NVDA+Alt+P says it at any time; NVDA+Alt+X stops it. In VisionClaw's settings, Status
+updates while VisionClaw takes long sets 10, 15, 30 or 60 seconds, or never.

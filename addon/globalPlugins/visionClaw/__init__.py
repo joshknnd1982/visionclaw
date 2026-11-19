@@ -36,7 +36,7 @@ from speech import extensions as speechExtensions
 
 from . import autodescribe, clawui, controlkeys, curtain, dialogs, explorer, followup, hardware, helpers, imaging, labels, localmedia, mousetools, nvdatools, ocr, sounds, updater, viewers, winzapp
 from . import asktools, memorytools, ownvoice, padtools, touchinput, voiceui
-from .claw import catalog, direct, drivers, guides, learn, offers, planning, portable, prompts, training, understand, worksheet
+from .claw import busy, catalog, direct, drivers, guides, learn, offers, planning, policy, portable, prompts, training, understand, worksheet
 from .claw.changes import ChangeLog
 from .claw import debuglog
 from .claw import task as clawTask
@@ -167,6 +167,9 @@ confspec = {
 	"autoFixAddons": "boolean(default=True)",
 	"confirmChanges": "boolean(default=True)",
 	"speakProgress": "boolean(default=True)",
+	# After how many seconds of quiet VisionClaw says how far a long request or description is, or never
+	# (claw/busy.py).
+	"statusUpdates": 'option("10", "15", "30", "60", "off", default="15")',
 	"preload": "boolean(default=True)",
 	"answerInNvdaLanguage": "boolean(default=True)",
 	# The instructions every answer and description gets (claw/prompts.py). "" is VisionClaw's own wording.
@@ -403,10 +406,12 @@ class SentenceSpeaker:
 	_FIRST_CLAUSE_CHARS = 60
 	_CLAUSE = re.compile(r",(?=\s)")
 
-	def __init__(self, cancel, prefix=""):
+	def __init__(self, cancel, prefix="", onFirst=None):
+		"""onFirst() is called just before the first piece is spoken."""
 		self._cancel = cancel
 		self._buf = ""
 		self._prefix = prefix
+		self._onFirst = onFirst
 		self.spokeAnything = False
 
 	def feed(self, delta):
@@ -445,6 +450,8 @@ class SentenceSpeaker:
 		if text and not self._cancel.is_set():
 			if not self.spokeAnything:
 				text = self._prefix + text
+				if self._onFirst is not None:
+					self._onFirst()
 			self.spokeAnything = True
 			_speak(text)
 
@@ -491,6 +498,13 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		# The runtime is given the user's choices as a plain dictionary, so it needs nothing of NVDA's settings object.
 		self.runtime = ModelRuntime(ENGINE_DIR, self.models, _runtimeSettings, hardware.freeMemoryGb, logs)
 		self._engine = _VisionEngine(self.runtime)
+		# What VisionClaw is busy with for the user, and a status update when it has been quiet too long: a large
+		# model, or one that thinks a lot first, can take minutes (claw/busy.py). NVDA+Alt+P asks it at any time.
+		self.board = busy.Board(_speak, lambda: busy.seconds(conf()["statusUpdates"]))
+		clawui.board = self.board
+		# The icons of the overlay being named: their job on the board, and how many are queued and done.
+		self._iconStatus = None
+		self._iconLock = threading.Lock()
 		self._cancel = threading.Event()
 		self._speakingCancel = None
 		self._dataDialog = None
@@ -697,6 +711,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 
 	def terminate(self):
 		debuglog.log("start", "VisionClaw is closing with NVDA.")
+		self.board.close()
 		self._stopped.set()
 		self._cancel.set()
 		self._backgroundCancel.set()
@@ -997,9 +1012,14 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		while self.clawTask is not None and not self.clawTask.finished and not self._stopped.wait(1):
 			pass
 		task = self._debugTask = clawTask.Task(f"Correct the add-on {ident}")
+		# Translators: What VisionClaw is doing, as a status update says it: "Still correcting the add-on clock".
+		job = self.board.begin(_("correcting the add-on {name}").format(name=ident), task.statusText, cancel=task.cancel)
 		try:
-			with self._inUse():
-				nvdatools.fixAddon(self, task, ident)
+			try:
+				with self._inUse():
+					nvdatools.fixAddon(self, task, ident)
+			finally:
+				self.board.end(job)
 		except Exception:
 			log.error(f"VisionClaw: the add-on {ident} could not be corrected", exc_info=True)
 			if self._stopped.is_set():
@@ -1070,6 +1090,10 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		if kind in (clawTask.STATE, clawTask.STEP):
 			if conf()["speakProgress"] and task.state not in (clawTask.DONE,):
 				_speak(text)
+				# The user just heard where the request is: a status update waits for the next stretch of quiet.
+				job = getattr(task, "statusJob", None)
+				if job is not None:
+					job.heardNow()
 		elif kind == clawTask.ANSWER:
 			_sound("done")
 			_speak(text)
@@ -1092,20 +1116,23 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 				self.showDataDialog()
 				return
 		task = self.clawTask = clawTask.Task(request, self._onClawEvent, reasoning)
+		# Translators: What VisionClaw is doing, as a status update says it: "Still working on your request".
+		task.statusJob = self.board.begin(_("working on your request"), task.statusText, cancel=task.cancel)
 		sounds.play("send")
 		threading.Thread(target=self._runClawTask, args=(task,), name="visionClaw-task", daemon=True).start()
 
 	def _runClawTask(self, task):
-		# The Ask window has just closed; wait for the focus to be back in the program the request is about.
-		time.sleep(0.6)
-		self._cancel.set()
-		self._backgroundCancel.set()
 		try:
+			# The Ask window has just closed; wait for the focus to be back in the program the request is about.
+			time.sleep(0.6)
+			self._cancel.set()
+			self._backgroundCancel.set()
 			with self._inUse():
 				self.orchestrator.run(task)
 		except Exception:
 			log.error("VisionClaw: the task failed", exc_info=True)
 		finally:
+			self.board.end(task.statusJob)
 			self._lastRequest = time.monotonic()
 
 	@script(
@@ -1196,10 +1223,17 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 
 	@script(
 		# Translators: Description of a command in the Input Gestures dialog.
-		description=_("Says how far VisionClaw is with the current request."),
+		description=_(
+			"Says how far VisionClaw is with what it is working on: a request, a description, an answer about a picture, "
+			"the words you spoke, or the icons of the overlay."),
 		gesture="kb:NVDA+alt+p",
 	)
 	def script_clawProgress(self, gesture):
+		# Everything VisionClaw is busy with now; the next status update waits for another stretch of quiet.
+		busyText = self.board.progressText()
+		if busyText:
+			ui.message(busyText)
+			return
 		if self.clawTask is None:
 			# Translators: Reported when progress is asked for and nothing was requested yet.
 			ui.message(_("VisionClaw is not working on anything. Press NVDA+Alt+C to ask for something."))
@@ -1208,15 +1242,18 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 
 	@script(
 		# Translators: Description of a command in the Input Gestures dialog.
-		description=_("Stops the request VisionClaw is working on."),
+		description=_(
+			"Stops the request VisionClaw is working on, or a description or answer about a picture it is still "
+			"waiting for."),
 		gesture="kb:NVDA+alt+x",
 	)
 	def script_clawStop(self, gesture):
-		if self.clawTask is None or self.clawTask.finished:
+		if self.clawTask is not None and not self.clawTask.finished:
+			self.clawTask.stop()
+		elif not self.board.stop():
 			# Translators: Reported when stop is pressed and no request is running.
 			ui.message(_("VisionClaw is not working on anything."))
 			return
-		self.clawTask.stop()
 		# Translators: Reported when the user stops a request.
 		ui.message(_("Stopping."))
 
@@ -1260,9 +1297,10 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		if self._speakingCancel is not None:
 			self._speakingCancel.set()
 
-	def _describe(self, image, mode, cacheKey=None, context=(), screen=False, onDone=None):
+	def _describe(self, image, mode, cacheKey=None, context=(), screen=False, onDone=None, what=""):
 		"""Describe a picture in the background. screen means it shows part of the screen, so OCR helps.
-		onDone(text) is called with the result of an icon description, and onDone(text, mode) with any other."""
+		onDone(text) is called with the result of an icon description, and onDone(text, mode) with any other.
+		what: what is described, as a status update names it ("the screen"); "" for a picture."""
 		self._cancel.set()
 		# Background work gives way at once.
 		self._backgroundCancel.set()
@@ -1283,7 +1321,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		if mode not in (AUTO, ICON):
 			sounds.play("detailed" if mode == DETAILED else "quick")
 		threading.Thread(
-			target=self._worker, args=(image, mode, cancel, cacheKey, context, screen, onDone),
+			target=self._worker, args=(image, mode, cancel, cacheKey, context, screen, onDone, what),
 			name="visionClaw-describe", daemon=True,
 		).start()
 
@@ -1299,14 +1337,36 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 				self._busy -= 1
 				self._lastUse = time.monotonic()
 
-	def _worker(self, image, mode, cancel, cacheKey=None, context=(), screen=False, onDone=None):
+	def _worker(self, image, mode, cancel, cacheKey=None, context=(), screen=False, onDone=None, what=""):
+		# A description the user asked for is on the board: a status update says how far it is when it takes long,
+		# and NVDA+Alt+X stops it. Automatic descriptions and icon names stay quiet.
+		job = None
+		if mode not in (AUTO, ICON):
+			job = self.board.begin(
+				# Translators: What VisionClaw is doing, as a status update says it: "Still describing the screen".
+				_("describing {what}").format(what=what or _("the picture")),
+				# Translators: What the model is doing while a picture is described. {model} is "vision model" or "model".
+				self._seeing(_("The {model} is looking at the picture.")), cancel=cancel)
 		try:
 			with self._inUse():
-				self._describeNow(image, mode, cancel, cacheKey, context, screen, onDone)
+				self._describeNow(image, mode, cancel, cacheKey, context, screen, onDone, job)
 		finally:
+			self.board.end(job)
 			self._lastRequest = time.monotonic()
 
-	def _describeNow(self, image, mode, cancel, cacheKey, context, screen=False, onDone=None):
+	def _seeing(self, doing):
+		"""What the model that sees is doing, as it is when a status update asks: starting, which a large model takes
+		a while to do, or doing. doing has {model} for the model's name."""
+		def now():
+			name = policy.roleName(VISION, policy.isOneModel(self.runtime))
+			# Where it cannot be told whether the model has started, it is not said to be starting.
+			if _safe(lambda: self._engine.running) is False:
+				# Translators: What the model is doing while it is loaded. {model} is "vision model" or "model".
+				return _("Starting the {model}.").format(model=name)
+			return doing.format(model=name)
+		return now
+
+	def _describeNow(self, image, mode, cancel, cacheKey, context, screen=False, onDone=None, job=None):
 		c = conf()
 		detailed = mode == DETAILED
 		quiet = mode in (AUTO, ICON)
@@ -1340,11 +1400,22 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		stopBeeps = threading.Event()
 		if c["progressBeeps"] and not quiet:
 			threading.Thread(target=self._progressBeeps, args=(cancel, stopBeeps), daemon=True).start()
+		def started():
+			"""The description is being spoken or shown: no more status updates. From now on whatever silences NVDA,
+			such as Control, stops a spoken one. Not before: NVDA silences itself at every key press, and a key
+			pressed while waiting, such as NVDA+Alt+P, must not throw the description away."""
+			stopBeeps.set()
+			if job is not None:
+				job.hush()
+			if speaker is not None:
+				self._speakingCancel = cancel
+
 		# Translators: Spoken before an automatic description of an image without a label.
-		speaker = None if detailed or mode == ICON else SentenceSpeaker(cancel, prefix=_("Image: ") if mode == AUTO else "")
+		speaker = None if detailed or mode == ICON else SentenceSpeaker(
+			cancel, prefix=_("Image: ") if mode == AUTO else "", onFirst=started)
 		conversation = {"start": None, "history": []}
 		window = dialogs.StreamingResult(
-			onOpened=stopBeeps.set, onAsk=lambda question, dialog: self._askFollowUp(conversation, question, dialog),
+			onOpened=started, onAsk=lambda question, dialog: self._askFollowUp(conversation, question, dialog),
 		) if detailed else None
 
 		def onText(delta):
@@ -1354,7 +1425,8 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			elif window is not None:
 				window.feed(delta)
 
-		if speaker is not None:
+		if mode == AUTO:
+			# An automatic description is given up as soon as the user goes on reading, even before it is spoken.
 			self._speakingCancel = cancel
 		try:
 			jpeg = prepareImage(image, size)
@@ -1421,15 +1493,35 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		messages = list(conversation["start"])
 		for q, a in conversation["history"]:
 			messages += [{"role": "user", "content": q}, {"role": "assistant", "content": a}]
-		speaker = SentenceSpeaker(cancel)
+		job = self.board.begin(
+			# Translators: What VisionClaw is doing, as a status update says it: "Still answering your question about
+			# the picture".
+			_("answering your question about the picture"),
+			# Translators: What the model is doing while it answers. {model} is "vision model" or "model".
+			self._seeing(_("The {model} is answering.")), cancel=cancel)
+
+		def started():
+			# The answer is being spoken: no more status updates, and from now on Control stops it. Not before: NVDA
+			# silences itself at every key press, and reading on in the window must not throw the answer away.
+			job.hush()
+			self._speakingCancel = cancel
+
+		speaker = SentenceSpeaker(cancel, onFirst=started)
 		state = {"open": False}
 
 		def onText(delta):
 			if not state["open"]:
 				state["open"] = True
+				job.hush()
 				_sound("receive")
 			speaker.feed(delta)
 
+		try:
+			self._answerNow(conversation, question, dialog, cancel, messages, speaker, onText)
+		finally:
+			self.board.end(job)
+
+	def _answerNow(self, conversation, question, dialog, cancel, messages, speaker, onText):
 		answer = None
 		debuglog.log("describe", f"Question about the picture: {question!r}")
 		# A question that asks how something is done is given what NVDA's own help on this computer says about
@@ -1442,7 +1534,6 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			debuglog.error("describe", "What is known about the question could not be looked up", e)
 		if found:
 			debuglog.log("describe", f"Given with the question: {found.strip()!r}")
-		self._speakingCancel = cancel
 		try:
 			with self._inUse():
 				self._ensureEngine()
@@ -1470,20 +1561,28 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	# --- Background work ---
 
 	def _queueBackground(self, job, key):
+		"""Returns whether the job was queued: not when the same work is queued already or there is no model."""
 		if key in self._backgroundKeys or not self._dataReady():
-			return
+			return False
 		self._backgroundKeys.add(key)
 		self._background.append((job, key))
 		self._backgroundWake.set()
+		return True
 
 	def _backgroundLoop(self):
 		while not self._stopped.is_set():
 			self._backgroundWake.wait()
 			self._backgroundWake.clear()
 			while self._background and not self._stopped.is_set():
-				# Give way to anything the user asked for, and to what they may ask next.
+				# Give way to anything the user asked for, and to what they may ask next. Meanwhile the icons of the
+				# overlay are not being named, so no status update says that they are.
+				icons = self._iconStatus
 				while self._userActive() and not self._stopped.is_set():
+					if icons is not None:
+						icons["job"].pause()
 					time.sleep(0.2)
+				if icons is not None:
+					icons["job"].resume()
 				try:
 					job, key = self._background.popleft()
 				except IndexError:
@@ -1517,7 +1616,36 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		for start in range(0, len(icons), imaging.SHEET_MAX_ICONS):
 			batch = icons[start:start + imaging.SHEET_MAX_ICONS]
 			self._iconsQueued.update((app, k) for k, _crop in batch)
-			self._queueBackground(self._iconJob(app, batch, onNamed), ("icon", app, tuple(k for k, _crop in batch)))
+			if self._queueBackground(self._iconJob(app, batch, onNamed), ("icon", app, tuple(k for k, _crop in batch))):
+				self._iconsCounted(added=len(batch))
+
+	def _iconsCounted(self, added=0, done=0, dropped=False):
+		"""The icons of the overlay being named, on the board: added when queued, done when a batch is over, dropped
+		when the overlay closed. When all are done, and the user was given a status update meanwhile, that is said."""
+		with self._iconLock:
+			status = self._iconStatus
+			if dropped or (status is None and not added):
+				if status is not None:
+					self._iconStatus = None
+					self.board.end(status["job"], said=False)
+				return
+			if status is None:
+				# Made whole before it is kept: the background loop reads it without the lock.
+				status = {"total": 0, "done": 0}
+				status["job"] = self.board.begin(
+					# Translators: What VisionClaw is doing, as a status update says it: "Still naming the icons in the
+					# overlay".
+					_("naming the icons in the overlay"),
+					# Translators: How far the naming of the overlay's icons is: "4 of 12 icons done so far."
+					lambda: _("{done} of {total} icons done so far.").format(done=status["done"], total=status["total"]),
+					# Translators: Said when the icons of the overlay are named, after a status update about them.
+					doneText=_("Finished naming the icons in the overlay."))
+				self._iconStatus = status
+			status["total"] += added
+			status["done"] += done
+			if status["done"] >= status["total"]:
+				self._iconStatus = None
+				self.board.end(status["job"])
 
 	def _iconJob(self, app, batch, onNamed):
 		def run(cancel):
@@ -1529,6 +1657,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			finally:
 				if done is not False:
 					self._iconsQueued.difference_update((app, k) for k, _crop in batch)
+					self._iconsCounted(done=len(batch))
 			return done
 
 		def nameBatch(cancel):
@@ -1883,7 +2012,8 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			if doneMode == QUICK or not self.chatPhotos.get(key):
 				self.chatPhotos.set(key, " ".join(_clean(text).split()))
 
-		self._describe(image, mode, context=CHAT_PHOTO_CONTEXT, onDone=onDone)
+		# Translators: What is described, as a status update says it: "Still describing the screen".
+		self._describe(image, mode, context=CHAT_PHOTO_CONTEXT, onDone=onDone, what=_("the photo"))
 
 	def _checkFocus(self, obj, generation):
 		c = conf()
@@ -1963,7 +2093,8 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		dropped if the user moved on meanwhile."""
 		context = _windowContext() + [("shown", "a photo someone sent in a chat")]
 		if not localmedia.folders(appName):
-			self._describe(preview, mode, cacheKey=cacheKey, context=context, screen=True)
+			# Translators: What is described, as a status update says it: "Still describing the screen".
+			self._describe(preview, mode, cacheKey=cacheKey, context=context, screen=True, what=_("the photo"))
 			return
 		self._originalRequest += 1
 		request = self._originalRequest
@@ -1972,7 +2103,8 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			# Only the newest request: a second press replaces the first.
 			if request != self._originalRequest or (generation is not None and not self._stillThere(generation)):
 				return
-			self._describe(image, mode, cacheKey=cacheKey, context=context, screen=True)
+			# Translators: What is described, as a status update says it: "Still describing the screen".
+			self._describe(image, mode, cacheKey=cacheKey, context=context, screen=True, what=_("the photo"))
 
 		def find():
 			path = localmedia.findOriginal(preview, appName)
@@ -2013,7 +2145,8 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		image = viewers.openImage(path)
 		if image is None:
 			return False
-		self._describe(image, mode, cacheKey=key, context=[("file name", os.path.basename(path))])
+		# Translators: What is described, as a status update says it: "Still describing the screen".
+		self._describe(image, mode, cacheKey=key, context=[("file name", os.path.basename(path))], what=_("the picture file"))
 		return True
 
 	def _explorerImage(self, obj):
@@ -2260,6 +2393,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			self._backgroundKeys.discard(key)
 			self._backgroundCancel.set()
 		self._iconsQueued.clear()
+		self._iconsCounted(dropped=True)
 		self._overlayWindow = None
 		self._overlayItem = None
 		self._overlayFollowUntil = 0
@@ -2371,7 +2505,8 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		if photo:
 			self._describeMessagePhoto(image.crop(photo), self._pressMode(), _safe(lambda: obj.appModule.appName))
 			return
-		self._describe(image, self._pressMode(), context=context, screen=True)
+		# Translators: What is described, as a status update says it: "Still describing the screen".
+		self._describe(image, self._pressMode(), context=context, screen=True, what=_("the current element"))
 
 	@staticmethod
 	def _photoIn(obj, bbox, image):
@@ -2409,7 +2544,8 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			return
 		image = self._grabOrReport(_bbox(_windowBox(api.getForegroundObject())))
 		if image is not None:
-			self._describe(image, self._pressMode(), context=_windowContext(), screen=True)
+			# Translators: What is described, as a status update says it: "Still describing the screen".
+			self._describe(image, self._pressMode(), context=_windowContext(), screen=True, what=_("the window"))
 
 	@script(
 		# Translators: Description of a command in the Input Gestures dialog.
@@ -2419,7 +2555,8 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	def script_describeScreen(self, gesture):
 		image = self._grabOrReport()
 		if image is not None:
-			self._describe(image, self._pressMode(), context=_windowContext(), screen=True)
+			# Translators: What is described, as a status update says it: "Still describing the screen".
+			self._describe(image, self._pressMode(), context=_windowContext(), screen=True, what=_("the screen"))
 
 	@script(
 		# Translators: Description of a command in the Input Gestures dialog.
@@ -2452,7 +2589,8 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			# Translators: Reported when there is no image on the clipboard.
 			ui.message(_("No image or image file on the clipboard."))
 			return
-		self._describe(content, self._pressMode(), context=context)
+		# Translators: What is described, as a status update says it: "Still describing the screen".
+		self._describe(content, self._pressMode(), context=context, what=_("the image on the clipboard"))
 
 
 def _clean_paragraphs(text):

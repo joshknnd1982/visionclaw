@@ -91,14 +91,38 @@ class LLM:
 		need = tokens(system) + tokens(user) + maxTokens + (_IMAGE_TOKENS if image is not None else 0) + 128
 		return runtimeModule.contextFor(need)
 
-	def _ask(self, role, messages, maxTokens, options, context, onText=None, raw=True):
+	def _loaded(self, role):
+		"""Whether the model for a role is in memory and answers without being started first. A runtime that cannot
+		say counts as loaded."""
+		loaded = getattr(self.runtime, "loaded", None)
+		try:
+			return True if loaded is None else bool(loaded(role))
+		except Exception:
+			return True
+
+	def waiting(self, role, thinking=OFF):
+		"""What a task waits for while a model is asked, in a sentence, as it is now: the model is starting, thinking
+		first, or answering. A large model can take a minute to start and longer to think; this says which."""
+		from . import policy  # policy imports this module
+		name = policy.roleName(role, policy.isOneModel(self.runtime))
+		if not self._loaded(role):
+			return f"Starting the {name}."
+		if thinking in _THOUGHT_CHARS:
+			return f"The {name} is thinking before it answers; thinking is set to {thinking}."
+		return f"The {name} is answering."
+
+	def _ask(self, role, messages, maxTokens, options, context, onText=None, raw=True, thinking=OFF):
 		self.task.check()
 		info = {}
 		debuglog.detail("model", f"Asking the {role} model, context {context}, at most {maxTokens} tokens.")
-		answer = self.runtime.chat(
-			role, messages, maxTokens, onText=onText, cancel=self.task.cancel, options=options, raw=raw, info=info,
-			context=context,
-		)
+		self.task.now = lambda: self.waiting(role, thinking)
+		try:
+			answer = self.runtime.chat(
+				role, messages, maxTokens, onText=onText, cancel=self.task.cancel, options=options, raw=raw, info=info,
+				context=context,
+			)
+		finally:
+			self.task.now = None
 		if answer is None:
 			debuglog.log("model", f"The question to the {role} model was stopped.")
 			raise taskModule.Cancelled()
@@ -118,7 +142,9 @@ class LLM:
 				"temperature": 0,
 			}
 			messages = self._messages(system, user + "\nAnswer with the JSON form only.", image)
-			answer, info = self._ask(role, messages, maxTokens, options, self._context(system, user, image, maxTokens))
+			answer, info = self._ask(
+				role, messages, maxTokens, options, self._context(system, user, image, maxTokens),
+				thinking=reasoning if reasoning in _THOUGHT_CHARS else OFF)
 			try:
 				found = json.loads(answer)
 				if not isinstance(found, dict):
@@ -149,7 +175,7 @@ class LLM:
 		messages = self._messages(system, user, image)
 		answer, info = self._ask(
 			role, messages, limit, options, self._context(system, user, image, limit), onText,
-			raw="code" if code else False)
+			raw="code" if code else False, thinking=reasoning if thinks else OFF)
 		if thinks and not (answer or "").strip():
 			# A model with its own thinking mode can think until no tokens are left, and then the answer is empty:
 			# measured with Qwen3.5 9B writing an add-on at reasoning High. Asked again without thinking, it answers.

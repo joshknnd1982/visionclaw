@@ -2216,6 +2216,57 @@ itself; what each call is fed does. So the work sheet was made the one place eac
   loaded into NVDA, and the look tool's questions in parts have run only against stand-ins. `docs/TESTPLAN.md` has a
   new section for them.
 
+## Status updates while VisionClaw takes long (1.12.0, 2026-11-19)
+
+The owner asked on 2026-11-19: "If a visionclaw request, anything from nvda+alt+f, nvda+alt+o, nvda+alt+c,
+nvda+alt+v, etcetera, is taking longer than usual due to the user using a large local model or high thinking effort
+with said model, give the user periodic status updates. user should have ability to disable such status updates in
+visionclaw settings. also remind user how to get status updates with nvda+alt+p."
+
+**What was built.**
+
+- `claw/busy.py`: one board of everything VisionClaw is busy with for the user. When the user has heard nothing of a
+  job for the setting's seconds of quiet, an update says it: "Still describing the screen, 30 seconds so far. The
+  vision model is looking at the picture." The first one adds "Press NVDA+Alt+P at any time to hear how far it is,
+  or NVDA+Alt+X to stop it." (only the first half where the job cannot be stopped). The setting "Status updates while
+  VisionClaw takes long" (`statusUpdates`): 10, 15, 30 or 60 seconds, or never; 15 suggested. It is read each time,
+  so a change counts at once.
+- Jobs: a request (NVDA+Alt+C, and NVDA+Alt+V once sent), whose spoken steps count as heard; a description
+  (NVDA+Alt+A, W, F, D, photos in chats, picture files); an answer in the description window; the speech model
+  working out a spoken request (only after the microphone is closed); the overlay's icons being named (NVDA+Alt+O),
+  counted as queued and done, with "Finished naming the icons in the overlay." when an update was given meanwhile;
+  an add-on being corrected by itself.
+- Nothing is said while a question to the user is open (`clawui._fromWorker`, which every question from a running
+  task goes through), once the answer or description is spoken or shown (`Job.hush`), while the icon naming gives
+  way to the user (`Job.pause`), after the job was stopped, or when the setting is off.
+- What an update says is plain code: the task's activity and what it waits for at that moment (`task.now`, set by
+  `llm.LLM._ask`): "Starting the coder model." while `runtime.loaded` says it is not in memory, "The coder model is
+  thinking before it answers; thinking is set to high." when it reasons first, else "The coder model is answering."
+  With one model for both jobs it is "the model" (`policy.roleName`).
+- NVDA+Alt+P says every job's progress; NVDA+Alt+X also stops a description or an answer still on its way.
+
+**A fault found on the way.** NVDA silences speech at every key press: `inputCore.py` of NV Access's tag
+`release-2026.3.1`, read on 2026-11-19, queues `speech.cancelSpeech` in `executeGesture` when the key press's
+`speechEffectWhenExecuted` is "cancel", which `keyboardHandler.py` gives every ordinary key. VisionClaw armed its
+"stop the description when speech is silenced" before the model had written anything. So any key pressed while
+waiting for a quick description, NVDA+Alt+P included, threw the description away without a word, and so did reading
+on in the description window while an answer was on its way. Unnoticed with fast models; with a 9B it would have made
+the reminder to press NVDA+Alt+P harmful. Now it is armed when the first piece is spoken
+(`SentenceSpeaker(onFirst=)`); an automatic description still gives way at once.
+
+**Tested, with plain Python only.**
+
+| Test | What it shows | Result |
+|---|---|---|
+| `tests/test_busy.py` | With a clock of its own: when an update is due, its words, the reminder once, minutes and seconds, a heard step, NVDA+Alt+P, a question open, the setting changed and off, stopping, hush, pause, a job's end said only after an update and not when stopped, the board's thread; `llm.waiting` with one model and two, set during a model call and cleared after, also when the call fails; `runtime.loaded` | passes |
+| `tests/test_speaker.py` | `onFirst` is called once, just before the first piece is spoken, and not for a stopped description | passes |
+| `tests/test_nvda_stub.py` | The real plugin: the setting's default and choices, NVDA+Alt+P and NVDA+Alt+X with nothing running and with a description, a question pauses updates, the overlay's icons counted and dropped | passes |
+| `test_core`, `test_one_model`, `test_runtime`, `test_lookup`, `test_voice`, `test_ask_window`, `test_codeplan`, `test_understand` | Nothing else changed | pass |
+
+**Not tested.** Nothing of it ran inside NVDA or with a real model: not how an update sounds over what NVDA is
+reading, not the timing with the 9B, not braille (an update goes through `ownvoice.say`, which also brailles it).
+`docs/TESTPLAN.md` has a new section.
+
 ## Next session
 
 1.11.0 understands casual words and the user's own words, feeds every step from a work sheet, and writes add-ons

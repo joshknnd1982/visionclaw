@@ -5,6 +5,7 @@
 # VisionClaw - the Ask VisionClaw window, the questions VisionClaw asks the user, and how a task's progress
 # is put into words.
 
+import contextlib
 import threading
 
 import addonHandler
@@ -22,6 +23,10 @@ addonHandler.initTranslation()
 # When the Ask window is opened to listen at once, how long NVDA is given to begin saying that it has opened.
 LISTEN_AFTER_MS = 900
 
+# What VisionClaw is busy with (claw/busy.py), set by the plugin: while a question to the user is open, no status
+# update says that VisionClaw is still working.
+board = None
+
 
 def reasoningLabels():
 	return [
@@ -31,6 +36,18 @@ def reasoningLabels():
 		_("Low"),
 		_("Medium"),
 		_("High: slowest, most careful"),
+	]
+
+
+def statusLabels():
+	"""The choices of the setting for status updates, in the order of claw/busy.py's CHOICES."""
+	return [
+		# Translators: Choices for when VisionClaw says how far it is while a request or description takes long.
+		_("After 10 seconds of quiet, and every 10 seconds while it lasts"),
+		_("After 15 seconds of quiet, and every 15 seconds while it lasts (suggested)"),
+		_("After 30 seconds of quiet, and every 30 seconds while it lasts"),
+		_("After a minute of quiet, and every minute while it lasts"),
+		_("Never: I press NVDA+Alt+P when I want to know"),
 	]
 
 
@@ -53,7 +70,13 @@ def _popup(dialog):
 
 
 def _fromWorker(show, cancel=None):
-	"""Run show() on the main thread and wait for its result on a worker thread. None if the task is stopped."""
+	"""Run show() on the main thread and wait for its result on a worker thread. None if the task is stopped.
+	Meanwhile VisionClaw waits for the user, so no status update is said."""
+	with board.asking() if board is not None else contextlib.nullcontext():
+		return _shown(show, cancel)
+
+
+def _shown(show, cancel):
 	if wx.IsMainThread():
 		return show()
 	done = threading.Event()

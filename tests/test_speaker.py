@@ -28,4 +28,23 @@ for o in out:
 assert all("**" not in o for o in out)
 assert not any(o.endswith("R.") or o.endswith("Tel.:") for o in out)
 assert any("54.50 for four items." in o for o in out)
+
+# onFirst is called once, just before the first piece is spoken: from then on a key that silences NVDA stops the
+# description. Not when the text only begins to arrive, nor when nothing is spoken.
+del out[:]
+first = []
+sp = ns["SentenceSpeaker"](threading.Event(), onFirst=lambda: first.append(len(out)))
+sp.feed("A short")
+assert first == [] and out == []
+sp.feed(" start of a description that goes on. And more of it follows here.")
+assert first == [0] and len(out) == 1, (first, out)
+sp.feed(" Another sentence that is long enough to be said. ")
+sp.flush()
+assert first == [0] and len(out) >= 2, (first, out)
+stopped = threading.Event()
+stopped.set()
+sp = ns["SentenceSpeaker"](stopped, onFirst=lambda: first.append("stopped"))
+sp.feed("A description that was stopped before it was spoken. ")
+sp.flush()
+assert "stopped" not in first
 print("OK")

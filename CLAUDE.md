@@ -167,6 +167,24 @@ keyboard and speech alone.
   outside it (`nvdatools.py`, `clawui.py`, `__init__.py`). This keeps `claw/` testable with plain Python.
 - **Every task is interruptible.** Every loop and every model call takes the task's cancel event. Never add a
   blocking wait that ignores it.
+- **When VisionClaw takes long, it says how far it is, unless the user turned that off** (`claw/busy.py`). The owner
+  said on 2026-11-19: "If a visionclaw request, anything from nvda+alt+f, nvda+alt+o, nvda+alt+c, nvda+alt+v,
+  etcetera, is taking longer than usual due to the user using a large local model or high thinking effort with said
+  model, give the user periodic status updates. user should have ability to disable such status updates in
+  visionclaw settings. also remind user how to get status updates with nvda+alt+p." What follows from it:
+  - **Everything that makes the user wait on a model is a job on `plugin.board`**, begun when it starts and ended in a
+    `finally`: a request, a description, an answer about a picture, the words spoken, the overlay's icons, an add-on
+    corrected by itself. A new thing of that kind gets a job too.
+  - **After the setting's seconds of quiet** (`statusUpdates`: 10, 15, 30, 60 or off; 15 suggested, never forced) an
+    update says what the job is doing and what it waits for, from plain code (`task.statusText`, `llm.waiting`,
+    `runtime.loaded`), never from a model. The first one names NVDA+Alt+P, and NVDA+Alt+X where the job can be
+    stopped. A step the user hears and NVDA+Alt+P start the quiet again.
+  - **Nothing is said** while a question to the user is open (`clawui._fromWorker`), once the answer is spoken or
+    shown (`Job.hush`), while the microphone is open (the voice job begins only at "thinking"), or when it is off.
+    NVDA+Alt+P always answers, for every job.
+  - **Never arm a stop on NVDA's speech being silenced before speech has begun.** NVDA silences speech at every key
+    press (`inputCore.py`, `executeGesture`), so a key pressed while waiting, NVDA+Alt+P included, would throw the
+    answer away without a word. A spoken answer arms it at its first piece (`SentenceSpeaker(onFirst=)`).
 - **The user stays in charge.** Models must agree before a task starts; when they do not, the user chooses.
   Settings changes and new add-ons are confirmed with the user unless they turned confirmations off.
 - **Generated code is checked before it runs** (`claw/microaddons.py`): it must parse, pass the safety check,
@@ -1254,6 +1272,8 @@ addon/
                              the frame written by plain code, the lines of each piece by the model, one at a time;
                              a failing add-on corrected one method at a time
       pictures.py            a question about a picture split into its parts, the kind of each, and its rule
+      busy.py                what VisionClaw is busy with for the user, and a status update when it has been quiet
+                             too long: when one is due, what it says, when nothing is said
       router.py              which kinds of request and which tools a model is offered: by where the user is,
                              by the part before, and by what the words name
       pointer.py             which mouse action is meant, where a drag ends, how pointer mode moves; how long
@@ -1537,6 +1557,10 @@ A session is done only when its "Done when" line is true.
 - [x] **3.59 Understanding, work sheets, and bite-size writing.** Casual words and the user's own words understood
   by plain code; a work sheet for every request that feeds each step and is deleted; add-ons written piece by
   piece; questions about a picture asked in their parts. Measured with the real Qwen3.5 9B; not run inside NVDA.
+- [x] **3.61 Status updates while VisionClaw takes long.** Requests, descriptions, answers about a picture, the words
+  spoken, the overlay's icons and add-on repairs say how far they are after a stretch of quiet; the user chooses how
+  long or turns it off; NVDA+Alt+P and NVDA+Alt+X cover all of them. Tested with plain Python and stand-ins; not run
+  inside NVDA or with a real model.
 - [ ] **3.5 Test inside NVDA.** Install the build in NVDA (ask the user first) and walk through
   `docs/TESTPLAN.md`. Fix what breaks. *Done when:* every item in the test plan is ticked by a real run.
 

@@ -75,7 +75,10 @@ _ASKING_NOTES = re.compile(
 	r"classic ?speech|verbosity|(speech|sound) schemes?|voice profiles?|"
 	r"(which|what|best|smaller|larger|bigger|faster|different|switch\w*|suggest\w*|recommend\w*) (ai )?models?|quants?|"
 	r"understood as|teach (you|visionclaw) (a |my |the )?(own )?(words?|phrases?)|(my|your) own words|words? (i|you) taught|"
-	r"taught (you|visionclaw)|work ?sheets?|piece by piece|in pieces|one piece|several parts|one question at a time)\b"
+	r"taught (you|visionclaw)|work ?sheets?|piece by piece|in pieces|one piece|several parts|one question at a time|"
+	# Status updates while VisionClaw takes long (claw/busy.py).
+	r"status updates?|how far (along )?(is |are )?(you|visionclaw)|(you|visionclaw) (is |are )?tak\w+ (so |too |this )?long|"
+	r"still working)\b"
 	# JAWS with a written-out key, as in "JAWS's Insert+F7". JAWS alone is not enough: "what is the JAWS cursor
 	# called in NVDA" was answered with the note on the JAWS Migration Assistant (measured on 2026-11-18).
 	r"|\bjaws\b.{0,20}\w\+\w", re.IGNORECASE)

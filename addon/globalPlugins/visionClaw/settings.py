@@ -14,7 +14,7 @@ import wx
 from gui import guiHelper
 
 from . import clawui, padtools
-from .claw import backend, debuglog, memories, policy, updates
+from .claw import backend, busy, debuglog, memories, policy, updates
 from .claw import voice as voiceWords
 
 addonHandler.initTranslation()
@@ -118,6 +118,13 @@ class VisionClawPanel(gui.settingsDialogs.SettingsPanel):
 		self.speakProgress = checkbox(
 			# Translators: Checkbox in settings.
 			_("Say each step while VisionClaw works on a re&quest"), "speakProgress")
+		self.statusUpdates = helper.addLabeledControl(
+			# Translators: Label of the choice of when VisionClaw says by itself how far a long request, description or
+			# answer is.
+			_("&Status updates while VisionClaw takes long, as with a large model or high thinking (NVDA+Alt+P says one "
+				"at any time):"), wx.Choice, choices=clawui.statusLabels())
+		self.statusUpdates.SetSelection(
+			busy.CHOICES.index(c["statusUpdates"]) if c["statusUpdates"] in busy.CHOICES else busy.CHOICES.index(busy.SUGGESTED))
 		self.ownVoice = checkbox(
 			# Translators: Checkbox in settings.
 			_("Speak with VisionClaw's o&wn voice, once you have set one. To set it, close this window and ask "
@@ -237,6 +244,7 @@ class VisionClawPanel(gui.settingsDialogs.SettingsPanel):
 		c["searchEngine"] = SEARCH_IDS[max(0, self.searchEngine.GetSelection())]
 		c["confirmChanges"] = self.confirmChanges.GetValue()
 		c["speakProgress"] = self.speakProgress.GetValue()
+		c["statusUpdates"] = busy.CHOICES[max(0, self.statusUpdates.GetSelection())]
 		c["ownVoice"] = self.ownVoice.GetValue()
 		c["readAhead"] = self.readAhead.GetValue()
 		c["iconLabeler"] = self.iconLabeler.GetValue()

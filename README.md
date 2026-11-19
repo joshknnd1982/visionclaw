@@ -23,9 +23,14 @@ chat apps, and names for unlabelled buttons.
 > [docs/STATUS.md](docs/STATUS.md) for exactly what was tested.
 
 <!-- news: written by tools/write_help.py from manifest.ini; do not change it by hand -->
-This README is for VisionClaw 1.11.0.
+This README is for VisionClaw 1.12.0.
 
-## What is new in 1.11.0
+## What is new in 1.12.0
+
+- When a large model or high thinking keeps you waiting, VisionClaw tells you by itself how far it is, after 15 seconds of quiet and every 15 seconds while it lasts: "Still describing the screen, 30 seconds so far. The vision model is looking at the picture." It says which step a request is on, whether a model is still starting or thinking first, and how many of the overlay's icons are done. This works for requests (NVDA+Alt+C, NVDA+Alt+V), descriptions (NVDA+Alt+A, W, F, D), answers in the description window, the words you spoke, the overlay's icons (NVDA+Alt+O) and an add-on being corrected. The first update reminds you that NVDA+Alt+P says how far it is at any time, and NVDA+Alt+X stops it. Nothing is said while a question waits for you or the microphone is open. Choose 10, 15, 30 or 60 seconds, or turn the updates off, in VisionClaw's settings: Status updates while VisionClaw takes long. Tested with plain Python and stand-ins for NVDA; not yet heard inside NVDA.
+- NVDA+Alt+P now also says how far a description, an answer about a picture, the words you spoke or the overlay's icons are, and NVDA+Alt+X also stops a description or an answer that is still on its way. While you wait for a description, other keys no longer throw it away: read on, or press NVDA+Alt+P, and it still comes. Once it is spoken, Control stops it, as before.
+
+## What was new in 1.11.0
 
 - VisionClaw understands many more ways of saying things, the way a text adventure understands its player. "Take a peek at the screen", "kill the typing echo", "give the Save button a click", "punch in control c", "google how to bake bread", "dump the bin" and "lock up the pc" are understood as the plain words VisionClaw knows, by plain code, before anything is decided. When the meaning of your words was changed, the answer begins "Understood as", so you always know. Words in quotes, text to be typed, names, searches and what you ask it to remember are never changed. Measured on 62 requests in casual words: the right job went from 40 to 52 with Qwen3.5 9B, and from 41 to 55 with the small Qwen3.5 2B, which no longer had to ask you which you meant.
 - Teach VisionClaw your own words. Say "when I say shh, I mean stop talking", or "understand zap as turn off". From then on that word is understood that way, first of all. Say "which words have I taught you" to hear them, "forget the word shh" to forget one, and "forget all the words I taught you" to forget them all. They are kept in the file understanding.md in VisionClaw's data folder, which you can read and change.
@@ -34,20 +39,7 @@ This README is for VisionClaw 1.11.0.
 - "Gets checked" means checked: an add-on for "when a checkbox gets checked, say checked" speaks only when the box is checked, not when it is unchecked. When no key is named, as in "give me a key that reads the window title", VisionClaw chooses one nothing else uses and tells you which. Before an add-on is turned on you are told what it cannot do, such as a heading in browse mode, which never gets the focus. What cannot be written in pieces, such as something every hour, is written as one piece as before, and you are told why.
 - When an add-on VisionClaw wrote fails in one place, only the method where it failed is sent to the model to correct.
 - A question about the screen is asked one part at a time. "What is in this photo, and is there any text in it?" is two questions to the model that sees, each with the one rule of its kind: text read exactly, a count with the number first, yes or no first and then where, a colour in plain words. You hear each answer after its own question.
-- NVDA+Alt+P now also says how far a description, an answer about a picture, the words you spoke or the overlay's icons are, and NVDA+Alt+X also stops a description or an answer that is still on its way. While you wait for a description, other keys no longer throw it away: read on, or press NVDA+Alt+P, and it still comes. Once it is spoken, Control stops it, as before.
 - Stated plainly: measured with the real Qwen3.5 9B, and with Qwen3.5 2B and Qwen2.5 Coder 1.5B, on requests and add-ons written for this; tested with stand-ins for NVDA. The new requests in casual words were written by the same hand as the words VisionClaw understands, the same day. Not run inside NVDA yet.
-
-## What was new in 1.10.0
-
-- VisionClaw understands more ways of saying things, and asks you less. Measured on requests in words it had never seen: the right job went from 55 to 58 of 65, and the times it had to ask you which you meant from 5 to 1.
-- A question about how to do something is answered with the keys, and nothing is done. "How can I jump between headings on a web page" and "what's the shortcut to get to the address bar" no longer list headings or make a hotkey. A question that begins with why, such as "why does NVDA say clickable all the time", is answered too.
-- When the model's choice also fits your words, VisionClaw goes with it instead of asking you. Before, it asked you nine times on the first test set, and the model had been right in six of them.
-- More requests are understood by plain code: "press alt f4" and "send control s to this program" press those keys in the program; "the whole computer is too loud" turns the computer's volume down; "what did I download today" looks in Downloads; "open the NVDA menu" and "what's on the clipboard" run NVDA's own command; "click the attack button every second" clicks in a rhythm; "go back to Chrome" switches to Chrome; "what does this dialog say" reads it; "I want to hear line numbers" and "every letter I type" are NVDA settings.
-- A complaint and what to do about it is one request: "NVDA keeps saying every word I type, make it stop". And "I'm lost, how do I print this" answers how to print, instead of only saying where you are.
-- Which model for what you want to do. Say "which model should I use for describing pictures", "should I switch to a smaller model", "which model is best for writing add-ons" or "suggest a model". VisionClaw suggests one from your graphics card and memory, what was measured with each model and on which day, and how your requests went with it on this computer. It changes nothing: you choose in the models window, NVDA+Alt+M.
-- Your own review of a model counts. VisionClaw keeps how requests went with each model on this computer in the file models-went.json in its data folder, and what you ask it to remember about a model, such as "remember that the 9B is too slow for me", brings the faster choice into the suggestion.
-- A new skill, Choosing a model, and a note VisionClaw looks things up in about which model fits what.
-- Stated plainly: measured with the real Qwen3.5 9B on three sets of requests written for this, none of them used to tune VisionClaw when it was written; tested with stand-ins for NVDA. Not run inside NVDA yet.
 
 How to use each of these is explained in its own part of this README, further down.
 <!-- /news -->
@@ -115,7 +107,9 @@ You do not need to know NVDA. VisionClaw finds the right NVDA setting or command
 3. **One step at a time.** For each step a model fills in one small form, and plain program code does the rest.
    When a step fails, the model sees the error and corrects itself; if it stays stuck, the other model gives it
    a hint; if that does not help, you choose whether to skip, retry or stop.
-4. **You hear the progress.** Every step is announced. **NVDA+Alt+P** says where the task is at any time.
+4. **You hear the progress.** Every step is announced. **NVDA+Alt+P** says where the task is at any time, and
+   when a large model or high thinking keeps you waiting, VisionClaw says how far it is by itself (see "While
+   VisionClaw works: status updates").
 5. **You can always stop.** **NVDA+Alt+X** stops the task at once, even in the middle of a model's answer.
 6. **Honest answers.** What VisionClaw says it did is taken from what the tools actually reported, and it tells
    you plainly when a part could not be done.
@@ -537,6 +531,30 @@ Neither add-on has an interface for other add-ons; VisionClaw uses names read fr
 Assistant 1.63, ClassicSpeech 1.16). Where a newer version keeps something differently, VisionClaw says so and
 changes nothing. Neither was installed on the computer this was written on, so both were tested only against
 stand-ins built from their source.
+
+## While VisionClaw works: status updates
+
+A large model, or a model set to think a lot first, can take a minute or more for one answer. So that you are
+never left wondering, VisionClaw tells you by itself how far it is when you have heard nothing from it for a
+while: *"Still describing the screen, 30 seconds so far. The vision model is looking at the picture."* The first
+update also tells you to press **NVDA+Alt+P** at any time to hear how far it is, and **NVDA+Alt+X** to stop it.
+This works for a request (NVDA+Alt+C or NVDA+Alt+V), a description (NVDA+Alt+A, W, F or D, and photos in chats),
+an answer to a question in the description window, the speech model working out what you said, the icons of the
+overlay being named (NVDA+Alt+O), and an add-on VisionClaw wrote being corrected.
+
+- **What an update says**: what VisionClaw is doing and what it waits for: which step of your request it is on;
+  whether a model is still starting, which a large model takes a while to do; whether it is thinking before it
+  answers, and at which level of thinking; or how many of the overlay's icons are done. When the icons took long
+  enough for an update, you also hear when they are all done.
+- **When nothing is said**: while VisionClaw waits for your answer to a question, once the answer or description
+  is being spoken or shown, and while the microphone is open.
+- **Every step you already hear counts**: the quiet starts again after each one, and after you press NVDA+Alt+P.
+- **Your choice**: in VisionClaw's settings, **Status updates while VisionClaw takes long, as with a large model
+  or high thinking**: after 10, 15, 30 or 60 seconds of quiet, and as often while it lasts; or never. The
+  suggested choice is 15 seconds. With the updates off, NVDA+Alt+P still says how far it is whenever you press it.
+- **Reading on while you wait**: while VisionClaw waits for a description or an answer about a picture, other
+  keys no longer stop it: you can read on, or press NVDA+Alt+P, and the description still comes. Press
+  NVDA+Alt+X to stop it. Once it is being spoken, Control stops it, as before.
 
 ## Asking by voice
 
@@ -1291,8 +1309,8 @@ and restore the original of one or all of them. They apply to whatever model you
 |---|---|
 | NVDA+Alt+C | Ask VisionClaw |
 | NVDA+Alt+V | Ask VisionClaw by voice: opens the same window and listens |
-| NVDA+Alt+P | Say the progress of the current request |
-| NVDA+Alt+X | Stop the current request |
+| NVDA+Alt+P | Say how far VisionClaw is with a request, a description, an answer about a picture, the words you spoke or the overlay's icons |
+| NVDA+Alt+X | Stop the current request, or a description or answer about a picture that is still on its way |
 | NVDA+Alt+M | See, remove or swap the models on this computer |
 | NVDA+Alt+I | The skills window: read, make, change, turn off or delete skills |
 | NVDA+Alt+U | Look for a newer version of VisionClaw, and get it if you want it |
@@ -1386,6 +1404,9 @@ NVDA menu, Preferences, Settings, VisionClaw. In the order you meet them:
 - **When an add-on VisionClaw wrote fails, have the models debug and correct it by themselves.**
 - **Ask me before VisionClaw changes a setting, clicks, presses keys or types.**
 - **Say each step while VisionClaw works on a request.**
+- **Status updates while VisionClaw takes long, as with a large model or high thinking**: after 10, 15, 30 or 60
+  seconds of quiet, and as often while it lasts; or never, and you press NVDA+Alt+P when you want to know. The
+  suggested choice is 15 seconds.
 - **Speak with VisionClaw's own voice, once you have set one.**
 - **Models on this computer**: the models, their sizes and what each is in use for.
 - **Look for a newer version of VisionClaw**: only when I ask, or when NVDA starts, at most once a day.

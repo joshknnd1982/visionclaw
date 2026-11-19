@@ -146,6 +146,8 @@ class Voice:
 		if self.listening():
 			return
 		self._stop.clear()
+		board = getattr(self.plugin, "board", None)
+		working = {"job": None}
 
 		def state(now):
 			# The beeps are played from NVDA's main thread, like everything of NVDA's.
@@ -154,6 +156,14 @@ class Voice:
 				time.sleep(AFTER_BEEP_SECONDS)
 			elif now == "thinking":
 				wx.CallAfter(tones.beep, BEEP_THINK, BEEP_MS)
+				# The microphone is closed now, so a status update may be said if working out the words takes long.
+				# Never before: what NVDA says while the microphone is open would be recorded.
+				if board is not None:
+					working["job"] = board.begin(
+						# Translators: What VisionClaw is doing, as a status update says it: "Still working out what you said".
+						_("working out what you said"),
+						# Translators: What the speech model is doing while it turns a spoken request into text.
+						_("The speech model is turning your words into text."))
 			wx.CallAfter(onState, now)
 
 		def run():
@@ -162,6 +172,9 @@ class Voice:
 			except Exception as e:
 				log.error("VisionClaw: listening failed", exc_info=True)
 				text, problem = "", f"Listening did not work: {type(e).__name__}: {e}"
+			finally:
+				if board is not None:
+					board.end(working["job"])
 			wx.CallAfter(onDone, text, problem)
 
 		try:
