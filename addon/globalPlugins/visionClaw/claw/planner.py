@@ -13,7 +13,7 @@ import re
 
 from . import computer, controls, dates, debuglog, direct, gamepad, guide, memories, partners, places, pointer, policy, profiles, router, touch, understand
 from . import docformat, focus, humancheck, images, paper, seats, shopping, versions, wizard
-from .llm import LLMError, clip
+from .llm import LLMError, clip, uncut
 from .task import Step
 from .tools import ANSWER
 
@@ -1395,7 +1395,7 @@ def split(llm, role, request, note=""):
 		return [request]
 	if len(request) < 200 and not _CONNECTORS.search(_ONE_THING.sub(r"\1 ", request)):
 		return [request]  # clearly one thing: no model needed
-	user = f"Request: {clip(request, 800)}"
+	user = f"Request: {uncut(request)}"
 	if note:
 		user += f"\n{note}"
 	try:
@@ -1500,7 +1500,7 @@ def _choose(llm, role, part, context, recipes, names, guess, note, brief=""):
 		"properties": {"choice": {"type": "string", "enum": list(names) + [OTHER]}},
 		"required": ["choice"],
 	}
-	user = f"The user asked: \"{clip(part, 400)}\"\n"
+	user = f"The user asked: \"{uncut(part)}\"\n"
 	if context:
 		user += f"What is known: {clip(context, 400)}\n"
 	if brief:
@@ -1672,7 +1672,7 @@ def freeSteps(llm, role, part, context, registry, params, note="", facts=None, b
 	names = [n for n in registry.names() if n != ANSWER]
 	if facts is not None:
 		names = router.tools(names, available(registry), set(offered(part, registry, facts, before)))
-	user = f"The user asked: \"{clip(part, 600)}\"\n"
+	user = f"The user asked: \"{uncut(part)}\"\n"
 	if context:
 		user += f"What is known:\n{clip(context, 700)}\n"
 	if note:
@@ -1753,7 +1753,7 @@ def rethink(llm, role, request, results, remaining, registry, params):
 		"the wrong thing. If they still fit, say change=false."
 	)
 	user = (
-		f"Request: \"{clip(request, 500)}\"\nFound so far:\n{clip(results, 1200)}\n"
+		f"Request: \"{uncut(request)}\"\nFound so far:\n{clip(results, 1200)}\n"
 		f"Remaining steps:\n{detailText(remaining)}"
 	)
 	found = llm.json(role, system, user, _RETHINK_SCHEMA, maxTokens=80)

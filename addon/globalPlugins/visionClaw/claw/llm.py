@@ -35,9 +35,21 @@ class LLMError(EngineError):
 
 
 def clip(text, chars):
-	"""Cut text to a length a small model can take in, saying that it was cut."""
+	"""Cut text to a length a small model can take in, saying that it was cut. Only for what a model reads of
+	results, notes, pages and code: never for the user's own words, never for what the user reads or hears, and
+	never for the log (uncut)."""
 	text = str(text or "").strip()
-	return text if len(text) <= chars else text[:chars].rstrip() + " ...[cut]"
+	return text if len(text) <= chars else text[:chars].rstrip() + CUT
+
+
+# What clip puts at the end of a text it cut. The user never reads or hears it (tests/test_whole.py).
+CUT = " ...[cut]"
+
+
+def uncut(text):
+	"""Text as it is, however long: for the user's own words wherever they go, and for everything the user reads
+	or hears. The owner said on 2026-11-19: "ensure the whole prompt is always displayed no matter how long"."""
+	return str(text or "").strip()
 
 
 _MARKUP = re.compile(r"\*\*|__|`|^\s*#+\s*|^\s*[-*\u2022]\s+", re.MULTILINE)
@@ -147,7 +159,7 @@ class LLM:
 			debuglog.log("model", f"The question to the {role} model was stopped.")
 			raise taskModule.Cancelled()
 		if info.get("thinking"):
-			self.task.emit(taskModule.THINK, f"{role}: {clip(info['thinking'], 600)}")
+			self.task.emit(taskModule.THINK, f"{role}: {uncut(info['thinking'])}")
 		return answer, info
 
 	def json(self, role, system, user, schema, maxTokens=300, reasoning=OFF, image=None):

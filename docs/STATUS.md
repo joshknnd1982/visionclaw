@@ -1,6 +1,6 @@
 # VisionClaw status
 
-Updated 2026-11-19, version 1.15.1.
+Updated 2026-11-19, version 1.15.2.
 
 ## What exists
 
@@ -2770,6 +2770,36 @@ written for `nvda_info`, now goes to `version_info`, which gives the same versio
 
 What was not tested: nothing of it has run inside NVDA; the walk is "Which version is installed" in
 `docs/TESTPLAN.md`. No model is asked by the job, so `tests/live_orchestrator.py` was not run for it.
+
+## Nothing cut: the whole answer and the whole request (1.15.2, 2026-11-19)
+
+The owner said on 2026-11-19: "very long prompts are being cut off with ' ...[cut] ' and other similar cutoffs. You
+must ensure the whole prompt is always displayed no matter how long." His log showed why: asked "What visionclaw addon
+version is installed?", VisionClaw answered with the add-ons installed and the answer ended in "Pr ...[cut]." There
+were 55 cut markers in the log, in answers, in "Result:" lines of the request's record, and in questions to models.
+
+What was cut, and is now whole (`llm.uncut`):
+- Every tool's result was cut at 1500 characters in `Registry.call`; the answer of a very small model at 420 to 800
+  (`orchestrator._quoted`); "Result:" in the request's record at 300; questions to the user that quote the request
+  at 160 to 200; text to be typed in its question at 80; the focused control's facts at 40 to 200 and its answer at
+  1200; a place of Windows at 60 names and 1300 characters; a check's squares at 70 characters each; what is new in
+  a version at 8000 and 500; the log at 24000 characters an entry.
+- The user's own request was cut for the models at 300 to 800 characters, and for the tools' `asked` fields at 200 to
+  300 (`Tool.autoForm`): a setting named at the end of a long request was not seen by the tool that checks it.
+  What the user asked to remember was kept to 500 characters.
+- Still short, by design: what a model reads of looked-up pages, notes and results (`llm.clip` where the prompt is
+  made); the page overview and the form trouble (`pageview.FITS`, which say "and N more" and cut nothing in the
+  middle); a passage of help, shortened at the end of a sentence (`lookup.shorten`, which now keeps the whole passage
+  where no sentence end fits, instead of cutting it in the middle).
+
+Tested with plain Python: `tests/test_whole.py` (new) reads every file of the add-on for a `clip` of the user's words,
+a `clip` in a line that tells the user, a slice of the request and a cut marker; checks a tool's result and error and
+the log with texts of 10800 to 43000 characters; and runs a request of about 2450 characters with a result of about
+5400 characters through the whole orchestrator with a scripted model: the tool and the model got the request whole,
+the answer holds the whole result, and nothing in the request's record is cut. `tests/test_places.py`,
+`test_updates.py`, `test_humancheck.py` and `test_commands.py` now expect whole lists, notes, squares and log entries.
+`python tests/run_all.py`: every test passed. Not run inside NVDA and not with a real model: a very long answer is now
+spoken whole by NVDA, which can be stopped with Control as always.
 
 ## Next session
 

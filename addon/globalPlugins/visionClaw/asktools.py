@@ -41,8 +41,8 @@ def _safe(fn, default=None):
 
 
 def _one(text, chars=120):
-	text = " ".join(str(text or "").split())
-	return text if len(text) <= chars else text[:chars].rstrip() + " ..."
+	# Whole, however long: a name or a title the user is told is never cut (llm.uncut).
+	return " ".join(str(text or "").split())
 
 
 def guideSections(helpDir=""):

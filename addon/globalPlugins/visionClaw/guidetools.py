@@ -18,7 +18,7 @@ import config
 from . import fixruntime
 from .claw import controls, guide, policy, prompts
 from .claw.fixmatch import labelOf
-from .claw.llm import LLM, LLMError, clip
+from .claw.llm import LLM, LLMError, clip, uncut
 from .claw.tools import ToolError
 from .vclog import log
 
@@ -161,7 +161,7 @@ def register(add, plugin, text, onMain, screen):
 		if entry.get("suggest") is False:
 			return 0
 		numbered = "\n".join(f"{number}. {clip(thing.said(), 80)}" for number, thing in enumerate(things, 1))
-		user = f"The user wants to: \"{clip(goal, 300)}\"\nThings in the window:\n{numbered}\nWhich one is pressed next? Give its number, or 0 if none leads there."
+		user = f"The user wants to: \"{uncut(goal)}\"\nThings in the window:\n{numbered}\nWhich one is pressed next? Give its number, or 0 if none leads there."
 		schema = {
 			"type": "object", "properties": {"thing": {"type": "integer", "enum": list(range(0, len(things) + 1))}},
 			"required": ["thing"]}

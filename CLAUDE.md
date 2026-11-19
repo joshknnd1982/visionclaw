@@ -166,6 +166,22 @@ keyboard and speech alone.
   observations, and deterministic Python doing everything that does not need a model.
 - **The `claw/` package has no NVDA imports.** Anything that touches `api`, `config`, `ui`, `wx`, `gui` lives
   outside it (`nvdatools.py`, `clawui.py`, `__init__.py`). This keeps `claw/` testable with plain Python.
+- **Nothing the user reads or hears is cut, and the user's own words are never cut** (`llm.uncut`). The owner said
+  on 2026-11-19: "very long prompts are being cut off with ' ...[cut] ' and other similar cutoffs. You must ensure the
+  whole prompt is always displayed no matter how long." The answer before it, the add-ons installed, had ended in
+  "Pr ...[cut]." What follows from it:
+  - **`llm.clip` is only for what a model reads** of results, notes, pages and code, where the prompt is made. It is
+    never given the request or any part of it, and never used for what the user reads or hears.
+  - **The request reaches everything whole**: every model's "The user asked", every tool's `asked` and other `auto`
+    field (`Tool.autoForm`), the questions "You asked: ...", follow-ups, the work sheet, memories, changes and plans.
+  - **What the user is told is whole**: answers (`orchestrator._answer`, `_quoted`), questions, confirmations, what is
+    typed, every step said (`task.emit`), and a tool's result, which `Registry.call` keeps whole; `tools.RESULT_CHARS`
+    is only how much of it a model is shown where a model is shown it. A list the user asked for is said whole, never
+    "and N more" because of a length (`places._listed`). A summary may still be short by design, if it says so and
+    cuts nothing in the middle (the page overview, `pageview.FITS`).
+  - **The log cuts nothing** (`debuglog`): the owner reads whole prompts there.
+  - `tests/test_whole.py` fails on a `clip` of the user's words, on a `clip` in a line that tells the user, on a slice
+    of the request, and on a cut marker; and runs a very long request with a very long result from start to end.
 - **Every task is interruptible.** Every loop and every model call takes the task's cancel event. Never add a
   blocking wait that ignores it.
 - **When VisionClaw takes long, it says how far it is, unless the user turned that off** (`claw/busy.py`). The owner
@@ -305,8 +321,8 @@ keyboard and speech alone.
     from VisionClaw's own code and are asked only when a question names a controller, fingers, pressure or a
     game's mouse (`lookup._INPUTS`). When a button's meaning changes in `gamepad.py`, change the notes, the
     skill, the README's table and the help page with it.
-  - **A tool's answer is cut at `tools.RESULT_CHARS`.** A help text that a tool gives back word for word
-    (`gamepad.HELP`, the help of pointer mode) must fit with what is said before it.
+  - **A tool's answer is kept whole** (`tools.Registry.call`); `tools.RESULT_CHARS` is only how much of it a
+    model is shown where a model is shown it whole, so a help text a model must read whole should fit in it.
 - **A recipe that reads everything from the user's words is checked against them.** When a model chooses
   `timed_click` or `gesture` and the words name no moment and no count, or no direction and no shape, plain
   code takes what the words point to instead (`planner.fitted`). Both real models sent "press and hold ... for
@@ -661,8 +677,8 @@ keyboard and speech alone.
   and messages the page's own code marks as an alert or an error, each with the field it stands next to; then
   NVDA's reading position is put on the first of them, and that is said. Where the page tells NVDA nothing,
   the text in its picture is read for lines that say what is wrong, and after that the user is pointed to
-  the model that sees pictures; plain code never guesses a reason. Both answers shorten themselves to fit
-  `tools.RESULT_CHARS`, the lists first, so that the keys are never the part that is cut.
+  the model that sees pictures; plain code never guesses a reason. Both answers are kept short to be listened
+  to (`pageview.FITS`), the lists first and saying how many more, so that the keys are never left out.
 - **Measure with the real model.** After any change to a prompt, a recipe or a form, run
   `python tests/live_orchestrator.py` and read every answer. A change that passes the scripted tests can still
   make a small model worse.
@@ -1982,6 +1998,8 @@ python -u tests/live_object_names.py MODELS ID   a real vision model names drawn
                                          object names ask; with tests/live_naming.py for icon buttons
 python tests/test_focus.py               the control the user is on: what the words ask, the answer from NVDA's facts;
                                          two ways that only look tried one after the other without a question
+python tests/test_whole.py               nothing the user reads or hears is cut, and the request reaches every model
+                                         and tool whole; a very long request and result from start to end
 python tests/test_versions.py            which version the words ask about, the job, the answer; the tool against
                                          stand-ins for NVDA is in tests/test_nvda_stub.py
 python tools/write_nvda_objects.py SRC VERSION   writes docs/NVDA-OBJECTS.md and tests/nvda_objects.json from NVDA's

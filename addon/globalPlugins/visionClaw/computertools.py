@@ -36,7 +36,7 @@ import config
 from . import ocr
 from .claw import computer, debuglog, policy, prompts, scrolling
 from .claw.catalog import VISION
-from .claw.llm import clip
+from .claw.llm import uncut
 from .claw.tools import VERBATIM, ToolError
 from .engine import prepareImage
 
@@ -426,7 +426,7 @@ def focusText():
 	focus = api.getFocusObject()
 	name = _safe(lambda: focus.name) or ""
 	role = _safe(lambda: focus.role.displayString) or ""
-	return clip(", ".join(part for part in (name, role) if part), 100)
+	return uncut(", ".join(part for part in (name, role) if part))
 
 
 # How long Windows is given to open one of its own parts before VisionClaw reads where NVDA is.
@@ -765,7 +765,7 @@ def register(add, plugin, text, onMain, confirm, mustAgree, Refused, screen):
 			raise ToolError(f"{item['name']} could not be opened. {e}")
 		time.sleep(1.2)
 		front = _safe(lambda: onMain(lambda: api.getForegroundObject().name), "") or ""
-		return f"Opened {item['name']}." + (f" The window in front is now: {clip(front, 80)}." if front else "")
+		return f"Opened {item['name']}." + (f" The window in front is now: {uncut(front)}." if front else "")
 
 	add("open_thing",
 		"open one thing found by find_thing, as a double click on it would: start the program, or open the folder, "
@@ -1188,8 +1188,8 @@ def register(add, plugin, text, onMain, confirm, mustAgree, Refused, screen):
 			power(what)
 		except (OSError, subprocess.SubprocessError) as e:
 			if what == computer.CANCEL:
-				return f"There was no restart or shutdown waiting to be called off. Windows said: {clip(str(e), 160)}"
-			raise ToolError(f"Windows did not do it. {clip(str(e), 200)}")
+				return f"There was no restart or shutdown waiting to be called off. Windows said: {uncut(str(e))}"
+			raise ToolError(f"Windows did not do it. {uncut(str(e))}")
 		return {
 			computer.LOCK: "The computer is locked.", computer.SLEEP: "The computer was told to sleep.",
 			computer.RESTART: f"The computer restarts in {wait} seconds. To call it off, say: cancel the restart.",
@@ -1222,7 +1222,7 @@ def register(add, plugin, text, onMain, confirm, mustAgree, Refused, screen):
 		names = _safe(lambda: onMain(namesNearFocus), []) or []
 		found = computer.seenIn(what, names)
 		if found:
-			return f"{computer.YES} {what} is there: NVDA finds \"{clip(found, 80)}\" where you are."
+			return f"{computer.YES} {what} is there: NVDA finds \"{uncut(found)}\" where you are."
 		image, _box = screen.picture("screen")
 		task.check()
 		lines = ocr.recognize(image) or []
@@ -1241,7 +1241,7 @@ def register(add, plugin, text, onMain, confirm, mustAgree, Refused, screen):
 		answer = " ".join((answer or "").split())
 		if answer.lower().startswith("yes"):
 			return (
-				f"{computer.YES} the {seer} says it sees {what} on the screen: {clip(answer, 160)} Its name is not in "
+				f"{computer.YES} the {seer} says it sees {what} on the screen: {uncut(answer)} Its name is not in "
 				"the text that is shown, and a model can be wrong.")
 		return f"{computer.NO} {what} is not on the screen: its name is not in the text that is shown, and the {seer} does not see it."
 

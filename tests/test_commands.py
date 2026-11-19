@@ -252,9 +252,9 @@ with tempfile.TemporaryDirectory() as folder:
 	assert all(os.path.getsize(name) <= 5000 + 300 for name in kept), [os.path.getsize(name) for name in kept]
 	assert sorted(os.listdir(os.path.dirname(path))) == sorted(os.path.basename(name) for name in kept)
 	assert "entry 399" in debuglog.tail(3)
-	# One enormous entry is cut, not written whole.
-	debuglog.log("big", "y" * (debuglog.MAX_ENTRY + 500))
-	assert "500 more characters left out" in debuglog.tail(2)
+	# One enormous entry is written whole, never cut: the owner reads whole prompts in the log.
+	debuglog.log("big", "y" * 30000 + "the end")
+	assert ("y" * 30000 + "the end") in debuglog.tail(2) and "left out" not in debuglog.tail(2)
 
 	# --- A fault inside a tool ends its step, not the whole request, and is written down ---
 	registry = Registry()

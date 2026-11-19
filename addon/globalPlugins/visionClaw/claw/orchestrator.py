@@ -16,7 +16,7 @@ from . import memories as memoriesModule
 from . import skills as skillsModule
 from . import task as taskModule
 from .catalog import CODER, VISION
-from .llm import LLM, LLMError, clip, plainSpeech
+from .llm import LLM, LLMError, clip, plainSpeech, uncut
 from .runtime import ModelMissing
 from .tools import ANSWER, SUMMARIZE, VERBATIM
 from ..engine import EngineError
@@ -499,7 +499,7 @@ class Orchestrator:
 			if not worked and self._hasOtherWay(task, step):
 				# A way that only looks failed and another way that only looks is kept for this part (consensus._bothLook):
 				# that one is tried (_nextWays), and the user is not asked what to do.
-				task.emit(taskModule.DETAIL, f"That way did not work: {clip(step.result, 200)}")
+				task.emit(taskModule.DETAIL, f"That way did not work: {uncut(step.result)}")
 				index += 1
 				continue
 			if not worked:
@@ -565,8 +565,8 @@ class Orchestrator:
 				index += 1
 				continue
 			said = planning.nextWayText(way, planner.label)
-			debuglog.log("planning", f"{step.part!r}: {tried} found nothing ({step.result[:120]!r}); next: {way}.")
-			task.emit(taskModule.TALK, f"{said} What was found before: {clip(step.result, 200)}")
+			debuglog.log("planning", f"{step.part!r}: {tried} found nothing ({step.result!r}); next: {way}.")
+			task.emit(taskModule.TALK, f"{said} What was found before: {uncut(step.result)}")
 			new = planner.recipeSteps(way, step.part, self.registry)
 			new[0].lead = said
 			for old in ofPart:
@@ -598,7 +598,7 @@ class Orchestrator:
 	def _onFailure(self, task, step):
 		task.setState(taskModule.WAITING, f"A step did not work: {step.title}. Waiting for your choice.")
 		question = (
-			f"This step did not work: {step.title}. The problem: {clip(step.result, 300)} What should VisionClaw do?"
+			f"This step did not work: {step.title}. The problem: {uncut(step.result)} What should VisionClaw do?"
 		)
 		choice = self.askUser(question, ["Skip this step and go on", "Try this step again", "Stop the task"])
 		task.check()
@@ -666,7 +666,7 @@ class Orchestrator:
 				continue
 			if step.status == taskModule.NOT_NEEDED:
 				# Said once for each thing that was left out, right after what the check found.
-				note = f"So this was not done: {clip(step.part or step.title, 120)}."
+				note = f"So this was not done: {uncut(step.part or step.title)}."
 				if note not in told:
 					told.append(note)
 				continue
@@ -707,7 +707,7 @@ class Orchestrator:
 			pieces += [self._quoted(llm, part, result, tool) for (part, result), tool in zip(info, task.infoTools)]
 		elif info:
 			user = "\n\n".join(
-				f"The user asked: \"{clip(part, 300)}\"\nInformation found:\n{clip(lookup.numbered(result), 1200)}"
+				f"The user asked: \"{uncut(part)}\"\nInformation found:\n{clip(lookup.numbered(result), 1200)}"
 				for part, result in info) + (
 					"\n\nAnswer each of these questions, in order." if len(info) > 1 else "\n\nAnswer the user.")
 			guide = skillsModule.guide(getattr(task, "skills", ()), anyRecipe={s.recipe for s in self._work(task)})
@@ -723,7 +723,7 @@ class Orchestrator:
 				summary = ""
 			pieces.append(" ".join((summary or "").split()) or " ".join(result for _part, result in info))
 		if failed:
-			pieces.append("This could not be done: " + "; ".join(clip(f, 120) for f in failed) + ".")
+			pieces.append("This could not be done: " + "; ".join(uncut(f) for f in failed) + ".")
 		answer = " ".join(plainSpeech(p) for p in pieces if p) or "Nothing was done."
 		steps[last].status, steps[last].result = taskModule.STEP_DONE, answer
 		return answer
@@ -732,7 +732,7 @@ class Orchestrator:
 		"""An answer made of what was looked up, word for word: the line that mentions what was asked. Plain
 		code finds the lines; where there are several, the model only chooses among them."""
 		if toolName in shapes.AS_IS:
-			return clip(result, 700)
+			return uncut(result)
 		if toolName == lookup.TOOL:
 			# Already ranked by plain code, the best first. A very small model is given nothing to choose; a
 			# capable one says which of the few lines answers the question, knowing where the user is.
@@ -740,8 +740,8 @@ class Orchestrator:
 			if picked is None:
 				# The model read what was found and says none of it answers. That is said, with the nearest
 				# thing marked as what it is, instead of being given as the answer.
-				return f"{lookup.NO_ANSWER} {clip(lookup.quoted(result), 420)}"
-			return clip(lookup.quoted(result, picked), 800)
+				return f"{lookup.NO_ANSWER} {uncut(lookup.quoted(result))}"
+			return uncut(lookup.quoted(result, picked))
 		if toolName == "read_page" and pageview.asksGist(part):
 			# "Summarize this page" asks for no line of the page but for all of it in short. A model that must not
 			# put things into its own words gets the beginning of each part, word for word, from plain code.
@@ -757,12 +757,12 @@ class Orchestrator:
 			try:
 				chosen = int(llm.json(
 					self.lead, _PICK_SYSTEM,
-					f"The user asked: \"{clip(part, 300)}\"\nLines found:\n{numbered}\nWhich line answers what the user asked? Give its number.",
+					f"The user asked: \"{uncut(part)}\"\nLines found:\n{numbered}\nWhich line answers what the user asked? Give its number.",
 					{"type": "object", "properties": {"line": {"type": "integer", "enum": list(range(1, len(lines) + 1))}},
 						"required": ["line"]}, maxTokens=20).get("line") or 1) - 1
 			except (LLMError, TypeError, ValueError):
 				chosen = 0
-		return clip(lines[max(0, min(len(lines) - 1, chosen))], 500)
+		return uncut(lines[max(0, min(len(lines) - 1, chosen))])
 
 	def _pick(self, llm, part, lines):
 		"""The line that answers a question, chosen by a model that is not one of the very smallest, which
@@ -778,7 +778,7 @@ class Orchestrator:
 		except Exception:
 			where = ""
 		numbered = "\n".join(f"{number}. {clip(line, 300)}" for number, line in enumerate(lines, 1))
-		user = f"The user asked: \"{clip(part, 300)}\"\n" + (f"Where the user is: {clip(where, 300)}\n" if where else "") + (
+		user = f"The user asked: \"{uncut(part)}\"\n" + (f"Where the user is: {clip(where, 300)}\n" if where else "") + (
 			f"Lines found:\n{numbered}\nWhich line answers what the user asked? Give its number, or 0 if none does.")
 		try:
 			chosen = int(llm.json(self.lead, _JUDGE_SYSTEM, user, {
@@ -795,7 +795,7 @@ class Orchestrator:
 		question. If a part is missing, a few more steps are planned and run, once."""
 		task.setState(taskModule.CHECKING, "Checking the result.")
 		results = agent.resultsText(task.steps, len(task.steps))
-		user = f"Request: \"{clip(request, 600)}\"\nResults:\n{clip(results, 1500)}\nWas the request carried out?"
+		user = f"Request: \"{uncut(request)}\"\nResults:\n{clip(results, 1500)}\nWas the request carried out?"
 		try:
 			found = llm.json(self.other, _VERIFY_SYSTEM, user, _VERIFY_SCHEMA, maxTokens=100, reasoning=params.reasoning)
 		except LLMError:
@@ -908,4 +908,4 @@ class Orchestrator:
 			return
 		for step in task.steps:
 			if step.lesson:
-				self.memory.add(step.lesson, topic=task.request[:120])
+				self.memory.add(step.lesson, topic=task.request)

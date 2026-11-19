@@ -13,7 +13,7 @@ import json
 
 from . import debuglog, policy, prompts, shapes
 from . import task as taskModule
-from .llm import LLMError, clip
+from .llm import LLMError, clip, uncut
 
 _FORM_SYSTEM = (
 	prompts.IDENTITY + " You fill in one small tool form at a time.\n"
@@ -76,7 +76,7 @@ def _fieldPrompt(request, steps, index, tool, name, shape, form, tries, hint, gi
 	"""The prompt for one field of a form: as little as a very small model needs for one answer."""
 	step = steps[index]
 	parts = [
-		f"The user asked: \"{clip(_asked(request, step), 400)}\"",
+		f"The user asked: \"{uncut(_asked(request, step))}\"",
 		f"Results so far:\n{given if given is not None else resultsText(steps, index)}",
 		f"Step: {step.title}.",
 	]
@@ -122,7 +122,7 @@ def fillOneByOne(llm, task, lead, request, steps, index, tool, skip, form, tries
 			prompt += "\nThat answer repeated the question. Give the value itself."
 		else:
 			# It repeated the question twice. The user's own words are at least true, and the tools read them.
-			value = clip(_asked(request, steps[index]), spec.get("maxLength", 80)).replace(" ...[cut]", "")
+			value = uncut(_asked(request, steps[index]))
 		form[name] = value
 	return form
 
@@ -130,7 +130,7 @@ def fillOneByOne(llm, task, lead, request, steps, index, tool, skip, form, tries
 def _formPrompt(request, steps, index, tool, tries, hint, skip, narrowed=None, given=None):
 	step = steps[index]
 	parts = [
-		f"The user asked: \"{clip(_asked(request, step), 600)}\"",
+		f"The user asked: \"{uncut(_asked(request, step))}\"",
 		f"Results so far:\n{given if given is not None else resultsText(steps, index)}",
 		f"Now do this step: {step.title}." + (f" {step.detail}" if step.detail and step.detail != step.part else ""),
 		tool.formText(skip, narrowed),
@@ -151,7 +151,7 @@ def askHint(llm, role, request, steps, index, tool, tries, given=None):
 	step = steps[index]
 	given = given if given is not None else resultsText(steps, index)
 	user = (
-		f"The user asked: \"{clip(_asked(request, step), 500)}\"\nResults so far:\n{given}\n"
+		f"The user asked: \"{uncut(_asked(request, step))}\"\nResults so far:\n{given}\n"
 		f"Stuck step: {step.title}.\n{tool.formText()}\n"
 		+ "\n".join(f"Tried: {json.dumps(form)} -> {clip(error, 300)}" for form, error in tries[-2:])
 	)
@@ -212,7 +212,7 @@ def runStep(llm, task, registry, request, steps, index, params, lead=policy.LEAD
 		task.emit(taskModule.DETAIL, f"{tool.name} {json.dumps(form)}" if form else tool.name)
 		task.check()
 		worked, result = registry.call(task, tool.name, form)
-		task.emit(taskModule.DETAIL, ("Result: " if worked else "Problem: ") + clip(result, 300))
+		task.emit(taskModule.DETAIL, ("Result: " if worked else "Problem: ") + uncut(result))
 		if worked:
 			step.status, step.result = taskModule.STEP_DONE, result
 			# A form that was corrected is worth remembering, but not for a tool that only searches: that

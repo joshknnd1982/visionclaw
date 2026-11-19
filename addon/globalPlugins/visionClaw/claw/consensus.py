@@ -15,7 +15,7 @@
 
 from . import computer, debuglog, planner, planning, policy, router
 from . import task as taskModule
-from .llm import LLMError, clip
+from .llm import LLMError, clip, uncut
 
 AGREED, REVISED, USER_CHOSE = "agreed", "revised", "user"
 _RANK = {AGREED: 0, REVISED: 1, USER_CHOSE: 2}
@@ -44,7 +44,7 @@ def review(llm, role, request, steps, registry, params):
 	used = {s.tool for s in steps}
 	tools = "\n".join(f"- {name}: {registry.get(name).description}" for name in registry.names() if name in used)
 	user = (
-		f"The user asked: \"{clip(request, 600)}\"\nTools used in the plan:\n{tools}\n"
+		f"The user asked: \"{uncut(request)}\"\nTools used in the plan:\n{tools}\n"
 		f"Plan:\n{planner.detailText(steps)}\nDo you agree with this plan?"
 	)
 	found = llm.json(role, _REVIEW_SYSTEM, user, _REVIEW_SCHEMA, maxTokens=110, reasoning=params.reasoning)
@@ -119,7 +119,7 @@ def _onRecipe(llm, task, part, context, registry, askUser, lead, other, single=F
 			return looked, REVISED
 		ways = [guess, again]
 		choices = [_sentence(planner.label(way)) for way in ways] + ["Cancel. I will ask in a different way."]
-		question = f"VisionClaw is not sure what you mean by \"{clip(part, 200)}\". What should it do?"
+		question = f"VisionClaw is not sure what you mean by \"{uncut(part)}\". What should it do?"
 		task.setState(taskModule.WAITING, "Not sure what you mean. Waiting for your choice.")
 		picked = askUser(question, choices)
 		task.check()
@@ -157,7 +157,7 @@ def _onRecipe(llm, task, part, context, registry, askUser, lead, other, single=F
 		f"As the {otherName} suggests: {planner.label(theirs)}",
 		"Cancel. I will ask in a different way.",
 	]
-	question = f"The two models do not agree on how to handle this: \"{clip(part, 200)}\". What should VisionClaw do?"
+	question = f"The two models do not agree on how to handle this: \"{uncut(part)}\". What should VisionClaw do?"
 	task.setState(taskModule.WAITING, "The models do not agree. Waiting for your choice.")
 	picked = askUser(question, choices)
 	task.check()
@@ -226,7 +226,7 @@ def _onOwnPlan(llm, task, part, context, registry, params, askUser, lead):
 		plans.append(steps)
 	choices.append("Cancel. I will ask in a different way.")
 	question = (
-		f"The model is not sure how to do this: \"{clip(part, 200)}\". Its concern: "
+		f"The model is not sure how to do this: \"{uncut(part)}\". Its concern: "
 		f"{problemAgain or problem} Which plan should be used?"
 	)
 	task.setState(taskModule.WAITING, "The model is not sure of its plan. Waiting for your choice.")
@@ -280,7 +280,7 @@ def _onFreePlan(llm, task, part, context, registry, params, askUser, lead, other
 		plans.append(theirs)
 	choices.append("Cancel. I will ask in a different way.")
 	question = (
-		f"The two models do not agree on how to do this: \"{clip(part, 200)}\". The {otherName}'s concern: "
+		f"The two models do not agree on how to do this: \"{uncut(part)}\". The {otherName}'s concern: "
 		f"{problemAgain or problem} Which plan should be used?"
 	)
 	task.setState(taskModule.WAITING, "The models do not agree. Waiting for your choice.")

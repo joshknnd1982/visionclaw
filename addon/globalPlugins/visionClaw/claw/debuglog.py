@@ -22,8 +22,8 @@ NAME = "visionclaw.log"
 MAX_BYTES = 2 * 2 ** 20
 # How many full logs are kept beside the one being written.
 KEPT = 3
-# One entry is cut at this length, so that a single huge prompt cannot fill the log.
-MAX_ENTRY = 24000
+# Nothing written to the log is cut, however long: the owner reads whole prompts there (2026-11-19). An entry
+# longer than the log's size is written whole into a fresh log.
 
 _lock = threading.Lock()
 _state = {"path": None, "level": OFF, "max": MAX_BYTES}
@@ -84,8 +84,6 @@ def _rotate(path):
 def _write(area, text):
 	try:
 		text = str(text)
-		if len(text) > MAX_ENTRY:
-			text = text[:MAX_ENTRY] + f" ...[{len(text) - MAX_ENTRY} more characters left out]"
 		now = time.time()
 		stamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(now)) + f".{int(now * 1000) % 1000:03d}"
 		lines = text.splitlines() or [""]

@@ -245,9 +245,6 @@ _TRAY_CLASSES = ("TrayNotifyWnd", "SysPager", "NotifyIconOverflowWindow", "TopLe
 _TASK_CLASSES = ("MSTaskListWClass", "MSTaskSwWClass")
 # Bidirectional marks Windows puts into dates and times: they say nothing.
 _MARKS = re.compile(r"[‎‏‪-‮⁦-⁩]")
-MAX_SAID = 60
-# What one answer may be at most; tools.RESULT_CHARS cuts at 1500, and the keys for next time come last.
-MAX_CHARS = 1300
 
 
 def clean(name):
@@ -354,10 +351,9 @@ def many(count, word, plural=None):
 	return f"{count} {word if count == 1 else (plural or word + 's')}"
 
 
-def _listed(names, limit=MAX_SAID):
-	shown = list(names[:limit])
-	rest = len(names) - len(shown)
-	return "; ".join(shown) + (f"; and {rest} more" if rest > 0 else "")
+def _listed(names):
+	"""Every name, however many: the user asked what is there (llm.uncut)."""
+	return "; ".join(names)
 
 
 def _keys(ident):
@@ -386,11 +382,8 @@ def found(wanted, names):
 
 
 def _fitted(text):
-	"""An answer cut to what a tool may give back, at the end of a listed name."""
-	if len(text) <= MAX_CHARS:
-		return text
-	cut = text[:MAX_CHARS].rsplit("; ", 1)[0]
-	return cut + "; and more."
+	"""The answer as it is: every name that was asked for is said, however many (llm.uncut)."""
+	return text
 
 
 def trayText(sorted_, how=LIST, thing="", hiddenRead=True):

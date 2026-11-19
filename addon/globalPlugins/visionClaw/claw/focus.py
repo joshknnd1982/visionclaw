@@ -214,7 +214,6 @@ _ENTER = {
 	"COMBOBOX": "pressing Enter usually confirms the item that is chosen",
 	"TAB": "pressing Enter or Space shows {thing}",
 }
-MAX_CHARS = 1200
 
 
 def _search(patterns, text):
@@ -408,7 +407,7 @@ def answer(facts, want, which=FOCUS):
 	if facts.get("nextTime") and which in _NEXT_TIME:
 		lines.append(_NEXT_TIME[which].format(keys=facts["nextTime"]))
 	text = " ".join(line for line in lines if line)
-	return text if len(text) <= MAX_CHARS else text[:MAX_CHARS - 9].rsplit(" ", 1)[0] + " ...[cut]"
+	return text
 
 
 def doesText(facts, description=""):

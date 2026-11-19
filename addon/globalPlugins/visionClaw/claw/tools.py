@@ -8,8 +8,10 @@
 import time
 
 from . import debuglog
-from .llm import clip
+from .llm import uncut
 
+# How much of a tool's result a model is shown at most, where a model is shown it whole. The result itself is kept
+# whole, and what the user is told of it is never cut: a model's own prompt is trimmed where it is made.
 RESULT_CHARS = 1500
 # The tool every plan ends with. The orchestrator runs it itself.
 ANSWER = "answer"
@@ -57,7 +59,8 @@ class Tool:
 		for name, spec in self.fields.items():
 			auto = spec.get("auto")
 			if auto is True:
-				form[name] = clip(part, spec.get("maxLength", 200)).replace(" ...[cut]", "")
+				# The user's own words, whole: a tool that reads them must see all of them, however long.
+				form[name] = uncut(part)
 			elif callable(auto):
 				form[name] = auto(part)
 		return form
@@ -133,7 +136,7 @@ class Registry:
 			result = tool.fn(task, **{f: form[f] for f in tool.fields})
 		except ToolError as e:
 			debuglog.log("tool", f"{name} could not do it after {time.monotonic() - started:.2f} s: {e}")
-			return False, clip(str(e), RESULT_CHARS)
+			return False, uncut(str(e))
 		except Exception as e:
 			if type(e).__name__ in PASSED_ON or isinstance(e, PASSED_ON_KINDS):
 				debuglog.log("tool", f"{name} ended after {time.monotonic() - started:.2f} s with {type(e).__name__}: {e}")
@@ -142,8 +145,9 @@ class Registry:
 			# other parts of the request can still be done. Where it happened is written to the log.
 			debuglog.error("tool", f"{name} failed after {time.monotonic() - started:.2f} s. Form: {form}", e)
 			return False, (
-				f"This did not work because of a fault inside VisionClaw ({type(e).__name__}: {clip(str(e), 200)}). "
+				f"This did not work because of a fault inside VisionClaw ({type(e).__name__}: {uncut(str(e))}). "
 				"Where it happened is written in VisionClaw's log.")
 		debuglog.log("tool", f"{name} worked after {time.monotonic() - started:.2f} s.")
 		debuglog.detail("tool", f"{name} result:\n{result}")
-		return True, clip(result if result else "Done.", RESULT_CHARS)
+		# The whole result: what the user is told of it is never cut, and a model's prompt trims it where it is made.
+		return True, uncut(result if result else "Done.")

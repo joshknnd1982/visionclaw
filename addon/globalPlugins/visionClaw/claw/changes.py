@@ -54,7 +54,7 @@ class ChangeLog:
 			changes = self._load()
 			entry = {
 				"setting": setting, "label": label, "old": old, "new": new, "oldShown": str(oldShown),
-				"newShown": str(newShown), "request": request[:200], "time": time.time(), "undone": False,
+				"newShown": str(newShown), "request": request, "time": time.time(), "undone": False,
 			}
 			if profile:
 				entry["profile"], entry["program"] = profile, program or profile

@@ -22,7 +22,7 @@ import time
 
 from . import debuglog
 from . import task as taskModule
-from .llm import clip
+from .llm import clip, uncut
 
 FOLDER = "work"
 PREFIX = "request-"
@@ -143,7 +143,7 @@ class Sheet:
 			lines += ["", "## Plan", ""]
 			for number, step in enumerate(self.steps, 1):
 				mark = _MARK.get(step.status, " ")
-				part = f" For: \"{clip(step.part, 160)}\"." if step.part and step.tool != "answer" else ""
+				part = f" For: \"{uncut(step.part)}\"." if step.part and step.tool != "answer" else ""
 				lines.append(f"{number}. [{mark}] {step.title} ({step.tool}): {_SAID.get(step.status, step.status)}.{part}")
 			found = [(number, step) for number, step in enumerate(self.steps, 1)
 				if step.status in (taskModule.STEP_DONE, taskModule.STEP_FAILED) and step.tool != "answer"]

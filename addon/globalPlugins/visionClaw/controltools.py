@@ -24,7 +24,7 @@ import config
 from . import deepquery, fixruntime, mousetools
 from .claw import computer, controls, dragcontrol, policy, prompts, target
 from .claw.catalog import VISION
-from .claw.llm import clip
+from .claw.llm import uncut
 from .claw.tools import VERBATIM, ToolError
 from .controlkeys import newControl
 from .engine import prepareImage
@@ -236,7 +236,7 @@ def register(add, plugin, text, onMain, confirm, screen):
 			if not moved:
 				return f"{shown} did not move when it was turned {what}. It may be at its end."
 			return f"Turned {shown} {what}, {computer.many(moved, 'step')}, with the mouse." + (
-				f" It now shows: {clip(now, 80)}" if now else " The picture changed there; it shows no value VisionClaw can read.")
+				f" It now shows: {uncut(now)}" if now else " The picture changed there; it shows no value VisionClaw can read.")
 		if what == controls.SET:
 			# A drawn knob or slider is set to a number the way a sighted person does it: moved a step at a time,
 			# with the number shown at it read after every step (claw/target.py). Plain code; no model.

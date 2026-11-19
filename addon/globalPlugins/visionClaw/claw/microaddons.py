@@ -15,7 +15,7 @@ import time
 import zipfile
 
 from . import guides, prompts
-from .llm import LLMError, clip
+from .llm import LLMError, clip, uncut
 from .tools import ToolError
 
 # Modules generated add-ons may not use: they start programs, reach the network, or change files and the system.
@@ -558,7 +558,7 @@ def write(llm, task, purpose, facts, notes, params, coder, reviewer):
 	"""Have the coder model write an add-on, fix what the check finds, and let the other model review it.
 	facts: what is known about the user's situation. notes: knowledge about NVDA that fits the purpose.
 	Returns the source. Raises ToolError if no version passes the check."""
-	user = f"Write an NVDA add-on that does this: {clip(purpose, 700)}\n"
+	user = f"Write an NVDA add-on that does this: {uncut(purpose)}\n"
 	if facts:
 		user += f"What is known:\n{clip(facts, 900)}\n"
 	if notes:
@@ -572,7 +572,7 @@ def fix(llm, task, purpose, source, problems, notes, params, coder, reviewer, fa
 	"""Have the coder model debug an add-on that fails or does the wrong thing. problems say what went wrong:
 	the error NVDA reported and where, and what the user says. Returns the corrected source, checked and
 	reviewed like a new add-on. Raises ToolError if no version passes the check."""
-	task.emit("detail", f"The {_writer(params)} is debugging the add-on: " + clip(problems[0], 240))
+	task.emit("detail", f"The {_writer(params)} is debugging the add-on: " + uncut(problems[0]))
 	return _settle(llm, task, purpose, repair(llm, coder, purpose, source, problems, params, notes), params, coder,
 		reviewer, notes, facts)
 
@@ -595,7 +595,7 @@ def _settle(llm, task, purpose, source, params, coder, reviewer, notes="", facts
 			reviews -= 1
 			try:
 				verdict = llm.json(
-					reviewer, prompts.coding(_REVIEW_SYSTEM, purpose), f"Asked for: {clip(purpose, 500)}\nCode:\n{clip(source, 5000)}",
+					reviewer, prompts.coding(_REVIEW_SYSTEM, purpose), f"Asked for: {uncut(purpose)}\nCode:\n{clip(source, 5000)}",
 					_REVIEW_SCHEMA, maxTokens=120, reasoning=params.reasoning,
 				)
 			except LLMError:
@@ -634,7 +634,7 @@ def _settle(llm, task, purpose, source, params, coder, reviewer, notes="", facts
 def repair(llm, role, purpose, source, problems, params, notes=""):
 	"""Have the coder model fix its add-on. problems are sentences, or an error message from NVDA."""
 	user = (
-		f"This NVDA add-on should do this: {clip(purpose, 500)}\n```python\n{clip(source, 5000)}\n```\n"
+		f"This NVDA add-on should do this: {uncut(purpose)}\n```python\n{clip(source, 5000)}\n```\n"
 		"It has these problems:\n" + "\n".join(f"- {clip(p, 600)}" for p in problems[:6])
 	)
 	if notes:
@@ -699,7 +699,7 @@ def describe(source):
 			if (owner, name) == ("ui", "message") and node.args and isinstance(node.args[0], ast.Constant):
 				said.append(str(node.args[0].value))
 	if said:
-		facts.append("It can say: " + "; ".join(clip(text, 60) for text in said[:4]) + ".")
+		facts.append("It can say: " + "; ".join(uncut(text) for text in said) + ".")
 	elif ("ui", "message") in calls or any(owner == "speech" for owner, _n in calls):
 		facts.append("It speaks.")
 	if ("tones", "beep") in calls:

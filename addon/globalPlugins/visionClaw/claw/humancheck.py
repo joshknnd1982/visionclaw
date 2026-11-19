@@ -60,8 +60,6 @@ TELL, PRESS_BOX, DESCRIBE, SELECT, VERIFY, HOLD = "tell", "press box", "describe
 B_VERIFY, B_SKIP, B_NEXT, B_AUDIO, B_NEW = "verify", "skip", "next", "audio", "new"
 # A puzzle of more squares than this is not described: no check VisionClaw knows of has more.
 MAX_SQUARES = 16
-# How much of a square's description is kept.
-SQUARE_CHARS = 70
 
 NAMES = {
 	RECAPTCHA: "Google's reCAPTCHA", HCAPTCHA: "hCaptcha", TURNSTILE: "Cloudflare's Turnstile",
@@ -245,7 +243,7 @@ def asksOf(texts):
 			if _MORE.search(more) and more not in said:
 				said.append(more)
 				text += ("" if text[-1:] in ".!?" else ".") + " " + more
-		return text if len(text) <= 220 else text[:220].rsplit(" ", 1)[0] + " ..."
+		return text
 	return ""
 
 
@@ -499,16 +497,16 @@ def tellText(kind, stage=None, asks="", status="", boxes=(), buttons=(), wholeCh
 
 
 def squareText(said):
-	"""One square's description, tidied to a few words."""
+	"""One square's description, tidied, and whole."""
 	text = " ".join(str(said or "").split()).strip(" .")
 	if not text:
 		return "no description"
-	return text if len(text) <= SQUARE_CHARS else text[:SQUARE_CHARS].rsplit(" ", 1)[0] + " ..."
+	return text
 
 
-def puzzleText(asks, rows, columns, said, seer="model that sees", byContent=False, room=RESULT_CHARS):
+def puzzleText(asks, rows, columns, said, seer="model that sees", byContent=False):
 	"""What a puzzle of pictures asks and what its squares show. said: [(the square's number, its description)].
-	The descriptions are shortened alike until everything fits in what a tool may say."""
+	Every description is said whole."""
 	count = rows * columns
 	lead = NOT_CHOSEN + " " if byContent else ""
 	if asks:
@@ -519,14 +517,8 @@ def puzzleText(asks, rows, columns, said, seer="model that sees", byContent=Fals
 	tail = (
 		f" These are the {seer}'s words for each square, and a model can be wrong. Say which squares to select by their "
 		"numbers, and whether to press Verify afterwards. VisionClaw selects only the squares you name. " + SHORT_NOTICE)
-	keep = SQUARE_CHARS
-	while True:
-		body = " ".join(
-			f"Square {number}: {text if len(text) <= keep else text[:keep].rsplit(' ', 1)[0] + ' ...'}."
-			for number, text in ((number, squareText(text)) for number, text in said))
-		if len(head) + 1 + len(body) + len(tail) <= room or keep <= 20:
-			break
-		keep -= 8
+	# Every square's words whole: the user chooses the squares from them (llm.uncut).
+	body = " ".join(f"Square {number}: {squareText(text)}." for number, text in said)
 	return f"{head} {body}{tail}"
 
 

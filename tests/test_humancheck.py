@@ -149,7 +149,9 @@ assert hc.tellText(hc.TURNSTILE, hc.BOX, wholeCheck=True).startswith("VisionClaw
 assert "built to be hard for programs" in hc.NOTICE and "audio challenge or accessibility option" in hc.NOTICE
 said = [(number, "A long row of parked cars beside a street with trees, houses, a bus stop and a traffic light at the far end of it") for number in range(1, 17)]
 text = hc.puzzleText("Select all squares with traffic lights. Click verify once there are none left.", 4, 4, said)
-assert len(text) <= tools.RESULT_CHARS and "Square 16:" in text and text.startswith("The check asks: Select all squares with traffic lights."), len(text)
+assert "Square 16:" in text and text.startswith("The check asks: Select all squares with traffic lights."), len(text)
+# Every square's words whole: the user chooses the squares from them.
+assert text.count("a traffic light at the far end of it.") == 16 and " ..." not in text and "[cut]" not in text
 assert "16 squares, 4 rows of 4, numbered from left to right and from the top down" in text
 assert "a model can be wrong" in text and "VisionClaw selects only the squares you name" in text
 text = hc.puzzleText("", 3, 3, [(n, "a tree") for n in range(1, 10)], byContent=True)

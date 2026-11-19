@@ -25,9 +25,6 @@ CHECK_EVERY_SECONDS = 20 * 3600
 _TAG = re.compile(r"^v(\d+(?:\.\d+){1,3})$")
 _DIGEST = re.compile(r"^sha256:([0-9a-f]{64})$")
 MIN_BYTES, MAX_BYTES = 200000, 400 * 2 ** 20
-NOTES_CHARS = 500
-# What is new, in full, for the box it is read in line by line.
-WHATS_NEW_CHARS = 8000
 
 
 def _file(release, version):
@@ -69,19 +66,12 @@ def _newLines(body):
 
 def whatsNew(body):
 	"""What a release says is new, in full and one point to a line, for a box that is read line by line."""
-	text = "\n".join(_newLines(body))
-	if len(text) > WHATS_NEW_CHARS:
-		text = text[:WHATS_NEW_CHARS].rsplit(" ", 1)[0] + " ..."
-	return text
+	return "\n".join(_newLines(body))
 
 
 def notesOf(body):
-	"""What a release says is new, as plain text short enough to be listened to in one sentence."""
-	lines = _newLines(body)
-	text = " ".join(lines)
-	if len(text) > NOTES_CHARS:
-		text = text[:NOTES_CHARS].rsplit(" ", 1)[0] + " ..."
-	return text
+	"""What a release says is new, as plain text in one line, whole."""
+	return " ".join(_newLines(body))
 
 
 def newest(releases, current):

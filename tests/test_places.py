@@ -141,9 +141,10 @@ assert "There are more icons behind the button Show hidden icons, which could no
 	places.tray(BAR), hiddenRead=False)
 assert places.trayText(places.tray([])) == "" and places.taskbarText(places.taskbar([])) == ""
 assert places.taskbarText(places.taskbar(BAR), places.HAS, "edge").startswith("Yes. On the taskbar: Microsoft Edge, pinned.")
-# A very long list is cut at a name, within what a tool may give back, and says so.
+# A very long list is said whole: every name that was asked for, however many.
 many = places.listText(places.DESKTOP, [f"Shortcut number {number} with a long name" for number in range(80)])
-assert len(many) <= places.MAX_CHARS and many.endswith("; and more."), many[-60:]
+assert "Shortcut number 0 with a long name" in many and "Shortcut number 79 with a long name" in many, many[-60:]
+assert "and more" not in many and "[cut]" not in many
 # Nothing is said only by sight: no colour, no "look", no "see" in what the user is told.
 for text in (said, places.taskbarText(places.taskbar(BAR)), places.listText("quick-settings", ["Wi-Fi, on"], left=True),
 		places.nothingText(places.TRAY), places.notOpenedText("start")):

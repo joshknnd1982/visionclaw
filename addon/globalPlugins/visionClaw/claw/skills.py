@@ -36,7 +36,7 @@ import shutil
 import threading
 
 from . import debuglog
-from .llm import clip
+from .llm import CUT, clip
 from .memory import wordList
 
 FILE = "SKILL.md"
@@ -290,7 +290,7 @@ def guide(chosen, recipe=None, chars=GUIDE_CHARS, anyRecipe=None):
 	if not texts:
 		return ""
 	share = max(120, chars // len(texts))
-	return "\n".join(clip(text, share).replace(" ...[cut]", "") for text in texts)
+	return "\n".join(clip(text, share).replace(CUT, "") for text in texts)
 
 
 # What, besides a skill's starting phrase, asks for something of its own: a question or a thing to do.

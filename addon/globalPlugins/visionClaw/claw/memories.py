@@ -18,7 +18,7 @@ import threading
 import time
 
 from . import concepts, debuglog, ranking
-from .llm import clip
+from .llm import clip, uncut
 from .memory import _COMMON, _WORD, stem
 
 INDEX = "MEMORY.md"
@@ -160,7 +160,7 @@ def factOf(said):
 	kept = [part for part in sentences if not part.rstrip().endswith("?")]
 	if kept and len(kept) < len(sentences):
 		text = " ".join(kept).strip(" .")
-	return text[:MAX_CHARS]
+	return text
 
 
 # A fact that tells VisionClaw what to do, and is not about anything: it is said back as the user's request.
@@ -269,7 +269,7 @@ class Entry:
 
 	def text(self):
 		"""What the memory says, as one line."""
-		said = self.title or clip(" ".join(self.body.split()), 200)
+		said = self.title or uncut(" ".join(self.body.split()))
 		return f"In {self.program}: {said}" if self.program and self.program.lower() not in said.lower() else said
 
 	def markdown(self):
@@ -300,7 +300,7 @@ def parse(name, text, modified=0.0):
 	body = body.strip()
 	title = head.get("description") or next((line.strip("# ").strip() for line in body.splitlines() if line.strip()), "")
 	kind = head.get("type") if head.get("type") in KINDS else kindOf(body)
-	return Entry(name, clip(title, 200), kind, head.get("program", ""), head.get("saved", ""), body, asked, modified)
+	return Entry(name, uncut(title), kind, head.get("program", ""), head.get("saved", ""), body, asked, modified)
 
 
 class Memories:
@@ -370,7 +370,7 @@ class Memories:
 	def add(self, fact, asked="", kind="", program="", today=None):
 		"""Keep a memory. A memory about the same thing replaces the old one: "my braille display is a Focus 40"
 		replaces "my braille display is a Brailliant". Returns (the entry, the entry it replaced or None)."""
-		fact = " ".join(str(fact or "").split())[:MAX_CHARS]
+		fact = " ".join(str(fact or "").split())
 		if len(words(fact)) < 1 or len(fact) < 4:
 			raise ValueError("There is nothing to remember in those words.")
 		kind = kind if kind in KINDS else kindOf(fact, program)
@@ -395,8 +395,8 @@ class Memories:
 			while name in taken or name.lower() == INDEX[:-3].lower():
 				name, number = f"{base}-{number}", number + 1
 		entry = Entry(
-			name, clip(said, 200), kind, program, time.strftime("%Y-%m-%d", time.localtime(today)), said,
-			" ".join(str(asked or "").split())[:MAX_CHARS], time.time())
+			name, uncut(said), kind, program, time.strftime("%Y-%m-%d", time.localtime(today)), said,
+			" ".join(str(asked or "").split()), time.time())
 		self._write(entry)
 		kept = self.all()
 		if len(kept) > MAX_MEMORIES:

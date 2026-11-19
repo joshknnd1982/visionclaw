@@ -12,21 +12,21 @@ If VisionMate is installed, disable it in the Add-on Store: VisionClaw uses the 
 next. The first parts say what is new. Every feature of VisionClaw, old and new, is explained after them.</p>
 
 <!-- news: written by tools/write_help.py from manifest.ini; do not change it by hand -->
-<p>This help is for VisionClaw 1.15.1.</p>
-<h2>What is new in 1.15.1</h2>
+<p>This help is for VisionClaw 1.15.2.</p>
+<h2>What is new in 1.15.2</h2>
+<ul>
+<li>Fixed: long answers were cut off with "...[cut]". Everything VisionClaw says and shows is now whole, however long: the answer to your request, every question it asks you, every "You asked" before a change, and what each step found when you read back the last request in the Ask window (NVDA+Alt+C). Ask "which add-ons are installed" and every add-on is named.</li>
+<li>Your own request is never shortened. A long request, typed or spoken with NVDA+Alt+C or NVDA+Alt+V, reaches every model and every tool whole; before, the tools read only its first 200 to 300 characters. What you ask VisionClaw to remember is kept whole too.</li>
+<li>Lists you ask for are said whole, with no "and more": say "tell me all objects in the system tray" or "what icons are on my desktop" and every one is named; the same for the control you are on, the squares of a check that asks whether you are a person, and what is new in a newer version.</li>
+<li>VisionClaw's log keeps every entry whole, with every question to a model as it was sent. Open it with the button "Open VisionClaw's log" in VisionClaw's settings.</li>
+<li>What stays short is only what a small model reads of looked-up pages, notes and results, so that it is not swamped; you never hear that part shortened.</li>
+</ul>
+<h2>What was new in 1.15.1</h2>
 <ul>
 <li>Ask which version of something is installed, and VisionClaw says that version and nothing more. Press NVDA+Alt+C and say "which version of VisionClaw do I have", "what version of NVDA am I running", "what version of Access8Math is installed" with any add-on's name, or "what version of this program is it". Before, "tell me the version of visionclaw I have installed" read out the whole list of add-ons.</li>
 <li>Ask about several at once, "what versions of NVDA and VisionClaw do I have", and you hear one line for each. An add-on that is turned off is said to be, and one you name that is not installed is said not to be.</li>
 <li>Only when you say you are new to this, as in "I'm a beginner screen reader user, what version of NVDA do I have", or asked VisionClaw to remember that you are new to NVDA, does one sentence follow on where to find the version yourself next time, such as NVDA+N, then H for Help, then About.</li>
 <li>The version is read from NVDA itself, the add-on's own manifest and the program, by plain code: no model is asked and nothing goes online. To look for a newer VisionClaw, press NVDA+Alt+U or say "check for a new version of visionclaw", as before. Tested with plain Python and stand-ins for NVDA; not yet run inside NVDA.</li>
-</ul>
-<h2>What was new in 1.15.0</h2>
-<ul>
-<li>Ask about the control you are on in your own words, and VisionClaw answers at once from what NVDA knows, without asking you what you meant. Press NVDA+Alt+C and say "what is the focused control", "what does this button do", "what happens if I press Enter here", "is this checkbox checked", "is this button greyed out", "does this have a shortcut key", "what is the navigator object on" or "what's under my mouse". In browse mode it is the link, button or field at your reading position.</li>
-<li>The answer starts with what you asked: yes or no for a state, then the control's kind and name, the window and program, its state, its value or selected text, its place in its list, what it is inside of, its description and shortcut key, how to use it from the keyboard, and NVDA's own key for next time, such as NVDA+Tab for the focus. A control without a name gets the name you saved for it, or one read from its picture, said with probably where it is not sure. Asked what a button does where nothing says it, the model guesses from its name and picture, and the answer says it is a guess. Nothing is pressed or changed.</li>
-<li>VisionClaw no longer asks you to choose between two ways that only look and change nothing, such as looking at the screen and looking it up in NVDA. It tries one, what NVDA says before a picture, then the other if the first finds nothing, and tells you so. It still asks first when one of the ways would change something. A step that only looks and fails is followed by the other way instead of a question.</li>
-<li>A question VisionClaw finds no job for, such as "tell me a joke" or "what's 15 times 12", is looked up in NVDA, the program, the window and Windows, and you are told plainly when nothing is found, instead of being asked to choose a plan. "Switch to focus mode" and "go into focus mode" run NVDA's own command, and "is the remember me box ticked" is no longer taken as something to remember.</li>
-<li>Measured with the real Qwen3.5 4B for both jobs on two new sets of requests in casual words: on the set written to tune it, 34 of 64 right with 4 questions to you before, 61 of 64 with none after; on the held-out set, 35 of 60 with 2 questions before, 55 of 60 when first run, and 59 of 60 with none after three small rules made from its misses. Not yet run inside NVDA.</li>
 </ul>
 <p>How to use each of these is explained in its own part of this page, further down.</p>
 <!-- /news -->
@@ -823,6 +823,12 @@ listening to speech or reading braille. Answers start with the answer, use no Ma
 keys exactly, say places in words, and say what cannot be read instead of guessing. In the settings, the button
 "How VisionClaw answers, and your own instructions" lets you read and rewrite every instruction, add your own,
 and restore the original of one or all of them. They apply to whatever model you use.</p>
+
+<p>Nothing VisionClaw says or shows you is cut, however long: the answer, every question it asks you, every "You
+asked" before a change, a list you asked for, and what each step found when you read back the last request in the
+Ask window. Your own request reaches every model and every tool whole, and so does what you ask VisionClaw to
+remember. VisionClaw's log keeps every entry whole. Only what a small model reads of looked-up pages, notes and
+results is kept short for it, so that it is not swamped; you never hear that part shortened.</p>
 
 <h2>The developer guides</h2>
 <p>The NVDA Developer Guide from NV Access comes with VisionClaw as Markdown text, as it was when your version

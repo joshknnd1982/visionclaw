@@ -33,7 +33,7 @@ import re
 import textwrap
 
 from . import debuglog, fixes, microaddons, prompts, understand
-from .llm import LLMError, clip
+from .llm import LLMError, clip, uncut
 from .tools import ToolError
 
 KEY, EVENT = "key", "event"
@@ -455,7 +455,7 @@ def read(purpose, facts=""):
 			elif pieces:
 				pieces[-1].action = f"{pieces[-1].action} and {action}" if pieces[-1].action else action
 			else:
-				return [], f"it does not say when \"{clip(clause, 80)}\" is to happen"
+				return [], f"it does not say when \"{uncut(clause)}\" is to happen"
 			continue
 		if trigger[0] == KEY:
 			piece = Piece(KEY, clause, _action(trigger[2]), gesture=trigger[1], program=program)
@@ -627,7 +627,7 @@ def limits(pieces):
 				f"On a web page in browse mode, moving to a {ROLE_SAID.get(piece.role, piece.role.lower())} does not move the "
 				"focus, so that part works only where it gets the focus, as in focus mode or in a program.")
 		if piece.chosenKey:
-			said.append(f"No key was named for \"{clip(piece.action, 60)}\", so VisionClaw chose "
+			said.append(f"No key was named for \"{uncut(piece.action)}\", so VisionClaw chose "
 				f"{piece.gesture.replace('kb:', '')}, which nothing else uses.")
 	return said
 
@@ -813,7 +813,7 @@ def writePiece(llm, task, piece, number, params, coder, reviewer, notesFor=None,
 	if body and not problems(piece, body):
 		piece.body, piece.imports, piece.doubt = body, _withImports(body, imports), doubt
 		return
-	raise Fallback(f"piece {number} ({clip(piece.action, 60)}) did not pass the checks")
+	raise Fallback(f"piece {number} ({uncut(piece.action)}) did not pass the checks")
 
 
 def _review(llm, task, piece, body, params, reviewer):
@@ -824,7 +824,7 @@ def _review(llm, task, piece, body, params, reviewer):
 	alone.name = piece.name
 	try:
 		verdict = llm.json(reviewer, prompts.coding(_REVIEW_SYSTEM, piece.action),
-			f"This piece must: {clip(piece.action, 300)}\nIt runs {piece.when()}.\nCode:\n{clip(frame(alone, body), 3000)}",
+			f"This piece must: {uncut(piece.action)}\nIt runs {piece.when()}.\nCode:\n{clip(frame(alone, body), 3000)}",
 			_REVIEW_SCHEMA, maxTokens=120, reasoning=params.reasoning)
 	except LLMError:
 		return [], ""
@@ -926,8 +926,8 @@ def fixMethod(llm, task, purpose, source, problems_, notes, params, coder, revie
 	lines = source.splitlines()
 	method = textwrap.dedent("\n".join(lines[span[0] - 1:span[1]]))
 	indent = re.match(r"^\s*", lines[span[0] - 1]).group(0)
-	task.emit("detail", f"The {_writer(params)} is correcting only the method where it failed: " + clip(problems_[0], 200))
-	user = (f"The add-on as a whole is for: {clip(purpose, 400)}\nThis method of it fails:\n```python\n{clip(method, 2500)}\n```\n"
+	task.emit("detail", f"The {_writer(params)} is correcting only the method where it failed: " + uncut(problems_[0]))
+	user = (f"The add-on as a whole is for: {uncut(purpose)}\nThis method of it fails:\n```python\n{clip(method, 2500)}\n```\n"
 		"Problems:\n" + "\n".join(f"- {clip(p, 500)}" for p in problems_[:5]))
 	if notes:
 		user += f"\nNotes about NVDA that may help:\n{clip(notes, 900)}"

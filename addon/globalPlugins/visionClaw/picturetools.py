@@ -24,7 +24,7 @@ import config
 from . import deepquery, fixruntime, imaging, mousetools, ocr, pagetools
 from .claw import colours, images, pictures, policy, prompts
 from .claw.catalog import VISION
-from .claw.llm import clip
+from .claw.llm import clip, uncut
 from .claw.skills import stepGuide
 from .claw.tools import VERBATIM, ToolError
 from .engine import prepareImage
@@ -126,7 +126,7 @@ def register(add, plugin, text, onMain, confirm, mustAgree, screen):
 			task.emit("talk", f"Asked the {seer}: {asked}")
 			answer = plugin.runtime.describe(prepared, prompt, 350, cancel=task.cancel, system=prompts.seeing())
 			task.check()
-			task.emit("talk", f"The {seer} answered: {clip(answer, 400)}")
+			task.emit("talk", f"The {seer} answered: {uncut(answer)}")
 			answers.append((asked, answer or f"The {seer} gave no answer."))
 		sheet = getattr(task, "sheet", None)
 		if sheet is not None and len(questions) > 1:
@@ -189,7 +189,7 @@ def register(add, plugin, text, onMain, confirm, mustAgree, screen):
 			what = "which is one picture " + ("of a web page" if where == "page" else "from a program's window")
 			named = images.calls(picture)
 			if named:
-				what += f"; the {'page' if where == 'page' else 'program'} calls it \"{clip(named, 120)}\""
+				what += f"; the {'page' if where == 'page' else 'program'} calls it \"{uncut(named)}\""
 			said = ask(task, image, what, questions)
 			answers.append(f"{images.lead(wished, picture, number, len(chosen), where)}: {said}")
 		return "\n".join(answers) + images.leftOut(more)

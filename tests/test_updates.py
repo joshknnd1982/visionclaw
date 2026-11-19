@@ -95,9 +95,10 @@ assert updates.offerText(found, "0.7.0").splitlines() == [
 	"When the file is here and checked, NVDA asks whether to install it, and restarts after that.",
 ], updates.offerText(found, "0.7.0")
 assert "The release does not say what is new." in updates.offerText(dict(found, notes="", whatsNew=""), "0.7.0")
-assert len(updates.whatsNew("word " * 4000)) <= updates.WHATS_NEW_CHARS + 4
+# What is new is said whole, however long.
+assert updates.whatsNew("word " * 4000) == " ".join(["word"] * 4000)
 long = updates.notesOf("word " * 400)
-assert len(long) <= updates.NOTES_CHARS + 4 and long.endswith(" ...")
+assert long == " ".join(["word"] * 400) and not long.endswith("...")
 # Only VisionClaw's own repository is ever read.
 assert updates.RELEASES_URL == "https://api.github.com/repos/joshknnd1982/visionclaw/releases?per_page=20"
 print("OK")

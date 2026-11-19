@@ -13,7 +13,7 @@ import html
 import re
 
 from . import commands, match, ranking
-from .llm import clip
+from .llm import clip, uncut
 from .memory import _COMMON, _WORD, stem
 
 NVDA, APP, WINDOW, SYSTEM = "nvda", "app", "window", "system"
@@ -286,7 +286,8 @@ class Passage:
 
 
 def shorten(text, chars):
-	"""A text cut to a length at the end of a sentence, where that keeps most of it."""
+	"""A text cut to a length at the end of a sentence, where that keeps most of it; else whole. Never cut in the
+	middle of a sentence: what the user is told of it must not end in the middle (llm.uncut)."""
 	text = " ".join(str(text or "").split())
 	if len(text) <= chars:
 		return text
@@ -295,7 +296,7 @@ def shorten(text, chars):
 		if len(kept) + len(sentence) + 1 > chars:
 			break
 		kept = f"{kept} {sentence}".strip()
-	return kept if len(kept) >= chars // 2 else clip(text, chars)
+	return kept if len(kept) >= chars // 2 else text
 
 
 def chunks(body, chars=PASSAGE_CHARS):
@@ -660,7 +661,7 @@ def referent(llm, role, question, choices):
 	}
 	try:
 		chosen = int(llm.json(
-			role, _REFERENT_SYSTEM, f"The question: \"{clip(question, 300)}\"\nWhere they are:\n{numbered}\n"
+			role, _REFERENT_SYSTEM, f"The question: \"{uncut(question)}\"\nWhere they are:\n{numbered}\n"
 			"Which one is the question about? Give its number.", schema, maxTokens=20).get("about") or 0)
 	except Exception as e:
 		# Knowing what "this" means is a help, not a need: only stopping the request is passed on. Without a

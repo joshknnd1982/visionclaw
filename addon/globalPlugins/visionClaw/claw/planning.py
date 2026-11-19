@@ -269,7 +269,7 @@ class Plans:
 	def keep(self, request, recipe, good=True):
 		"""Count how a request was done: well (good) or not. The plan of a request in nearly the same words with
 		the same recipe is counted on; its words become the newest."""
-		request = " ".join(str(request or "").split())[:200]
+		request = " ".join(str(request or "").split())
 		if not request or not recipe or len(tellingWords(request)) < LEAST_WORDS:
 			return
 		with self._lock:

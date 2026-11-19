@@ -36,8 +36,8 @@ import config
 import wx
 
 from .claw import partners
-from .claw.llm import clip
-from .claw.tools import RESULT_CHARS, VERBATIM, ToolError
+from .claw.llm import uncut
+from .claw.tools import VERBATIM, ToolError
 from .vclog import log
 
 addonHandler.initTranslation()
@@ -203,7 +203,7 @@ def jawsCommandText(words, commands):
 	found = partners.matchCommand(words, names)
 	if not found:
 		return (
-			f"The JAWS Migration Assistant knows no JAWS command that fits these words: {clip(words, 80)}. Say the JAWS "
+			f"The JAWS Migration Assistant knows no JAWS command that fits these words: {uncut(words)}. Say the JAWS "
 			"keystroke instead, such as Insert+F7, or press NVDA+Shift+J, then K, then the JAWS keystroke.")
 	lines = []
 	for name in found:
@@ -229,7 +229,7 @@ def jawsInfoText():
 	if layer:
 		lines.append("After NVDA+Shift+J, these keys: " + " ".join(f"{key}: {str(words).rstrip('.')}." for _g, _script, key, words in layer))
 	lines.append("Ask VisionClaw what any JAWS keystroke is in NVDA, such as: what is JAWS's Insert+F7 in NVDA.")
-	return clip(" ".join(lines), RESULT_CHARS - 40)
+	return uncut(" ".join(lines))
 
 
 def register(add, plugin, text, onMain, confirm, commands):
@@ -294,7 +294,7 @@ def register(add, plugin, text, onMain, confirm, commands):
 				return f"ClassicSpeech's speech and sound scheme was {active} and is now {new}." + (
 					"" if on else " Schemes are turned off, so it is not heard until you say: turn schemes on.")
 			lines = [command.line() for command in commands() if str(command.source).startswith(CLASSIC_MODULE) and command.keys]
-			return clip(onMain(classicText, lines), RESULT_CHARS - 40)
+			return uncut(onMain(classicText, lines))
 		except ToolError:
 			raise
 		except (AttributeError, KeyError, ImportError, TypeError) as e:
@@ -315,9 +315,9 @@ def register(add, plugin, text, onMain, confirm, commands):
 		try:
 			known = commands()
 			if wish["what"] == partners.KEY:
-				return clip(onMain(jawsKeyText, migrator, wish["key"], known), RESULT_CHARS - 40)
+				return uncut(onMain(jawsKeyText, migrator, wish["key"], known))
 			if wish["what"] == partners.COMMAND:
-				return clip(onMain(jawsCommandText, wish["words"], known), RESULT_CHARS - 40)
+				return uncut(onMain(jawsCommandText, wish["words"], known))
 			return onMain(jawsInfoText)
 		except (AttributeError, KeyError, ImportError, TypeError, ValueError) as e:
 			log.error(f"VisionClaw: the JAWS Migration Assistant could not be asked ({type(e).__name__}: {e})", exc_info=True)

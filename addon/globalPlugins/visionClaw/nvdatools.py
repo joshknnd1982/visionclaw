@@ -30,7 +30,7 @@ from . import computertools, hardtools, mousetools, net, nvdainfo, ocr, placetoo
 from .claw import changes, commands, computer, debuglog, drivers, fixes, gamepad, guides, helpfiles, inside, lookup, match, microaddons, offers, pointer, policy, profiles, prompts, training, web
 from .claw import accessnotes, audit, codeplan, focus, guide, hardcase, naming, pictures, places, planning, working
 from .claw.catalog import CODER, VISION
-from .claw.llm import LLM, clip
+from .claw.llm import LLM, clip, uncut
 from .claw.memory import score, wordList, words as wordsOf
 from .claw.knowledge import Knowledge
 from .claw.tools import ANSWER, VERBATIM, Registry, Tool, ToolError
@@ -508,7 +508,7 @@ class _Command:
 		"""The command as shown to a model and to the user: its id, what it does, its keys."""
 		what = self.description or f"A command without a description, in {self.source or 'NVDA'}"
 		keys = " or ".join(self.keys) if self.keys else "no key assigned"
-		return f"{self.id}: {clip(what, 220).rstrip('.')}. Keys: {keys}."
+		return f"{self.id}: {uncut(what).rstrip('.')}. Keys: {keys}."
 
 
 def _shownKeys(gestures, layout):
@@ -956,14 +956,14 @@ def _inspect(name):
 			lines.append(f"Call it as {path.split('.')[-1]}{signature}.")
 	doc = inspect.getdoc(found) if (callable(found) or inspect.ismodule(found)) else None
 	if doc:
-		lines.append(clip(doc, 500))
+		lines.append(uncut(doc))
 	if inspect.ismodule(found) or inspect.isclass(found):
 		lines.append("It has: " + _members(found))
 	elif inside.reports(path.split(".")[-1], found):
 		try:
 			lines.append(f"Called now, it gives back: {inside.describe(found())}.")
 		except Exception as e:
-			lines.append(f"Calling it now did not work: {type(e).__name__}: {clip(str(e), 160)}.")
+			lines.append(f"Calling it now did not work: {type(e).__name__}: {uncut(str(e))}.")
 	elif not callable(found):
 		lines.append(f"Now it holds: {inside.describe(found)}.")
 	return "\n".join(lines)
@@ -1166,7 +1166,7 @@ def _focusFacts(which, namer=None):
 	states = sorted(name for name in (_safe(lambda s=state: s.name) for state in (_safe(lambda: obj.states) or ())) if name)
 
 	def words(value, limit=200):
-		return clip(" ".join(str(value or "").split()), limit).replace(" ...[cut]", "...")
+		return uncut(" ".join(str(value or "").split()))
 
 	facts = {
 		"name": words(_safe(lambda: obj.name)), "role": role,
@@ -1393,7 +1393,7 @@ def fixAddon(plugin, task, name, said=""):
 
 def _members(obj):
 	names = [n for n in dir(obj) if not n.startswith("_")]
-	return clip(", ".join(names), 700)
+	return uncut(", ".join(names))
 
 
 # --- Building the tools ---
@@ -1592,7 +1592,7 @@ def build(plugin):
 			task.emit("talk", f"Asked the {seer}: {asked}")
 			answer = plugin.runtime.describe(prepared, prompt, 350, cancel=task.cancel, system=prompts.seeing())
 			task.check()
-			task.emit("talk", f"The {seer} answered: {clip(answer, 400)}")
+			task.emit("talk", f"The {seer} answered: {uncut(answer)}")
 			answers.append((asked, answer or f"The {seer} gave no answer."))
 		sheet = getattr(task, "sheet", None)
 		if sheet is not None and len(asks) > 1:
@@ -1864,9 +1864,9 @@ def build(plugin):
 
 	def typeText(task, textToType):
 		# Translators: Asked before VisionClaw types text for the user. {text} is the text.
-		confirm(_("Type \"{text}\" into the program?").format(text=clip(textToType, 80)))
+		confirm(_("Type \"{text}\" into the program?").format(text=uncut(textToType)))
 		onMain(typeUnicode, textToType)
-		return f"Typed: {clip(textToType, 80)}"
+		return f"Typed: {uncut(textToType)}"
 
 	registry.add(Tool("type_text", "type text into the program in front", guarded(notOwn(lambda task, text: typeText(task, text))),
 		{"text": text("the text to type", maxLength=400)}, changes=True, title="Typing"))
@@ -1895,7 +1895,7 @@ def build(plugin):
 
 	add("find_setting", "find NVDA settings by describing them; gives each setting's id, value now and allowed values",
 		findSetting, {"words": text("2 to 4 keywords for the setting, like: speech rate", maxLength=80,
-			auto=lambda part: clip(profiles.without(part), 80).replace(" ...[cut]", ""))},
+			auto=lambda part: uncut(profiles.without(part)))},
 		looks=True, title="Finding the setting")
 
 	def setSetting(task, setting, value, asked):
@@ -1915,7 +1915,7 @@ def build(plugin):
 			# Only the setting the user asked about may be changed, whatever a model decided.
 			if about and not related(about, found.id, found.label):
 				raise ToolError(
-					f"The user asked: \"{clip(asked, 200)}\". That says nothing about {found.label}. "
+					f"The user asked: \"{uncut(asked)}\". That says nothing about {found.label}. "
 					"Choose the setting from find_setting that the request is about. If none is, this cannot be done.")
 			new = found.parse(value)
 			old = found.shown()
@@ -1942,7 +1942,7 @@ def build(plugin):
 			program = profiles.shown(facts)
 			if not everywhere:
 				# Translators: Put before the question about a change, so the user can tell if it is what they asked for.
-				said = (_("You asked: {request}").format(request=clip(asked, 160)).rstrip(".") + ". ") if asked else ""
+				said = (_("You asked: {request}").format(request=uncut(asked)).rstrip(".") + ". ") if asked else ""
 				chosen = plugin.clawAsk(
 					said + profiles.whichQuestion(found.label, old, found.shown(new), program), profiles.whichChoices(program))
 				if chosen == 0:
@@ -1952,7 +1952,7 @@ def build(plugin):
 			else:
 				whole = question.rstrip("?") + ", everywhere?"
 				if asked:
-					whole = _("You asked: {request}").format(request=clip(asked, 160)).rstrip(".") + ". " + whole
+					whole = _("You asked: {request}").format(request=uncut(asked)).rstrip(".") + ". " + whole
 				mustAgree(whole) if risky else confirm(whole)
 			app = (facts.get("app") or "").lower()
 			profiletools.settle(lambda: onMain(profiletools.front)[1]["app"].lower() == app, task.check)
@@ -1978,7 +1978,7 @@ def build(plugin):
 			risky = True
 		if asked:
 			# Translators: Put before the question about a change, so the user can tell if it is what they asked for.
-			question = _("You asked: {request}").format(request=clip(asked, 160)).rstrip(".") + ". " + question
+			question = _("You asked: {request}").format(request=uncut(asked)).rstrip(".") + ". " + question
 		mustAgree(question) if risky else confirm(question)
 		onMain(found.write, new)
 		now = onMain(found.shown)
@@ -2000,7 +2000,7 @@ def build(plugin):
 		program = profiles.shown(facts)
 		question = (
 			# Translators: Put before the question about a change, so the user can tell if it is what they asked for.
-			_("You asked: {request}").format(request=clip(words, 160)).rstrip(".") + ". "
+			_("You asked: {request}").format(request=uncut(words)).rstrip(".") + ". "
 			+ profiles.question(program, profile is None) + " " + question)
 		# A new profile changes how NVDA behaves in a program from now on: always asked about. Where the user has
 		# just chosen "only in this program" in a question, that was the asking.
@@ -2182,7 +2182,7 @@ def build(plugin):
 		debuglog.log("command", f"{chosen.id} ran. NVDA said: {said!r}")
 		often = "" if wanted[-1] == 1 else f" {commands.pressText(wanted[-1])}"
 		keys = f" Next time you can press {' or '.join(chosen.keys)}{often} for this." if chosen.keys else ""
-		done = f"NVDA said: {clip(said, 500)}" if said else f"Done: {chosen.description or chosen.id}"
+		done = f"NVDA said: {uncut(said)}" if said else f"Done: {chosen.description or chosen.id}"
 		return f"{done.rstrip('.')}.{keys}"
 
 	add("run_command", "run one NVDA command for the user", runCommand, {
@@ -2333,7 +2333,7 @@ def build(plugin):
 		debuglog.log("inside", f"Looked inside NVDA for \"{words}\": found {[entry.name for entry in found]}")
 		if not found:
 			raise ToolError("Nothing inside NVDA matches those words. Use the words of the request that say what the thing does.")
-		return "\n".join(clip(entry.line(), 230) for entry in found)
+		return "\n".join(uncut(entry.line()) for entry in found)
 
 	add("find_nvda",
 		"find functions, classes, modules, objects and values inside NVDA's own code and its add-ons' code by "
@@ -2909,7 +2909,7 @@ def build(plugin):
 		if shopping.isSecret(found.get("plain") or found["text"]):
 			return shopping.SECRET_REFUSAL
 		# Translators: Asked before VisionClaw types into a field. {text} is the text, {field} the field.
-		confirm(_("Type \"{text}\" into {field}?").format(text=clip(typed, 80), field=found["text"]))
+		confirm(_("Type \"{text}\" into {field}?").format(text=uncut(typed), field=found["text"]))
 		onMain(Screen.click, result, found)  # in a web page this goes into the field, as Enter does
 		time.sleep(0.5)
 		onMain(typeUnicode, typed)
@@ -2918,7 +2918,7 @@ def build(plugin):
 			onMain(KeyboardInputGesture.fromName("enter").send)
 			time.sleep(CLICK_SETTLE_SECONDS)
 		task.items = None
-		return f"Typed \"{clip(typed, 80)}\" into {found['text']}" + (" and pressed Enter." if enter == "yes" else ".")
+		return f"Typed \"{uncut(typed)}\" into {found['text']}" + (" and pressed Enter." if enter == "yes" else ".")
 
 	registry.add(Tool(
 		"fill_field", "type text into one field from list_items, such as a search box or a field of a form",

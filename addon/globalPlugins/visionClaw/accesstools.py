@@ -36,7 +36,7 @@ from .claw import audit, direct, dragcontrol, fixes, helpfiles, lookup, match, m
 from .claw import web, working
 from .claw.catalog import CODER, VISION
 from .claw.fixmatch import hostOf, labelOf, matches, nodeFromObject, plainText
-from .claw.llm import LLM, MEDIUM, LLMError, clip
+from .claw.llm import LLM, MEDIUM, LLMError, uncut
 from .claw.tools import VERBATIM, ToolError
 from .engine import prepareImage
 from .nvdatools import UserSaidNo, _safe, onMain
@@ -160,7 +160,7 @@ def _visual(plugin, task, box):
 			90, cancel=task.cancel)
 		answer = " ".join(str(answer or "").split())
 		if answer and not re.match(r"^(none|no)\b[.!]?$", answer.lower()):
-			seen = clip(answer, 300)
+			seen = uncut(answer)
 	except Exception:
 		task.check()
 		log.debugWarning("VisionClaw: the vision model could not look at the window", exc_info=True)
@@ -213,10 +213,10 @@ def controlText(inspection):
 	lines = [f"The focused control is a {role}" + (f" called {name}." if name else " with no name, so NVDA only says what kind it is.")]
 	value = _safe(lambda: focus.value)
 	if value:
-		lines.append(f"Its value is {clip(str(value), 80)}.")
+		lines.append(f"Its value is {uncut(str(value))}.")
 	described = _safe(lambda: focus.description)
 	if described:
-		lines.append(f"Its description is {clip(str(described), 120)}.")
+		lines.append(f"Its description is {uncut(str(described))}.")
 	states = sorted(_safe(lambda s=state: s.displayString) or "" for state in (_safe(lambda: focus.states) or ()))
 	if any(states):
 		lines.append("NVDA reports it as: " + ", ".join(s for s in states if s) + ".")
@@ -254,7 +254,7 @@ def _wayFromFacts(plugin, llm, facts):
 
 def _calling(node):
 	"""What to call a control when talking about it."""
-	name = clip(labelOf(node), 40)
+	name = uncut(labelOf(node))
 	return name or f"a {str(node.get('role') or 'control').lower()} without a name"
 
 
@@ -542,14 +542,14 @@ def _worked(plugin, task, place, deep, site="", scope=None):
 		findings.append(finding)
 	if pressed:
 		offered = pressed[:working.MAX_KEYS_OFFERED]
-		names = ", ".join(clip(labelOf(node), 30) for node in offered)
+		names = ", ".join(uncut(labelOf(node)) for node in offered)
 		more = f", and {len(pressed) - len(offered)} more" if len(pressed) > len(offered) else ""
 		findings.append(audit.Finding("unreached",
 			f"{audit._plural(len(pressed), 'control')} here never "
 			f"{'takes' if len(pressed) == 1 else 'take'} the keyboard focus, so the Tab key does not reach "
 			f"{'it' if len(pressed) == 1 else 'them'}; a sighted person clicks {'it' if len(pressed) == 1 else 'them'}: {names}{more}.",
 			"focus tab reach reached unreachable click clicked mouse",
-			fixes=[{"kind": fixes.PRESS, "rule": audit.pressRule(node), "label": clip(labelOf(node), 40), "keys": []} for node in offered],
+			fixes=[{"kind": fixes.PRESS, "rule": audit.pressRule(node), "label": uncut(labelOf(node)), "keys": []} for node in offered],
 			advice="VisionClaw can make a key that presses each."))
 	return " ".join(sentence for sentence in sentences if sentence), findings
 
@@ -700,7 +700,7 @@ def inspect(plugin, task, target="auto", depth="deep"):
 def _keepFound(plugin, scope, report):
 	"""What a deep inspection found, in one line of the place's access notes. Never a fault."""
 	try:
-		said = "; ".join(clip(finding.text, 90) for finding in report.findings[:4])
+		said = "; ".join(uncut(finding.text) for finding in report.findings[:4])
 		more = f"; and {len(report.findings) - 4} more" if len(report.findings) > 4 else ""
 		accessNotes(plugin).keepFound(scope, (said + more) if said else "No problems were found")
 	except Exception:
@@ -850,7 +850,7 @@ def install(plugin, task, inspection, new, notes=()):
 	if plugin.clawAsk(question, [_("Turn them on"), _("Do not make them")]) != 0:
 		raise UserSaidNo()
 	oldMeta = store.meta(ident) or {}
-	purpose = clip(f"Accessibility fixes for {where}: " + "; ".join(fix["label"] for fix in merged), 300)
+	purpose = uncut(f"Accessibility fixes for {where}: " + "; ".join(fix["label"] for fix in merged))
 	store.save(name, source, purpose)
 	try:
 		onMain(plugin.helpers.loadAddon, ident)
@@ -974,11 +974,11 @@ def addonText(wanted, about):
 	state = "disabled" if _safe(lambda: addon.isDisabled) else ("on" if _safe(lambda: addon.isRunning, True) else "installed but not running")
 	first = (
 		f"The add-on {summary}, version {_safe(lambda: manifest['version']) or 'unknown'}, "
-		f"by {clip(str(_safe(lambda: manifest['author']) or 'an unknown author'), 80)}, is {state}.")
+		f"by {uncut(str(_safe(lambda: manifest['author']) or 'an unknown author'))}, is {state}.")
 	does = []
 	described = " ".join(str(_safe(lambda: manifest["description"]) or "").split())
 	if described:
-		does.append("It says about itself: " + clip(described, 350))
+		does.append("It says about itself: " + uncut(described))
 	for folder, what in _ADDON_PARTS:
 		path = os.path.join(addon.path, folder)
 		if os.path.isdir(path):
@@ -1209,7 +1209,7 @@ def register(plugin, add, text, registry=None):
 			names = list(dict.fromkeys(labelOf(n) for n in nodes if n.get("role") in audit.INTERACTIVE and labelOf(n)))
 			raise ToolError(
 				f"Nothing called \"{item}\" was found here. Give the control's own name, or move to it first and call "
-				"it the focused control. Controls here: " + clip(", ".join(names[:25]) or "none with a name", 500))
+				"it the focused control. Controls here: " + uncut(", ".join(names[:25]) or "none with a name"))
 		shown = labelOf(node)
 		if kind == "press" and shown:
 			rule = audit.pressRule(node)
@@ -1238,7 +1238,7 @@ def register(plugin, add, text, registry=None):
 				notes.append(f"{wanted} already does something else in NVDA here, so another key was chosen.")
 			else:
 				keys = [wanted]
-		return install(plugin, task, found, [{"kind": _KIND_OF[kind], "rule": rule, "label": clip(label, 60), "keys": keys}], notes)
+		return install(plugin, task, found, [{"kind": _KIND_OF[kind], "rule": rule, "label": uncut(label), "keys": keys}], notes)
 
 	add("add_fix",
 		"make one lasting fix for this website or program: a key that presses a control, a key that reads one, "
@@ -1260,7 +1260,7 @@ def register(plugin, add, text, registry=None):
 				# the program, its window and Windows, as for any question.
 				worked, found = registry.call(task, lookup.TOOL, {"question": addonsModule.plainQuestion(asked)})
 				if worked and found and not lookup.isNothing(found):
-					return f"{clip(found, 1250)}\n{addonsModule.COACH_ABSENT}" if state is None else found
+					return f"{uncut(found)}\n{addonsModule.COACH_ABSENT}" if state is None else found
 			return addonsModule.coachMissing(state)
 		from . import nvdatools
 		known = onMain(nvdatools._commands)

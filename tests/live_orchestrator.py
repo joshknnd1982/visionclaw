@@ -43,7 +43,7 @@ class LiveRegistry(tools.Registry):
 		try:
 			return super().call(task, name, form)
 		except ValueError as e:
-			return False, tools.clip(str(e), tools.RESULT_CHARS)
+			return False, tools.uncut(str(e))
 
 
 class OneModelCatalog(catalog.Catalog):

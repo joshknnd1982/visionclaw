@@ -466,7 +466,7 @@ def _stateless(nodes):
 
 def clipName(text, chars=30):
 	text = " ".join(str(text or "").split())
-	return text if len(text) <= chars else text[:chars - 1].rstrip() + "..."
+	return text
 
 
 def auditPage(nodes, title="", site="", later=None, drawn=None, browser="", ways="", more=()):

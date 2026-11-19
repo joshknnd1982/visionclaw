@@ -380,11 +380,11 @@ def ask(request, last, found):
 		found = REFERS
 	if found == ABOUT and thing:
 		return ABOUT_SYSTEM, (
-			f"The earlier request: \"{last.request[:400]}\"\nThe new thing: \"{newThing(request)[:200]}\"\n"
+			f"The earlier request: \"{last.request}\"\nThe new thing: \"{newThing(request)}\"\n"
 			"Write the earlier request again about the new thing.")
 	if found == REFERS:
 		return THING_SYSTEM, (
-			f"The answer: \"{last.answer[:700]}\"\nThe new request: \"{bare(request)[:300]}\"\n"
+			f"The answer: \"{last.answer[:700]}\"\nThe new request: \"{bare(request)}\"\n"
 			"Write the new request with the name of the thing that is meant.")
 	return SYSTEM, question(request, last)
 
@@ -392,9 +392,9 @@ def ask(request, last, found):
 def question(request, last):
 	"""The question to a model that writes a follow-up out in full."""
 	return (
-		f"The earlier request: \"{last.request[:400]}\"\n"
+		f"The earlier request: \"{last.request}\"\n"
 		f"Its answer: \"{last.answer[:700]}\"\n"
-		f"The user now says: \"{_clean(request)[:300]}\"\n"
+		f"The user now says: \"{_clean(request)}\"\n"
 		"Write what the user wants now as one full request.")
 
 
@@ -441,7 +441,7 @@ def background(last):
 	"""The request before and its answer, as what is known, for a follow-up that could not be written out in
 	full: the model that chooses what to do is told them, and the request itself stays as the user said it."""
 	return (
-		f"The request before this one was: \"{last.request[:200]}\". Its answer was: \"{last.answer[:300]}\". "
+		f"The request before this one was: \"{last.request}\". Its answer was: \"{last.answer[:300]}\". "
 		"This request may lean on them.")
 
 

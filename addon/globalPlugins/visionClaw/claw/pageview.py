@@ -35,8 +35,8 @@ CHECKED = ("CHECKBOX", "SWITCH")
 BUTTONS = ("BUTTON", "TOGGLEBUTTON", "MENUBUTTON", "SPLITBUTTON", "DROPDOWNBUTTON")
 SHOWN_LANDMARKS, SHOWN_TROUBLE = 8, 8
 LABEL_CHARS, SAID_CHARS = 60, 160
-# A tool's answer is cut at tools.RESULT_CHARS. What is said here is shortened by plain code until it fits, the
-# lists first, so that the keys at the end are never the part that is lost.
+# An overview of a page is kept short to be listened to: plain code names fewer headings, links and fields until it
+# fits, says how many more there are, and never leaves out the keys at the end. Nothing in it is cut in the middle.
 FITS = 1400
 # How many headings, links of the navigation and form fields are named, from the fullest to the shortest.
 _SHORTER = ((6, 8, 8), (4, 6, 5), (3, 4, 3), (2, 3, 0), (1, 0, 0), (0, 0, 0))
@@ -76,7 +76,7 @@ def shown(node):
 
 def _label(node, chars=LABEL_CHARS):
 	text = " ".join(str(labelOf(node) or "").split())
-	return text if len(text) <= chars else text[:chars].rsplit(" ", 1)[0] + " ..."
+	return text
 
 
 def headingLevel(node):
@@ -574,7 +574,7 @@ def asksGist(part):
 def _firstSentence(text, chars=220):
 	match = re.search(r"(.+?[.!?])(\s|$)", text)
 	sentence = match.group(1) if match else text
-	return sentence if len(sentence) <= chars else sentence[:chars].rsplit(" ", 1)[0] + " ..."
+	return sentence
 
 
 def gist(text, chars=GIST_CHARS):
