@@ -1,6 +1,6 @@
 # VisionClaw status
 
-Updated 2026-11-19, version 1.11.1.
+Updated 2026-11-19, version 1.12.1.
 
 ## What exists
 
@@ -2476,6 +2476,30 @@ asked the user three times, the same three as 1.10.0: "click the start button." 
 half of the deep query ("Tell me how a sighted person works it"), and the "report pdf" session, a gap of the
 `find_thing` stand-in. No output of 1.10.0's whole run was kept, so the answers were not compared one by one;
 the totals are those of 1.10.0's run in this file.
+
+## 1.12.1: check boxes NVDA can read in the question before models are suggested (2026-11-19)
+
+**What the owner found.** In the models window, "Suggest models for what I want to do" asked with
+`wx.MultiChoiceDialog`. Its list is a plain `wx.CheckListBox`, which tells NVDA neither that an item is a check box
+nor whether it is checked: Space did check an item, but nothing was said, so it seemed not to work. The owner sent
+a screenshot of it.
+
+**What was done.** `checklist.py` makes every list of check boxes in VisionClaw: NVDA's own
+`gui.nvdaControls.CustomCheckListBox` (read from NVDA's source, branch release-2026.3: it reports every item as a
+check box with its state and sends a state change when Space changes it), the plain list only where NVDA's cannot
+be had. `checklist.ChecksDialog` asks the question: the question as the list's label, the first choice selected,
+OK and Cancel. The skills window's "Jobs it is for" was a plain `wx.CheckListBox` too and now uses
+`checklist.checkListClass()` (a class, since NVDA's `guiHelper` makes a subclass of what it is given). The window
+of models on the disk and the memories window already used NVDA's control and now go through the same module.
+The 1.11.1 branch (`release-1.11`) was merged into main first, which 1.12.0 had not done: its changelog part and
+its section above are on main now.
+
+**Tested.** `tests/test_models_window.py` with the real wxPython 4.3.1: the question with a stand-in for NVDA's
+control, the first choice selected, checking and unchecking, OK and Cancel; `_suggest` with the window's answer
+stood in (Cancel changes nothing, a checked purpose is suggested for); and no file of the plugin but
+`checklist.py` names `wx.MultiChoiceDialog`, `wx.CheckListBox` or `CustomCheckListBox`. The skills and memories
+window tests pass. **Not run inside NVDA**: that NVDA says "check box, not checked" and "checked" in this
+window is what NVDA's control does in NVDA's own settings, not something tried here.
 
 ## Next session
 

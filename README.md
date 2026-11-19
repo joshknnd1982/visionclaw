@@ -23,9 +23,15 @@ chat apps, and names for unlabelled buttons.
 > [docs/STATUS.md](docs/STATUS.md) for exactly what was tested.
 
 <!-- news: written by tools/write_help.py from manifest.ini; do not change it by hand -->
-This README is for VisionClaw 1.12.0.
+This README is for VisionClaw 1.12.1.
 
-## What is new in 1.12.0
+## What is new in 1.12.1
+
+- Fixed: the question before models are suggested could not be worked with NVDA. In the models window (NVDA+Alt+M), press "Suggest models for what I want to do": NVDA now says each choice as a check box, checked or not checked, and says it again when Space checks or unchecks it. Check one or more with Space, then press Enter. Before, NVDA said nothing about the check boxes, so Space seemed to do nothing.
+- The same for the list "Jobs it is for" when you make or change a skill in the skills window (NVDA+Alt+I): each job is said as a check box, checked or not checked.
+- Stated plainly: tested with the real wxPython and a stand-in for NVDA's own check list, the one VisionClaw's window for removing models and its memories window already use. Not run inside NVDA yet.
+
+## What was new in 1.12.0
 
 - A larger model for hard cases. VisionClaw's everyday models stay at 9B or smaller. Qwen3 14B, in Q4_K_M or Q6_K, is kept for what they could not do: an add-on that does not pass VisionClaw's checks, will not start, or fails again after it was corrected, and a control of a stubborn program where its picture and what is reported about it say different things. Then VisionClaw asks whether to try once more with the larger model. Choose it in the models window, NVDA+Alt+M, in the new list Model for hard cases; nothing is downloaded unless you choose it there, and you can uncheck "Ask me before the model for hard cases is used". Say "fix my add-on Beeper with the model for hard cases" to use it at once. It is slower and reads and writes text only: no Qwen model of that size sees pictures.
 - A model larger than your graphics card is shared between the card and the processor, instead of running on the processor alone. A model that should fit but does not start whole on the card is tried that way too before the card is given up.
@@ -56,17 +62,6 @@ This README is for VisionClaw 1.12.0.
 - "Why won't this form submit" now also measures which fields are outlined in red in the page's picture and which lines are written in red, where the page itself tells NVDA nothing, and puts NVDA's reading position on the first of them.
 - Several things inside one program in one request: "click the Play button in this launcher, open the Settings menu, and turn on UI narration and subtitles" is four steps in that program, and both options are set. "Navigate this window and remap my function keys" works through it with you.
 - Stated plainly, for the nine points above: tested on forms, pictures, knobs, installers, pages and seat maps made up by the tests, with stand-ins for NVDA and for Word, and with the real Qwen3.5 9B choosing the job: 42 of 49 and 27 of 30 right on two sets of requests written before they were run, 47 and 30 after one rule was added against them. Not run inside NVDA, in Word, in a real browser, in a real installer or plug-in, or against a real check.
-
-## What was new in 1.11.0
-
-- VisionClaw understands many more ways of saying things, the way a text adventure understands its player. "Take a peek at the screen", "kill the typing echo", "give the Save button a click", "punch in control c", "google how to bake bread", "dump the bin" and "lock up the pc" are understood as the plain words VisionClaw knows, by plain code, before anything is decided. When the meaning of your words was changed, the answer begins "Understood as", so you always know. Words in quotes, text to be typed, names, searches and what you ask it to remember are never changed. Measured on 62 requests in casual words: the right job went from 40 to 52 with Qwen3.5 9B, and from 41 to 55 with the small Qwen3.5 2B, which no longer had to ask you which you meant.
-- Teach VisionClaw your own words. Say "when I say shh, I mean stop talking", or "understand zap as turn off". From then on that word is understood that way, first of all. Say "which words have I taught you" to hear them, "forget the word shh" to forget one, and "forget all the words I taught you" to forget them all. They are kept in the file understanding.md in VisionClaw's data folder, which you can read and change.
-- Every request has a work sheet: a Markdown file with the plan, what each small step is given and what it found, in the folder work of VisionClaw's data folder. Each question to a model is made from it, so a small model gets only its own piece of the work: what the steps of its own part found, not everything found so far. Open it while a long request runs to follow along. It is deleted when the request is done, also when it failed or was stopped.
-- Add-ons are written piece by piece. Say "write an add-on that beeps when a link gets the focus, says the time with NVDA+Alt+T, and only works in Firefox". Plain code reads it into pieces, one key or one thing that happens by itself each, and writes everything around them: the key, the event, the kind of control, the program, and a beep or a fixed sentence. The model writes only the few lines inside one piece, with the notes, skills and memories that fit that piece, and never sees the others. Each piece is checked and reviewed on its own. Measured on nine add-ons, each run against stand-ins for NVDA to see whether it does what was asked: with Qwen3.5 9B, 8 of 9 did, against 4 of 9 written as one piece, in a quarter of the time; with the small Qwen2.5 Coder 1.5B, 9 of 9, against 3 of 9.
-- "Gets checked" means checked: an add-on for "when a checkbox gets checked, say checked" speaks only when the box is checked, not when it is unchecked. When no key is named, as in "give me a key that reads the window title", VisionClaw chooses one nothing else uses and tells you which. Before an add-on is turned on you are told what it cannot do, such as a heading in browse mode, which never gets the focus. What cannot be written in pieces, such as something every hour, is written as one piece as before, and you are told why.
-- When an add-on VisionClaw wrote fails in one place, only the method where it failed is sent to the model to correct.
-- A question about the screen is asked one part at a time. "What is in this photo, and is there any text in it?" is two questions to the model that sees, each with the one rule of its kind: text read exactly, a count with the number first, yes or no first and then where, a colour in plain words. You hear each answer after its own question.
-- Stated plainly: measured with the real Qwen3.5 9B, and with Qwen3.5 2B and Qwen2.5 Coder 1.5B, on requests and add-ons written for this; tested with stand-ins for NVDA. The new requests in casual words were written by the same hand as the words VisionClaw understands, the same day. Not run inside NVDA yet.
 
 How to use each of these is explained in its own part of this README, further down.
 <!-- /news -->
@@ -343,7 +338,8 @@ You can also ask about *stubborn programs*, *the model for hard cases* and *whic
 answer says whether your graphics card has room for the Q6_K of the suggested model, whether the model for hard cases
 runs on your computer and how (on the card, shared with the processor, or not at all), and that the speech models come
 only as Q8_0. In the models window, the button **Suggest models for what I want to do** asks the same with check boxes:
-check what you want VisionClaw for with Space and press Enter. The reasons are put into the box at the top and the
+check what you want VisionClaw for with Space and press Enter. NVDA says each choice as a check box, checked or not
+checked, and says it again when Space changes it. The reasons are put into the box at the top and the
 suggested models into the lists; nothing is downloaded until you press the first button, and you can still choose
 others.
 

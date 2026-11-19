@@ -15,6 +15,7 @@ import gui
 import ui
 import wx
 
+from . import checklist
 from .claw import debuglog, memories
 
 addonHandler.initTranslation()
@@ -32,11 +33,7 @@ class MemoriesDialog(wx.Dialog):
 		# Translators: Label of the list of memories.
 		main.Add(wx.StaticText(self, label=_("&Memories. Check the ones you want VisionClaw to forget:")),
 			flag=wx.LEFT | wx.RIGHT | wx.TOP, border=10)
-		try:
-			from gui import nvdaControls
-			self.list = nvdaControls.CustomCheckListBox(self, choices=[])
-		except Exception:
-			self.list = wx.CheckListBox(self, choices=[])
+		self.list = checklist.checkList(self)
 		main.Add(self.list, proportion=1, flag=wx.ALL | wx.EXPAND, border=10)
 		# Translators: Label of the box that shows the whole of the selected memory.
 		main.Add(wx.StaticText(self, label=_("The selected memory, &whole:")), flag=wx.LEFT | wx.RIGHT, border=10)

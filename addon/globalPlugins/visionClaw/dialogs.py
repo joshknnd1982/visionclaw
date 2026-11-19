@@ -15,7 +15,7 @@ import ui
 import wx
 from .vclog import log
 
-from . import net, sounds
+from . import checklist, net, sounds
 from .claw import advice, catalog, hardcase
 
 addonHandler.initTranslation()
@@ -450,7 +450,9 @@ class ModelsDialog(wx.Dialog):
 		labels = self._purposeLabels()
 		order = [ident for ident, _words, _role, _pattern in advice.PURPOSES]
 		if picked is None:
-			dialog = wx.MultiChoiceDialog(
+			# A list of check boxes NVDA reads (checklist.py); wxPython's own question of this kind tells NVDA nothing of
+			# its check boxes, so Space seemed to do nothing.
+			dialog = checklist.ChecksDialog(
 				self,
 				# Translators: Asked before models are suggested. The user checks one or more choices.
 				_("What do you want VisionClaw for most? Check one or more with Space, then press Enter."),
@@ -459,7 +461,7 @@ class ModelsDialog(wx.Dialog):
 			try:
 				if dialog.ShowModal() != wx.ID_OK:
 					return
-				picked = [order[at] for at in dialog.GetSelections()]
+				picked = [order[at] for at in dialog.checked()]
 			finally:
 				dialog.Destroy()
 		dedicated, ram = self._machine()
@@ -711,11 +713,7 @@ class ManageModelsDialog(wx.Dialog):
 		# Translators: Label of the list of models on this computer.
 		main.Add(wx.StaticText(self, label=_("&Models on this computer. Check the ones you want to remove:")),
 			flag=wx.LEFT | wx.RIGHT | wx.TOP, border=10)
-		try:
-			from gui import nvdaControls
-			self.list = nvdaControls.CustomCheckListBox(self, choices=[])
-		except Exception:
-			self.list = wx.CheckListBox(self, choices=[])
+		self.list = checklist.checkList(self)
 		main.Add(self.list, proportion=1, flag=wx.ALL | wx.EXPAND, border=10)
 		self.total = wx.StaticText(self, label="")
 		main.Add(self.total, flag=wx.LEFT | wx.RIGHT | wx.BOTTOM, border=10)

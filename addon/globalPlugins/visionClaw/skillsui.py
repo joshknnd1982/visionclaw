@@ -16,6 +16,7 @@ import gui
 import ui
 import wx
 
+from . import checklist
 from .claw import planner, skills as skillsModule
 
 addonHandler.initTranslation()
@@ -266,7 +267,7 @@ class EditSkillDialog(wx.Dialog):
 		self.when = helper.addLabeledControl(_("&Words in a request that start it, separated by commas:"), wx.TextCtrl)
 		# Translators: Label of the list of the kinds of job a skill is for.
 		self.uses = helper.addLabeledControl(
-			_("&Jobs it is for (check none for every job):"), wx.CheckListBox,
+			_("&Jobs it is for (check none for every job):"), checklist.checkListClass(),
 			choices=[planner.label(name) for name in self._recipes])
 		# Translators: Label of the field with what a skill tells VisionClaw.
 		self.instructions = helper.addLabeledControl(

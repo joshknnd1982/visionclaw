@@ -182,6 +182,69 @@ small._suggest(["code", "hard"])
 assert small._hardSelected() is None and "no larger model is suggested" in small.text.GetValue()
 assert small._selected()[CODER]["id"] == "qwen2.5-coder-1.5b", small._selected()[CODER]["id"]
 assert len(window._purposeLabels()) == len(__import__("visionClaw.claw.advice", fromlist=["x"]).PURPOSES)
+
+# The question before models are suggested is a list of check boxes NVDA reads (the owner, 2026-11-19: "It won't let
+# me check and uncheck items in the listbox"). wx.MultiChoiceDialog's list tells NVDA nothing about its check boxes,
+# so it is NVDA's own CustomCheckListBox, with the question as its label and the first choice selected.
+from visionClaw import checklist  # noqa: E402
+assert checklist.checkListClass() is wx.CheckListBox  # no NVDA here: the plain one
+
+
+class CustomCheckListBox(wx.CheckListBox):
+	"""Stands in for NVDA's gui.nvdaControls.CustomCheckListBox, which reports each item's check box to NVDA."""
+
+
+gui.nvdaControls = types.SimpleNamespace(CustomCheckListBox=CustomCheckListBox)
+assert checklist.checkListClass() is CustomCheckListBox
+labels = window._purposeLabels()
+order = [ident for ident, _words, _role, _pattern in __import__("visionClaw.claw.advice", fromlist=["x"]).PURPOSES]
+question = checklist.ChecksDialog(window, "What do you want VisionClaw for most?", "Suggest models",
+	[labels[ident] for ident in order])
+assert type(question.list) is CustomCheckListBox and question.list.GetSelection() == 0
+assert [child.GetLabel() for child in question.GetChildren() if isinstance(child, wx.StaticText)] == [
+	"What do you want VisionClaw for most?"]
+assert question.list.GetCount() == len(order) and question.checked() == []
+question.list.Check(4)
+question.list.Check(0)
+question.list.Check(4, False)
+question.list.Check(2)
+assert question.checked() == [0, 2]
+assert question.FindWindow(wx.ID_OK) and question.FindWindow(wx.ID_CANCEL)
+question.Destroy()
+# Asked for real, what the user checked is what is suggested for; Cancel changes nothing.
+answers = []
+
+
+class Answered(checklist.ChecksDialog):
+	def ShowModal(self):
+		self.Hide()
+		for at in answers[0][1]:
+			self.list.Check(at)
+		return answers.pop(0)[0]
+
+
+checklist.ChecksDialog, plain = Answered, checklist.ChecksDialog
+before = window.text.GetValue()
+answers.append((wx.ID_CANCEL, [0]))
+window._suggest()
+assert window.text.GetValue() == before and not answers
+answers.append((wx.ID_OK, [order.index("access")]))
+window.text.SetValue("")
+window._suggest()
+assert window.text.GetValue().startswith("This computer has 8 GB of graphics memory and 31 GB of memory. For making stubborn"), (
+	window.text.GetValue())
+checklist.ChecksDialog = plain
+del gui.nvdaControls
+# Every list of check boxes in VisionClaw is made by checklist.py: the window of models on the disk, the memories
+# window and a new skill's jobs too. Neither wx.MultiChoiceDialog nor a plain wx.CheckListBox is used anywhere else.
+import os  # noqa: E402
+import re  # noqa: E402
+plugin = os.path.dirname(dialogs.__file__)
+for name in sorted(os.listdir(plugin)):
+	if name.endswith(".py") and name != "checklist.py":
+		with open(os.path.join(plugin, name), encoding="utf-8") as f:
+			source = f.read()
+		assert not re.search(r"wx\.(MultiChoiceDialog|CheckListBox)\b|CustomCheckListBox", source), name
 window.Destroy()
 small.Destroy()
 
