@@ -18,7 +18,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-TESTS = ("test_speaker.py", "test_core.py", "test_one_model.py", "test_prompts.py", "test_skills.py", "test_skills_window.py", "test_portable.py", "test_portable_window.py", "test_models_window.py", "test_parts.py", "test_pointer.py", "test_touch.py", "test_gamepad.py", "test_computer.py", "test_planning.py", "test_profiles.py", "test_followups.py", "test_dates.py", "test_voice.py", "test_ask_window.py", "test_guide.py", "test_partners.py", "test_scrolling.py", "test_working.py", "test_guides.py", "test_training.py", "test_shapes.py", "test_commands.py", "test_lookup.py", "test_learn.py", "test_memories.py", "test_memories_window.py", "test_updates.py", "test_access.py", "test_pageview.py", "test_runtime.py", "test_help.py", "test_nvda_stub.py")
+TESTS = ("test_speaker.py", "test_core.py", "test_one_model.py", "test_prompts.py", "test_skills.py", "test_skills_window.py", "test_portable.py", "test_portable_window.py", "test_models_window.py", "test_parts.py", "test_pointer.py", "test_touch.py", "test_gamepad.py", "test_computer.py", "test_planning.py", "test_places.py", "test_profiles.py", "test_followups.py", "test_dates.py", "test_voice.py", "test_ask_window.py", "test_guide.py", "test_partners.py", "test_scrolling.py", "test_working.py", "test_guides.py", "test_training.py", "test_shapes.py", "test_commands.py", "test_lookup.py", "test_learn.py", "test_memories.py", "test_memories_window.py", "test_updates.py", "test_access.py", "test_pageview.py", "test_runtime.py", "test_help.py", "test_nvda_stub.py")
 
 
 def main():

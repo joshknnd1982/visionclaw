@@ -18,10 +18,17 @@
 # The arithmetic, all in Python's own standard library because NVDA's Python has nothing else:
 #   - BM25 (Robertson and Sparck Jones' ranking, as search engines use it) puts the notes the words call up in
 #     order: a rare word of the request that a note has counts for more than a common one (bm25);
-#   - how alike two requests are is the Jaccard index of their telling words (alike);
+#   - how alike two requests are is the Jaccard index of their concepts: words that mean the same thing are one
+#     concept first ("system tray" and "notification area", "objects" and "icons"; claw/concepts.py), so that
+#     what was learned from one wording is used for another (alike);
 #   - how surely a plan works is Laplace's rule of succession, (good + 1) / (good + bad + 2), so that one success
 #     says little and a failure counts against it; and a plan's weight halves every HALF_LIFE_DAYS, so that what
 #     worked lately wins (Plans.rate).
+#
+# And after the steps ran, plain code checks that what was found answers the request (unanswered): "I cannot see
+# the system tray in this image" is no answer. Then the next way that only looks is tried, once, by fixed rules
+# (NEXT_WAYS, nextWay), the user is told so, and the way that failed is counted as not well, so that it is not
+# learned as the way to do it. Asked for on 2026-11-18, after exactly that answer ended a request as "Finished".
 
 import json
 import math
@@ -30,8 +37,8 @@ import re
 import threading
 import time
 
-from . import debuglog
-from .memory import wordList, words as tellingWords
+from . import concepts, debuglog, places
+from .memory import wordList
 
 # --- Where the user is ---
 
@@ -94,11 +101,11 @@ def placeText(app, title="", windowClass=""):
 # copies an example. A note is given only when its words are in the request, and at most MAX_NOTES of them.
 NOTES = (
 	(r"\b(start (button|menu|screen)|task ?bar|system ?tray|notification (area|cent(er|re))|quick settings|"
-		r"action cent(er|re)|task view|run dialog|clipboard history|emoji panel|hidden icons)\b",
-		("windows_part",),
-		"The Start button, the Start menu, the taskbar, the notification area, quick settings and the notification "
-		"center are parts of Windows itself and in no program's window. They are opened with Windows' own keys: "
-		"windows_part."),
+		r"action cent(er|re)|task view|run dialog|clipboard history|emoji panel|hidden icons|tray|desktop icons?)\b",
+		("windows_part", "read_place"),
+		"The Start button, the Start menu, the taskbar, the system tray, quick settings and the notification center "
+		"are parts of Windows in no program's window; a picture of the window in front does not show them. What is in "
+		"one: read_place. Going there: windows_part."),
 	(r"\b(open|launch|start|run)\b.*\b(program|app|application|folder|file|game|settings)\b"
 		r"|\b(open|launch)\b(?!.*\b(button|link|tab|menu|item|icon)\b)",
 		("open_thing",),
@@ -180,7 +187,11 @@ def notesFor(request, available=None):
 		if (available is None or any(recipe in available for recipe in recipes)) and re.search(pattern, text)]
 	if not called:
 		return []
-	scores = bm25(text, [NOTES[index][2] for index in range(len(NOTES))])
+	# By the words, and by the concepts the words stand for, which counts half: "notification area" calls up
+	# what is written about the system tray.
+	scores = [plain + 0.5 * wide for plain, wide in zip(
+		bm25(text, [NOTES[index][2] for index in range(len(NOTES))]),
+		bm25(concepts.text(concepts.tokens(text)), [concepts.text(concepts.tokens(NOTES[index][2])) for index in range(len(NOTES))]))]
 	# Ties keep the order of NOTES, which goes from the surest to the most general.
 	called.sort(key=lambda index: (-round(scores[index], 6), index))
 	return [NOTES[index][2] for index in called[:MAX_NOTES]]
@@ -199,8 +210,14 @@ SURE_ENOUGH = 0.6
 HALF_LIFE_DAYS = 90
 
 
+def tellingWords(text):
+	"""The concepts and other telling words of a request (claw/concepts.py)."""
+	return concepts.concepts(text)
+
+
 def alike(first, second):
-	"""How alike two requests are, from 0 to 1: the telling words they share, of all they have."""
+	"""How alike two requests are, from 0 to 1: the concepts and telling words they share, of all they have.
+	Words that mean the same thing count as one (claw/concepts.py)."""
 	a, b = tellingWords(first), tellingWords(second)
 	if len(a) < LEAST_WORDS or len(b) < LEAST_WORDS:
 		return 0.0
@@ -323,7 +340,9 @@ def outcome(task):
 	if any(result.startswith("You said no") for result in results):
 		return None
 	for step, result in zip(steps, results):
-		if getattr(step, "status", "") != "done" or result.startswith(_NOTHING_DONE):
+		if getattr(step, "replaced", False):
+			continue
+		if getattr(step, "status", "") != "done" or result.startswith(_NOTHING_DONE) or unanswered(result):
 			return False
 	return True
 
@@ -332,6 +351,67 @@ def wentWell(task):
 	"""Whether a request went well: every step done, nothing the user said no to, and nothing that says nothing
 	was done."""
 	return outcome(task) is True
+
+
+# --- When what was found is no answer, and the next way ---
+
+# What a way of looking says when it did not find what was asked: a model that sees a picture and says the thing is
+# not in it, and plain code that found nothing. Kept narrow: "No, there is no error message" is an answer.
+_UNANSWERED = (
+	re.compile(r"\b(?:can ?not|can't|cannot|could not|couldn't|am unable to|unable to|am not able to|do not|don't)\s+"
+		r"(?:see|find|make out|identify|locate|read)\b.{0,100}?\b(?:in|on|from)\s+(?:this|the|that)\s+"
+		r"(?:image|picture|screenshot|photo|screen ?shot)\b", re.IGNORECASE | re.DOTALL),
+	re.compile(r"\b(?:is|are)(?:\s+not|n't)\s+(?:visible|shown|displayed|included|present|in view|captured)\b", re.IGNORECASE),
+	re.compile(r"\b(?:image|picture|screenshot|photo)\s+(?:only\s+)?(?:does not|doesn't|do not|don't)\s+"
+		r"(?:show|include|contain|display)\b", re.IGNORECASE),
+	re.compile(r"\bnot\s+(?:visible|shown|included)\s+in\s+(?:this|the)\s+(?:image|picture|screenshot|photo)\b", re.IGNORECASE),
+	re.compile(r"^(?:Windows did not say what is in|No text was found|Nothing was found in this window)\b"),
+)
+
+
+def unanswered(result):
+	"""Whether what a way of looking gave back says that it did not find what was asked: "I cannot see the system
+	tray in this image", "the bottom right corner is not visible", or plain code that found nothing there."""
+	text = str(result or "")
+	return any(pattern.search(text) for pattern in _UNANSWERED)
+
+
+# The next way to find out what a part asks, when a way that only looks found nothing. Each row: (the ways that
+# were tried, the next way, what the user's own words must have for it). Only ways that look and change nothing,
+# because the next way is not asked about. Plain rules, read top to bottom; add a row for every new case the real
+# model shows, with a test in tests/test_places.py. A model is never asked which way is next: it would pick at
+# random among ways that already failed.
+NEXT_WAYS = (
+	# A picture of the window in front, or its text, cannot show a part of Windows that is in no window: read the
+	# part from what Windows tells screen readers about it.
+	(("describe", "read_text", "nvda_question", "explain_keys", "where_am_i"), "read_place", places.asks),
+	# Windows said nothing about a place that is always on the screen: look at its picture.
+	(("read_place",), "describe",
+		lambda part: any(places.always(ident) and ident != places.DESKTOP for ident in places.named(part))),
+)
+# How many other ways are tried for one part, at most.
+MAX_NEXT = 2
+
+
+def nextWay(part, tried, available):
+	"""The way to try next for a part after the ways tried found nothing, or None. tried: the recipes already
+	used for it; available: the recipes that can be used here."""
+	tried = set(tried)
+	for before, way, fits in NEXT_WAYS:
+		if way in tried or way not in available or not (tried & set(before)):
+			continue
+		try:
+			if fits(part):
+				return way
+		except Exception as e:
+			debuglog.error("planning", "A rule for the next way could not be checked", e)
+	return None
+
+
+def nextWayText(way, label=None):
+	"""What the user is told when another way is tried."""
+	named = label(way) if label else way
+	return f"That did not answer it, so VisionClaw tried another way, which only looks: {named}."
 
 
 # --- Skills ---

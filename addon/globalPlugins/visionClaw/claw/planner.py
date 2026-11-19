@@ -11,7 +11,7 @@
 
 import re
 
-from . import computer, controls, dates, debuglog, direct, gamepad, guide, memories, partners, pointer, policy, profiles, router, touch
+from . import computer, controls, dates, debuglog, direct, gamepad, guide, memories, partners, places, pointer, policy, profiles, router, touch
 from .llm import LLMError, clip
 from .task import Step
 from .tools import ANSWER
@@ -393,6 +393,15 @@ RECIPES = {
 		"search, the taskbar, the notification area or system tray, quick settings, the notification center, Task "
 		"View, the Run dialog, the Quick Link menu, clipboard history or the emoji panel",
 		("windows_part",)),
+	# What is in a part of Windows itself, read from what Windows tells screen readers, word for word, by plain
+	# code (claw/places.py): the icons of the system tray, the programs on the taskbar, the icons on the desktop;
+	# the Start menu, quick settings and the notification center are opened with their key first and left open.
+	"read_place": (
+		"say what is in the system tray, on the taskbar or another part of Windows",
+		"say what is in a part of Windows itself that is in no program's window, without opening a program: the icons "
+		"in the system tray or notification area, also the hidden ones, the programs on the taskbar, the icons on the "
+		"desktop, the notifications, quick settings or the Start menu; also how many there are, or whether one is there",
+		("read_place",)),
 	"recycle_bin": (
 		"check the Recycle Bin",
 		"say how full the Recycle Bin is, how much it holds, and whether it needs to be emptied",
@@ -578,6 +587,15 @@ _HINTS = (
 	# A part of Windows itself, opened with its own key: the Start menu, the taskbar, the notification area. Before
 	# the click, which "click the windows start button" would otherwise set off, and before the settings pages of
 	# Windows, which "notifications" and "taskbar" also name. Only where the words are sure.
+	# What is in a part of Windows itself: the icons of the system tray, the programs on the taskbar, the icons on
+	# the desktop. Before the part of Windows that is opened, which "show me the icons in the system tray" would
+	# otherwise set off, and before every way of looking at the window in front, which cannot show it. Measured in
+	# the owner's NVDA on 2026-11-18: "tell me all objects that are currently in the system tray." was sent to the
+	# description of the desktop's picture, which answered "I cannot see the system tray in this image".
+	# A thing inside such a part, to be clicked: "click the volume icon in the system tray". Before the part of
+	# Windows, which these words would otherwise open, and is listed from that part (nvdatools list_items).
+	("click", lambda part: places.clicksIn(part) is not None),
+	("read_place", places.asks),
 	("windows_part", lambda part: computer.windowsPart(part) is not None),
 	("empty_bin", computer.emptiesBin),
 	("system_volume", lambda part: computer.volumeOf(part) is not None),
@@ -896,7 +914,7 @@ _SUBORDINATE = re.compile(
 _QUESTION = re.compile(r"^\s*(what|which|who|where|when|how|is|are|do|does|can|could|will|should)\b", re.IGNORECASE)
 _REPORTS = re.compile(r"^\s*(?:please\s+)?(tell|say|read|describe|report|list|summari[sz]e|count)\b", re.IGNORECASE)
 # What only looks: a report joined to it by "and" is about what was looked at, and stays with it.
-_LOOKS = ("describe", "read_text", "where_am_i", "check_access", "page_outline", "explore_page", "form_trouble", "web_page", "nvda_question", "explain_keys")
+_LOOKS = ("read_place", "describe", "read_text", "where_am_i", "check_access", "page_outline", "explore_page", "form_trouble", "web_page", "nvda_question", "explain_keys")
 # Recipes whose words are the user's own text, which may hold commas and "and" of its own.
 _FREE_TEXT = (
 	"write_addon", "add_skill", "remember", "fix_addon", "add_fix", "make_hotkey", "type_text", "fill_field", "search_web",
@@ -1114,6 +1132,9 @@ def decided(part, registry, before=None):
 	# chose to describe the screen, twice, and the user had to decide.
 	if guess == "web_page" and guess in available(registry) and before in _ON_THE_WEB and hint(part) in (OTHER, "nvda_question"):
 		return guess
+	# A thing inside a part of Windows, to be clicked: the words name it and the place, and no window has it.
+	if guess == "click" and guess in available(registry) and places.clicksIn(part) is not None:
+		return guess
 	# A named control of the program in front, where the words say "this program" or right after a click or
 	# another control there, and nothing in the words is NVDA's own. Measured the same day: after "find and
 	# click the settings button", the model sent "turn the volume up a bit" to NVDA's settings, twice.
@@ -1200,6 +1221,7 @@ _NEEDS = {
 	"timed_click": pointer.timingOf, "gesture": pointer.gestureOf, "touch": touch.touchOf, "pressure": touch.penOf,
 	"turn_view": direct.turnOf, "power": computer.powerOf, "system_volume": computer.volumeOf,
 	"windows_part": lambda part: computer.windowsPart(part, loose=True),
+	"read_place": places.wish,
 	"set_control": controls.wish,
 	"file_task": computer.fileTask,
 	"empty_bin": lambda part: computer.emptiesBin(part) or None,
@@ -1216,7 +1238,7 @@ _NEEDS = {
 # Recipes the words point to that can hardly mean anything else: locking and shutting down, the Recycle Bin, the
 # computer's own volume. Where the words point to one of them, it is taken, whatever a model chose. Each of
 # their tools asks the user before it changes anything.
-_SURE = ("power", "windows_part", "empty_bin", "recycle_bin", "system_volume", "file_task", "pick_date", "work_through")
+_SURE = ("power", "windows_part", "read_place", "empty_bin", "recycle_bin", "system_volume", "file_task", "pick_date", "work_through")
 
 
 def fitted(choice, part, guess):

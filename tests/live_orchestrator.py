@@ -19,7 +19,7 @@ import time
 
 import harness
 from visionClaw.claw import audit, catalog, commands, fixes, library, lookup, match, memories, orchestrator, pointer, runtime, scrolling, tools, web
-from visionClaw.claw import computer, controls, dates, partners, planner, profiles, prompts, router, skills
+from visionClaw.claw import computer, controls, dates, partners, places, planner, profiles, prompts, router, skills
 from visionClaw.claw import guide as walking
 from visionClaw.claw.knowledge import Knowledge
 from visionClaw.claw import task as taskModule
@@ -120,10 +120,18 @@ def makeRegistry(rt, state):
 		"Search edit field", "Refund policy heading"]
 
 	def listItems(task, about):
+		# What the words put in a place of Windows is listed from there, as nvdatools' list_items does.
+		place = places.within(about)
+		if place in (places.TRAY, places.TASKBAR):
+			task.listed = [item["name"] for item in places.usable(taskbarItems)
+				if not item.get("hidden") and places.isTray(item) == (place == places.TRAY)]
+			return f"{len(task.listed)} items in {places.nameOf(place)} of Windows:\n" + "\n".join(
+				f"{i}. {n}" for i, n in enumerate(task.listed, 1))
+		task.listed = items
 		return f"{len(items)} items in the window:\n" + "\n".join(f"{i}. {n}" for i, n in enumerate(items, 1))
 
 	def clickItem(task, item, action):
-		for i, name in enumerate(items, 1):
+		for i, name in enumerate(getattr(task, "listed", None) or items, 1):
 			if item.strip().rstrip(".") == str(i) or item.lower().replace(" button", "") in name.lower():
 				state["clicked"] = name if action == "click" else (name, action)
 				done = {"click": "Clicked", "double click": "Double-clicked", "right click": "Right-clicked",
@@ -724,6 +732,42 @@ def makeRegistry(rt, state):
 		"Run dialog, the Quick Link menu, clipboard history or the emoji panel; says where NVDA is and the key",
 		"Opened the Start menu with the Windows key, or Control+Escape. NVDA is now on: Search box, edit.",
 		"Opening a part of Windows", dict(askedField), tell=V)
+	# What is in a part of Windows itself (placetools.py): the taskbar as Windows 11 reported it on the owner's
+	# computer on 2026-11-18, with two made-up hidden icons and desktop icons.
+	bar = lambda x: (x, 1198, x + 40, 1258)  # noqa: E731
+	taskbarItems = [
+		{"name": "Start", "kind": 50000, "cls": "ToggleButton", "aid": "StartButton", "box": bar(708)},
+		{"name": "Search", "kind": 50000, "cls": "ToggleButton", "aid": "SearchButton", "box": bar(764)},
+		{"name": "Microsoft Edge pinned", "kind": 50000, "cls": "Taskbar.TaskListButtonAutomationPeer", "box": bar(819)},
+		{"name": "Claude - 1 running window", "kind": 50000, "cls": "Taskbar.TaskListButtonAutomationPeer", "box": bar(874)},
+		{"name": "Show Hidden Icons", "kind": 50000, "cls": "SystemTray.NormalButton", "aid": "SystemTrayIcon", "box": bar(1663)},
+		{"name": "Network JoshKennedy\nInternet access", "kind": 50000, "cls": "SystemTray.AccentButton", "aid": "SystemTrayIcon", "box": bar(1708)},
+		{"name": "Volume Speakers (Realtek(R) Audio): 20%", "kind": 50000, "cls": "SystemTray.OmniButtonCenter", "aid": "SystemTrayIcon", "box": bar(1743)},
+		{"name": "Power Battery status: fully charged 100%", "kind": 50000, "cls": "SystemTray.AccentButton", "aid": "SystemTrayIcon", "box": bar(1778)},
+		{"name": "Clock 10:29 PM\n11/18/2026", "kind": 50000, "cls": "SystemTray.OmniButton", "aid": "SystemTrayIcon", "box": bar(1823)},
+		{"name": "NVDA", "kind": 50000, "cls": "SystemTray.NormalButton", "box": None, "hidden": True},
+		{"name": "Dropbox\nUp to date", "kind": 50000, "cls": "SystemTray.NormalButton", "box": None, "hidden": True}]
+
+	def readPlace(task, asked):
+		wish = places.wish(asked) or places.wish(task.request)
+		if wish is None:
+			raise tools.ToolError("The request does not name a part of Windows that can be read.")
+		said = []
+		for ident in wish["places"]:
+			if ident == places.TRAY:
+				said.append(places.trayText(places.tray(taskbarItems), wish["how"], wish["thing"]))
+			elif ident == places.TASKBAR:
+				said.append(places.taskbarText(places.taskbar(taskbarItems), wish["how"], wish["thing"]))
+			elif ident == places.DESKTOP:
+				said.append(places.listText(ident, ["This PC", "Recycle Bin", "Steam", "Space Trader"], wish["how"], wish["thing"]))
+			else:
+				said.append(places.listText(ident, ["Message from Steam: your download finished"], wish["how"], wish["thing"], left=True))
+		state["read_place"] = wish
+		return " ".join(said)
+
+	if "read_place" not in os.environ.get("VC_WITHOUT", "").split("|"):
+		reg.add(tools.Tool("read_place", "say what is in a part of Windows itself, read from what Windows tells screen readers",
+			readPlace, dict(askedField), looks=True, title="Reading a part of Windows", tell=V))
 	simple("recycle_bin", "say how many things the Recycle Bin holds, how much room they take, and whether it is worth emptying",
 		computer.binText(12, 5 << 20, 200 << 30, 500 << 30), "Checking the Recycle Bin", looks=True, tell=V)
 	simple("empty_recycle_bin", "empty the Recycle Bin, which deletes what is in it for good; always asks first",
@@ -901,6 +945,19 @@ REQUESTS = (
 	"open the windows start menu.",
 	"Go to the system tray.",
 	"Open quick settings.",
+	# What is in a part of Windows itself (2026-11-18). The first is the owner's own words, which were answered from a
+	# picture of the desktop: "I cannot see the system tray in this image".
+	"tell me all objects that are currently in the system tray.",
+	"What icons are in my notification area?",
+	"Is NVDA running in the system tray?",
+	"How many icons are in the system tray?",
+	"Which programs are on my taskbar?",
+	"What icons are on my desktop?",
+	"Read my notifications.",
+	"Right-click the volume icon in the system tray.",
+	"What is the system tray?",
+	"Describe the system tray for me.",
+	"look at my screen, then tell me what is in the system tray.",
 	"Launch Steam.",
 	"Open my downloads folder.",
 	"Open the Recycle Bin.",

@@ -1,4 +1,5 @@
-<!-- Written on 2026-11-18 from VisionClaw's own code: claw/computer.py and computertools.py (opening things by
+<!-- Written on 2026-11-18 from VisionClaw's own code: claw/places.py and placetools.py (what is in the system
+tray, on the taskbar, on the desktop and in the parts of Windows that are opened first), claw/computer.py and computertools.py (opening things by
 name, the Recycle Bin, the computer's volume, windows, files, facts about the computer, locking and shutting
 down, requests that depend on something), claw/controls.py and controltools.py (a named control of the program
 in front), claw/planner.py (long requests split by plain rules) and claw/router.py. When the code changes, read
@@ -17,6 +18,12 @@ order and announced as a step.
 Say: open the Start menu, click the Start button, go to the system tray, open quick settings. These are parts of
 Windows itself, in no program's window. VisionClaw opens each with Windows' own key, such as Control+Escape for
 the Start menu or Windows+B for the system tray, and tells you that key for next time.
+
+## What is in the system tray, on the taskbar, on the desktop, and in the notifications
+Say: what is in the system tray, is NVDA running in the system tray, which programs are on my taskbar, what icons
+are on my desktop, read my notifications. VisionClaw reads it from what Windows tells screen readers, word for
+word, also the hidden tray icons, and says the key that goes there. Right-click the volume icon in the system tray
+clicks it there.
 
 ## Opening a program, a folder, the Recycle Bin, Control Panel or Windows Settings by name
 Say open, and the name: open Notepad, open my Downloads folder, open the Recycle Bin, open Bluetooth settings.

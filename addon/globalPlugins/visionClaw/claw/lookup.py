@@ -60,7 +60,7 @@ _COMPUTER = re.compile(
 	r"\b(recycle bin|recycling bin|trash|system volume|computer'?s? volume|mute (my|the) computer|shut ?down|restart (my|the) "
 	r"(computer|pc|laptop)|lock (my|the) (computer|pc|laptop)|disk space|free space|downloads folder|documents folder|"
 	r"switch to|minimi[sz]e|maximi[sz]e|close (a|the|this) window|several things|more than one thing|multi-?step|"
-	r"if you see|check ?box|slider|option|switch)\b"
+	r"if you see|check ?box|slider|option|switch|system ?tray|notification area|task ?bar|hidden icons|desktop icons)\b"
 	r"|\b(can|could|will|does) (you|visionclaw)\b.{0,40}\b(open|close|find|empty|start|launch|turn|set|do)\b"
 	r"|\bwhat can (you|visionclaw) do\b", re.IGNORECASE)
 # A setting for one program, a request that follows another, a date in a calendar, and asking by voice: asked only

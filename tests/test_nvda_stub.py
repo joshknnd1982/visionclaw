@@ -334,6 +334,40 @@ def fakeRecycle(path):
 
 computertools.recycle = fakeRecycle
 computertools.browserPath = lambda exe: r"C:\Chrome\chrome.exe" if exe == "chrome.exe" else None
+# The places of Windows itself (placetools.py): nothing is read from this computer's real taskbar. The taskbar is
+# what Windows 11 reported on the owner's computer on 2026-11-18, in the same shape; the hidden icons, the desktop
+# and quick settings are made up.
+from visionClaw import placetools  # noqa: E402
+
+_bar = lambda x: (x, 1198, x + 40, 1258)  # noqa: E731
+TASKBAR = [
+	{"name": "Start", "kind": 50000, "cls": "ToggleButton", "aid": "StartButton", "box": _bar(708)},
+	{"name": "Search", "kind": 50000, "cls": "ToggleButton", "aid": "SearchButton", "box": _bar(764)},
+	{"name": "", "kind": 50006, "cls": "Microsoft.UI.Xaml.Controls.AnimatedVisualPlayer", "aid": "Icon", "box": _bar(777)},
+	{"name": "Microsoft Edge pinned", "kind": 50000, "cls": "Taskbar.TaskListButtonAutomationPeer", "aid": "Appid: MSEdge", "box": _bar(819)},
+	{"name": "Claude - 1 running window", "kind": 50000, "cls": "Taskbar.TaskListButtonAutomationPeer", "aid": "Window: 0x2a04f6", "box": _bar(874)},
+	{"name": "Show Hidden Icons", "kind": 50000, "cls": "SystemTray.NormalButton", "aid": "SystemTrayIcon", "box": _bar(1663)},
+	{"name": "Network JoshKennedy\nInternet access", "kind": 50000, "cls": "SystemTray.AccentButton", "aid": "SystemTrayIcon", "box": _bar(1708)},
+	{"name": "Volume Speakers (Realtek(R) Audio): 20%", "kind": 50000, "cls": "SystemTray.OmniButtonCenter", "aid": "SystemTrayIcon", "box": _bar(1743)},
+	{"name": "Power Battery status: fully charged 100%", "kind": 50000, "cls": "SystemTray.AccentButton", "aid": "SystemTrayIcon", "box": _bar(1778)},
+	{"name": "Clock 10:29 PM\n\u200e11/\u200e18/\u200e2026", "kind": 50000, "cls": "SystemTray.OmniButton", "aid": "SystemTrayIcon", "box": _bar(1823)},
+]
+HIDDEN = [
+	{"name": "NVDA", "kind": 50000, "cls": "SystemTray.NormalButton", "aid": "NotifyItemIcon", "box": None, "hidden": True},
+	{"name": "Dropbox\nUp to date", "kind": 50000, "cls": "SystemTray.NormalButton", "aid": "NotifyItemIcon", "box": None, "hidden": True},
+]
+front = {"app": "explorer", "class": "Progman"}
+placetools.trayItems = lambda: [dict(item) for item in TASKBAR]
+placetools.hiddenItems = lambda shown, onMain: (did.append(("hidden icons",)) or [dict(item) for item in HIDDEN], True)
+placetools.desktopItems = lambda: [
+	{"name": name, "kind": 50007, "cls": "", "aid": "", "box": (0, 4 + 152 * i, 109, 122 + 152 * i)}
+	for i, name in enumerate(("This PC", "Recycle Bin", "Firefox", "Steam"))]
+placetools.frontApp = lambda: front["app"]
+placetools.frontClass = lambda: front["class"]
+placetools.frontItems = lambda: [
+	{"name": "Wi-Fi", "kind": 50000, "state": "on"}, {"name": "Bluetooth", "kind": 50000, "state": "off"},
+	{"name": "Volume", "kind": 50015, "state": "20"}, {"name": "", "kind": 50033}]
+placetools.OPEN_WAIT, placetools._POLL = 0.6, 0.01
 from visionClaw.claw import orchestrator, planner  # noqa: E402
 from visionClaw.claw import task as taskModule  # noqa: E402
 from visionClaw.claw.catalog import CODER, VISION  # noqa: E402
@@ -369,7 +403,7 @@ assert instance.dataDir == DATA and instance.portableSettings()["searchEngine"] 
 instance.controller._stopped.set()
 instance.controller._thread.join(5)
 registry = instance.orchestrator.registry
-assert len(registry.names()) == 102, registry.names()
+assert len(registry.names()) == 103, registry.names()
 # Lessons from searches that happened to find something misled; they are dropped when VisionClaw starts.
 assert instance.memory.all() == ["Tool set_setting: this form failed: {} (x). This form worked: {}."], instance.memory.all()
 assert set(planner.available(registry)) == set(planner.RECIPES), set(planner.RECIPES) - set(planner.available(registry))
@@ -1166,6 +1200,72 @@ worked, result = registry.call(task, "windows_part", {"asked": "go to the system
 assert worked and did[-1] == ("keys", "windows+b") and result.startswith("Opened the notification area with Windows+B."), result
 worked, result = registry.call(task, "windows_part", {"asked": "make nvda speak faster"})
 assert not worked and "does not name a part of Windows" in result, result
+# What is in the system tray, read from what Windows reports, by plain code: the owner's request of 2026-11-18,
+# which a picture of the desktop answered with "I cannot see the system tray in this image". The hidden icons are
+# read too; nothing is clicked and no key is pressed.
+del did[:]
+fresh()
+worked, result = registry.call(task, "read_place", {"asked": "tell me all objects that are currently in the system tray."})
+assert worked and result.startswith(
+	"The notification area has 3 icons shown on the taskbar. They are: Network JoshKennedy, Internet access; Volume "
+	"Speakers (Realtek(R) Audio): 20%; Power Battery status: fully charged 100%. Hidden behind Show hidden icons, 2 more "
+	"icons: NVDA; Dropbox, Up to date. The clock says: 10:29 PM, 11/18/2026. To go to the notification area yourself, "
+	"press Windows+B."), result
+assert did == [("hidden icons",)] and buttons == [] and moves == [], (did, buttons)
+worked, result = registry.call(task, "read_place", {"asked": "is NVDA running in the system tray?"})
+assert worked and result.startswith("Yes. In the notification area, among the hidden icons: NVDA."), result
+worked, result = registry.call(task, "read_place", {"asked": "which programs are on my taskbar"})
+assert worked and result.startswith(
+	"The taskbar has 2 programs: Microsoft Edge, pinned; Claude, 1 running window. Its own buttons: Start; Search. The "
+	"notification area at its end has 3 icons"), result
+worked, result = registry.call(task, "read_place", {"asked": "what icons are on my desktop"})
+assert worked and result.startswith("The desktop has 4 icons: This PC; Recycle Bin; Firefox; Steam."), result
+# A part of Windows that exists only while it is open is opened with its own key, read, and left open.
+del did[:]
+realShortcut = computertools.pressShortcut
+
+
+def opening(keys):
+	did.append(("keys", keys))
+	front["app"] = "shellexperiencehost"
+
+
+computertools.pressShortcut = opening
+worked, result = registry.call(task, "read_place", {"asked": "tell me what is in quick settings"})
+assert worked and did == [("keys", "windows+a")] and result.startswith(
+	"Quick settings has 3 items: Wi-Fi, on; Bluetooth, off; Volume, 20. Quick settings is open now; Escape closes it."), (did, result)
+# Already open: read without the key, which would close it again.
+del did[:]
+worked, result = registry.call(task, "read_place", {"asked": "what's in quick settings"})
+assert worked and did == [] and result.startswith("Quick settings has 3 items"), result
+# A part that does not open is said not to have opened, and nothing else is read.
+front["app"] = "explorer"
+computertools.pressShortcut = realShortcut
+worked, result = registry.call(task, "read_place", {"asked": "tell me what is in quick settings"})
+assert worked and result.startswith("Quick settings did not open, so it could not be read."), result
+worked, result = registry.call(task, "read_place", {"asked": "make nvda speak faster"})
+assert not worked and "does not name a part of Windows that can be read" in result, result
+# A thing inside the system tray is clicked there: listed from the tray, clicked with the mouse in its middle.
+fresh()
+worked, result = registry.call(task, "list_items", {"about": "right-click the volume icon in the system tray"})
+assert worked and result.startswith("5 items in the notification area of Windows:\n") and "Volume Speakers" in result, result
+worked, result = registry.call(task, "click_item", {"item": "Volume", "action": "right click", "asked": "right-click the volume icon in the system tray"})
+assert worked and result == "Right-clicked Volume Speakers (Realtek(R) Audio): 20%." and questions[-1].startswith("Right-click Volume"), result
+assert moves[0] == (1763, 1228) and buttons == [RIGHT_DOWN, RIGHT_UP], (moves, buttons)
+# Named from any window and in no window: found on the taskbar, asked about, and clicked there.
+fresh()
+worked, result = registry.call(task, "click_item", {"item": "Claude", "action": "click", "asked": "click claude"})
+assert questions[-1] == "Nothing in this window is called claude. Claude - 1 running window is in the taskbar of Windows. Use it there?", questions[-1]
+assert worked and result == "Nothing in the window in front was called claude, so VisionClaw clicked Claude - 1 running window in the taskbar of Windows.", result
+assert moves[0] == (894, 1228) and buttons == [LEFT_DOWN, LEFT_UP], (moves, buttons)
+# The desktop's icons are clicked from the list only while the desktop is in front; a covered desktop is not.
+fresh()
+worked, result = registry.call(task, "list_items", {"about": "double-click the recycle bin on the desktop"})
+assert worked and result.startswith("4 items in the desktop of Windows:\n1. Recycle Bin"), result
+front["class"] = "CabinetWClass"
+assert placetools.itemsIn(placetools.places.DESKTOP, lambda fn, *args: fn(*args)) is None
+assert placetools.itemsIn(placetools.places.TRAY, lambda fn, *args: fn(*args)) is not None
+front["class"] = "Progman"
 assert nvdatools.mentioned("Drag the file icon onto the trash icon", window.items) == ["file", "trash"]
 assert nvdatools.mentioned("press the big red button", window.items) == []
 assert nvdatools.meant("click something", window.items, "Trash") == "Trash"

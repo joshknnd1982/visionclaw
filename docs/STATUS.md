@@ -1,6 +1,6 @@
 # VisionClaw status
 
-Updated 2026-11-18, version 1.8.0.
+Updated 2026-11-18, version 1.9.0.
 
 ## What exists
 
@@ -1948,6 +1948,79 @@ What was tested, and how:
   gain knob", the second half of the deep query). 89 of the 202 got a brief.
 - **Not run inside NVDA.** First to try: does Control+Escape sent by VisionClaw open the Start menu, and is NVDA's
   focus there when the answer is said; then "click the start button" with the desktop in front (no question).
+
+## What is in a part of Windows, the next way, and learning that generalizes (1.9.0, 2026-11-18)
+
+The owner pasted VisionClaw's progress for "tell me all objects that are currently in the system tray." (Qwen3.5 9B
+for both jobs, one question at a time, the desktop in front): the planning note said the tray is "opened with
+windows_part", the model chose to describe the screen, the picture of the desktop answered "I cannot see the system
+tray in this image ... is not visible", and the request ended as "Finished". Then: "visionclaw must be even smarter
+and plan a lot smarter ... learn to generalize either through a skill, system prompt, memory, new python code, some
+sort of advanced math formulas, or a combination of all of those."
+
+What was wrong, in general terms, not only for the tray:
+1. VisionClaw had no way to read a place that is in no window. It could only open the tray.
+2. Where a request is about was not a thing plain code read: every way of looking looked at the window in front.
+3. An answer that says "I cannot see it" counted as done, so nothing tried another way, and `planning.outcome`
+   would have counted the wrong plan as one that went well and offered it again next time.
+4. What was learned was compared by exact words, so it could not carry over to another wording.
+
+What was changed:
+- **`claw/places.py`, `placetools.py`, the job `read_place`**: the system tray (with the hidden icons and the
+  clock), the taskbar, the desktop, and the notifications, quick settings, the Start menu and clipboard history
+  (opened with their key first and left open) are read from what Windows tells screen readers through UI
+  Automation, word for word, no model. Plain code reads the place and what is wanted (list, count, or whether a
+  named thing is there) from the words, and decides the job without a model (`planner._SURE`).
+- **A thing inside a place is clicked there**: "right-click the volume icon in the system tray" lists the tray and
+  clicks in the icon's middle after the usual question; "click Dropbox" from any window is looked for in the tray and
+  on the taskbar, and asked about. `look` takes the picture of the tray or taskbar where the words name it.
+- **The next way** (`planning.unanswered`, `NEXT_WAYS`, `nextWay`, `orchestrator._nextWays`): a way of looking
+  that found nothing is followed by the next way that only looks, by rules in a table, once per way; the user is
+  told. After a picture that cannot see a part of Windows: `read_place`. After Windows said nothing about the tray or
+  the taskbar: their picture.
+- **Learning from what really happened**: such a request is counted as not well; after a next way, the first way as
+  not well and the next as it went.
+- **`claw/concepts.py`**: words that mean the same thing are one concept, and plans are recalled and planning notes
+  ranked by concepts too. "Tell me all objects ... in the system tray" and "which icons are in my notification area"
+  are now 1.0 alike (before: 0.0).
+- The planning note for the parts of Windows names both jobs; the skill `parts-of-windows` uses `read_place`; a
+  section in `visionclaw-computer.md`; both help files; the test plan.
+
+What was tested, and how:
+- **The real taskbar of the owner's Windows 11 (build 26300), read only**, with UI Automation from plain Python the
+  same way `placetools.py` walks it, and put through `places.py`: the three tray icons shown (network, volume,
+  battery), the clock, Show hidden icons, the programs Microsoft Edge (pinned) and Claude (1 running window), Start
+  and Search, and all 44 icons of the desktop, said correctly. The taskbar's buttons are only in its child window
+  `Windows.UI.Composition.DesktopWindowContentBridge`; the tree of `Shell_TrayWnd` itself has only empty panes.
+  **The hidden icons were not shown**: that would have opened the flyout on the owner's screen without asking. How
+  Windows 11 keeps them while shown is therefore not checked on a real computer; the code reads any named buttons of
+  that window, and says when it could not read them.
+- `tests/test_places.py` (new, in `run_all.py`): 33 wordings and which place and wish they mean; which job; the
+  facts read from the owner's taskbar and a Windows 10 taskbar sorted and said; concepts; what is no answer; the next
+  way; and whole requests with a scripted model: the owner's request answered from Windows with no model asked; the
+  model sent to the picture anyway, then the next way, the user told, the picture's "cannot see" not said, the plan
+  learned and recalled for other words; Windows saying nothing, then the picture; both finding nothing; the next way
+  failing outright, then what the first found said as it was; a picture that answers left alone.
+- `tests/test_nvda_stub.py`: the real `read_place`, `list_items` and `click_item` against stand-ins for the taskbar:
+  the owner's request, NVDA hidden in the tray, the taskbar, the desktop, quick settings opened with Windows+A and
+  read, already open and not closed, not opening; the volume icon right-clicked in its middle; "click claude" found on
+  the taskbar, asked about, and clicked there; the desktop not used while covered.
+- `python tests/run_all.py`: all pass (run again after the last change, before the build).
+- **The real model**: `tests/live_orchestrator.py` with Qwen3.5 9B for both jobs, one question at a time (the
+  owner's own settings), now 213 requests with eleven new ones; all 213 carried out, in at most 8.6 seconds. The
+  owner's request and "What icons are in my notification area?", "Is NVDA running in the system tray?", "How many
+  icons are in the system tray?", "Which programs are on my taskbar?", "What icons are on my desktop?", "Read my
+  notifications.", "Describe the system tray for me." are decided by plain code and answered from what Windows
+  reported, with no model asked; "Right-click the volume icon in the system tray." right-clicks that icon; "What is
+  the system tray?" and "How do I get to the system tray?" are still answered as questions; in "look at my screen,
+  then tell me what is in the system tray." the screen is described and the tray read. The questions to the user are
+  the four of 1.8.0 ("click the start button." with the game in front, "Name the focused button Share on this
+  website", "Give me a hotkey for the gain knob", the second half of the deep query) and one in the session "Look
+  through my downloads folder. >> Open the second one.", where the stand-in that finds things to open has no
+  report.pdf; run again on the code of 1.8.0, that session asks the same. No next way was needed in the live run: the
+  requests that need one are now decided before. 90 of the 213 got a brief.
+- **Not run inside NVDA.** First to try: the owner's request from the desktop, then from Notepad, and whether the
+  hidden icons are read and Show hidden icons is closed again (the new section of `docs/TESTPLAN.md`).
 
 ## Next session
 

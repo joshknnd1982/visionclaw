@@ -788,13 +788,13 @@ for request in ("Make NVDA speak a little faster", "What is on my screen?", "ope
 	assert not {"work-the-computer", "control-in-a-program"} & {skill.slug for skill in lib.choose(request)}, request
 # The notes answer questions about what VisionClaw does on the computer, and only those.
 sections = [(title, body) for title, body, source in Knowledge().everything() if source == "visionclaw-computer"]
-assert len(sections) == 12, len(sections)
+assert len(sections) == 13, len(sections)
 for title, body in sections:
 	assert len(body) <= 360 and (":" in title or "," in title), (title, len(body))
 gate = lookup.NOTES["visionclaw-computer"][2]
 for question in ("Can you empty my recycle bin?", "How do I check the recycle bin?", "Can VisionClaw open programs for me?",
 		"How do I turn down the system volume?", "Can I ask for several things at once?", "What can you do?",
-		"Can you open the Start menu for me?"):
+		"Can you open the Start menu for me?", "Can you tell me what is in my system tray?"):
 	assert gate.search(question), question
 for question in ("How do I read the title of this window?", "What is browse mode?", "How do I copy text?"):
 	assert not gate.search(question), question

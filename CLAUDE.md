@@ -793,6 +793,50 @@ keyboard and speech alone.
     "Also told to the model", and a fault in making it is no fault (`consensus._brief`).
   - Add a note to `NOTES` when the real model sends a kind of request to the wrong job and the words can call
     the note up; measure with `tests/live_orchestrator.py` before and after.
+- **Where a request is about is a slot of its own, read by plain code, and every place is read the way that can
+  reach it** (`claw/places.py`, `placetools.py`). The owner said on 2026-11-18, after "tell me all objects that are
+  currently in the system tray." was sent to a picture of the desktop that answered "I cannot see the system tray in
+  this image": "visionclaw must be even smarter and plan a lot smarter ... learn to generalize". What follows from it:
+  - **The places of Windows itself** (`places.PLACES`): the system tray, the taskbar and the desktop, read as they
+    are; the Start menu, quick settings, the notification center and clipboard history, opened with their own key
+    first (`computer.WINDOWS_PARTS`), read, and left open, with "Escape closes it" said. A part already in front is
+    read without its key, which would close it.
+  - **Read from what Windows tells screen readers, word for word, no model and no picture** (`read_place`). What
+    the user wants there is plain code's (`places.wish`: list, count, or whether a named thing is there); "what is
+    the system tray", "how do I get there", "open it", "click X in it", "what colour is it" are no wish. On the
+    desktop only words for its icons make a wish; "what's on my desktop" stays the user's files.
+  - **Windows 11's taskbar was read on the owner's computer** with UI Automation on 2026-11-18: its buttons are in
+    the child window `Windows.UI.Composition.DesktopWindowContentBridge`, which Windows reports as not visible; tray
+    icons have the automation id `SystemTrayIcon`; the hidden ones exist only while shown, in
+    `TopLevelWindowForOverflowXamlIsland`. What was read is at the top of `placetools.py`; read it again when Windows
+    changes, do not guess a class or an id. The hidden icons are shown for a moment through Windows' own Invoke and
+    hidden again only while still shown; **this has not run on the real taskbar**: try it first in NVDA.
+  - **A thing inside a place is clicked there** (`places.clicksIn`, `within`; `nvdatools` `list_items` and
+    `onTaskbar`): listed from the place with the screen's own pixels, clicked with the mouse in its middle after the
+    usual question. The desktop only while it is in front. "Click Dropbox" from any window is looked for in the tray
+    and on the taskbar, and asked about before it is used there.
+  - **The looking tools know the place too**: `look` takes the picture of the tray or the taskbar where the words
+    name it.
+  - Tests never read the real taskbar: `tests/test_nvda_stub.py` stands in for `placetools.trayItems`,
+    `hiddenItems`, `desktopItems`, `frontItems`, `frontApp` and `frontClass`. Reading the real taskbar with plain
+    Python is reading, and may be done; showing the hidden icons changes the screen: ask first.
+- **What was found is checked, and a way that found nothing is followed by the next way that only looks**
+  (`planning.unanswered`, `NEXT_WAYS`, `nextWay`; `orchestrator._nextWays`). Plain rules in a table, read top to
+  bottom, never a model: a model picks at random among ways that already failed. Only ways that look and change
+  nothing, so nothing is asked; each way once for a part, at most `planning.MAX_NEXT`; the user is told "That did
+  not answer it, so VisionClaw tried another way", and what the first way found is said only when the next way
+  failed outright. `unanswered` is kept narrow: "No, there is no error message" and "I can't see any errors on the
+  screen" are answers. Add a row to `NEXT_WAYS` for every new case the real model shows, with a case in
+  `tests/test_places.py`.
+- **What is learned is learned from what really happened.** A request whose way of looking found nothing went not
+  well (`planning.outcome`), so it is never kept as the way to do it; after a next way, the first is counted as not
+  well and the next as it went (`orchestrator._keepPlan`). In 1.8.0 "I cannot see the system tray" counted as done.
+- **Words that mean the same thing are one concept** (`claw/concepts.py`): "system tray" and "notification area",
+  "objects" and "icons", "tell me" and "which". Plans are recalled by concepts (`planning.alike`), and planning notes
+  are ranked by words and concepts together (`planning.notesFor`). A group joins only words that ask for the same
+  thing about working the computer by keyboard, speech and braille; a word with two meanings ("start") is joined
+  only in a phrase that says which. Add to a group when the real model or the owner shows a new wording; never a
+  colour or anything only sight tells.
 - **An NVDA setting for one program only is NVDA's own configuration profile, and is changed only while that
   program is in front.** Built on 2026-11-18 against what JAWS's Companion does ("only for the application in
   use"); `claw/profiles.py`, `profiletools.py`. What follows from it:
@@ -995,6 +1039,8 @@ addon/
     touchinput.py            fingers and a pen through Windows itself: a gesture as the places every finger
                              passes through, a pen stroke with a pressure at each place, a pen held down
     touchtools.py            the tools for fingers and pressure: touch, compare, the wheel instead, what worked
+    placetools.py            the places of Windows itself, read through UI Automation: the system tray with its
+                             hidden icons, the taskbar, the desktop; the parts opened first; a thing there clicked
     computertools.py         the computer itself, through Windows: things opened by name, the Recycle Bin, the
                              computer's volume, open windows, the user's files, facts about the computer,
                              locking and shutting down, and whether something is on the screen
@@ -1071,6 +1117,9 @@ addon/
                              thing is meant, what the Recycle Bin holds and whether it is worth emptying, the
                              computer's volume, which window, which files, facts in words, locking and
                              shutting down, and what a request depends on
+      places.py              which place of Windows a request means and what is wanted there; what Windows reports
+                             there, sorted and said in words
+      concepts.py            words that mean the same thing, so that what was learned in one wording is used for another
       controls.py            what the user's words ask of a named control, and which control a name means
       profiles.py            "only in this program" read from the user's words, which program is meant, the name
                              of its profile, and every sentence the user is told about it
@@ -1172,10 +1221,15 @@ tools/                       build helpers
 5. **Run** (`agent.runStep`): one step at a time. Code fills in every form field it can from the user's own
    words (fields marked `auto`); the model fills in the rest; on an error it sees the error and tries again,
    then gets a hint from the other model, then the user is asked. Progress is reported at every state change.
+5b. **Check** (`orchestrator._nextWays`): plain code checks that what a way of looking found answers the part
+   (`planning.unanswered`); where it does not, the next way that only looks is run (`planning.NEXT_WAYS`), once,
+   and the user is told.
 6. **Answer** (`orchestrator._answer`): what tools did is said in the tools' own words, never rephrased by a
    model, so nothing is claimed that did not happen. Only looked-up information is put into words by a model.
    Failed parts are named. A freely written plan is also checked by the other model, with one repair round.
-7. **Learn** (`memory`): what failed and what fixed it is saved and recalled for similar requests.
+7. **Learn** (`memory`): what failed and what fixed it is saved and recalled for similar requests. How a request of
+   one part went is counted (`planning.Plans`, by what really happened: a way that found nothing went not well) and
+   told to the model for a request in alike words or words that mean the same (`claw/concepts.py`).
 
 ## Phases and sessions
 
@@ -1354,6 +1408,11 @@ A session is done only when its "Done when" line is true.
   area and eight more opened with Windows' own keys; a click only on what the words name, else elsewhere or a
   question; a brief for the model that chooses (where the user is, notes by BM25, plans by Laplace's rule, the
   skills' jobs). Tested with stand-ins and with the real Qwen3.5 9B choosing; not run in NVDA.
+- [x] **3.58 What is in a part of Windows, and the next way.** The system tray with its hidden icons, the taskbar,
+  the desktop, and the notifications, quick settings, the Start menu and clipboard history read from Windows, word
+  for word; a thing there clicked; a way of looking that found nothing followed by the next way; plans learned from
+  what really happened and recalled by concepts. Tested with stand-ins built from the owner's real taskbar and with
+  the real Qwen3.5 9B choosing; not run inside NVDA.
 - [ ] **3.5 Test inside NVDA.** Install the build in NVDA (ask the user first) and walk through
   `docs/TESTPLAN.md`. Fix what breaks. *Done when:* every item in the test plan is ticked by a real run.
 
@@ -1411,6 +1470,9 @@ python tests/test_computer.py            working the computer itself, requests t
                                          stand-in tools and a scripted model
 python tests/test_planning.py            the parts of Windows itself from the words, the click that must fit the words,
                                          where the user is, planning notes by BM25, plans by Laplace's rule and ageing
+python tests/test_places.py              which place of Windows and what is wanted there, what the owner's real taskbar
+                                         reported said in words, concepts, what is no answer and the next way, and
+                                         whole requests where the next way is tried and learned
 python tests/test_profiles.py            an NVDA setting for one program: what the words ask, and NVDA's profiles
                                          against a stand-in written from NVDA's source
 python tests/test_followups.py           requests that follow the one before: kinds, what plain code writes out, the

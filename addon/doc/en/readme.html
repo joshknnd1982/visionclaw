@@ -12,8 +12,19 @@ If VisionMate is installed, disable it in the Add-on Store: VisionClaw uses the 
 next. The first parts say what is new. Every feature of VisionClaw, old and new, is explained after them.</p>
 
 <!-- news: written by tools/write_help.py from manifest.ini; do not change it by hand -->
-<p>This help is for VisionClaw 1.8.0.</p>
-<h2>What is new in 1.8.0</h2>
+<p>This help is for VisionClaw 1.9.0.</p>
+<h2>What is new in 1.9.0</h2>
+<ul>
+<li>What is in the system tray is read for you. Say "what is in my system tray" or "tell me all objects that are currently in the system tray". Before, this was answered from a picture of the desktop, which said "I cannot see the system tray in this image". Now VisionClaw reads every icon from what Windows tells screen readers, word for word, with no model and no picture: the icons shown on the taskbar, the hidden ones behind Show hidden icons, and the clock. It ends with the key that goes there, Windows+B.</li>
+<li>The same for the taskbar, the desktop and more. Say "which programs are on my taskbar", "what icons are on my desktop", "read my notifications" or "what is in quick settings". The notifications, quick settings, the Start menu and clipboard history exist only while they are open, so VisionClaw opens them with their own key, reads them, and leaves them open; Escape closes them.</li>
+<li>Ask whether something is there: "is NVDA running in the system tray?", "does my taskbar have Firefox?". Or how many: "how many icons are in the system tray?".</li>
+<li>Click something inside the system tray or on the taskbar: "right-click the volume icon in the system tray", "click the Firefox button on the taskbar". And "click Dropbox" from any window finds Dropbox's icon in the notification area and asks before it uses it there.</li>
+<li>VisionClaw checks what it found. When a way of looking did not find what you asked, as a picture that "cannot see" it, VisionClaw tries the next way that only looks, once, tells you "That did not answer it, so VisionClaw tried another way", and says what that way found.</li>
+<li>VisionClaw learns from it: the way that found nothing is counted as not working, and the way that answered as working, on this computer. Before, the "I cannot see it" answer was counted as a success.</li>
+<li>Words that mean the same thing count as one: "system tray" and "notification area", "objects" and "icons", "tell me" and "which". So what VisionClaw learned for one wording is used for another.</li>
+<li>Stated plainly: tested with stand-ins for NVDA and Windows made from what Windows 11 reported about the taskbar on the owner's computer, and with the real Qwen3.5 9B model. Not run inside NVDA yet: reading the system tray in NVDA is the first thing to try.</li>
+</ul>
+<h2>What was new in 1.8.0</h2>
 <ul>
 <li>The Start menu works. "Click the start button", "click the windows start button using the mouse" and "open the windows start menu" all failed before: the Start button is on the taskbar, not in the window in front, so it was never found there. Now VisionClaw opens the Start menu with Control+Escape, which does the same as clicking the Start button, says where NVDA is, and tells you the key for next time.</li>
 <li>The other parts of Windows itself work the same way, each with its own key: Windows search, the taskbar, the notification area or system tray, quick settings, the notification center, Task View, the Run dialog, the Quick Link menu (what a right-click on the Start button shows), clipboard history and the emoji panel. Say "go to the system tray" or "open quick settings".</li>
@@ -25,17 +36,6 @@ next. The first parts say what is new. Every feature of VisionClaw, old and new,
 <li>How a request was done is counted on this computer, as it went well or not, in the file plans.json in VisionClaw's data folder. A way of doing it is mentioned to the model only when it has proved itself, by Laplace's rule of succession, and what worked lately counts for more than what worked long ago. It is data, never code, and nothing leaves the computer.</li>
 <li>A new skill, Parts of Windows itself, for the Start menu, the taskbar and the notification area.</li>
 <li>Stated plainly: tested with stand-ins for NVDA, Windows and the keyboard, and with the real Qwen3.5 9B model choosing the job. Not run inside NVDA yet: whether Control+Escape sent by VisionClaw opens the Start menu on your computer is the first thing to try.</li>
-</ul>
-<h2>What was new in 1.7.1</h2>
-<ul>
-<li>Pointer mode no longer needs a key your keyboard may not have. Small and laptop keyboards often have no Applications key, no Page Up and Page Down, no Home and End, and no function keys. Every job of pointer mode now has a key that every keyboard has, and the spoken help names only those.</li>
-<li>A right-clicks, in pointer mode and in the overlay.</li>
-<li>I turns the mouse wheel up and K down, J left and L right, about a page; with Shift one notch. These four letters lie under the right hand like the arrow keys.</li>
-<li>B brings the pointer back to the middle of the window.</li>
-<li>While the arrow keys work a dial or slider: T goes to its top end and B to its bottom end.</li>
-<li>The keys you may have learned still work on a keyboard that has them: the Applications key and Shift+F10, Page Down and Page Up, Home and End.</li>
-<li>A click or a turn of the wheel in pointer mode now waits until you have let go of Shift, Control and Alt. Held down, these keys change what the mouse does in most programs: with Shift the wheel scrolls sideways and a double click selects everything in between, with Control the wheel zooms. If a key stays down, nothing is done and you are told.</li>
-<li>Stated plainly: tested with stand-ins for NVDA, the mouse and the keyboard. Not run inside NVDA yet.</li>
 </ul>
 <p>How to use each of these is explained in its own part of this page, further down.</p>
 <!-- /news -->
@@ -200,6 +200,17 @@ quick settings", "go to the taskbar", "open the notification center", "open Task
 for next time, and how to move inside it. These are in no program's window. Where a program could have a Start
 button of its own and nothing in its window is called Start, you are asked whether the Start menu of Windows is
 meant.</li>
+<li>What is in a part of Windows itself: "what is in my system tray", "tell me all objects that are currently in
+the system tray", "is NVDA running in the system tray", "how many icons are in the system tray", "which programs
+are on my taskbar", "what icons are on my desktop", "read my notifications", "what is in quick settings". VisionClaw
+reads it from what Windows tells screen readers, word for word, with no model and no picture, and says the key that
+goes there. The hidden tray icons are read too: VisionClaw shows them for a moment through Windows itself and hides
+them again. The notifications, quick settings, the Start menu and clipboard history exist only while they are open,
+so VisionClaw opens them with their own key, reads them, and leaves them open; Escape closes them.</li>
+<li>Something inside the system tray or on the taskbar is clicked there: "right-click the volume icon in the system
+tray", "click the Firefox button on the taskbar". And when you ask to click something that is in no window, such as
+"click Dropbox", VisionClaw looks for it in the notification area and on the taskbar and asks before it uses it
+there.</li>
 <li>When what you ask to click is not in the window in front: if it is a program, folder or place of Windows,
 VisionClaw offers to open it by its name. When the item a model picked has none of the words you said, you are
 asked before anything is clicked, and when the model says it is not there, nothing is clicked.</li>
@@ -566,6 +577,22 @@ your computer already, and gives the words that get each. It also tells you by i
 fitting answer that begins "This is said once": after you ask for an add-on, that the guide for writing add-ons
 can be downloaded; after you ask to be taught something, that lessons can be. Each of these sentences is said
 once and never again, and nothing is downloaded until you ask and say yes.</p>
+
+<h2>How VisionClaw plans, checks and learns</h2>
+<p>Every request is planned in small steps, and plain code helps the model at every step:</p>
+<ul>
+<li>Where a request is about is read from your words: the window in front, a web page, or a part of Windows itself
+such as the system tray, the taskbar or the desktop. Each place is read in the way that can really reach it.</li>
+<li>What was found is checked by plain code. When a way of looking did not find what you asked, as when a picture of
+the desktop "cannot see the system tray", VisionClaw does not stop there: it tries the next way that only looks,
+once, tells you so, and says what that way found. Nothing is changed by the next way, so nothing is asked.</li>
+<li>VisionClaw learns from it on this computer: the way that found nothing is counted as not working for that
+request, and the way that answered as working, in plans.json in VisionClaw's data folder.</li>
+<li>Words that mean the same thing count as one, so what was learned for one wording is used for another. "Tell me
+all objects in the system tray" and "which icons are in my notification area" are the same request to VisionClaw.
+It is a short table of words, all about working the computer with the keyboard, speech and braille, and a model
+still chooses and plain code still checks.</li>
+</ul>
 
 <h2>The models</h2>
 <p>Ask "what model is installed", "which model are you using" or "how big is the model". The answer is read from

@@ -26,9 +26,9 @@ import ui
 import wx
 from .vclog import log
 
-from . import computertools, mousetools, net, nvdainfo, ocr, profiletools, webtools
+from . import computertools, mousetools, net, nvdainfo, ocr, placetools, profiletools, webtools
 from .claw import changes, commands, computer, debuglog, drivers, fixes, gamepad, guides, helpfiles, inside, lookup, match, microaddons, offers, pointer, policy, profiles, prompts, training, web
-from .claw import guide, planning
+from .claw import guide, places, planning
 from .claw.catalog import CODER, VISION
 from .claw.llm import LLM, clip
 from .claw.memory import score, wordList, words as wordsOf
@@ -1338,8 +1338,24 @@ def build(plugin):
 		looks=True, title="Checking where you are", tell=VERBATIM)
 
 	# Looking, with the vision model.
+	def placeBox(words):
+		"""Where the place of Windows that the words name is on the screen, for a picture of it: the system tray
+		or the taskbar, which are in no window. None for anything else."""
+		for ident in places.named(words or ""):
+			if places.always(ident) and ident != places.DESKTOP:
+				return _safe(lambda: onMain(placetools.boxOf, ident))
+		return None
+
 	def look(task, target, question):
-		image, _box = screen.picture(target)
+		box = placeBox(question)
+		if box is not None:
+			try:
+				image = plugin._grab(box)
+			except Exception as e:
+				raise ToolError(f"The screen could not be captured: {e}")
+			target = "taskbar of Windows, where the notification area is"
+		else:
+			image, _box = screen.picture(target)
 		task.check()
 		lines = ocr.recognize(image) if config.conf["visionClaw"]["useOcr"] else []
 		prompt = (
@@ -1373,6 +1389,18 @@ def build(plugin):
 		tell=VERBATIM)
 
 	def listItems(task, about):
+		# What the words put in a place of Windows itself, as "the volume icon in the system tray", is listed from
+		# there: that place is in no window, so the window in front cannot have it. Only this part's own words count:
+		# in "click Options, then right-click the volume icon in the system tray" the first click is in the window.
+		ident = places.within(about)
+		result = placetools.itemsIn(ident, onMain) if ident else None
+		if result is not None:
+			result.items.sort(key=lambda item: -score(about, item["text"]))
+			task.items = result
+			names = [item["text"] for item in result.items]
+			shown = "\n".join(f"{i}. {name}" for i, name in enumerate(names[:MAX_ITEMS_SHOWN], 1))
+			more = f"\n... and {len(names) - MAX_ITEMS_SHOWN} more." if len(names) > MAX_ITEMS_SHOWN else ""
+			return f"{len(names)} items in {result.title} of Windows:\n{shown}{more}"
 		result = screen.items()
 		isWeb = getattr(result, "web", False)
 		# What is being looked for comes first, so it is among the items a small model is shown.
@@ -1392,10 +1420,42 @@ def build(plugin):
 		listItems, {"about": text("what is being looked for, in a few words", maxLength=120, auto=True)},
 		looks=True, title="Listing what is there")
 
-	def elsewhere(task, words, chosen=None):
-		"""Where the thing the user named is not in the window in front: a part of Windows itself, or a program,
-		folder or place of Windows that is opened by its name. Each is asked about, except a part of Windows the
-		words are sure of. Returns the result, or None when nothing else fits."""
+	def onTaskbar(task, words, action):
+		"""An icon of the notification area or a program on the taskbar whose name has every word the user named,
+		clicked there after a question; None when there is none. The taskbar is in no window, so a click on
+		"Dropbox" from any window can mean its icon there."""
+		named = " ".join(match.telling(words))
+		if len(named) < 3:
+			return None
+		for ident in (places.TRAY, places.TASKBAR):
+			result = _safe(lambda: placetools.itemsIn(ident, onMain))
+			if result is None:
+				continue
+			hits = places.found(named, [item["text"] for item in result.items])
+			if len(hits) != 1:
+				continue
+			item = next(one for one in result.items if one["text"] == hits[0])
+			# Translators: Asked when what the user named is not in the window in front, and is on the taskbar or in the notification area of Windows. {named} is what the user said, {item} what was found, {place} where.
+			if plugin.clawAsk(_("Nothing in this window is called {named}. {item} is in {place} of Windows. Use it there?").format(
+					named=named, item=item["text"], place=result.title), [_("Yes, do it"), _("No, leave it")]) != 0:
+				raise UserSaidNo()
+			if action not in pointer.ACTIONS or action in (pointer.HOLD,):
+				action = pointer.CLICK
+			if onMain(Screen.click, result, item, action, None, ()) is False:
+				return None
+			time.sleep(CLICK_SETTLE_SECONDS)
+			task.items = None
+			done = {pointer.CLICK: "clicked", pointer.DOUBLE: "double-clicked", pointer.RIGHT: "right-clicked",
+				pointer.MIDDLE: "clicked with the middle mouse button", pointer.TRIPLE: "triple-clicked",
+				pointer.HOVER: "rested the mouse pointer on"}.get(action, "clicked")
+			return f"Nothing in the window in front was called {named}, so VisionClaw {done} {item['text']} in {result.title} of Windows."
+		return None
+
+	def elsewhere(task, words, chosen=None, action=None):
+		"""Where the thing the user named is not in the window in front: a part of Windows itself, an icon of the
+		notification area or a program on the taskbar, or a program, folder or place of Windows that is opened by
+		its name. Each is asked about, except a part of Windows the words are sure of. Returns the result, or None
+		when nothing else fits."""
 		from . import computertools
 		part = computer.windowsPart(words) or computer.windowsPart(words, loose=True)
 		if part is not None:
@@ -1408,6 +1468,10 @@ def build(plugin):
 					raise UserSaidNo()
 			task.items = None
 			return computertools.openWindowsPart(part, onMain, notInWindow=True)
+		if action is not None:
+			there = onTaskbar(task, words, action)
+			if there is not None:
+				return there
 		named = " ".join(match.telling(words))
 		if len(named) < 3:
 			return None
@@ -1441,11 +1505,12 @@ def build(plugin):
 		index = None if none else pickItem(reference, result.items, ("link", "button"))
 		# What the user's own words name decides: an item that has none of its words is not taken for it.
 		if index is None or not match.fits(words, result.items[index]["text"]):
-			other = elsewhere(task, words)
+			other = elsewhere(task, words, action=action if action in pointer.ACTIONS else pointer.CLICK)
 			if other is not None:
 				return other
 			named = " ".join(match.telling(words))
-			where = f"on the web page {result.title}" if getattr(result, "web", False) else "in the window in front"
+			where = (f"on the web page {result.title}" if getattr(result, "web", False)
+				else f"in {result.title} of Windows" if getattr(result, "place", None) else "in the window in front")
 			if index is None and (none or named):
 				return (
 					f"Nothing was clicked: nothing {where} is called {named or item}, and it is not a part of Windows "
@@ -2578,6 +2643,8 @@ def build(plugin):
 	memorytools.register(plugin, add, text, onMain, confirm)
 	# The computer itself: things opened by name, the Recycle Bin, the volume, windows, files, facts, power.
 	computertools.register(add, plugin, text, onMain, confirm, mustAgree, Refused, screen)
+	# What is in a part of Windows itself: the system tray, the taskbar, the desktop, and the parts opened first.
+	placetools.register(add, plugin, text, onMain)
 	# A named control of the program in front: on or off, up or down, also on another page of its dialog.
 	from . import controltools
 	controltools.register(add, plugin, text, onMain, confirm, screen)

@@ -684,5 +684,23 @@ Only with these add-ons installed. Neither was installed where VisionClaw's code
       profiles".
 - [ ] Without either add-on: the same requests are answered as questions, and nothing claims the add-on is there.
 
+## What is in a part of Windows (1.9.0)
+The owner's request that failed in 1.8.0 first. Nothing here changes anything, except that the hidden icons are
+shown for a moment and hidden again.
+- [ ] "Tell me all objects that are currently in the system tray." from the desktop: every icon shown on the
+      taskbar, the clock, and the key Windows+B. No "I cannot see". Compare with Windows+B and the arrow keys.
+- [ ] The hidden icons are read too (NVDA's own icon is usually among them). Afterwards Show hidden icons is closed
+      again, and NVDA's focus is where it was. If the hidden ones are said to be "could not be read", say so.
+- [ ] The same from inside another program, such as Notepad: the tray is read, Notepad is not touched.
+- [ ] "Is NVDA running in the system tray?", "how many icons are in the system tray?".
+- [ ] "Which programs are on my taskbar?": pinned and running programs, Start and Search.
+- [ ] "What icons are on my desktop?": the desktop's icons, also from another program.
+- [ ] "Read my notifications" and "what is in quick settings": opened with Windows+N and Windows+A, read, and left
+      open; Escape closes them. Asked again while open: read without closing.
+- [ ] "Right-click the volume icon in the system tray": asked, then the volume icon's menu opens.
+- [ ] "Click Dropbox" (or another program with a tray icon) from Notepad: VisionClaw says it is in the notification
+      area and asks before it clicks it there.
+- [ ] "What is the system tray?" and "how do I get to the system tray?" are still answered as questions.
+
 ## Stopping NVDA
 - [ ] NVDA exits without an error, and no `vcengine.exe` is left running (Task Manager).

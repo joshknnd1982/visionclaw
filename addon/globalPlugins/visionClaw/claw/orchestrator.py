@@ -205,6 +205,8 @@ class Orchestrator:
 			task.emit(taskModule.DETAIL, where)
 
 		self._runSteps(llm, task, request, params)
+		# What was found is checked by plain code; a way of looking that found nothing is followed by the next way.
+		self._nextWays(llm, task, request, params)
 		answer = self._answer(llm, task, request, params)
 		# A plan the model wrote itself is checked by the other model; recipes report their own failures.
 		if params.verify and planner.OTHER in recipes and not self._allFailed(task):
@@ -343,10 +345,13 @@ class Orchestrator:
 				parts.append("Lessons from earlier tasks:\n" + "\n".join(f"- {text}" for text in lessons))
 		return "\n".join(parts)
 
-	def _runSteps(self, llm, task, request, params, start=0):
-		replans = params.replans
+	def _runSteps(self, llm, task, request, params, start=0, stop=None):
+		"""Run the steps from start, up to the answer or up to stop."""
+		replans = params.replans if stop is None else 0
 		index = start
 		while index < len(task.steps):
+			if stop is not None and index >= stop:
+				break
 			task.check()
 			steps = task.steps
 			step = steps[index]
@@ -394,6 +399,62 @@ class Orchestrator:
 					and all(s.recipe is None for s in remaining)):
 				replans -= 1
 				self._rethink(llm, task, request, index, params)
+			index += 1
+
+	def _nextWays(self, llm, task, request, params):
+		"""For a part whose way of looking found nothing ("I cannot see the system tray in this image"), the next way
+		that only looks, by plain rules (planning.nextWay), at most planning.MAX_NEXT for one part. The user is told,
+		and what the way before found is said only when the next way did not work. A fault here never ends the
+		request: what was found stays."""
+		try:
+			available = planner.available(self.registry)
+		except Exception as e:
+			debuglog.error("planning", "The next way could not be looked for", e)
+			return
+		task.tried = getattr(task, "tried", [])
+		index = 0
+		while index < len(task.steps):
+			task.check()
+			step = task.steps[index]
+			if step.tool == ANSWER:
+				break
+			after = task.steps[index + 1] if index + 1 < len(task.steps) else None
+			lastOfPart = after is None or after.tool == ANSWER or after.part != step.part
+			if (not lastOfPart or step.status != taskModule.STEP_DONE or getattr(step, "replaced", False)
+					or not planning.unanswered(step.result)):
+				index += 1
+				continue
+			try:
+				tool = self.registry.get(step.tool)
+				ofPart = [s for s in task.steps if s.part == step.part and s.tool != ANSWER]
+				tried = list(dict.fromkeys(s.recipe for s in ofPart if s.recipe))
+				way = None
+				if not tool.changes and tool.looks and len(tried) <= planning.MAX_NEXT:
+					way = planning.nextWay(step.part, tried, available)
+			except Exception as e:
+				debuglog.error("planning", "The next way could not be chosen", e)
+				way = None
+			if way is None:
+				index += 1
+				continue
+			said = planning.nextWayText(way, planner.label)
+			debuglog.log("planning", f"{step.part!r}: {tried} found nothing ({step.result[:120]!r}); next: {way}.")
+			task.emit(taskModule.TALK, f"{said} What was found before: {clip(step.result, 200)}")
+			new = planner.recipeSteps(way, step.part, self.registry)
+			new[0].lead = said
+			for old in ofPart:
+				old.replaced = True
+			task.steps[index + 1:index + 1] = new
+			self._runSteps(llm, task, request, params, start=index + 1, stop=index + 1 + len(new))
+			if all(s.status == taskModule.STEP_DONE for s in new):
+				task.tried.append((step.part, tried[0] if tried else None, way))
+			else:
+				# The next way did not work at all: what the way before found is said, as it was.
+				task.emit(taskModule.TALK, "The other way did not work either.")
+				for s in new:
+					s.replaced = True
+				for old in ofPart:
+					old.replaced = False
 			index += 1
 
 	def _onFailure(self, task, step):
@@ -449,7 +510,8 @@ class Orchestrator:
 		(sentences for the user as they are, information a model must put in words, what could not be done)."""
 		told, info, failed = [], [], []
 		task.infoTools = []
-		work = self._work(task)
+		# A way of looking that found nothing and was followed by another way is not said (_nextWays).
+		work = [step for step in self._work(task) if not getattr(step, "replaced", False)]
 		for i, step in enumerate(work):
 			lastOfPart = i + 1 == len(work) or work[i + 1].part != step.part
 			if step.status in (taskModule.STEP_FAILED, taskModule.SKIPPED):
@@ -465,6 +527,8 @@ class Orchestrator:
 				continue
 			if step.status != taskModule.STEP_DONE:
 				continue
+			if getattr(step, "lead", ""):
+				told.append(step.lead)
 			if step.test is not None:
 				# A check's answer is told in plain code's own words, whatever its tool usually does with a result.
 				told.append(step.said(step.result, step.holds) if step.said else step.result)
@@ -662,8 +726,19 @@ class Orchestrator:
 			return
 		try:
 			went = planning.outcome(task)
+			said = getattr(task, "said", "") or request
+			tried = getattr(task, "tried", [])
+			if tried:
+				# The way that found nothing is counted as not well, and the way that answered as it went: so the
+				# next request in alike words, or words that mean the same, is told the way that worked.
+				_part, first, last = tried[0][0], tried[0][1], tried[-1][2]
+				if first:
+					self.plans.keep(said, first, good=False)
+				if went is not None:
+					self.plans.keep(said, last, good=went)
+				return
 			if went is not None:
-				self.plans.keep(getattr(task, "said", "") or request, recipes[0], good=went)
+				self.plans.keep(said, recipes[0], good=went)
 		except Exception as e:
 			debuglog.error("planning", "How the request was done could not be kept", e)
 
