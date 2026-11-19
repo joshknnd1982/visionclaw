@@ -38,8 +38,19 @@ def checkShipped():
 			"python tools/update_shipped_guides.py first.")
 
 
+def checkHelp():
+	"""The help files must say what is new in the version being built (tools/write_help.py), so that every user
+	reads it in NVDA's own help for the add-on."""
+	sys.path.insert(0, os.path.join(ROOT, "tools"))
+	import write_help
+	problems = write_help.stale()
+	if problems:
+		sys.exit(". ".join(problems) + ". Run python tools/write_help.py first.")
+
+
 def main():
 	checkShipped()
+	checkHelp()
 	if not os.path.isfile(ENGINE):
 		sys.exit("The engine is missing: addon/engine/vcengine.exe. See BUILD.md for where to get it.")
 	manifest = open(os.path.join(SRC, "manifest.ini"), encoding="utf-8").read()

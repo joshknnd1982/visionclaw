@@ -1871,6 +1871,29 @@ Not changed: the keys of the arrow keys' own held dial that work with the wheel 
 Control is down (a small or a large step). There a wait would make a held key lag. Whether Control held down
 makes a wheel-worked dial zoom instead is to be tried inside NVDA.
 
+## Help files that explain every feature and what is new (2026-11-18, after 1.7.1)
+
+The owner asked that all help files always reflect every feature, explain it, and say what is new in the latest
+version and how to use it. Before this, the help page NVDA opens still said "This is version 1.0" and had no part
+on what is new; it said nothing of the computer itself (1.5.0), your own files, exploring a page and form trouble
+(1.6.0), skills, memories, the library, the log, everything inside NVDA, the choice of quant, "How VisionClaw
+answers", NVDA+Alt+I, or the overlay's letters H, B, E, X, K and D. The README said "Status: version 1.3.0",
+its download link was for 0.11.0, and it had no part for skills, memories, the library or the settings.
+
+- `addon/doc/en/readme.html` was written again: a part for every feature, the keys, every setting by its own
+  label, what was tested, and privacy with every time VisionClaw goes online (the training material was missing).
+- The README got the parts it lacked, NVDA+Alt+I, a list of the settings, and a download link that always gives
+  the newest version (`releases/latest/download/VisionClaw.nvda-addon`, the fixed-name copy every release has).
+- `tools/write_help.py` writes what is new in the newest two versions, from the changelog, into both files.
+  `build.py` refuses to build while that part is out of date.
+- `tests/test_help.py` (in `run_all.py`) fails when either file lacks a key, a setting's label, the words for
+  any of the 93 kinds of request, or the part on what is new for the manifest's version. It found at once a kind
+  of request being built in another session, `windows_part` (opening the Start menu and other parts of Windows),
+  which was then given its lines in both files from the words `computer.WINDOWS_PARTS` knows.
+
+Tested: `python tests/test_help.py` and `python tests/run_all.py`. The page has not been opened from NVDA's
+Add-on Store yet; that it reads well with NVDA's browse mode is to be checked there.
+
 ## Next session
 
 1.7.0 added four things, and none of them has run inside NVDA. With the owner's yes, in this order: the first

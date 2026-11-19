@@ -599,6 +599,24 @@ keyboard and speech alone.
   is asked first. Whatever VisionClaw learns to download later gets a line in `offers.overview`, and a
   sentence of its own only if the user could not find out otherwise; `tests/test_training.py` checks that
   every sentence the user is told to say is sent to the recipe it names.
+- **The help files explain every feature, and what is new in the latest version and how to use it.** The owner
+  said on 2026-11-18: "all help files should always reflect all visionclaw features, explain them, including
+  what is new in the very latest addon and how to use the new features." The help files are the page NVDA opens
+  for the add-on (`addon/doc/en/readme.html`, which `look_up` also reads as an add-on's help) and the README.
+  What follows from it:
+  - **What is new is written by plain code from the changelog**: `python tools/write_help.py` puts the newest
+    two "New in" parts of `manifest.ini`, point by point, between the `news` markers of both files, with the
+    version the help is for. Never write that part by hand; `build.py` refuses to build while it is out of date.
+    So the changelog's points must themselves say how to use what is new: the words to say or the keys to press.
+  - **Every feature is explained in its own part**, in the same change that adds or changes it: what it does,
+    the words that ask for it, its keys, what it asks first, and what it cannot do. Both files, every time.
+  - **`tests/test_help.py` fails** when a key of VisionClaw, of pointer mode, of a held dial or of the overlay,
+    a label of the settings panel, or a kind of request (`planner.RECIPES`) is missing from either file. A new
+    recipe needs a line in its `HELP` with words a user would say, and those words written into both files.
+  - The help is for blind users like everything else: keys as NVDA names them, places in words, nothing that
+    needs sight, and only keys that every keyboard has for VisionClaw's own modes.
+  - VisionClaw's own notes (`claw/knowledge/visionclaw-*.md`) and skills change with the help when a feature
+    they describe changes.
 - **VisionClaw must do more than JAWS's AI tools, and what JAWS does is read, not remembered.** The owner
   said on 2026-11-18: "My goal is for visionclaw to be even more powerful and far more useful than Freedom
   Scientific Jaws fsCompanion could ever be", then "more powerful than fscompanion and other jaws AI tools in
@@ -1371,6 +1389,10 @@ python tests/live_quants.py FOLDER 1 ID1 ID2   two quants of one coder write the
 python tests/live_working.py             both real models say how drawn and described controls are worked
 python tests/live_prompts.py             a real vision model describes drawn pictures with and without the
                                          instructions for blind users; read every answer
+python tests/test_help.py                the help files name every key, setting and kind of request, and say what
+                                         is new in the manifest's version
+python tools/write_help.py               writes what is new into readme.html and README.md from the changelog;
+                                         run after every change to the changelog
 python tools/write_models_list.py        writes models.json from the catalog; run after every change to CATALOG
 python tools/write_command_fixture.py    writes tests/nvda_commands.json from NVDA's globalCommands.py
 python tools/update_shipped_guides.py    fetches the guides that may be passed on and puts them into the add-on;
@@ -1384,9 +1406,11 @@ Run `python tests/run_all.py` before every commit. Compile every add-on file wit
 
 ## Releasing
 
-1. Bump `version` and `changelog` in `addon/manifest.ini`.
-2. `python tools/update_shipped_guides.py`, so that the build carries the guides as they are now; then
-   `python tests/run_all.py`, then `python build.py`.
+1. Bump `version` and `changelog` in `addon/manifest.ini`. Each point of the changelog says how to use what is
+   new: the words to say or the keys to press.
+2. `python tools/write_help.py`, so that both help files say what is new in this version; check that every new
+   feature has its own part in both. `python tools/update_shipped_guides.py`, so that the build carries the
+   guides as they are now; then `python tests/run_all.py`, then `python build.py`.
 3. Commit, tag `v<version>`, push, and create a GitHub release with `dist/VisionClaw-<version>.nvda-addon` and
    the fixed-name copy `VisionClaw.nvda-addon`.
    VisionMate's own version tags were renamed locally to `visionmate-v...` so that they do not collide with

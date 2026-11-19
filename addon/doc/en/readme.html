@@ -8,89 +8,128 @@ model and a coder model, break your request into small steps, agree on them, and
 Nothing you do is sent to the internet. There are no accounts, keys or usage limits.</p>
 <p>VisionClaw is based on VisionMate by Athiban Vijay and keeps everything VisionMate does.
 If VisionMate is installed, disable it in the Add-on Store: VisionClaw uses the same keys.</p>
-<p>This is version 1.0, the first full release. Please double-check anything important and report what does not work at
-<a href="https://github.com/joshknnd1982/visionclaw">github.com/joshknnd1982/visionclaw</a>.</p>
+<p>Every part of this page is a heading of level 2: in browse mode, press 2 or H to move from one part to the
+next. The first parts say what is new. Every feature of VisionClaw, old and new, is explained after them.</p>
+
+<!-- news: written by tools/write_help.py from manifest.ini; do not change it by hand -->
+<p>This help is for VisionClaw 1.7.1.</p>
+<h2>What is new in 1.7.1</h2>
+<ul>
+<li>Pointer mode no longer needs a key your keyboard may not have. Small and laptop keyboards often have no Applications key, no Page Up and Page Down, no Home and End, and no function keys. Every job of pointer mode now has a key that every keyboard has, and the spoken help names only those.</li>
+<li>A right-clicks, in pointer mode and in the overlay.</li>
+<li>I turns the mouse wheel up and K down, J left and L right, about a page; with Shift one notch. These four letters lie under the right hand like the arrow keys.</li>
+<li>B brings the pointer back to the middle of the window.</li>
+<li>While the arrow keys work a dial or slider: T goes to its top end and B to its bottom end.</li>
+<li>The keys you may have learned still work on a keyboard that has them: the Applications key and Shift+F10, Page Down and Page Up, Home and End.</li>
+<li>A click or a turn of the wheel in pointer mode now waits until you have let go of Shift, Control and Alt. Held down, these keys change what the mouse does in most programs: with Shift the wheel scrolls sideways and a double click selects everything in between, with Control the wheel zooms. If a key stays down, nothing is done and you are told.</li>
+<li>Stated plainly: tested with stand-ins for NVDA, the mouse and the keyboard. Not run inside NVDA yet.</li>
+</ul>
+<h2>What was new in 1.7.0</h2>
+<ul>
+<li>A setting only for one program: "make NVDA speak a little faster, only in this program", "turn off the typing echo just in Notepad", "when I'm in Word, set punctuation to all". NVDA keeps it in a configuration profile that it turns on by itself whenever that program is in front. VisionClaw says so and always asks before it makes a profile. Other programs stay as they were.</li>
+<li>Such a setting is changed only while that program is in front, so it is never changed in the wrong place. "Undo that", said in that program, puts it back. "Which programs have their own settings" lists them, and "remove the settings for this program" deletes the program's profile after a question.</li>
+<li>Requests that follow the one before: "do that again", "a bit more", "the other way", "too fast", "say that again", "the same in Word", "and the pitch?", "open the second one". VisionClaw writes such a request out in full and tells you how it understood you: the answer begins "Understood as". Everything that changes something still asks first.</li>
+<li>A date in a calendar that takes no keys: have the calendar showing and say "pick 14 March 2027 in this calendar" or "choose next Friday in the date picker". VisionClaw asks, presses the calendar's own button for the next or previous month until the right month shows, then presses the day, and tells you what it did. A calendar that is only drawn is read from the window's picture.</li>
+<li>Asking by voice: press NVDA+Alt+V, or Alt+V in the Ask VisionClaw window, and speak after the high beep. VisionClaw stops listening when you stop speaking. What it heard is put into the box and read to you; Enter sends it, and nothing is done before that.</li>
+<li>Your words are turned into text on this computer, by the speech model Qwen3-ASR from the Qwen team, and are sent nowhere. The first time, VisionClaw asks whether to download that model, about 1 GB, from Hugging Face. A larger one can be chosen in the settings. "Delete the speech model" removes it.</li>
+<li>Everywhere, or only here: "speak words as I type in every application", "stop announcing capital letters in Word". Where the program in front has settings of its own and you say neither, VisionClaw asks which you mean. After a change it names the programs that keep a value of their own.</li>
+<li>Working through a task when the usual path isn't clear: "I'm stuck, I want to attach a file to this email", "walk me through exporting this as a PDF". VisionClaw finds the thing in the program that leads there, tells you its key, and asks whether to press it, only tell you, or stop. It asks before every step, checks in after three, stays in this one program, and tells you what it did.</li>
+<li>VisionClaw's own windows are off limits to it: it never clicks, types or presses keys in them. Their controls are yours.</li>
+<li>A voice of its own: say "customise VisionClaw's voice". NVDA's Speech settings open, and the synthesizer, voice, rate, pitch and volume you choose there are used only for what VisionClaw says. When you close that window, your own voice is back.</li>
+<li>With the JAWS Migration Assistant running: "what is JAWS's Insert+F7 in NVDA?" tells you what the keystroke does in JAWS and which NVDA command and key does the same.</li>
+<li>With ClassicSpeech running: "set ClassicSpeech to Advanced", "which speech schemes do I have", "switch to the scheme" and its name, "turn sound schemes off", "open voice profiles". Asked first, and "undo that" puts it back.</li>
+<li>Stated plainly: everything here was tested with stand-ins for NVDA, with programs and calendars made up by the tests, and with the real 9B model choosing what to do. The speech model heard 24 of 24 requests spoken by Windows' own two voices; a person speaking into a real microphone has not been tried. The JAWS Migration Assistant and ClassicSpeech were not installed where this was written, so they were tried only against stand-ins built from their source. None of this has been run inside NVDA yet.</li>
+</ul>
+<p>How to use each of these is explained in its own part of this page, further down.</p>
+<!-- /news -->
 
 <h2>Getting started</h2>
 <p>After you install VisionClaw and restart NVDA, a window opens where you choose a vision model and a coder
 model. The suggested ones are the safe choice; every model is offered whatever your computer is. Press Enter to
 download them. While they download, press Space to hear the progress. An interrupted download continues from
 where it stopped. Press NVDA+Alt+M at any time to change your choice.</p>
+<p>Then press NVDA+Alt+C, type what you want in your own words, and press Enter. You do not need to know NVDA:
+VisionClaw finds the right setting or command from your description and tells you the keys for next time.</p>
+
+<h2>The keys of VisionClaw</h2>
+<ul>
+<li>NVDA+Alt+C: ask VisionClaw. Pressed again while a request is done, it shows everything the last request did,
+in the Last task box.</li>
+<li>NVDA+Alt+V: ask VisionClaw by voice; what it heard is read to you before anything is done.</li>
+<li>NVDA+Alt+P: hear how far the request is.</li>
+<li>NVDA+Alt+X: stop the request at once.</li>
+<li>NVDA+Alt+M: see, remove or swap the models on this computer.</li>
+<li>NVDA+Alt+U: look for a newer version of VisionClaw.</li>
+<li>NVDA+Alt+I: the skills window: read, make, change, turn off or delete skills.</li>
+<li>NVDA+Alt+K: pointer mode: work the mouse pointer with the arrow keys.</li>
+<li>NVDA+Alt+J: controller mode: work the mouse pointer with a connected game controller.</li>
+<li>NVDA+Alt+A: describe the current element.</li>
+<li>NVDA+Alt+W: describe the current window.</li>
+<li>NVDA+Alt+F: describe the whole screen.</li>
+<li>NVDA+Alt+D: describe the image, or copied image file, on the clipboard.</li>
+<li>NVDA+Alt+O: open or close the overlay, the window as a list of its texts and icons.</li>
+<li>NVDA+Alt+G: turn automatic descriptions of images without a label on or off.</li>
+<li>NVDA+Alt+B: turn names for buttons that have no name on or off.</li>
+<li>NVDA+Alt+N: give your own name to the current button or overlay item.</li>
+</ul>
+<p>Every key can be changed in NVDA's Input Gestures dialog, under VisionClaw. Other things VisionClaw can do,
+such as opening the memories window, have no key; ask for them in words.</p>
 
 <h2>Asking VisionClaw</h2>
 <p>Press NVDA+Alt+C, type what you want, and press Enter. The window closes so the program you were in has the
-focus again, and VisionClaw tells you each step as it works. Examples:</p>
+focus again, and VisionClaw tells you each step as it works. Some examples, each explained further down:</p>
 <ul>
-<li>Make NVDA speak a little faster.</li>
-<li>Turn off the typing echo and set punctuation to all.</li>
-<li>How do I read the title of this window?</li>
-<li>How can I use the keyboard to navigate my desktop? How do I switch between open windows?</li>
-<li>What is browse mode? What does NVDA+T do? What does Windows+D do?</li>
-<li>What can I do here? Which key is for the Save button? Which windows are open?</li>
-<li>Learn about this program. Learn about this game. Delete the notes on this program.</li>
-<li>What is on my screen?</li>
-<li>Press the Play button in this window.</li>
-<li>Give this program a hotkey that clicks Send.</li>
+<li>Make NVDA speak a little faster. Turn off the typing echo and set punctuation to all.</li>
+<li>How do I read the title of this window? What does NVDA+T do? What does Windows+D do?</li>
+<li>Open Notepad. Check and see if my recycle bin needs to be emptied. Turn down my system volume.</li>
+<li>Create a folder called Taxes in my documents.</li>
+<li>What is on my screen? Press the Play button in this window.</li>
+<li>Explore this page. Why won't this form submit?</li>
 <li>Write an add-on that beeps when a link gets the focus.</li>
-<li>Open bbc.co.uk. Search the web for the weather in Boston. What does this page say about refunds?</li>
-<li>Type garden gloves into the search box and search.</li>
-<li>Which speech synthesizer am I using? What braille display do I have?</li>
-<li>Switch my speech synthesizer to eSpeak.</li>
-<li>Save the add-on hello key as a file.</li>
-</ul>
-<p>You do not need to know NVDA. VisionClaw finds the right setting or command from your description and tells
-you the keys for next time.</p>
-<ul>
-<li>NVDA+Alt+P: hear how far the request is.</li>
-<li>NVDA+Alt+X: stop the request at once.</li>
-<li>NVDA+Alt+C again: read everything the last request did, in the Last task box.</li>
+<li>Remember that I use a braille display with 40 cells.</li>
 </ul>
 <p>The two models must agree on how to handle your request before anything happens. If they do not agree, you
 are asked to choose. If you chose one model for both jobs, vision and code, there are not two to agree: the
 model chooses what to do and checks its own work, and VisionClaw says "the model". Its choice is checked
-against your own words; if the two still differ after it has looked again, you are asked which you meant. Ask
-"what model is installed" to hear which model does which job and how big it is. If a step does not work, you are asked whether to skip it, try again or stop. By default
-VisionClaw also asks before it changes a setting, clicks, presses keys or types; you can turn that off in
-settings.</p>
+against your own words; if the two still differ after it has looked again, you are asked which you meant.</p>
+<p>If a step does not work, you are asked whether to skip it, try again or stop. A fault inside VisionClaw ends
+only the step it happened in; the rest of your request is still done. By default VisionClaw also asks before it
+changes a setting, clicks, presses keys or types; you can turn that off in the settings. Anything that could take
+speech or braille away, or that cannot be undone, is always asked about, whatever the settings say. What
+VisionClaw says it did is taken from what the tools really reported.</p>
 
-<h2>Questions: NVDA, the program, the window, Windows</h2>
-<p>A question such as "how do I", "what key", "what is" or "what does this key do" is asked of four places,
-every time, in this order:</p>
-<ol>
-<li>NVDA: every command that works where you are, with its keys; all of NVDA's user guide; the help of your
-add-ons.</li>
-<li>The program in front: which program it is, its version, NVDA's commands for it, and the hotkeys VisionClaw
-made for it.</li>
-<li>Its window: the title, the control that has the focus with its state, its place in its list, its own key
-and what it is inside of, the status bar, and the controls that have keys of their own.</li>
-<li>Windows: which Windows this is, which windows are open, and the keys of Windows: the desktop, the Start
-menu, the taskbar, switching and closing windows, File Explorer, menus, dialogs, text, copy and paste.</li>
-</ol>
-<p>Plain code then keeps only what is about your question, and the answer says where it is from. When nothing
-is about your question, VisionClaw says so and names what it asked; it does not give you the nearest thing.
-The keys of Windows were written from Microsoft's own page and are part of the add-on. Nothing is looked up
-online.</p>
+<h2>Asking by voice</h2>
+<p>Press NVDA+Alt+V, or Alt+V in the Ask VisionClaw window, and speak after the high beep. VisionClaw stops
+listening when you stop speaking; a lower beep means it is working out your words. Nothing is spoken while the
+microphone is open. What it heard is put into the box and read to you. Press Enter to send it, or correct it
+first: nothing is done before you send it.</p>
+<p>Your words are turned into text on this computer by the speech model Qwen3-ASR and are sent nowhere; no
+recording is written to the disk. The first time, VisionClaw asks whether to download that model, about 1 GB,
+from Hugging Face. A larger one can be chosen in the settings. Ask "can I ask you by voice?" to hear whether it
+is set up and which speech model listens, "download the speech model" to get it now, and "delete the speech
+model" to remove it.</p>
 
-<h2>Learning about the program or game you are in</h2>
-<p>Ask "learn about this program" or "learn about this game" while you are in it, or name one: "learn about
-Audacity". VisionClaw finds out which program it is, a model says what it is called and what kind of thing it
-is, and you are asked before anything goes online. Then it reads what Wikipedia says about it, asks Wikidata
-for the address of the program's own website and manual, and reads a few help pages from that website.</p>
-<p>What it learns is kept as short notes in a Markdown file on your computer, one for each program, in the
-folder notes of VisionClaw's data. The model writes the notes and plain code keeps only those whose keys and
-words are in the page. Every note says which page it is from. The notes may be wrong; they are from the
-internet.</p>
-<ul>
-<li>Then ask your questions in the program: how do I duplicate a line, which key closes a tab. An answer from
-the notes begins "From the notes on".</li>
-<li>Which notes do you have? Open the notes on this program. Delete the notes on this program. Delete all
-notes.</li>
-<li>Add this page to the notes on Notepad++: adds the page open in your own browser. Nothing is fetched for
-it.</li>
-</ul>
-<p>VisionClaw itself asks no search engine: they turn programs away, and VisionClaw does not work around that.
-A program Wikipedia does not know is not found; search for it in your own browser, open a page, and add that
-page. What is sent is the program's name and requests for pages, with nothing about you or your computer.</p>
+<h2>Requests that follow the one before</h2>
+<p>After a request you can say: do that again; a bit more; the other way, too much or too fast; say that again;
+the same in Word; and the pitch?; open the second one. VisionClaw writes such a request out in full and tells you
+how it understood you: the answer begins "Understood as". Everything that changes something still asks first.
+What the request before was is kept only while NVDA runs.</p>
+
+<h2>Several things in one request, and things that depend on something</h2>
+<p>Say up to eight things in one request, in the order you want them done: "Go into my Windows settings, turn
+down my system volume, close Windows settings, then go to gmail.com in my Google Chrome and tell me how many
+emails I have." Each is announced as a step of its own.</p>
+<p>A thing that depends on something is checked first: "if you see the Recycle Bin, open it", "if Notepad is
+open, close it", "if my recycle bin is not empty, empty it". VisionClaw tells you what it found, and when the
+rest was not needed it says "So this was not done".</p>
+
+<h2>NVDA's settings and commands in plain words</h2>
+<p>Describe a setting and how you want it: "make NVDA speak a little faster", "set punctuation to all", "turn
+off the typing echo". Describe a command and VisionClaw runs it: "read the status bar", "what time is it",
+"what is the date today". A command that does something else on a second press, such as NVDA+F12 for the time
+and twice for the date, is pressed as often as your words ask. Ask "which key reads the title?" or "what are
+the keys for browse mode?" to be told the keys. VisionClaw tells you the keys of what it ran, so that you can do
+it yourself next time. When no command fits, it says so and runs nothing.</p>
 
 <h2>Your settings stay yours</h2>
 <p>VisionClaw changes an NVDA setting only when you ask it to, and only the setting you asked about. A change to
@@ -113,60 +152,152 @@ program in front has settings of its own. "Stop announcing capital letters in Wo
 the program in front has settings of its own and you say neither, VisionClaw asks: only in this program, or
 everywhere? After a change it names the programs that keep a value of their own for that setting.</p>
 
+<h2>Questions: NVDA, the program, the window, Windows</h2>
+<p>A question such as "how do I", "what key", "what is" or "what does this key do" is asked of four places,
+every time, in this order:</p>
+<ol>
+<li>NVDA: every command that works where you are, with its keys; all of NVDA's user guide; the help of your
+add-ons, this page among them.</li>
+<li>The program in front: which program it is, its version, NVDA's commands for it, and the hotkeys VisionClaw
+made for it.</li>
+<li>Its window: the title, the control that has the focus with its state, its place in its list, its own key
+and what it is inside of, the status bar, and the controls that have keys of their own.</li>
+<li>Windows: which Windows this is, which windows are open, and the keys of Windows: the desktop, the Start
+menu, the taskbar, switching and closing windows, File Explorer, menus, dialogs, text, copy and paste.</li>
+</ol>
+<p>After these come your library, what you asked VisionClaw to remember, and the notes on programs. Plain code
+then keeps only what is about your question, and the answer says where it is from. When nothing is about your
+question, VisionClaw says so and names what it asked; it does not give you the nearest thing. Ask "what can I do
+here?" or "where am I?" to hear the program, the window and the control you are on. "What is new in NVDA" is
+answered from NVDA's own list of what is new, for its newest three versions. Nothing is looked up online.</p>
+
+<h2>Learning about the program or game you are in</h2>
+<p>Ask "learn about this program" or "learn about this game" while you are in it, or name one: "learn about
+Audacity". VisionClaw finds out which program it is, a model says what it is called and what kind of thing it
+is, and you are asked before anything goes online. Then it reads what Wikipedia says about it, asks Wikidata
+for the address of the program's own website and manual, and reads a few help pages from that website.</p>
+<p>What it learns is kept as short notes in a Markdown file on your computer, one for each program, in the
+folder notes of VisionClaw's data. The model writes the notes and plain code keeps only those whose keys and
+words are in the page. Every note says which page it is from. The notes may be wrong; they are from the
+internet.</p>
+<ul>
+<li>Then ask your questions in the program: how do I duplicate a line, which key closes a tab. An answer from
+the notes begins "From the notes on".</li>
+<li>Which notes do you have? Open the notes on this program. Delete the notes on this program. Delete all
+notes.</li>
+<li>Add this page to the notes on Notepad++: adds the page open in your own browser. Nothing is fetched for
+it.</li>
+</ul>
+<p>VisionClaw itself asks no search engine: they turn programs away, and VisionClaw does not work around that.
+A program Wikipedia does not know is not found; search for it in your own browser, open a page, and add that
+page.</p>
+
+<h2>Working the computer for you</h2>
+<ul>
+<li>Opening things by name: "open the Recycle Bin", "open Notepad", "go into my Windows settings", "open
+Bluetooth settings", "open my Downloads folder". Programs of the Start menu, things on your desktop, folders,
+tools and settings pages of Windows, and your own files.</li>
+<li>Parts of Windows itself: "open the Start menu", "open the notification center", "open Task View", "open the
+Run dialog", "open clipboard history", "open the emoji panel". VisionClaw opens it with Windows' own key, tells
+you that key for next time, and how to move inside it.</li>
+<li>The Recycle Bin: "check and see if my recycle bin needs to be emptied" says how many items it holds, how
+much room they take and whether emptying is worth it. "Empty the recycle bin" always asks first, because what is
+emptied cannot be brought back, and counts again afterwards.</li>
+<li>The computer's own volume: "turn down my system volume", "set the computer's volume to 40 percent". The
+level is read back to you. Turning it down stops at 10 percent so that NVDA can still be heard, and muting is
+refused when no braille display is in use. A bare "volume" means NVDA's own volume.</li>
+<li>Windows: "switch to Firefox", "close Notepad", "close Windows settings", "minimize all windows", "maximize
+this window". A window that is still open after it was asked to close is said to be open.</li>
+<li>Your folders: "what is in my downloads folder", "find the file named budget".</li>
+<li>Facts about the computer: "how much disk space do I have left", "which programs are running", "am I connected
+to the internet", "how long has the computer been on".</li>
+<li>"Lock my computer", "restart my computer" and "shut down the computer" always ask first, and a restart or
+shutdown can be called off for 30 seconds: say "call off the shutdown".</li>
+</ul>
+
+<h2>Your own files and folders</h2>
+<p>"Create a folder called Taxes in my documents", "create a text file called shopping list on my desktop",
+"rename the file budget to Budget 2026", "move the file report.pdf from my downloads to my documents", "copy the
+file notes to my desktop", "delete the file old notes". VisionClaw looks for the file by its name in your
+Desktop, Documents, Downloads, Pictures, Music and Videos folders, and nowhere else. When several files fit the
+name, it asks which one you mean. It always tells you what it is about to do and asks first.</p>
+<p>Nothing is ever overwritten: when something with that name is already there, VisionClaw says so and changes
+nothing. Deleting means moving to the Recycle Bin, from where the file can be brought back; it is always asked
+about. "Undo that" puts a renamed or moved file back, and removes a folder or file VisionClaw made while it is
+still empty. "What did you change" lists these with the settings it changed.</p>
+
+<h2>Options inside a program</h2>
+<p>"Find the settings button in this app, then turn the volume up a bit and turn the equalizer down", "in this
+dialog, turn on my NVIDIA GPU for this program". The control is looked for by its name in the window, on the
+other pages of its dialog, and in the window's picture where NVDA cannot read it. It is worked the least risky
+way that works: its own action, then the keyboard, then the mouse. You are asked first and told what it was and
+what it is now; a reading from the picture is said to be one.</p>
+
 <h2>Working through a task when the usual path isn't clear</h2>
 <p>Say what you want and that you are stuck: "I'm stuck, I want to attach a file to this email", "walk me through
 exporting this as a PDF". VisionClaw finds the thing in the program that leads there, tells you what it is and its
 key, and asks whether to press it, only tell you where it is, or stop. It asks before every step, checks in after
-three, stays in this one program, never works its own windows, and tells you what it did.</p>
-
-<h2>A voice of its own</h2>
-<p>Say "customise VisionClaw's voice". NVDA's Speech settings open, and the synthesizer, voice, rate, pitch and
-volume you choose there are used only for what VisionClaw says. While that window is open NVDA speaks with that
-voice too; when you close it, your own voice is back. "Turn off your own voice" makes VisionClaw speak like NVDA
-again; "remove VisionClaw's voice" deletes it after a question.</p>
-
-<h2>With the JAWS Migration Assistant and ClassicSpeech</h2>
-<p>With the JAWS Migration Assistant running: "what is JAWS's Insert+F7 in NVDA?", "what is the JAWS say line
-command in NVDA?", "what did the JAWS migration bring over?". With ClassicSpeech running: "set ClassicSpeech to
-Advanced", "say less about each control", "which speech schemes do I have?", "switch to the scheme" and its name,
-"turn sound schemes off", "open voice profiles". VisionClaw asks before it changes anything in ClassicSpeech, and
-"undo that" puts it back. Without these add-ons, these jobs are not offered.</p>
-
-<h2>Requests that follow the one before</h2>
-<p>After a request you can say: do that again; a bit more; the other way, too much or too fast; say that again;
-the same in Word; and the pitch?; open the second one. VisionClaw writes such a request out in full and tells you
-how it understood you: the answer begins "Understood as". Everything that changes something still asks first.</p>
+three, stays in this one program, and tells you what each press brought up. VisionClaw's own windows are off
+limits to it: it never clicks, types or presses keys in them. Their controls are yours.</p>
 
 <h2>A date in a calendar that takes no keys</h2>
 <p>Have the calendar showing and say: "pick 14 March 2027 in this calendar", or "choose next Friday in the date
 picker". VisionClaw asks, presses the calendar's own button for the next or previous month until the right month
-shows, then presses the day, and tells you what it did. A calendar that is only drawn is read from the window's
-picture; then check the date field afterwards.</p>
+shows, then presses the day, and tells you the date with its weekday and what it did. A date that could be read
+two ways is put to you. A calendar that is only drawn is read from the window's picture; then check the date
+field afterwards.</p>
 
-<h2>Asking by voice</h2>
-<p>Press NVDA+Alt+V, or Alt+V in the Ask VisionClaw window, and speak after the high beep. VisionClaw stops
-listening when you stop speaking; a lower beep means it is working out your words. What it heard is put into the
-box and read to you. Press Enter to send it, or correct it first: nothing is done before you send it. Your words
-are turned into text on this computer by the speech model Qwen3-ASR and are sent nowhere. The first time,
-VisionClaw asks whether to download that model, about 1 GB. A larger one can be chosen in the settings. "Delete
-the speech model" removes it.</p>
+<h2>Describing images</h2>
+<ul>
+<li>NVDA+Alt+A: describe the current element.</li>
+<li>NVDA+Alt+W: describe the current window.</li>
+<li>NVDA+Alt+F: describe the whole screen.</li>
+<li>NVDA+Alt+D: describe the image or image file on the clipboard.</li>
+<li>NVDA+Alt+G: turn automatic descriptions of images without a label on or off.</li>
+<li>NVDA+Alt+B: turn names for buttons without a name on or off.</li>
+<li>NVDA+Alt+N: give your own name to the current button or overlay item.</li>
+</ul>
+<p>Press a describe command once for a quick spoken description, twice for a detailed description in a window
+where you can ask questions about the image. Press Control to stop speaking. On a photo message in a chat app,
+or an image file in File Explorer, NVDA+Alt+A describes the photo itself. You can also ask in words: "what is on
+my screen?", or "read the text in this window" for the exact text shown.</p>
+<p>In the description window every question is answered: what is highlighted or selected, where something is,
+what a thing is for, what could be done next. What the picture does not show, the model says is not shown. A
+question about a key, such as "how do I read the title of this window", is given NVDA's real command for it, so
+the key you hear is NVDA's own.</p>
 
 <h2>Programs and games NVDA cannot read</h2>
 <ul>
-<li>NVDA+Alt+O opens the overlay: the window as a list of its texts and icons. Enter clicks an item.</li>
-<li>Ask "press the Start button" and VisionClaw finds and clicks it from the window's picture.</li>
-<li>Ask "give this program a hotkey that clicks Send" to save a hotkey for that program.</li>
-<li>Ask "call this button Play" to name a button that has no name.</li>
+<li>"Press the Start button" or "press the Play button in this window": VisionClaw finds it in the window's
+picture and clicks it.</li>
+<li>"Type garden gloves into the search box", "press Control+S".</li>
+<li>"Give this program a hotkey that clicks Send": a hotkey for that program only, kept as data.</li>
+<li>"Call this button Play": a name for a button that has none.</li>
 <li>Ask for an add-on when you need new behaviour, such as speaking when something changes.</li>
 </ul>
+<p>The overlay, NVDA+Alt+O, is the window as a list of its texts and icons. Tab and Shift+Tab move through it,
+Enter or Space clicks, Shift+Enter double-clicks, A right-clicks, and G picks an item up; G on another item drops
+it there. As in browse mode, H, B, E, X, K and D move to the next heading, button, field, check box, link and
+area, and with Shift to the previous one. Escape closes it.</p>
 
 <h2>The web</h2>
-<p>VisionClaw uses your own browser, through NVDA's browse mode. Ask it to open an address, to search the web,
-to answer a question about the page you are on, to follow a link or press a button by name, or to type into a
-field, to say how the page is laid out with its headings, to take you to a heading, link or field so you can
-read on from there, or to go back, forward or reload. Following a link needs no question; pressing a button
-asks first. Choose the search engine in settings.
-The models still run only on your computer; the browser goes online as it does when you use it yourself.</p>
+<p>VisionClaw uses your own browser, through NVDA's browse mode. Ask it to open an address ("open bbc.co.uk"), to
+search the web ("search the web for the weather in Boston"), to answer a question about the page you are on
+("what does this page say about refunds?"), to follow a link or press a button by name, or to type into a field
+("type garden gloves into the search box and search"). Ask for the headings of the page, to be taken to a
+heading, link or field so you can read on from there, or to go back, forward or reload. "Summarize this page"
+gives the beginning of each part of the page. Following a link needs no question; pressing a button asks first.
+Choose the search engine in the settings. The models still run only on your computer; the browser goes online
+as it does when you use it yourself.</p>
+
+<h2>A web page explored, and what stops a form</h2>
+<p>"Explore this page", "how is this page laid out", "what is the best way to get around this page": VisionClaw
+names the page's landmarks in order, where its main part begins, how many headings, links, buttons, form fields,
+tables and lists it has, and only those of NVDA's keys that fit this page.</p>
+<p>"Why won't this form submit", "which fields did I miss", "find the errors in this form": VisionClaw names the
+fields the page marks as not valid, the required fields that are empty, and the page's own error messages, each
+with its field, and puts NVDA's reading position on the first of them. Both are plain code: no model writes the
+answer.</p>
 
 <h2>Making a website or a program accessible, for good</h2>
 <p>Ask "do a deep inspection of this website", "inspect this window for accessibility problems" or "what is
@@ -175,30 +306,22 @@ changes by itself, compares the picture with the text, and tells you in plain nu
 the way and which of it an add-on can fix. Inspecting changes nothing.</p>
 <p>Then ask "fix all of it" or "fix number 2", or say what you want: "give this site keys to move between
 posts", "make NVDA+Alt+P press the Play button on this page", "make a key that reads the time", "name the
-focused button Share on this website", "tell me when the inbox count changes". You are told exactly what will be made and
-asked before it is turned on. The fixes for one website, in any browser, or for one program are kept in one
-add-on named fixes and then the site or program. It stays until you say "remove the add-on" and its name, and
+focused button Share on this website", "tell me when the inbox count changes". You are told exactly what will be
+made and asked before it is turned on. The fixes for one website, in any browser, or for one program are kept in
+one add-on named fixes and then the site or program. It stays until you say "remove the add-on" and its name, and
 "save the add-on ... as a file" gives you a file to install for good or to share. Outside that website or
-program its keys do what they always do. It is built to work the same in Chrome, Edge, Brave and Firefox.
-This part is new and has not yet been tried on real websites inside NVDA.</p>
+program its keys do what they always do.</p>
 <p>No model writes this add-on's code: it is put together from fixed, tested parts and the list of your
 fixes. A control that nothing in the page's code tells apart from others cannot be named reliably, and the
 report says how many those are. A name taken from a button's picture is a guess, and you are told so.</p>
 
-<h2>Speech, braille and drivers</h2>
-<p>Ask which speech synthesizer, voice, braille display, braille tables, drivers and add-ons NVDA has and uses.
-Every setting of the synthesizer in use can be changed by describing it.</p>
-<p>Switching the speech synthesizer or braille display is done with care. VisionClaw refuses a switch that
-would leave you with neither speech nor braille. It always asks first. After the switch you confirm that the
-new one works; if you do not answer within 20 seconds, it switches back by itself. It remembers drivers that
-gave trouble on this computer and warns you before trying them again. Commands that can silence or close NVDA
-are also always asked about first.</p>
-
-<h2>The add-ons you have installed</h2>
-<p>Ask "which add-ons do I have", "what does the Clock add-on do" or "which keys does the Clock add-on have".
-VisionClaw answers from what the add-on says about itself, its commands and keys where you are now, and its own
-help. It can also find and run an add-on's commands for you, and change its settings where the add-on keeps
-them in NVDA's configuration.</p>
+<h2>How a sighted person works each control</h2>
+<p>An inspection also says how a sighted person works what is there: clicked, dragged, hovered over, held down,
+swiped, touched or turned. Where NVDA can tell the kind of a control, that is known. Controls NVDA cannot tell
+the kind of are put to both models: the vision model is given the picture, the coder model reads a deep query
+of NVDA, Windows and NVDA's off-screen model. The report says who said what, and a model can be wrong. With a
+control focused, ask "do a deep query of this control" to hear all that is reported about it, how it is worked,
+and what to ask for.</p>
 
 <h2>Working the mouse from the keyboard</h2>
 <p>Ask VisionClaw to right-click, double-click or point at an item, or to drag one: "right-click the file icon",
@@ -206,21 +329,28 @@ them in NVDA's configuration.</p>
 down", "scroll down a page", "scroll this window to the bottom". It turns the mouse wheel, compares the
 window's picture before and after, and tells you whether anything moved and, where a scrollbar shows it, how
 far along the view stands.</p>
-<p>In the overlay (NVDA+Alt+O): Enter clicks, Shift+Enter double-clicks, A right-clicks, and
-G picks an item up; G on another item drops it there.</p>
 <p>Every key of pointer mode and of the overlay is one that every keyboard has: letters, the arrow keys, Enter,
 Space, Escape, Shift and Control. Nothing depends on an Applications key, Page Up, Page Down, Home, End or a
 function key. Where your keyboard has them they still work as before.</p>
-<p>Pointer mode (NVDA+Alt+K) is for a control where nothing can be listed. The arrow keys move the mouse pointer
-in the window: one step, with Shift a fine step, with Control a far one; the steps follow your screen's size
-and scaling. Enter clicks, Shift+Enter double-clicks, A right-clicks. G holds the mouse
-button down and G again lets go, for dragging. I turns the mouse wheel up and K down, J left and L right, about
-a page; with Shift one notch. A click or a turn of the wheel waits until you have let go of Shift, Control and
-Alt. S finds the scrollbars and puts the pointer on one. W says what is
-at the pointer, R reads the text there, P says where the pointer is, B brings it back to the middle, H repeats the
-keys, D tries what is under the pointer as a dial or slider, T rests the pointer and says what appears, C
-clicks the moment what is under the pointer changes, M changes how the mouse is moved for a game that reads
-the mouse directly, and Escape turns pointer mode off.</p>
+<p>Pointer mode, NVDA+Alt+K, or "make this control keyboard navigable", is for a control, canvas or game where
+nothing can be listed. Its keys:</p>
+<ul>
+<li>The arrow keys move the mouse pointer in the window: one step, with Shift a fine step, with Control a far
+one. The steps follow your screen's size and scaling. A short tone tells you how high the pointer is.</li>
+<li>Enter or Space clicks, Shift+Enter double-clicks, A right-clicks.</li>
+<li>G holds the mouse button down and G again lets go, for dragging.</li>
+<li>I turns the mouse wheel up and K down, J left and L right, about a page; with Shift one notch.</li>
+<li>S finds the scrollbars and puts the pointer on one.</li>
+<li>W says what is at the pointer, R reads the text there, P says where the pointer is, B brings it back to the
+middle of the window.</li>
+<li>T rests the pointer and says what appears. C clicks the moment what is under the pointer changes; Shift+C
+only sounds a tone then.</li>
+<li>D tries what is under the pointer as a dial or slider.</li>
+<li>M changes how the mouse is moved, for a game that reads the mouse directly.</li>
+<li>H repeats the keys, and Escape turns pointer mode off.</li>
+</ul>
+<p>A click or a turn of the wheel waits until you have let go of Shift, Control and Alt, because held down they
+change what the mouse does in most programs; if they stay down, nothing is done and you are told.</p>
 
 <h2>Dials, knobs and sliders that are only worked by dragging</h2>
 <p>Some programs, music tools and games have a dial, a knob or a slider of their own that takes no keys. Ask
@@ -232,19 +362,19 @@ and puts it back. From then on, until you press Escape:</p>
 <li>Up and Right turn it up, Down and Left turn it down; with Shift a small step, with Control a large one.</li>
 <li>T goes to its top end and B to its bottom end.</li>
 <li>After every press you hear what changed: the new text at the control, or "Up", or that nothing moved.</li>
-<li>R reads the text at it, W asks the vision model what it shows, M tries another way of working it.</li>
+<li>R reads the text at it, W asks the vision model what it shows, M tries another way of working it, H repeats
+the keys.</li>
 <li>K keeps it under a hotkey for this program.</li>
 </ul>
 <p>Where nothing can be named, as in many games: press NVDA+Alt+K for pointer mode, move the pointer onto the
-control, and press D. This has only been tested with a stand-in program. A game that reads the mouse
-directly, as most 3D action games do, will not follow unless you tell VisionClaw so; see "Games that read the
-mouse directly".</p>
+control, and press D.</p>
 
 <h2>Controls that need more than a click</h2>
 <p>Ask "hover over the Help icon" and you hear what appeared; "press and hold the Record button for 3 seconds";
 "swipe left on the card" or "draw a circle"; "click the Go button as soon as it changes" or "click it 20
 times"; "middle-click", "control-click", "click the seek bar 30 percent across"; "zoom in". An inspection of a
-window or page says which controls are worked in such a way.</p>
+window or page says which controls are worked in such a way, and "fix it" makes a hotkey that hovers or holds.
+A button VisionClaw holds down always comes up again.</p>
 
 <h2>Fingers and pressure, without a touch screen and without a pen</h2>
 <p>For a program made for a touch screen or a pen. Ask "pinch the map", "spread two fingers on the photo",
@@ -266,14 +396,13 @@ game.</p>
 <ul>
 <li>A view the mouse turns: "turn left", "look up a little", "turn around". VisionClaw moves the mouse itself
 and says whether the view changed. "Direct mouse movement is too fast" or "too slow" changes how far, and is
-kept for the game.</li>
+kept for the game. How far a game turns is a guess until you say so.</li>
 <li>A pointer the game draws itself: clicking, holding and dragging things by name work again. VisionClaw
 pushes the game's pointer into the corner of the window, measures how fast it moves, and counts from there.</li>
 <li>In pointer mode, M changes between Windows' pointer, the game's own pointer and a view that the mouse
 turns. For a view the arrow keys move the mouse itself and Enter clicks where the game aims.</li>
 </ul>
-<p>A game that refuses movements made by a program cannot be worked this way. This has been tested with a game
-drawn by the test, not in a real game.</p>
+<p>A game that refuses movements made by a program cannot be worked this way.</p>
 
 <h2>A game controller</h2>
 <p>VisionClaw notices a connected game controller and says so. Hold the controller's View and Menu buttons
@@ -295,18 +424,112 @@ the things found in the window and say their names; Y has the picture at the poi
 <li>The Menu button says all of this.</li>
 </ul>
 <p>A button can also be a hotkey of a program: "make the X button on my controller click Play". Ask "is a
-controller connected?" or "what do the buttons on my controller do?" at any time. VisionClaw cannot press a
-controller's buttons for you. Controller mode has been tested with made-up controller states, not with a real
-controller.</p>
+controller connected?" or "what do the buttons on my controller do?" at any time. Whether a connected controller
+is announced is your choice in the settings. VisionClaw cannot press a controller's buttons for you, and the buzz
+is never the only sign: everything controller mode does is spoken.</p>
 
-<h2>How a sighted person works each control</h2>
-<p>An inspection now also says how a sighted person works what is there. Where NVDA can tell the kind of a
-control, that is known. Controls NVDA cannot tell the kind of are put to both models: the vision model looks
-at the picture, the coder model reads a deep query of NVDA, Windows and NVDA's off-screen model. The report
-says who said what, and a model can be wrong. With a control focused, ask "do a deep query of this control" to
-hear all that is reported about it, how it is worked, and what to ask for.</p>
+<h2>When you have a hand on a mouse</h2>
+<p>VisionClaw works from the keyboard first. At the times you work a real mouse, a trackpad or a game
+controller yourself, say so, for instance "I am using my real mouse", and it helps with that instead of leading
+you back to the keyboard: with NVDA's own mouse tracking, which NVDA+M turns on and off, with directions in
+words, and by saying what is under the pointer before you click.</p>
 
-<h2>The latest developer guides</h2>
+<h2>Speech, braille and drivers</h2>
+<p>Ask "which speech synthesizer am I using?", "what braille display do I have?", or about voices, braille
+tables, drivers and add-ons. Every setting of the synthesizer in use can be changed by describing it.</p>
+<p>Switching the speech synthesizer or braille display, as in "switch my speech synthesizer to eSpeak", is done
+with care. VisionClaw refuses a switch that would leave you with neither speech nor braille. It always asks
+first. After the switch you confirm that the new one works; if you do not answer within 20 seconds, it switches
+back by itself. It remembers drivers that gave trouble on this computer and warns you before trying them again.
+Commands that can silence or close NVDA are also always asked about first.</p>
+
+<h2>A voice of its own</h2>
+<p>Say "customise VisionClaw's voice". NVDA's Speech settings open, and the synthesizer, voice, rate, pitch and
+volume you choose there are used only for what VisionClaw says. While that window is open NVDA speaks with that
+voice too; when you close it, your own voice is back. "Turn off your own voice" makes VisionClaw speak like NVDA
+again; "remove VisionClaw's voice" deletes it after a question. Your own voice, rate and pitch are never
+changed for this.</p>
+
+<h2>With the JAWS Migration Assistant and ClassicSpeech</h2>
+<p>With the JAWS Migration Assistant running: "what is JAWS's Insert+F7 in NVDA?", "what is the JAWS say line
+command in NVDA?", "what did the JAWS migration bring over?". With ClassicSpeech running: "set ClassicSpeech to
+Advanced", "say less about each control", "which speech schemes do I have?", "switch to the scheme" and its name,
+"turn sound schemes off", "open voice profiles". VisionClaw asks before it changes anything in ClassicSpeech, and
+"undo that" puts it back. Without these add-ons, these jobs are not offered.</p>
+
+<h2>Everything inside NVDA</h2>
+<p>"Tell me everything NVDA knows about this control" reads every fact of the focused control, the navigator
+object, the window or what is under the mouse; ask for one fact, such as "what is the window class of the
+focused control?", and only that is said. "What does the function api.getFocusObject do?" searches every loaded
+module of NVDA and your add-ons and says what the thing is, how it is called, and what it gives back now. "Do a
+full audit of NVDA" counts and lists every command, module, class, function and value in your running NVDA, and
+how it drives your speech synthesizer and braille display, and saves the list as a file. Looking changes
+nothing.</p>
+
+<h2>The add-ons you have installed, and NVDA Coach</h2>
+<p>Ask "which add-ons do I have", "what does the Clock add-on do" or "which keys does the Clock add-on have".
+VisionClaw answers from what the add-on says about itself, its commands and keys where you are now, and its own
+help. Ask "is there an add-on that reads math" or "which of my add-ons can tell me the date", and it names the
+add-on that says it does this, with its key, and says when that add-on is turned off. VisionClaw never installs,
+removes, turns on or turns off an add-on.</p>
+<p>NVDA Coach is a free add-on by Tony Gebhard, in NVDA's Add-on Store, that teaches NVDA in lessons of single
+steps. VisionClaw works with it only when you ask to be coached or taught, and gives as much help as you ask
+for. "Give me a hint about browse mode" gives one hint and no more. "Coach me on reading the current line" gives
+the one step about it. "Teach me object navigation step by step" gives the lesson's steps in order. "Which
+lessons does NVDA Coach have" and "how far am I in NVDA Coach" tell you the chapters and what you have
+finished. "Open NVDA Coach" opens its own window. Without NVDA Coach, "teach me how to" is answered from NVDA's
+own user guide. Say "from now on, give me only a hint" or "always explain things step by step", and VisionClaw
+remembers how much help you want.</p>
+
+<h2>Add-ons written by VisionClaw</h2>
+<p>Ask "write an add-on that beeps when a link gets the focus". You never have to read, write or debug code. The
+coder model writes the add-on, the code is checked and compared with what you asked for, the other model reviews
+it, and you are always asked whether to turn it on, after being told in plain words what checking the code
+shows: the keys it adds, what it reacts to, which programs it works in, and whether it speaks, beeps, presses keys
+or clicks.</p>
+<p>When an add-on VisionClaw wrote fails, NVDA keeps working. The add-on is paused, you hear that it is being
+corrected, the models debug it from the exact error, and the corrected add-on is loaded again. If that does not
+hold after three tries it is turned off and you are told; "fix the add-on" followed by its name lets you say
+what it does wrong. Generated add-ons start without restarting NVDA and come back after a restart. Ask "list what
+you have made" or "remove the add-on" followed by its name to manage them. Ask "save the add-on" followed by its
+name "as a file" to get a normal add-on file in your Documents folder, under VisionClaw add-ons, that you can
+install for good or share.</p>
+<p>The check prevents accidents; it is not a sandbox. Once you say yes, the code runs inside NVDA like any other
+add-on. Small models make mistakes.</p>
+
+<h2>Skills</h2>
+<p>A skill tells VisionClaw how a kind of job is done well for a blind person: describing a photo, web forms,
+email, braille, games, NVDA for a beginner, and many more; 56 come with VisionClaw. VisionClaw chooses skills from
+the words of your request, at most two at a time. A skill never holds code, and every change is still asked
+about.</p>
+<p>Make your own in words: "make a new skill: when I ask about recipes, read the ingredients first". Ask "which
+skills do you have", "what does the email skill say", "turn off the game skill", or "delete my recipes skill".
+The skills window, NVDA+Alt+I, or the button in the settings, lists every skill and what it says, with the
+buttons New skill, Change, Turn off or on, Delete, Import a skill file, Open the skills folder, and Read the
+skills again. A skill that comes with VisionClaw is never deleted, only turned off; a changed one is kept as your
+copy, and deleting your copy brings back the original.</p>
+
+<h2>Memories</h2>
+<p>Say "remember that I use a braille display with 40 cells". VisionClaw keeps your own words as a small Markdown
+file, one for each memory, in the folder memories of its data, and uses them with later requests. It also keeps
+something lasting you say about how you work the computer when nothing else kept it, and says so and how to undo
+it; the setting "Remember things" decides this. Ask "what do you remember", "forget that", or "forget all", which
+is always asked about. The memories window, from the button in the settings, has a check box for each memory,
+the whole memory to read, Forget checked, and Forget all and start over.</p>
+
+<h2>Your library</h2>
+<p>Put Markdown, text, saved web pages or Word documents into VisionClaw's library folder, and questions are
+answered from them too, after NVDA, the program, its window and Windows. A document whose name names a program
+counts for that program. Ask "what is in my library" or use the button in the settings to open the folder.</p>
+
+<h2>How VisionClaw answers, and your own instructions</h2>
+<p>Every answer, every description of a picture and every add-on written on the fly is told who you are: blind,
+listening to speech or reading braille. Answers start with the answer, use no Markdown, copy names, numbers and
+keys exactly, say places in words, and say what cannot be read instead of guessing. In the settings, the button
+"How VisionClaw answers, and your own instructions" lets you read and rewrite every instruction, add your own,
+and restore the original of one or all of them. They apply to whatever model you use.</p>
+
+<h2>The developer guides</h2>
 <p>The NVDA Developer Guide from NV Access comes with VisionClaw as Markdown text, as it was when your version
 was built, under the GNU General Public License, version 2 or later. You have it without a download. The NVDA
 Add-on Development Guide does not come with it, because its authors have not said that it may be passed on.</p>
@@ -316,22 +539,7 @@ computer as text. It never happens by itself. Questions about writing for NVDA a
 plain words; when VisionClaw writes or corrects an add-on, the model is given the single lines of the guides
 that fit your request and that VisionClaw's own notes do not already cover. Ask "which developer guides do I
 have" to hear which are on the computer, from which day and where; "delete the developer guides" removes them
-after asking. Guides downloaded with VisionClaw 1.1.0 or older lost the indentation of some code examples: ask
-for the latest guides once more.</p>
-
-<h2>The add-ons you have installed, and NVDA Coach</h2>
-<p>VisionClaw reads from the running NVDA which add-ons are installed and what each says about itself, its help
-and its commands. Ask "is there an add-on that reads math" or "which of my add-ons can tell me the date", and
-it names the add-on that says it does this, with its key, and says when that add-on is turned off. VisionClaw
-never installs, removes, turns on or turns off an add-on.</p>
-<p>NVDA Coach is a free add-on by Tony Gebhard, in NVDA's Add-on Store, that teaches NVDA in lessons of single
-steps. VisionClaw works with it only when you ask to be coached or taught, and gives as much help as you ask
-for. "Give me a hint about browse mode" gives one hint and no more. "Coach me on reading the current line" gives
-the one step about it. "Teach me object navigation step by step" gives the lesson's steps in order. "Which
-lessons does NVDA Coach have" and "how far am I in NVDA Coach" tell you the chapters and what you have
-finished. "Open NVDA Coach" opens its own window. Without NVDA Coach, "teach me how to" is answered from NVDA's
-own user guide. Say "from now on, give me only a hint" or "always explain things step by step", and VisionClaw
-remembers how much help you want.</p>
+after asking.</p>
 
 <h2>Free training material, and everything as Markdown files</h2>
 <p>Ask "get the free NVDA training material". VisionClaw says which sites it is from and how many requests it
@@ -348,6 +556,44 @@ removes it after asking.</p>
 guides, training, notes, memories, skills, and help, where NVDA's own user guide, its list of what is new and
 the help of each of your add-ons are kept as Markdown.</p>
 
+<h2>Finding out what VisionClaw can download for you</h2>
+<p>Ask "what can you download for me", or press the button "What VisionClaw can download for you" in
+VisionClaw's settings. VisionClaw names everything it can get from the internet for you, says which of it is on
+your computer already, and gives the words that get each. It also tells you by itself, in one sentence after a
+fitting answer that begins "This is said once": after you ask for an add-on, that the guide for writing add-ons
+can be downloaded; after you ask to be taught something, that lessons can be. Each of these sentences is said
+once and never again, and nothing is downloaded until you ask and say yes.</p>
+
+<h2>The models</h2>
+<p>Ask "what model is installed", "which model are you using" or "how big is the model". The answer is read from
+your settings and your disk, not made up by a model: which model does which job, what is stored, how big it is,
+and where a loaded model runs.</p>
+<ul>
+<li>Every model is offered whatever your computer is, the 7B and 9B ones too. VisionClaw suggests a model; you
+decide.</li>
+<li>Every model can be chosen as Q4_K_M, smaller and faster, or Q6_K, larger and more exact, in a second list
+under each model, with its size. Q4_K_M is suggested.</li>
+<li>The models window has a button, "Look for newer models". Only when you press it and say yes, VisionClaw
+reads the list of offered Qwen models from its own page on GitHub, so newer small models can be offered without
+a new version of the add-on.</li>
+<li>NVDA+Alt+M, or "See, remove or swap models" in the settings: remove some or all models and choose others. You
+are always asked before anything is deleted, and a removed model can be downloaded again. After you choose other
+models, VisionClaw offers to remove the ones you no longer use.</li>
+<li>The two very small models, Qwen3.5 0.8B and Qwen2.5 Coder 0.5B, are asked one small question at a time and
+answer a question about something looked up with a line of it, word for word. They are fast and less
+accurate.</li>
+<li>Where the models run: a dedicated graphics card, Vulkan, or the processor. If the chosen place does not work,
+VisionClaw falls back by itself: dedicated card, then Vulkan, then the processor. Two large models that do not
+fit on one chip run side by side, the second on another chip or the processor.</li>
+</ul>
+
+<h2>VisionClaw's own log</h2>
+<p>VisionClaw keeps a log of its own, so that when something goes wrong it can be found out why; it does not
+depend on NVDA's logging level. Ask "open the VisionClaw log", or use the button in the settings, where you also
+choose Detailed, Brief or Off. Detailed, the default, records every request, step, question to a model and its
+answer, and every error with the place in the code. The log stays on your computer and is sent nowhere; it holds
+what you asked and what was read from your screen, so look through it before you give it to someone.</p>
+
 <h2>Taking VisionClaw along: a portable copy</h2>
 <p>Everything VisionClaw keeps is inside its own add-on folder, in the folder data: the models, the guides, the
 training material, notes, memories, skills, your library, the logs, and whatever else you have it keep. When
@@ -362,105 +608,96 @@ configuration" there, and VisionClaw comes along with everything. A progress bar
 Cancel stops it. A drive formatted as FAT32 cannot hold a file of 4 GB or more; VisionClaw says so before it
 starts.</p>
 
-<h2>Finding out what VisionClaw can download for you</h2>
-<p>Ask "what can you download for me", or press the button "What VisionClaw can download for you" in
-VisionClaw's settings. VisionClaw names everything it can get from the internet for you, says which of it is on
-your computer already, and gives the words that get each. It also tells you by itself, in one sentence after a
-fitting answer: after you ask for an add-on, that the guide for writing add-ons can be downloaded; after you ask
-to be taught something, that lessons can be. Each of these sentences is said once and never again, and nothing
-is downloaded until you ask and say yes.</p>
-
-<h2>When you have a hand on a mouse</h2>
-<p>VisionClaw works from the keyboard first. At the times you work a real mouse, a trackpad or a game
-controller yourself, say so, for instance "I am using my real mouse", and it helps with that instead of leading
-you back to the keyboard: with NVDA's own mouse tracking, which NVDA+M turns on and off, with directions in
-words, and by saying what is under the pointer before you click.</p>
-
-<h2>Add-ons written by VisionClaw</h2>
-<p>You never have to read, write or debug code. The coder model writes the add-on, the code is checked and
-compared with what you asked for, the other model reviews it, and you are always asked whether to turn it on,
-after being told in plain words what checking the code shows: the keys it adds, what it reacts to, which
-programs it works in, and whether it speaks, beeps, presses keys or clicks.</p>
-<p>When an add-on VisionClaw wrote fails, NVDA keeps working. The add-on is paused, you hear that it is being
-corrected, the models debug it from the exact error, and the corrected add-on is loaded again. If that does not
-hold after three tries it is turned off and you are told; "fix the add-on" followed by its name lets you say
-what it does wrong. Generated add-ons start without restarting NVDA and come
-back after a restart. Ask "list what you have made" or "remove the add-on" followed by its name to manage them.
-Ask "save the add-on" followed by its name "as a file" to get a normal add-on file in your Documents folder,
-under VisionClaw add-ons, that you can install for good or share.</p>
-<p>The check prevents accidents; it is not a sandbox. Once you say yes, the code runs inside NVDA like any other
-add-on. Small models make mistakes.</p>
-
-<h2>Describing images</h2>
-<ul>
-<li>NVDA+Alt+A: describe the current element.</li>
-<li>NVDA+Alt+W: describe the current window.</li>
-<li>NVDA+Alt+F: describe the whole screen.</li>
-<li>NVDA+Alt+D: describe the image or image file on the clipboard.</li>
-<li>NVDA+Alt+G: turn automatic descriptions of images without a label on or off.</li>
-<li>NVDA+Alt+B: turn names for buttons without a name on or off.</li>
-<li>NVDA+Alt+N: give your own name to the current button or overlay item.</li>
-</ul>
-<p>Press a describe command once for a quick spoken description, twice for a detailed description in a window
-where you can ask questions about the image. Press Control to stop speaking. On a photo message in a chat app,
-or an image file in File Explorer, NVDA+Alt+A describes the photo itself.</p>
-
-<h2>Settings</h2>
-<p>NVDA menu, Preferences, Settings, VisionClaw:</p>
-<ul>
-<li>Where the models run: Automatic, Dedicated graphics card, Vulkan, or Processor only. If the chosen place
-does not work, VisionClaw falls back by itself: dedicated card, then Vulkan, then the processor.</li>
-<li>Two large models that do not fit on one graphics chip together: the second runs on another chip or on the
-processor, so both stay loaded. Turn this off to make them take turns on the best chip instead.</li>
-<li>How much the models think before acting: Automatic, Off, Low, Medium, High.</li>
-<li>Ask the models one small question at a time: Automatic, Always or Never. Automatic does this for the two
-very small models only. They are then asked for one thing at a time, can only pick among what was really
-found, and answer a question about something looked up with a line of it, word for word.</li>
-<li>Ask before changes, and say each step while working.</li>
-<li>The search engine used when you ask to search the web.</li>
-<li>Game controller: tell me when one is connected and listen for its View and Menu buttons held together;
-listen, but say nothing when one is connected; or do not look for a game controller.</li>
-<li>Whether add-ons that fail are debugged and corrected by the models by themselves.</li>
-<li>The models on this computer, with their sizes and what each is in use for.</li>
-<li>See, remove or swap models: remove some or all, and choose smaller or bigger ones. NVDA+Alt+M opens the
-same window. You are always asked before anything is deleted, and a removed model can be downloaded again.</li>
-<li>Choose or download models.</li>
-<li>VisionMate's settings: automatic descriptions, names for buttons, Windows OCR, the overlay, getting ready
-when NVDA starts, answering in NVDA's language, and the tick while waiting.</li>
-</ul>
-
-<h2>Requirements</h2>
-<ul>
-<li>Windows 10 or 11, 64-bit, and NVDA 2024.1 or later.</li>
-<li>4 GB of free disk space for the two suggested models, and 8 GB of RAM or more.</li>
-<li>A graphics chip that supports Vulkan makes it much faster.</li>
-</ul>
-
 <h2>Getting a newer version of VisionClaw</h2>
 <p>Press NVDA+Alt+U, use the button "Look for a newer version now" in VisionClaw's settings, or ask "check for a
 new version of VisionClaw". VisionClaw reads the list of its versions from its own page on GitHub. If there is a
 newer one, a window opens with the focus in a read-only edit box that holds its version, its size and what is
 new, one point to a line. Read it with the arrow keys as often as you like. Tab reaches two buttons, Download
-and install, and Not now; Escape means not now. The file
-is checked against the size and SHA-256 GitHub reports, and then NVDA itself asks whether to install it and
+and install, and Not now; Escape means not now. The file is checked against the size and SHA-256 GitHub
+reports, which shows that it arrived whole, not who made it, and then NVDA itself asks whether to install it and
 restarts.</p>
 <p>In the settings, "Look for a newer version of VisionClaw" can be set to "When NVDA starts, at most once a day,
 and tell me". Then you hear one sentence when a newer version exists; nothing is downloaded until you ask. It
-starts on "Only when I ask". Nothing about you or your computer is sent; GitHub sees your internet address, as
-any website does.</p>
+starts on "Only when I ask".</p>
+
+<h2>Settings</h2>
+<p>NVDA menu, Preferences, Settings, VisionClaw. In the order you meet them:</p>
+<ul>
+<li>Run the models on (graphics): Automatic, Dedicated graphics card, Vulkan, or Processor only.</li>
+<li>When both models do not fit on one graphics chip, run the second one on another chip or the processor,
+instead of the two taking turns.</li>
+<li>How much the models think before acting: Automatic, Off, Low, Medium, High.</li>
+<li>Ask the models one small question at a time: Automatic, Always or Never. Automatic does this for the two very
+small models only.</li>
+<li>Remember things: when you ask, and when you say something lasting about yourself or how you like things;
+only when you ask it to remember; or never.</li>
+<li>What VisionClaw remembers, to forget some or all: opens the memories window.</li>
+<li>What VisionClaw can download for you.</li>
+<li>Open your library of documents.</li>
+<li>Search the web with: the search engine used when you ask to search the web.</li>
+<li>Game controller: tell me when one is connected and listen for its View and Menu buttons held together;
+listen, but say nothing when one is connected; or do not look for a game controller.</li>
+<li>Speech model for asking by voice: the small one, about 1 GB, or a larger one. It is downloaded when you
+first use it, after a question.</li>
+<li>When an add-on VisionClaw wrote fails, have the models debug and correct it by themselves.</li>
+<li>Ask me before VisionClaw changes a setting, clicks, presses keys or types.</li>
+<li>Say each step while VisionClaw works on a request.</li>
+<li>Speak with VisionClaw's own voice, once you have set one.</li>
+<li>Models on this computer: a box with the models, their sizes and what each is in use for.</li>
+<li>Look for a newer version of VisionClaw: only when I ask, or when NVDA starts, at most once a day.</li>
+<li>Look for a newer version now.</li>
+<li>VisionClaw's own log, for finding out why something went wrong: Detailed, Brief or Off.</li>
+<li>Open VisionClaw's log.</li>
+<li>Skills: read, make, change, turn off or delete them. Opens the skills window.</li>
+<li>Open the skills folder.</li>
+<li>How VisionClaw answers, and your own instructions.</li>
+<li>See, remove or swap models.</li>
+<li>Choose or download models.</li>
+<li>Make a portable copy of VisionClaw with everything in it, for a flash drive or another computer.</li>
+<li>VisionMate's settings: automatically describe images without a label, photos in chats and photos in image
+viewers; describe images further down the page in the background, so they are ready sooner; name buttons that
+have no name, from their icon; use Windows OCR to read screen text exactly; keep the overlay up to date as the
+window changes; get ready when NVDA starts; answer in NVDA's language; play a soft tick while waiting for a
+description.</li>
+</ul>
+
+<h2>Requirements</h2>
+<ul>
+<li>Windows 10 or 11, 64-bit, and NVDA 2024.1 or later.</li>
+<li>4 GB of free disk space for the two suggested models, more for larger ones, and 8 GB of RAM or more.</li>
+<li>A graphics chip that supports Vulkan makes it much faster.</li>
+</ul>
+
+<h2>What has been tested</h2>
+<p>VisionClaw is tested with plain Python, with stand-ins for NVDA, Windows, the mouse and the internet, and with
+the real models in the engine. Most of it has not yet been run inside NVDA. These are small models: they are
+right most of the time on simple requests and less often on complicated ones. Please double-check anything
+important and report what does not work at
+<a href="https://github.com/joshknnd1982/visionclaw">github.com/joshknnd1982/visionclaw</a>.</p>
 
 <h2>Privacy</h2>
-<p>VisionClaw does not collect any information. What you say when you ask by voice is turned into text on your
-own computer and is not kept or sent anywhere. It connects to the internet only to download the models you
-choose, and the speech model after a question; when you press Look for newer models in the models window and say yes, to read the list of models
-from its own page on GitHub; and when you ask for the latest developer guides and say yes, to download those
-two guides; and when you ask it to learn about a program and say yes, to read about it on Wikipedia, Wikidata
-and the program's own website. None of these happens by itself. It reads the list of its own versions from GitHub when you ask it to look for a newer version, and by itself only if you turn that on in the settings. Screens, photos, requests and generated code never
-leave your computer.</p>
+<p>VisionClaw does not collect any information. Screens, photos, requests, generated code, memories, notes and
+the log never leave your computer. What you say when you ask by voice is turned into text on your own computer
+and is not kept or sent anywhere. VisionClaw's own code connects to the internet only:</p>
+<ul>
+<li>to download the models you choose, and the speech model after a question, from Hugging Face;</li>
+<li>when you press Look for newer models in the models window and say yes, to read the list of models from its
+own page on GitHub;</li>
+<li>when you ask for the latest developer guides and say yes, to download those two guides;</li>
+<li>when you ask for the free training material and say yes, to download those pages from the NVDA wiki, AFB and
+Hadley;</li>
+<li>when you ask it to learn about a program and say yes, to read about it on Wikipedia, Wikidata and the
+program's own website, sending the program's name and nothing about you;</li>
+<li>when you ask it to look for a newer version, to read the list of its own versions from GitHub, and by itself
+only if you turn that on in the settings.</li>
+</ul>
+<p>None of these happens by itself. When you ask it to open or search the web, it hands the address to your own
+browser, which goes online as usual; a web search sends your search words to the search engine you chose.</p>
 
 <h2>Credits</h2>
 <p>VisionMate by Athiban Vijay (GPL v2 or later). The agent design follows SmallClaw by XposeMarket (MIT).
-The engine is llama.cpp (MIT). The models are by the Qwen team, Alibaba Cloud (Apache 2.0).
+The engine is llama.cpp (MIT). The models are by the Qwen team, Alibaba Cloud (Apache 2.0). The NVDA Developer
+Guide by NV Access and contributors (GPL v2 or later) comes with VisionClaw as Markdown.
 VisionClaw is licensed under the GNU General Public License, version 2 or later.</p>
 </body>
 </html>

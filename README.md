@@ -16,17 +16,44 @@ VisionClaw is a fork of [VisionMate](https://github.com/athee06/VisionMate) by A
 everything VisionMate does: image descriptions, the overlay for windows NVDA cannot read, photo descriptions in
 chat apps, and names for unlabelled buttons.
 
-> **Status: version 1.3.0.** The orchestration core has been tested with scripted models and with
-> real models through the bundled engine. Inside NVDA 2026.3.1 the owner has run the models window, a first
-> set of requests, five tests of version 0.4.0 and three of 0.8.2; **most of the test plan has not been run inside NVDA
-> yet**, and what 0.9.0 to 0.11.0 add (the command fix, the log, the audit, the questions about pictures, questions
-> answered from NVDA, the program, the window and Windows, the window that says what is new, learning about a
-> program from the internet), what 1.1.0 adds (controls that are hovered over, held down, swiped or clicked at
-> the right moment, and the choice of quant), what 1.2.0 adds (fingers and pressure, games that read the mouse
-> directly, and a game controller), what 1.3.0 adds (the developer guides put to use, free training material,
-> add-ons by what you want, NVDA Coach, and being told what can be downloaded), scrolling and
-> the arrow keys for dials not at all. Expect rough edges and please report them. See
+> **Status.** Everything is tested with plain Python, with stand-ins for NVDA, Windows, the mouse and the
+> internet, and with the real models through the bundled engine. Inside NVDA 2026.3.1 the owner has run the
+> models window, a first set of requests, five tests of version 0.4.0 and three of 0.8.2; **most of the test plan
+> has not been run inside NVDA yet**. Expect rough edges and please report them. See
 > [docs/STATUS.md](docs/STATUS.md) for exactly what was tested.
+
+<!-- news: written by tools/write_help.py from manifest.ini; do not change it by hand -->
+This README is for VisionClaw 1.7.1.
+
+## What is new in 1.7.1
+
+- Pointer mode no longer needs a key your keyboard may not have. Small and laptop keyboards often have no Applications key, no Page Up and Page Down, no Home and End, and no function keys. Every job of pointer mode now has a key that every keyboard has, and the spoken help names only those.
+- A right-clicks, in pointer mode and in the overlay.
+- I turns the mouse wheel up and K down, J left and L right, about a page; with Shift one notch. These four letters lie under the right hand like the arrow keys.
+- B brings the pointer back to the middle of the window.
+- While the arrow keys work a dial or slider: T goes to its top end and B to its bottom end.
+- The keys you may have learned still work on a keyboard that has them: the Applications key and Shift+F10, Page Down and Page Up, Home and End.
+- A click or a turn of the wheel in pointer mode now waits until you have let go of Shift, Control and Alt. Held down, these keys change what the mouse does in most programs: with Shift the wheel scrolls sideways and a double click selects everything in between, with Control the wheel zooms. If a key stays down, nothing is done and you are told.
+- Stated plainly: tested with stand-ins for NVDA, the mouse and the keyboard. Not run inside NVDA yet.
+
+## What was new in 1.7.0
+
+- A setting only for one program: "make NVDA speak a little faster, only in this program", "turn off the typing echo just in Notepad", "when I'm in Word, set punctuation to all". NVDA keeps it in a configuration profile that it turns on by itself whenever that program is in front. VisionClaw says so and always asks before it makes a profile. Other programs stay as they were.
+- Such a setting is changed only while that program is in front, so it is never changed in the wrong place. "Undo that", said in that program, puts it back. "Which programs have their own settings" lists them, and "remove the settings for this program" deletes the program's profile after a question.
+- Requests that follow the one before: "do that again", "a bit more", "the other way", "too fast", "say that again", "the same in Word", "and the pitch?", "open the second one". VisionClaw writes such a request out in full and tells you how it understood you: the answer begins "Understood as". Everything that changes something still asks first.
+- A date in a calendar that takes no keys: have the calendar showing and say "pick 14 March 2027 in this calendar" or "choose next Friday in the date picker". VisionClaw asks, presses the calendar's own button for the next or previous month until the right month shows, then presses the day, and tells you what it did. A calendar that is only drawn is read from the window's picture.
+- Asking by voice: press NVDA+Alt+V, or Alt+V in the Ask VisionClaw window, and speak after the high beep. VisionClaw stops listening when you stop speaking. What it heard is put into the box and read to you; Enter sends it, and nothing is done before that.
+- Your words are turned into text on this computer, by the speech model Qwen3-ASR from the Qwen team, and are sent nowhere. The first time, VisionClaw asks whether to download that model, about 1 GB, from Hugging Face. A larger one can be chosen in the settings. "Delete the speech model" removes it.
+- Everywhere, or only here: "speak words as I type in every application", "stop announcing capital letters in Word". Where the program in front has settings of its own and you say neither, VisionClaw asks which you mean. After a change it names the programs that keep a value of their own.
+- Working through a task when the usual path isn't clear: "I'm stuck, I want to attach a file to this email", "walk me through exporting this as a PDF". VisionClaw finds the thing in the program that leads there, tells you its key, and asks whether to press it, only tell you, or stop. It asks before every step, checks in after three, stays in this one program, and tells you what it did.
+- VisionClaw's own windows are off limits to it: it never clicks, types or presses keys in them. Their controls are yours.
+- A voice of its own: say "customise VisionClaw's voice". NVDA's Speech settings open, and the synthesizer, voice, rate, pitch and volume you choose there are used only for what VisionClaw says. When you close that window, your own voice is back.
+- With the JAWS Migration Assistant running: "what is JAWS's Insert+F7 in NVDA?" tells you what the keystroke does in JAWS and which NVDA command and key does the same.
+- With ClassicSpeech running: "set ClassicSpeech to Advanced", "which speech schemes do I have", "switch to the scheme" and its name, "turn sound schemes off", "open voice profiles". Asked first, and "undo that" puts it back.
+- Stated plainly: everything here was tested with stand-ins for NVDA, with programs and calendars made up by the tests, and with the real 9B model choosing what to do. The speech model heard 24 of 24 requests spoken by Windows' own two voices; a person speaking into a real microphone has not been tried. The JAWS Migration Assistant and ClassicSpeech were not installed where this was written, so they were tried only against stand-ins built from their source. None of this has been run inside NVDA yet.
+
+How to use each of these is explained in its own part of this README, further down.
+<!-- /news -->
 
 ## What you can ask
 
@@ -48,8 +75,9 @@ Press **NVDA+Alt+C**, type a request, and press Enter. For example:
 - *What is browse mode?* *What does NVDA+T do?* *What does Windows+D do?*
 - *What can I do here?* *Which key is for the Save button?* *Which windows are open?*
 - *Learn about this program.* *Learn about this game.* Then: *How do I duplicate a line?* *Delete the notes on this program.*
-- *What is on my screen?*
-- *Press the Play button in this window.* (Works in windows and games NVDA cannot read.)
+- *What is on my screen?* *Read the text in this window.*
+- *Press the Play button in this window.* (Works in windows and games NVDA cannot read.) *Press Control+S.*
+- *Remember that I use a braille display with 40 cells.* *What do you remember?* *Which skills do you have?*
 - *Give this program a hotkey that clicks Send.*
 - *Pinch the map with two fingers.* *Swipe left with three fingers.* *Press hard on the drum pad.*
 - *Turn left.* *Look up a little.* *This game has its own mouse pointer.* (For games that read the mouse directly.)
@@ -94,8 +122,8 @@ You do not need to know NVDA. VisionClaw finds the right NVDA setting or command
 
 ## Install
 
-1. Download **[VisionClaw-0.11.0.nvda-addon](https://github.com/joshknnd1982/visionclaw/releases/download/v0.11.0/VisionClaw-0.11.0.nvda-addon)**
-   (or pick a version on the [releases page](https://github.com/joshknnd1982/visionclaw/releases)), open the
+1. Download **[VisionClaw.nvda-addon](https://github.com/joshknnd1982/visionclaw/releases/latest/download/VisionClaw.nvda-addon)**,
+   which is always the newest version (or pick a version on the [releases page](https://github.com/joshknnd1982/visionclaw/releases)), open the
    file, confirm the installation, and restart NVDA.
 2. If VisionMate is installed, disable it in the Add-on Store: VisionClaw includes it and uses the same keys.
 3. A welcome window opens where you **choose your models**. Press Enter to download them. While they download,
@@ -294,6 +322,7 @@ settings; what cannot be undone is always asked about.
 | You say | What happens |
 |---|---|
 | *Open Notepad. Open my Downloads folder. Open the Recycle Bin. Go into my Windows settings. Open Bluetooth settings.* | The thing is found by its name among the programs of the Start menu, what is on your desktop, the folders, tools and settings pages of Windows, and your own files, and opened as a double click would. When several things have the name, you are asked which. |
+| *Open the Start menu. Open the notification center. Open Task View. Open the Run dialog. Open clipboard history. Open the emoji panel.* | The part of Windows itself is opened with Windows' own key, and you are told that key for next time and how to move inside it. |
 | *Check my recycle bin. Is my recycle bin full?* | How many items it holds, how much room they take, and whether emptying is worth it for the room left on your drive. Answered at once; no model is asked. |
 | *Empty the recycle bin.* | Always asks first, with the number of items and their size: what is emptied is deleted for good. |
 | *Turn down my system volume. Set the computer's volume to 40 percent. What is the volume of my computer?* | The volume of the whole computer, not of NVDA's voice. Turning it down stops at 10 percent so that NVDA can still be heard. Muting, or a number below 10, is refused when no braille display is in use, and asked about when one is. |
@@ -474,9 +503,10 @@ buttons and form fields, so nothing has to be guessed from a picture.
   fields the page marks as not valid, the required fields that are empty, and the page's own error messages,
   each with its field, and puts NVDA's reading position on the first of them. Nothing on the page is changed.
 - **Hear the headings of the page** in order with their levels, and how many links, buttons and fields it has.
+  "Summarize this page" gives the beginning of each part of the page, in the page's own words.
 - **Move to a place on the page**: "take me to the heading Refund policy" puts NVDA's reading position there,
-  so you can read on with NVDA's own commands.
-- **Go back, forward, or reload.**
+  so you can read on from there with NVDA's own commands.
+- **Go back, forward or reload.**
 
 The models still run only on your computer. The browser goes online, as it does when you use it yourself.
 
@@ -1097,7 +1127,51 @@ writes it as a normal `.nvda-addon` file in your Documents folder, under "Vision
 install like any other add-on or share with someone who has the same problem.
 
 The check prevents accidents. It is not a sandbox: once you say yes, the code runs inside NVDA like any other
-add-on. Small models make mistakes; read the code or ask someone you trust if an add-on matters to you.
+add-on. Small models make mistakes; if an add-on matters to you, listen to what VisionClaw says the code does
+before you say yes.
+
+## Skills
+
+A skill tells VisionClaw how a kind of job is done well for a blind person: describing a photo, web forms,
+email, braille, games, NVDA for a beginner, and many more; 56 come with VisionClaw. VisionClaw chooses skills from
+the words of your request, by plain code, at most two at a time; an everyday word alone does not start one. A
+skill never holds code, and every change is still asked about.
+
+- **Make your own in words**: "make a new skill: when I ask about recipes, read the ingredients first". What the
+  skill says is your own words.
+- "Which skills do you have", "what does the email skill say", "turn off the game skill", "delete my recipes
+  skill".
+- **The skills window**, NVDA+Alt+I, or the button "Skills: read, make, change, turn off or delete them" in the
+  settings: every skill and what it says, with New skill, Change, Turn off or on, Delete, Import a skill file,
+  Open the skills folder, and Read the skills again. A skill that comes with VisionClaw is never deleted, only
+  turned off; a changed one is kept as your copy, and deleting your copy brings back the original.
+
+## Memories
+
+Say "remember that I use a braille display with 40 cells". VisionClaw keeps your own words as a small Markdown
+file, one for each memory, in the folder `memories` of its data, and uses them with later requests. It also keeps
+something lasting you say about how you work the computer when nothing else kept it, and then says so and how to
+undo it; the setting "Remember things" decides this. A new memory about the same thing replaces the old one.
+
+- "What do you remember", "forget that", "forget all" (always asked about first).
+- **The memories window**, from the button "What VisionClaw remembers, to forget some or all" in the settings: a
+  check box for each memory, the whole memory to read, Forget checked, and Forget all and start over.
+- How much help you want is a memory too: "from now on, give me only a hint".
+
+## Your library
+
+Put Markdown, text, saved web pages or Word documents into VisionClaw's library folder, and questions are
+answered from them too, after NVDA, the program, its window and Windows. A document whose name names a program
+counts for that program. Ask "what is in my library", or press "Open your library of documents" in the settings
+to open the folder.
+
+## How VisionClaw answers, and your own instructions
+
+Every answer, every description of a picture and every add-on written on the fly is told who you are: blind,
+listening to speech or reading braille. Answers start with the answer, use no Markdown, copy names, numbers and
+keys exactly, say places in words, and say what cannot be read instead of guessing. In the settings, the button
+"How VisionClaw answers, and your own instructions" lets you read and rewrite every instruction, add your own,
+and restore the original of one or all of them. They apply to whatever model you use.
 
 ## Commands
 
@@ -1108,6 +1182,7 @@ add-on. Small models make mistakes; read the code or ask someone you trust if an
 | NVDA+Alt+P | Say the progress of the current request |
 | NVDA+Alt+X | Stop the current request |
 | NVDA+Alt+M | See, remove or swap the models on this computer |
+| NVDA+Alt+I | The skills window: read, make, change, turn off or delete skills |
 | NVDA+Alt+U | Look for a newer version of VisionClaw, and get it if you want it |
 | NVDA+Alt+K | Pointer mode: work the mouse pointer with the arrow keys |
 | NVDA+Alt+J | Controller mode: work the mouse pointer with a connected game controller |
@@ -1175,6 +1250,47 @@ is often switched off; this one does not depend on it.
   your screen, so look through it before you give it to someone.
 - A fault inside VisionClaw no longer ends the whole request: the step that failed says so, the rest of your
   request is still done, and where it happened is in the log.
+
+## Settings
+
+NVDA menu, Preferences, Settings, VisionClaw. In the order you meet them:
+
+- **Run the models on (graphics)**: Automatic, Dedicated graphics card, Vulkan, or Processor only.
+- **When both models do not fit on one graphics chip, run the second one on another chip or the processor,
+  instead of the two taking turns.**
+- **How much the models think before acting**: Automatic, Off, Low, Medium, High.
+- **Ask the models one small question at a time**: Automatic, Always or Never. Automatic does this for the two
+  very small models only.
+- **Remember things**: when you ask, and when you say something lasting about yourself or how you like things;
+  only when you ask it to remember; or never.
+- **What VisionClaw remembers, to forget some or all**: opens the memories window.
+- **What VisionClaw can download for you.**
+- **Open your library of documents.**
+- **Search the web with**: the search engine used when you ask to search the web.
+- **Game controller**: tell me when one is connected and listen for its View and Menu buttons held together;
+  listen, but say nothing when one is connected; or do not look for a game controller.
+- **Speech model for asking by voice**: the small one, about 1 GB, or a larger one. It is downloaded when you
+  first use it, after a question.
+- **When an add-on VisionClaw wrote fails, have the models debug and correct it by themselves.**
+- **Ask me before VisionClaw changes a setting, clicks, presses keys or types.**
+- **Say each step while VisionClaw works on a request.**
+- **Speak with VisionClaw's own voice, once you have set one.**
+- **Models on this computer**: the models, their sizes and what each is in use for.
+- **Look for a newer version of VisionClaw**: only when I ask, or when NVDA starts, at most once a day.
+- **Look for a newer version now.**
+- **VisionClaw's own log, for finding out why something went wrong**: Detailed, Brief or Off.
+- **Open VisionClaw's log.**
+- **Skills: read, make, change, turn off or delete them**: opens the skills window.
+- **Open the skills folder.**
+- **How VisionClaw answers, and your own instructions.**
+- **See, remove or swap models.**
+- **Choose or download models.**
+- **Make a portable copy of VisionClaw with everything in it, for a flash drive or another computer.**
+- VisionMate's settings: **Automatically describe images without a label, photos in chats and photos in image
+  viewers**; **Describe images further down the page in the background, so they are ready sooner**; **Name
+  buttons that have no name, from their icon**; **Use Windows OCR to read screen text exactly**; **Keep the
+  overlay up to date as the window changes**; **Get ready when NVDA starts**; **Answer in NVDA's language**;
+  **Play a soft tick while waiting for a description**.
 
 ## Requirements
 
