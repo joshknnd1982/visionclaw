@@ -743,5 +743,58 @@ shown for a moment and hidden again.
       answers; 10 seconds, and updates come every 10 seconds.
 - [ ] With a braille display: the updates are shown on it too.
 
+## Ten things that used to need sighted help (1.12.0)
+None of these has run inside NVDA. Each is one real run; say what you hear.
+- [ ] Settings: "make NVDA only speak words when I type". The answer begins "Understood as", and two settings are
+      asked about and changed: typed words on, typed characters off. "Undo that" twice puts both back.
+- [ ] A scanned form (a PDF that is only a picture, open in Adobe Acrobat with Fill and Sign chosen, or any picture
+      of a form in a viewer): "click the line next to Full Name and type my name". First say "remember that my name
+      is" and your name. VisionClaw asks with the label and your name in the question, clicks, types, and says
+      whether the text is read there. Check with NVDA+R or by asking to read the window that the name is on the line.
+- [ ] The same form: "click the dotted line labelled Signature so I can sign": the line is clicked, nothing is typed,
+      and the answer says that VisionClaw does not sign for you.
+- [ ] The same form, a label that is printed twice: VisionClaw asks which one, by where each is on the page.
+- [ ] An installer with a page that offers extra software (many free programs have one): "uncheck any bundled
+      toolbars in this installer and click Next until the installation starts". One question first; then each page
+      is said; the offer is unchecked and named; the licence page asks you; the Install button asks you. Say no
+      at Install and check that nothing was installed.
+- [ ] An installer drawn by its own code, where NVDA reads nothing: the same request. The pages are read from the
+      window's picture; say whether the right button was pressed each time.
+- [ ] A game's launcher or a program with its own settings window: "click the Play button in this launcher, open the
+      Settings menu, and turn on subtitles and narration" (use names your program has). Four steps; each option is
+      said with what it was and what it is now.
+- [ ] A web form that marks a wrong field only by a red border (many sign-up pages; leave a required field empty and
+      press the send button first): "why won't this form submit". The answer names the field outlined in red, and
+      NVDA's reading position is on it: press NVDA+Tab or read the current line to check.
+- [ ] An audio plug-in or program with a drawn knob that shows its value as a number: "turn the Mix knob down to 35
+      percent" (use a knob your program has). VisionClaw asks, moves it step by step, and says what it shows now.
+      Check the value with the program's own way. Then a knob that shows no number: it says so and leaves it.
+- [ ] WhatsApp Web, Discord or another chat with a picture in it: "what does the latest picture in this chat say",
+      then "explain the joke in the latest picture". The answer begins with which picture was looked at.
+- [ ] A shop's page with a product photo: "look at the product photo, is it navy blue or black". The measured
+      colours are said first, then the model's answer.
+- [ ] Microsoft Word with a document of your own that you have a copy of: "format this document in APA style".
+      The question names every change. Afterwards NVDA+F on a paragraph says the font and the spacing; one
+      Control+Z in Word puts everything back. This is the first thing to try in Word: whether Word's own
+      interface is reached at all.
+- [ ] Word: "does my document fit on one page" and "how many pages is this document": the numbers match Word's own
+      status bar (NVDA+End).
+- [ ] Google Docs: "format this document in APA style": nothing is changed, and the answer gives Google's keys.
+- [ ] A page with a check box that asks whether you are a person: "what kind of check is this", then "click the
+      verify you are human box". VisionClaw asks before pressing, and says what the page shows afterwards. It never
+      says the check was passed unless the page says so.
+- [ ] A check with a puzzle of pictures: "what do the squares show". Each square is said by number. Then "select
+      squares 1 and 4, then verify" (your own numbers): only those are clicked, after a question. "Select all
+      squares with traffic lights" selects nothing and says that you choose.
+- [ ] A shop's page with colour swatches: "select the dark blue colour option". The question names the option and
+      its measured colour; afterwards VisionClaw says what the page marks as chosen.
+- [ ] A shop's page at the last step, with a button that buys (do not go through with it): "click the Place Order
+      button", with confirmations turned off in VisionClaw's settings. VisionClaw still asks, and reads the total
+      from the page. Say no: nothing is pressed.
+- [ ] A field for a card number or a password: "type 1234 into the card number field": VisionClaw refuses and says
+      why.
+- [ ] An airline's seat map: "find a free window seat near the front". The best few are said with reasons; say no
+      to the question, and no seat is taken.
+
 ## Stopping NVDA
 - [ ] NVDA exits without an error, and no `vcengine.exe` is left running (Task Manager).

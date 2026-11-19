@@ -1137,6 +1137,60 @@ keyboard and speech alone.
   the rule of the kind right after the question (`RULES`, plain sentences, no example, nothing that needs sight), and
   says each answer after its own question (`together`). VisionClaw's own questions to the model that sees are asked
   whole (`look(whole=True)`). The description window (`followup.py`) is unchanged: it was measured as it is.
+- **What a sighted helper was needed for is done by plain code first, and what is the user's to answer stays the
+  user's.** The owner said on 2026-11-19, of an article that lists ten things JAWS's AI agent is said to do: "adapt
+  this article so all of these features work with visionclaw. I want the user to be able to do all of these." The
+  plan, kept as it was followed, is `docs/PLAN-ten-scenarios.md`. What follows from it:
+  - **Each of these jobs reads what is asked from the user's own words with a function of its own**, which is its
+    row in `planner._HINTS`, `_NEEDS` and `_SURE`: `paper.wish`, `wizard.wish`, `images.meant`, `docformat.wish`,
+    `docformat.layoutWish`, `humancheck.about`, `shopping.optionWish`, `seats.seatWish`. Such a function must give
+    None for every request that is about something else. They stand first in `_HINTS`, so one that takes too much
+    takes it from every older job: on the first day "which model should I use for describing pictures", "the
+    Options button", "choose the second option" and "coach me on reading the current line" were taken, and are now
+    pinned in `tests/test_ten.py`. Add the request there when another is found.
+  - **Measured, not looked at.** A colour is named from its pixels (`claw/colours.py`) and said to be measured; a
+    line to write on, a printed check box and a grid of tiles are found in the pixels (`claw/spots.py`). Never ask
+    a model for a colour or a place that plain code can measure. Sizes follow the screen's scaling.
+  - **A form that is only a picture** (`fill_blank`; `claw/paper.py`, `papertools.py`): the label is read from the
+    user's words and found in the text read from the picture; what is typed is the user's own text, taken word
+    for word from a memory ("Your name is ...") or asked for, never made up; a name the user only likes to be
+    called is no name for a form. VisionClaw never signs.
+  - **A drawn knob set to a number** (`claw/target.py`, in `controltools.setSeen`): moved a step at a time, the
+    number at it read after every step. Which number is the knob's own is told by the knob's name in its line or
+    by a step that changed that number alone; a number that only happened to be there is never followed, and
+    where two change together and neither is named, it stops. What cannot be set is put back as it was.
+  - **An installer** (`step_through`; `claw/wizard.py`): asked once with `mustAgree`; a box is unchecked only where
+    the user asked for that; licence terms are never accepted without a question; the button that starts or
+    finishes is always asked about; one program; at most `wizard.MAX_PAGES` pages. No model is asked.
+  - **One picture of a page or a chat** (`look_picture`; `claw/images.py`, `picturetools.py`): chosen by plain code
+    among the pictures the page or program tells NVDA about; "pictures" alone picks none; the model is asked about
+    that picture alone, one question at a time, and a colour that is asked about is measured first.
+  - **A Word document** (`format_document`, `check_layout`; `claw/docformat.py`, `doctools.py`): through Word's own
+    interface, reached as NVDA reaches it (read from NVDA's `winword.py`), with every member and constant read from
+    Microsoft's pages named at the top of `doctools.py`; one undo record. What APA and MLA ask was read from the
+    pages named at the top of `docformat.py` (APA's own site answers a program with a challenge, which was not
+    worked around; Purdue OWL was read). Never write a constant or a style's rule from memory. In Google Docs
+    VisionClaw changes nothing.
+  - **A check that asks whether the user is a person is made readable and workable, and the person answers it**
+    (`human_check`; `claw/humancheck.py`, `checktools.py`). VisionClaw says which kind it is and the ways that need
+    no sight, presses its box, says what each square shows, and clicks only the squares the user names in their
+    own words. It never chooses squares, never answers a check by itself or again by itself, never imitates a
+    hand's movement, and never hides that a program presses. `tests/test_humancheck.py` fails when a function
+    appears that could choose. The rule that a challenge put to VisionClaw's own downloads is never worked around
+    stands as it is.
+  - **What buys is always asked about, and secrets are never typed** (`claw/shopping.py`,
+    `shoptools.guardPurchase`): before a button that buys, books or pays is pressed, by `click_item` or in
+    `work_through`, the page's own total is read word for word and the user is asked, whatever the settings say.
+    `fill_field` refuses a card number, a security code and a password (`shopping.isSecret`): they would be
+    written to VisionClaw's log and spoken as they are typed.
+  - **A seat** (`pick_seat`; `claw/seats.py`): read from the names of the seats first, the map's picture and legend
+    second. Where the wing is, only when the map itself says. Which letters are at an aisle rests on the usual
+    lettering, not on a source that was read; every answer that rests on it says that it was worked out from the
+    letters.
+  - **Two evaluation sets**, `tests/eval/requests-ten.json` and `requests-ten2.json`, each written before it was
+    run. Both are spent for the five rules that were corrected against them; write another before measuring a new
+    rule.
+  - None of this has run inside NVDA, in a real browser, in Word, in a real installer or a real plug-in.
 - **Never commit** model files (`*.gguf`, `*.bin`), `dist/`, tokens, or the `SmallClaw/` reference clone.
 
 ## Layout
@@ -1215,6 +1269,14 @@ addon/
     voiceui.py               asking by voice as the user meets it: the speech model offered and downloaded
                              after a question, listening started and stopped, the beeps, the tools
     wordtools.py             the user's own words: taught, listed and forgotten in words, kept in understanding.md
+    picturetools.py          one picture of a web page or a window looked at: found among the pictures the page or
+                             program tells NVDA about, brought into view, cut out, asked about one question at a time
+    papertools.py            a form that is only a picture: the line or box of a label clicked, the user's text typed
+    wizardtools.py           an installer gone through page after page
+    doctools.py              a Word document through Word's own interface: formatted in one undo step, its layout read
+    checktools.py            a check that asks whether the user is a person: told, its box pressed, its squares said,
+                             the squares the user names clicked
+    shoptools.py             a product's options, a seat map, and the question before a button that buys is pressed
     portableui.py            the window that makes a portable copy: one .nvda-addon file with everything, or
                              VisionClaw with everything straight into a portable NVDA; progress, stopping
     (the rest)               VisionMate features: overlay, OCR, chat photos, labels ...
@@ -1272,6 +1334,21 @@ addon/
                              the frame written by plain code, the lines of each piece by the model, one at a time;
                              a failing add-on corrected one method at a time
       pictures.py            a question about a picture split into its parts, the kind of each, and its rule
+      colours.py             a colour named in plain words from its pixels; the main colours of a picture; a field's
+                             outline and a line of text measured for red; which measured colour is the one asked for
+      spots.py               places in a picture by plain code: a label in the text read from it, lines to write on,
+                             printed check boxes, a grid of tiles
+      paper.py               what the user's words ask on a form that is only a picture; the user's own facts from
+                             their memories; every sentence about it
+      images.py              which picture of a page or a chat the user means, what is asked about it, what was
+                             measured of its colours
+      target.py              a drawn knob moved until the number shown at it is the one asked for
+      wizard.py              an installer page after page: what is pressed, what ends it, offers, terms, the rules
+      docformat.py           what APA and MLA ask, what the user's words ask of a document, the layout in words
+      humancheck.py          a check that asks whether the visitor is a person: its kind, the ways that need no
+                             sight, what the user's words ask, the squares; the person answers it
+      shopping.py            what buys and what is to be paid, what is never typed, a product's options
+      seats.py               a seat map from the names of its seats or from its picture; which seats fit a wish
       busy.py                what VisionClaw is busy with for the user, and a status update when it has been quiet
                              too long: when one is due, what it says, when nothing is said
       router.py              which kinds of request and which tools a model is offered: by where the user is,
@@ -1561,6 +1638,12 @@ A session is done only when its "Done when" line is true.
   spoken, the overlay's icons and add-on repairs say how far they are after a stretch of quiet; the user chooses how
   long or turns it off; NVDA+Alt+P and NVDA+Alt+X cover all of them. Tested with plain Python and stand-ins; not run
   inside NVDA or with a real model.
+- [x] **3.63 Ten things that used to need sighted help.** A picture in a chat, a form that is only a picture, an
+  installer page after page, a Word document formatted and its layout checked, a check that asks whether you are a
+  person, a product's options, a seat map, a drawn knob set to a number, a form's fields outlined in red, and a
+  question before anything is bought. Tested on pictures and programs made up by the tests, with stand-ins for
+  NVDA and for Word, and with the real Qwen3.5 9B choosing the job; not run inside NVDA, a browser, Word, an
+  installer or a plug-in.
 - [ ] **3.5 Test inside NVDA.** Install the build in NVDA (ask the user first) and walk through
   `docs/TESTPLAN.md`. Fix what breaks. *Done when:* every item in the test plan is ticked by a real run.
 
@@ -1623,6 +1706,13 @@ python tests/test_eval_patterns.py       the planner's patterns against the know
 python tests/test_advice.py              which model fits what the user wants to do; how requests went with each model
 python tests/test_codeplan.py            an add-on read into pieces, its frame, run against stand-ins for NVDA; pieces
                                          written, corrected and reviewed one at a time; the work sheet; one method fixed
+python tests/test_ten.py                 colours and places measured in drawn pictures, a form that is only a picture, a
+                                         picture on a page, a knob set to a number, an installer, which job each of the
+                                         article's sentences goes to, and what the new jobs must leave alone
+python tests/test_ten_tools.py           the same tools from request to answer, with stand-ins for NVDA, the mouse and the model
+python tests/test_docformat.py           what the words ask of a document, and Word's own interface as a stand-in
+python tests/test_shopping.py            what buys, what is never typed, options by name and measured colour, seat maps
+python tests/test_humancheck.py          checks that ask whether you are a person; fails when a function could choose squares
 python tests/test_understand.py          casual words understood, what is never changed, the user's own words, a question
                                          about a picture in its parts, whole requests with their work sheet
 python -u tests/live_codeplan.py MODELS  the real model writes nine add-ons as one piece and piece by piece; each is run

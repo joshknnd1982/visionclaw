@@ -2297,3 +2297,113 @@ this website" is not sent to the lasting fix, although its words point there. Wh
 its choice is checked against the words (`consensus._onRecipe`); when two models are used and they disagree,
 it is not. Check both against the words in the same way, and measure with the whole of
 `tests/live_orchestrator.py`.
+
+## Ten things that used to need sighted help (1.12.0, 2026-11-19)
+
+The owner gave an article that lists ten things JAWS's AI agent is said to do, and said: "adapt this article so
+all of these features work with visionclaw. I want the user to be able to do all of these. coordinate with other
+sessions so it works as good as it possibly can. first: plan this out. make a markdown file with a plan, then
+follow the plan." The plan, kept as it was followed, is `docs/PLAN-ten-scenarios.md`. The article's agent sends
+the screen to a model in the cloud; here plain code measures and finds, a model is asked one small question at a
+time where sight is needed, and nothing leaves the computer.
+
+**Where VisionClaw stood before**, with the article's own sentences put to plain code alone: the three settings
+requests, the two form requests and the date in a calendar went to the right job. The launcher request was split
+well, but "open the Settings menu" and "turn on UI narration and subtitles" were taken for NVDA's own settings.
+The installer, the scanned form, the picture in a chat, the document, the checks, the swatches and the seats
+were not understood.
+
+**What was built**, by scenario:
+
+- **10, settings.** "Make NVDA only speak words when I type" is two settings; two lines in
+  `claw/understanding.md` say so, the answer begins "Understood as", and each setting is its own part.
+- **9, an installer.** `step_through` (`claw/wizard.py`, `wizardtools.py`): the button, what ends it and what is
+  to be unchecked are read from the words; every page is said; offers are unchecked and looked at again; terms
+  and the starting button are asked about. "Navigate this window and remap my function keys" is a request to be
+  worked through (`guide._ASKS`).
+- **8, a launcher.** After a click in a program, "open the Settings menu" is a click there (`planner.hint`,
+  `_OPENS_INSIDE`), and "turn on UI narration and subtitles" sets both controls (`controls.wish` gives `names`;
+  `controltools.setControl` tries the whole name first, then each).
+- **7, a form.** `form_trouble` measures, where the page tells NVDA nothing, which fields on the screen are
+  outlined in red and which lines are written in red (`colours.marked`, `colours.redLines`, `pagetools._redMarks`,
+  `pageview.redText`), and puts the reading position on the first.
+- **6, a scanned form.** `fill_blank` (`claw/paper.py`, `claw/spots.py`, `papertools.py`).
+- **5, a knob.** `set_control` sets a control that is only in the window's picture to a number (`claw/target.py`).
+- **4, a picture in a chat.** `look_picture` (`claw/images.py`, `picturetools.py`).
+- **3, a document.** `format_document` and `check_layout` (`claw/docformat.py`, `doctools.py`).
+- **2, a check.** `human_check` (`claw/humancheck.py`, `checktools.py`). It makes the check readable and
+  workable; the person answers it. It never chooses squares.
+- **1, shopping and seats.** `pick_option`, `pick_seat` and the question before a purchase (`claw/shopping.py`,
+  `claw/seats.py`, `shoptools.py`); `fill_field` refuses card numbers and passwords.
+- Eight new tools (113 in all), eight new jobs, three new skills (66 built in) and nine older skills that are now
+  also for the new jobs, one note (`visionclaw-sighted-help.md`, 11 sections, gated), one part in each help file.
+
+**What was read, and from where** (2026-11-19): NVDA's `NVDAObjects/window/winword.py` and
+`NVDAObjects/UIA/wordDocument.py`, branch release-2026.3, for how Word's own interface is reached; Microsoft
+Learn's Word VBA reference for every member and constant used (named at the top of `doctools.py`); Purdue OWL's
+pages on APA and MLA format (APA's own site answered a program with a challenge, which was not worked around;
+MLA's own page only points elsewhere); Google's page of keyboard shortcuts for Docs; Google's page on reCAPTCHA
+accessibility, hCaptcha's accessibility page and Cloudflare's Turnstile pages (named at the top of
+`humancheck.py`). Not read from a source: which seat letters are at an aisle (`seats.LAYOUTS`), which is the
+usual lettering; every answer that rests on it says that it was worked out from the letters.
+
+**With the other sessions.** Four other sessions worked in the same folder. This work used the 1.11.0 session's
+questions in parts and work sheet (`look_picture` writes its questions into the sheet), and went into 1.12.0 with
+the others' work. Two faults of the new rules were found by the other sessions' tests within minutes and
+corrected: "which model should I use for describing pictures" was taken for a picture to look at, and "should I
+switch to a smaller model" for a size to choose. Not used yet, and offered by the accessibility session: keeping
+how a drawn knob is worked in its access notes, and its larger model for a step that fails.
+
+Tested, and how:
+
+- `tests/test_ten.py` (plain Python, pictures drawn by `tests/drawn.py`): 30 colours named from their numbers; a
+  web form drawn with two of four fields outlined in red and red text; a photo's colours without its background;
+  a printed form drawn with solid and dotted lines, a line with writing on it, an underlined heading, a
+  paragraph, two check boxes and a line to sign, at 100 and at 240 percent, with labels found although the
+  reading joined words or got a letter wrong; grids of 3 by 3, 4 by 4 and 2 by 3 tiles; 10 wordings of requests
+  on a paper form and 12 that are none; 9 wordings for a picture and 5 that name none; 14 made-up knobs (one that
+  turns the other way, one with steps of 5, one that shows dB, one that shows nothing, one whose number shows
+  only after it moves, two whose numbers change together); a made-up installer of five pages walked in 11 ways;
+  which job each of the article's 24 sentences goes to; 9 requests the new jobs must leave alone.
+- `tests/test_ten_tools.py`: `fill_blank`, `look_picture`, `step_through`, `form_trouble` and `set_control` from
+  request to answer, with stand-ins for NVDA, the mouse, the reading of text in pictures and the model
+  (`tests/nvdastandin.py`): where the click lands, what is typed, what is asked, a no, and what is said.
+- `tests/test_docformat.py` (Word as a stand-in written from Microsoft's pages, `tests/wordstandin.py`),
+  `tests/test_shopping.py`, `tests/test_humancheck.py` (which fails when a function appears that could choose
+  squares, or a press comes before the question).
+- `tests/test_nvda_stub.py`: the whole add-on loads with 113 tools and every job has its tools; a click on a
+  "Buy now" button asks the purchase question once, also with confirmations turned off, and a no presses nothing.
+- `python tests/run_all.py`: all of it passed on 2026-11-19 with the other sessions' work in the folder.
+- No older request changed its job: of the 653 known requests and requests of the four older evaluation sets,
+  the first pattern names the same job for every one as before (`tests/test_eval_patterns.py` passes unchanged).
+- **Two new evaluation sets, each written before it was run** (`tests/eval/requests-ten.json`, 49 requests,
+  and `requests-ten2.json`, 30). Plain code alone, first run: 41 of 49; three rules were corrected against that
+  set. Second set, written after that and before it was run: 28 of 30 by plain code alone; two more rules were
+  corrected. With the real model, Qwen3.5 9B for both jobs, one question at a time (the owner's settings), in
+  the bundled engine on the GeForce RTX 5060 (`tests/eval_routing.py`): first run 42 of 49 (1 question to the
+  user) and 27 of 30. Nearly every miss was the model splitting one request in two ("this pdf is just a scan,
+  click the line beside Full Name and type Jordan Lee" typed the name as a job of its own). A rule was added
+  (`planner._WHOLE_UNSPLIT`: what plain rules cannot split and the job's own function reads as a whole stays
+  whole) and one pattern for a red border; after that 47 of 49 (1 question) and 30 of 30. That second run is no
+  blind measure: both sets are spent for these rules. One expectation of the first set was wrong and was
+  corrected ("turn the volume up to 60 percent" is NVDA's own volume by VisionClaw's rule).
+- The article's own 13 requests through `tests/live_orchestrator.py` with the same model and stand-in tools, every
+  answer read: each went to its job; "Make NVDA only speak words when I type" changed typed words to on and typed
+  characters to off and said both; the launcher request was two clicks and the two options; the form, the
+  document, the layout, the checks, the three options and the seat each went to their tool as one request or as
+  the parts the words name.
+
+Found and left open, none of it new with this work: "check the box that says remember me" is taken for a request
+to remember and ends in a question to the user; "read the current line" is sent to reading the window's text by
+the 9B model.
+
+What was not tested: nothing of this has run inside NVDA, in a real browser, in Word (Word is not installed on
+this computer), in a real installer, in a real plug-in, against a real check, or on a real shop's or airline's
+website. The pictures were drawn by the tests; a real scanned form has noise, slanted lines and other fonts, and
+how well lines and labels are found there is not known. Windows' own reading of text was stood in for. The model
+that sees was stood in for in every tool test; it was only measured choosing the job. `docs/TESTPLAN.md` has the
+runs to make, Word first.
+
+Still to do: Google Docs through its own tool finder, once it can be tried in a real browser; a radio button of
+a printed form; a swatch that is a photo; seats next to each other; the knob's way kept in the access notes; a
+third evaluation set in the owner's own words.

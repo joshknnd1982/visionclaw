@@ -34,6 +34,7 @@ from .claw.llm import LLM, clip
 from .claw.memory import score, wordList, words as wordsOf
 from .claw.knowledge import Knowledge
 from .claw.tools import ANSWER, VERBATIM, Registry, Tool, ToolError
+from .claw import shopping
 from .claw.skills import addonGuide, stepGuide
 from .engine import EngineError, prepareImage
 
@@ -1586,8 +1587,15 @@ def build(plugin):
 			what += f", {pointer.spotText(spot)}"
 		if keys:
 			what += " with " + " and ".join(key.capitalize() for key in keys) + " held down"
+		# A button that buys, books or pays is always asked about, with what the page says is to be paid, word for
+		# word, whatever the settings say (shoptools.guardPurchase). The usual question is then not asked as well.
+		buys = shopping.isPurchase(found.get("plain") or found["text"])
+		if buys:
+			from . import shoptools
+			if not shoptools.guardPurchase(plugin, onMain, found.get("plain") or found["text"]):
+				return "Nothing was clicked: " + shopping.notPressed(found["text"])
 		# Following a link only goes to another page; everything else is asked about.
-		if keys or spot is not None or not (found.get("kind") == "link" and action == pointer.CLICK):
+		if not buys and (keys or spot is not None or not (found.get("kind") == "link" and action == pointer.CLICK)):
 			confirm({
 				# Translators: Asked before VisionClaw clicks something. {item} is what will be clicked.
 				pointer.CLICK: _("Click {item}?"),
@@ -2648,6 +2656,10 @@ def build(plugin):
 		if index is None:
 			raise ToolError(f"There is no field called \"{field}\". Use a number or a name from list_items.")
 		found = result.items[index]
+		# A card number, a security code, a password: never typed by VisionClaw. What is asked is written to its
+		# log and spoken as it is typed, and a wrong field would show it to everyone.
+		if shopping.isSecret(found.get("plain") or found["text"]):
+			return shopping.SECRET_REFUSAL
 		# Translators: Asked before VisionClaw types into a field. {text} is the text, {field} the field.
 		confirm(_("Type \"{text}\" into {field}?").format(text=clip(typed, 80), field=found["text"]))
 		onMain(Screen.click, result, found)  # in a web page this goes into the field, as Enter does
@@ -2723,6 +2735,13 @@ def build(plugin):
 	# Working through a task with the user when the usual path is not clear (guidetools.py).
 	from . import guidetools
 	guidetools.register(add, plugin, text, onMain, screen)
+	# What a sighted helper was needed for (docs/PLAN-ten-scenarios.md): one picture of a page or a chat looked at,
+	# a form that is only a picture filled in, an installer gone through page after page, a Word document
+	# formatted and its layout checked, a check that asks whether the user is a person made workable, a product's
+	# options, and a seat map. Each reads what is asked from the user's own words.
+	from . import checktools, doctools, papertools, picturetools, shoptools, wizardtools
+	for module in (picturetools, papertools, wizardtools, doctools, checktools, shoptools):
+		module.register(add, plugin, text, onMain, confirm, mustAgree, screen)
 
 	# VisionClaw's own voice, which the user sets in NVDA's own Speech settings (ownvoice.py).
 	def ownVoice(task, asked):

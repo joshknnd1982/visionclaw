@@ -48,7 +48,7 @@ _KEYS_UP = 1.5
 _READ_AREA, _LOOK_AREA = (320, 70), (420, 260)
 # The tools that point at a place: while one of them works, the mouse is moved the way the program in front
 # is known to need (directScope).
-DIRECT_TOOLS = frozenset(("click_item", "drag_item", "draw_gesture", "timed_click", "fill_field"))
+DIRECT_TOOLS = frozenset(("click_item", "drag_item", "draw_gesture", "timed_click", "fill_field", "fill_blank"))
 # Kinds of control whose value the wheel changes when the pointer is over them. Never scrolled by accident.
 _WHEEL_CHANGES = ("SLIDER", "COMBOBOX", "SPINBUTTON", "TAB", "TABCONTROL", "DROPDOWNBUTTON")
 

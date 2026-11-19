@@ -34,7 +34,9 @@ _STUCK = re.compile(
 	r"i (?:can'?t|cannot|can not|could not|couldn'?t) (?:find|figure out|work out|see|tell) (?:how|where|the way|a way)(?: to| i)?|"
 	r"i (?:don'?t|do not) know (?:how|where)(?: to| i)?|i (?:am|'m) (?:trying|not able|unable) to|i want to|i need to|"
 	r"i would like to|i'd like to|help me (?:get|do|finish|complete) (?:this|that|it)(?: done)?|help me(?: to| with)?|(?:the )?usual (?:way|path|key|keys|shortcut) (?:does not|doesn'?t|isn'?t|is not|won'?t) "
-	r"work(?:ing)?|(?:and )?(?:it|that|this) (?:does not|doesn'?t|won'?t) work|how (?:do|can|would) i|(?:can|could) you|please)\b",
+	r"work(?:ing)?|(?:and )?(?:it|that|this) (?:does not|doesn'?t|won'?t) work|how (?:do|can|would) i|(?:can|could) you|please|"
+	r"(?:navigate|find your way (?:through|around)|work your way through|make your way through) (?:this|the) [\w+' -]{1,40}?"
+	r"(?:window|program|app|application|dialog|site|website|page|screen|utility|tool)(?: for me)?,?\s+(?:and|to))\b",
 	re.IGNORECASE)
 # The words that make a request one to be worked through: the user says they are stuck, or asks to be led.
 _ASKS = re.compile(
@@ -43,7 +45,11 @@ _ASKS = re.compile(
 	r"|\bi (?:can'?t|cannot|can not|couldn'?t) (?:find|figure out|work out|see) (?:how|where|the way|a way)\b"
 	r"|\bi (?:don'?t|do not) know (?:how|where) to\b"
 	r"|\bhelp me (?:get|do|finish|complete|with) (?:this|that|it)\b"
-	r"|\b(?:the )?usual (?:way|path|key|keys|shortcut) (?:does not|doesn'?t|isn'?t|is not|won'?t) work", re.IGNORECASE)
+	r"|\b(?:the )?usual (?:way|path|key|keys|shortcut) (?:does not|doesn'?t|isn'?t|is not|won'?t) work"
+	# "Navigate this window and remap my function keys": the user asks to be taken through a program to get
+	# something done there.
+	r"|\b(?:navigate|find your way (?:through|around)|work your way through|make your way through) (?:this|the) [\w+' -]{1,40}?"
+	r"(?:window|program|app|application|dialog|site|website|page|screen|utility|tool)(?: for me)?,?\s+(?:and|to)\b", re.IGNORECASE)
 _SMALL = frozenset((
 	"a", "an", "the", "this", "that", "these", "those", "my", "your", "its", "it", "to", "in", "on", "at", "of", "for", "with",
 	"from", "into", "as", "and", "or", "but", "so", "is", "are", "be", "do", "does", "i", "me", "here", "there", "now", "just",
@@ -125,8 +131,10 @@ class Thing:
 	"""One thing of a window that can be used: its name, its kind in words, what presses it, its key where the
 	program gives it one, and whether it can be used now."""
 
-	def __init__(self, name, kind="", ref=None, key="", usable=True):
+	def __init__(self, name, kind="", ref=None, key="", usable=True, checked=None):
 		self.name, self.kind, self.ref, self.key, self.usable = _clean(name)[:NAME_CHARS], kind, ref, _clean(key), usable
+		# For a check box, a switch or a radio button: whether it is checked, where that is known (claw/wizard.py).
+		self.checked = checked
 
 	def said(self):
 		"""The thing as it is said: the Attach File button."""
@@ -236,7 +244,8 @@ NOT_OWN = (
 # The tools that work the window in front: none of them is used on VisionClaw's own windows.
 OFF_LIMITS = frozenset((
 	"click_item", "press_keys", "type_text", "drag_item", "scroll_view", "draw_gesture", "timed_click", "touch_gesture",
-	"pen_stroke", "set_control", "pick_date", "work_control", "fill_field", "work_through", "name_control"))
+	"pen_stroke", "set_control", "pick_date", "work_control", "fill_field", "work_through", "name_control",
+	"fill_blank", "step_through", "format_document", "human_check", "pick_option", "pick_seat"))
 NO_GOAL = "Say what you want to get done, in your own words, and VisionClaw works through it with you."
 
 
@@ -272,7 +281,10 @@ def walk(goal, look, press, choose, ask, check=None, pause=None, steps=MAX_STEPS
 		if answer != YES:
 			said.append(f"Stopped before step {number}, which would have been {thing.said()}.")
 			break
-		press(thing)
+		if press(thing) is False:
+			# The one who presses asked once more, as before a button that buys, and the user said no.
+			said.append(f"Stopped before step {number}: {thing.said()} was not pressed, as you said.")
+			break
 		pressed.append(thing.name)
 		pause()
 		check()

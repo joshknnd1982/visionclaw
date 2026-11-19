@@ -29,6 +29,16 @@ This README is for VisionClaw 1.12.0.
 
 - When a large model or high thinking keeps you waiting, VisionClaw tells you by itself how far it is, after 15 seconds of quiet and every 15 seconds while it lasts: "Still describing the screen, 30 seconds so far. The vision model is looking at the picture." It says which step a request is on, whether a model is still starting or thinking first, and how many of the overlay's icons are done. This works for requests (NVDA+Alt+C, NVDA+Alt+V), descriptions (NVDA+Alt+A, W, F, D), answers in the description window, the words you spoke, the overlay's icons (NVDA+Alt+O) and an add-on being corrected. The first update reminds you that NVDA+Alt+P says how far it is at any time, and NVDA+Alt+X stops it. Nothing is said while a question waits for you or the microphone is open. Choose 10, 15, 30 or 60 seconds, or turn the updates off, in VisionClaw's settings: Status updates while VisionClaw takes long. Tested with plain Python and stand-ins for NVDA; not yet heard inside NVDA.
 - NVDA+Alt+P now also says how far a description, an answer about a picture, the words you spoke or the overlay's icons are, and NVDA+Alt+X also stops a description or an answer that is still on its way. While you wait for a description, other keys no longer throw it away: read on, or press NVDA+Alt+P, and it still comes. Once it is spoken, Control stops it, as before.
+- Ten things that used to need sighted help, each explained under that heading in the help. A picture in a chat or on a page: say "what does the latest picture in this chat say", "read the text in the latest image in this chat and explain the joke", or "look at the product photo, is this jacket navy blue or black"; VisionClaw finds that picture, cuts it out and asks the model that sees one question at a time, and a colour is measured from the pixels first.
+- A form that is only a picture, such as a scanned PDF. Say "click the line next to Full Name and type my name", "click the dotted line labelled Signature so I can sign", or "check the box next to Yes in this scanned form". The label is found in the picture's text and its line or box in the pixels. Your name comes from what you asked VisionClaw to remember, or you are asked. VisionClaw never signs for you.
+- An installer gone through page after page. Say "uncheck any bundled toolbars in this installer and click Next until the installation starts". Each page is said, boxes that offer extra software are unchecked and named, licence terms are never accepted without asking you, and the button that starts the installation is asked about.
+- A Word document formatted, and its layout checked. Say "format this document in APA style", or "double-space this document and set the font to Times New Roman 12 point"; one Control+Z in Word takes it all back. Say "does my resume fit on one page" or "are any text boxes overlapping" for the pages and what overlaps. In Google Docs VisionClaw tells you the keys instead.
+- Checks that ask whether you are a person. Say "what kind of check is this", "click the verify you are human box", "what do the squares show", then "select squares 1, 4 and 7, then verify", or "get an audio challenge". VisionClaw makes the check readable and workable and you answer it: it never chooses squares for you.
+- Shopping and booking. Say "select the dark blue colour option" (a swatch with no name is found by its measured colour), "is the 256GB option selected", or "find a free window seat near the front". Before a button that buys, books or pays is pressed, the page's own total is read to you and you are always asked. VisionClaw does not type card numbers, security codes or passwords.
+- A drawn knob set to a number. Say "turn the Mix knob down to 35 percent" in a program whose knobs NVDA cannot read: VisionClaw moves it a step at a time and reads the number shown at it after every step.
+- "Why won't this form submit" now also measures which fields are outlined in red in the page's picture and which lines are written in red, where the page itself tells NVDA nothing, and puts NVDA's reading position on the first of them.
+- Several things inside one program in one request: "click the Play button in this launcher, open the Settings menu, and turn on UI narration and subtitles" is four steps in that program, and both options are set. "Navigate this window and remap my function keys" works through it with you.
+- Stated plainly, for the nine points above: tested on forms, pictures, knobs, installers, pages and seat maps made up by the tests, with stand-ins for NVDA and for Word, and with the real Qwen3.5 9B choosing the job: 42 of 49 and 27 of 30 right on two sets of requests written before they were run, 47 and 30 after one rule was added against them. Not run inside NVDA, in Word, in a real browser, in a real installer or plug-in, or against a real check.
 
 ## What was new in 1.11.0
 
@@ -822,6 +832,113 @@ for you (*say the date with the Clock add-on*), and it can change an add-on's se
 them in NVDA's configuration. The help texts of the add-ons that are on are read up on like NVDA's own user
 guide.
 
+## Ten things that used to need sighted help
+
+These are ten things a sighted helper was needed for. VisionClaw does them on your own computer; nothing is sent
+anywhere. Plain code measures and finds wherever it can: a colour from the pixels, a blank line in the picture of a
+form, a seat from its name, a document through Word's own interface. A model is asked one small question at a
+time, and only where sight is needed. Everything that changes something asks first. What buys, books, installs
+or accepts terms is always asked about, whatever your settings say. None of this has run inside NVDA yet, in a
+real browser, in Word or on a real shop's website: it was tested on pictures and programs made up by the tests.
+
+### 10. NVDA's settings in plain words
+
+*"Make NVDA only speak words when I type."* *"Stop reading every punctuation mark."* *"Make NVDA talk faster."*
+VisionClaw finds the setting among all of NVDA's, asks, changes it and says what it was and what it is now.
+"Undo that" puts it back. See "Your settings stay yours".
+
+### 9. A program NVDA cannot read, and an installer
+
+*"Navigate this window and remap my function keys."* VisionClaw works through it with you: it finds the next
+thing to press, says its key, and asks before every step.
+
+*"Uncheck any bundled toolbars in this installer and click Next until the installation starts."* VisionClaw asks
+once, then goes page after page: it says each page with its check boxes, unchecks and names a checked box that
+offers extra software or a changed home page or search, never accepts licence terms without asking you, and asks
+before the button that starts the installation. It stops when the button is gone, when a press changes nothing,
+when Windows asks whether the program may change the computer, and after twelve pages. It cannot judge an offer
+that is worded as a choice between two kinds of installation; it reads the page and you decide.
+
+### 8. A game's launcher, and what a game shows
+
+*"Click the Play button in this launcher, open the Settings menu, and turn on UI narration and subtitles."* Four
+steps in that program: two clicks, then each of the two options is found by its name, asked about and set, and
+you are told what it was and what it is now. *"Read my character stats and skill points from the inventory on
+screen"* looks at the window's picture and reads it, each part of the question on its own.
+
+### 7. A form that will not send
+
+*"Why won't this form submit?"* *"Put my focus in the first required field I still need to complete."* VisionClaw
+names the fields the page marks as wrong or required and empty, and the page's error messages. New: where the
+page tells NVDA nothing, the picture of the page is measured. A field that is outlined in red, and a line
+written in red, is named, and NVDA's reading position is put on the first. This is measured from the pixels;
+no model looks. Only the fields on the screen at that moment are measured: scroll and ask again for the rest.
+
+### 6. A scanned PDF that is only a picture
+
+*"Click the line next to Full Name and type my name."* *"Click the dotted line labelled Authorized Signature at
+the bottom so I can sign."* *"Check the box next to Yes in this scanned form."* The label is found in the text
+read from the window's picture, and the printed line or box that belongs to it in the pixels: to its right,
+under it, or above it. VisionClaw asks, clicks there with the mouse, types, reads the place again and tells you
+whether the text shows. "My name", "my email" and "my phone number" are taken word for word from what you asked
+VisionClaw to remember ("remember that my name is ..."), or you are asked; they are never made up. VisionClaw
+never signs for you. The program must be ready to take the click: in Adobe Acrobat, choose the Fill and Sign
+tool first. A line that already has writing on it is said to have some.
+
+### 5. A drawn knob set to a number
+
+*"Turn the Mix knob down to 35 percent."* Where the program offers the knob's value to Windows, it is simply
+set. A knob that is only drawn, as in many audio plug-ins, is moved a step at a time, and the number shown next
+to it is read from the picture after every step, until it is the number you asked for, or as near as the knob's
+own steps allow. Where no number shows, or it is in another unit such as dB, that is said and the knob is left
+where it was; the arrow keys for a dial stay for that ("work the Mix knob with the arrow keys").
+
+### 4. A picture in a chat
+
+*"What does the latest picture in this chat say?"* *"Read the text in the latest image in this chat and explain
+the joke."* *"Look at the screenshot my coworker just shared, what error code is highlighted?"* VisionClaw finds
+that picture among the pictures the page or the program tells NVDA about, by their order and size, and leaves
+out emoji and the little faces next to names. It brings the picture into view, cuts it out, reads its text and
+asks the model that sees each of your questions about that picture alone. A model's answer about a joke can be
+wrong, and it says when it does not understand one.
+
+### 3. A Word document formatted, and its layout checked
+
+*"Format this document in APA style."* *"Set the font to 12-point Times New Roman, double-space all paragraphs,
+and give the References a half inch hanging indent."* In Microsoft Word, through Word's own interface. The
+question names every change; one Control+Z in Word takes all of it back. The answer says what was changed and
+what the style also asks that VisionClaw did not do: the title page, page numbers, heading levels. In Google
+Docs VisionClaw changes nothing; it tells you the keys Google lists and how to use its tool finder, Alt+/.
+
+*"Does my resume fit on one page?"* *"Are any text boxes overlapping?"* VisionClaw says how many pages there
+are, how much is on the last one, which tables are wider than the page and which text boxes or pictures overlap
+or reach beyond it. These are Word's own numbers, not a picture.
+
+### 2. A check that asks whether you are a person
+
+These checks are made to stop programs, and they shut blind people out when the audio way is missing or broken.
+VisionClaw makes a check readable and workable; you answer it. *"What kind of check is this?"* names the kind
+and the ways through it that need no sight, the surest first. *"Click the verify you are human box"* presses the
+box after asking. *"What do the squares show?"* reads what the puzzle asks and says what each square shows,
+numbered left to right and top to bottom. Then you say which: *"select squares 1, 4 and 7, then verify"*. *"Get
+an audio challenge"* presses that button. *"Take hold of the slider"* puts the pointer on the piece, and you
+drag it with pointer mode: G holds, the arrow keys move, G lets go. VisionClaw never chooses the squares for
+you, never answers a check by itself, never tries again by itself, and does nothing to hide that a program is
+pressing for you. These checks are hard for programs on purpose, so this will not always get through; the
+site's own audio challenge or accessibility option is the surer way where it works.
+
+### 1. Shopping and booking
+
+*"Look at the product photo, is this jacket navy blue or black?"* The main colours are measured from the photo's
+pixels and said first, then the model's answer. *"Select the dark blue colour option."* An option is chosen by
+its name, or, for a swatch with no name, by its measured colour; afterwards VisionClaw says what the page marks
+as chosen. *"Is the 256GB option selected?"* answers from the page's own state. *"Find a free window seat near
+the front."* The seat map is read from the names of its seats, or from its picture and legend; VisionClaw says
+the best few with the reason for each and clicks one after asking. Where the map does not say where the wing is,
+VisionClaw says so. Before a button that buys, books or pays is pressed, by a click or while working through a
+task, VisionClaw reads you what the page says is to be paid, word for word, and always asks. VisionClaw does not
+type card numbers, security codes or passwords: put the focus in the field and type them yourself.
+
 ## Working the mouse from the keyboard
 
 Sighted people click, right-click, double-click and drag on controls that give a screen reader nothing to hold
@@ -1263,7 +1380,7 @@ before you say yes.
 ## Skills
 
 A skill tells VisionClaw how a kind of job is done well for a blind person: describing a photo, web forms,
-email, braille, games, NVDA for a beginner, and many more; 56 come with VisionClaw. VisionClaw chooses skills from
+email, braille, games, NVDA for a beginner, and many more; 61 come with VisionClaw. VisionClaw chooses skills from
 the words of your request, by plain code, at most two at a time; an everyday word alone does not start one. A
 skill never holds code, and every change is still asked about.
 

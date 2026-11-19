@@ -38,7 +38,9 @@ _NOT_NAME = frozenset((
 	"completely", "percent", "option", "setting", "settings", "checkbox", "box", "slider", "control", "value", "level",
 	"program", "app", "application", "game", "window", "dialog", "here", "by", "with", "so", "that", "is", "be", "should",
 	"multipage", "multi", "page", "inaccessible", "first", "now", "just", "also", "can", "you", "could", "would", "want", "i",
-	"me", "use", "using", "maximum", "minimum", "top", "bottom", "end", "goes", "as", "notch", "step", "steps", "touch", "tad"))
+	"me", "use", "using", "maximum", "minimum", "top", "bottom", "end", "goes", "as", "notch", "step", "steps", "touch", "tad",
+	# The kind of control, and that it is only drawn, are no part of what it is called.
+	"knob", "dial", "fader", "rotary", "graphical", "drawn", "visual"))
 # Words that say the program in front is meant, not NVDA or Windows.
 _IN_APP = re.compile(
 	r"\b(in|for|of|on|inside) (this|the current|that) (app|application|program|game|window|dialog|page|panel|tab|settings|"
@@ -65,8 +67,10 @@ def inApp(part):
 
 def wish(part):
 	"""What the user's own words ask of a named control, or None when they name none or say nothing to do:
-	{"what": ON, OFF, UP, DOWN or SET; "name": the words that name the control; "steps": how many steps up or
-	down (TO_END for all the way); "value": the number for SET; "percent": whether the number is a share}."""
+	{"what": ON, OFF, UP, DOWN or SET; "name": the words that name the control; "names": the separate controls
+	those words may stand for where they join several with "and" ("UI narration and subtitles"), else the one
+	name; "steps": how many steps up or down (TO_END for all the way); "value": the number for SET; "percent":
+	whether the number is a share}."""
 	text = _PLACE_LEAD.sub("", computer.own(part))
 	low = text.lower()
 	if re.search(r"\bhow (do|can|would|should|could) (i|we|you|one)\b|\bhow to\b", low):
@@ -89,8 +93,11 @@ def wish(part):
 	name = " ".join(word for word in _words(rest) if word not in _NOT_NAME)
 	if not name:
 		return None
-	return {"what": what, "name": name, "steps": steps, "value": int(number.group(1)) if number else None,
-		"percent": bool(number and number.group(2))}
+	# The whole name is tried first by the tool: a control may really be called "Narration and subtitles".
+	names = [" ".join(word for word in _words(chunk) if word not in _NOT_NAME) for chunk in re.split(r"\s+(?:and|plus)\s+|\s*[,&]\s*", rest)]
+	names = [one for one in names if one]
+	return {"what": what, "name": name, "names": names if len(names) > 1 else [name], "steps": steps,
+		"value": int(number.group(1)) if number else None, "percent": bool(number and number.group(2))}
 
 
 def pick(name, labels, prefer=()):

@@ -69,6 +69,8 @@ Changed wherever they stand, and said in the answer.
 
 - "quicker", "speedier", "snappier", "zippier" mean "faster"
 - "softer" means "quieter"
+- "only speak words when I type", "only say words when I type", "speak only words when I type", "only speak whole words when I type", "only read words as I type", "just speak words when I type" mean "turn on speak typed words and turn off speak typed characters"
+- "only speak characters when I type", "only speak letters when I type", "speak only characters when I type", "just speak letters when I type" mean "turn on speak typed characters and turn off speak typed words"
 - "a tad", "a smidge", "a smidgen", "a hair", "a wee bit", "a little bit", "a tiny bit", "a teeny bit" mean "a bit"
 - "way too", "far too", "much too", "waaay too", "wayyy too" mean "too"
 - "what on earth", "what the heck", "what in the world" mean "what"

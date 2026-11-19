@@ -16,7 +16,7 @@ import api
 import config
 
 from . import fixruntime
-from .claw import guide, policy, prompts
+from .claw import controls, guide, policy, prompts
 from .claw.fixmatch import labelOf
 from .claw.llm import LLM, LLMError, clip
 from .claw.tools import ToolError
@@ -59,6 +59,10 @@ def ownWindow():
 	return program.lower() in OWN_APPS and "visionclaw" in title.lower()
 
 
+# The kinds of thing that are checked or not.
+_CHECKED_KINDS = ("check box", "radio button", "switch", "toggle button", "menu item")
+
+
 def _fromNodes(nodes, make):
 	things = []
 	for node in nodes[:MAX_NODES]:
@@ -71,7 +75,8 @@ def _fromNodes(nodes, make):
 			continue
 		obj = node.get("obj")
 		key = _safe(lambda: obj.keyboardShortcut) if obj is not None else ""
-		things.append(guide.Thing(name, kind, make(node), key or "", "UNAVAILABLE" not in states))
+		checked = controls.checked(states) if kind in _CHECKED_KINDS else None
+		things.append(guide.Thing(name, kind, make(node), key or "", "UNAVAILABLE" not in states, checked))
 	return things
 
 
@@ -90,45 +95,64 @@ def _pressOnPage(document, node):
 	fixruntime.activateOnPage(document, node)
 
 
+def lookAt(task, onMain, screen):
+	"""What is in front, the surest way first: (the things that can be used, the window's title, the program). The
+	web page as NVDA keeps it, else the window as NVDA knows it, and the window's picture as well where NVDA knows
+	next to nothing of it. Used by working through a task and by going through an installer (wizardtools.py)."""
+	from . import pagetools
+	task.check()
+	program, title = onMain(inFront)
+	found = onMain(pagetools._where)
+	if found:
+		document = found[0]
+		things = _fromNodes(pagetools.pageNodes(task, document, onMain), lambda node: ("page", document, node))
+		if things:
+			return things, title, program
+	things = onMain(_windowThings)
+	if len([thing for thing in things if thing.usable]) < FEW and config.conf["visionClaw"]["useOcr"]:
+		# NVDA knows next to nothing of this window: its picture is read for texts and icons.
+		try:
+			result = screen.items()
+			for item in getattr(result, "items", ()) or ():
+				if item.get("web") is None:
+					name = item.get("plain") or item.get("name") or item.get("text") or ""
+					# A check box found in the picture with its name beside it says whether it looks checked.
+					role = str(item.get("role") or "").lower()
+					kind = "check box" if "check" in role else "radio button" if "radio" in role else "in the window's picture"
+					things.append(guide.Thing(name, kind, ("picture", result, item), checked=item.get("checked") if role else None))
+		except ToolError:
+			pass
+		except Exception:
+			log.debugWarning("VisionClaw: the window's picture could not be read for things to press", exc_info=True)
+	return things, title, program
+
+
+def pressThing(task, thing, onMain):
+	"""Press one of the things lookAt() gave: with the page's or the program's own action, the mouse last."""
+	task.check()
+	ref = thing.ref
+	if ref[0] == "window":
+		onMain(_pressObject, ref[1])
+	elif ref[0] == "page":
+		onMain(_pressOnPage, ref[1], ref[2])
+	else:
+		from . import nvdatools
+		onMain(nvdatools.Screen.click, ref[1], ref[2])
+
+
 def register(add, plugin, text, onMain, screen):
 	"""Add the tool. add and text are nvdatools' own; onMain runs a function on NVDA's main thread."""
 
 	def look(task):
 		"""(the things in front, the window's title, the program)."""
-		from . import pagetools
-		task.check()
-		program, title = onMain(inFront)
-		found = onMain(pagetools._where)
-		if found:
-			document = found[0]
-			things = _fromNodes(pagetools.pageNodes(task, document, onMain), lambda node: ("page", document, node))
-			if things:
-				return things, title, program
-		things = onMain(_windowThings)
-		if len([thing for thing in things if thing.usable]) < FEW and config.conf["visionClaw"]["useOcr"]:
-			# NVDA knows next to nothing of this window: its picture is read for texts and icons.
-			try:
-				result = screen.items()
-				for item in getattr(result, "items", ()) or ():
-					if item.get("web") is None:
-						name = item.get("plain") or item.get("name") or item.get("text") or ""
-						things.append(guide.Thing(name, "in the window's picture", ("picture", result, item)))
-			except ToolError:
-				pass
-			except Exception:
-				log.debugWarning("VisionClaw: the window's picture could not be read for things to press", exc_info=True)
-		return things, title, program
+		return lookAt(task, onMain, screen)
 
 	def press(task, thing):
-		task.check()
-		ref = thing.ref
-		if ref[0] == "window":
-			onMain(_pressObject, ref[1])
-		elif ref[0] == "page":
-			onMain(_pressOnPage, ref[1], ref[2])
-		else:
-			from . import nvdatools
-			onMain(nvdatools.Screen.click, ref[1], ref[2])
+		# A button that buys, books or pays: what the page says is to be paid is read out and asked about, always.
+		from . import shoptools
+		if not shoptools.guardPurchase(plugin, onMain, thing.name):
+			return False
+		pressThing(task, thing, onMain)
 
 	def choose(task, goal, things):
 		"""A model's choice among a few things, or None. A very small model is not given "none of these": it takes

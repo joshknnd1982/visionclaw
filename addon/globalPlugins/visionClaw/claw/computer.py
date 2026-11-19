@@ -29,7 +29,8 @@ ACTS = (
 	"announce", "report", "name", "label", "fix", "inspect", "learn", "update", "add", "activate", "visit", "browse",
 	"navigate", "focus", "hide", "clear", "do", "use", "speak", "summarize", "summarise", "count", "quit", "exit",
 	"adjust", "locate", "pick", "toggle", "enable", "disable", "uncheck", "tick", "untick", "rename", "create",
-	"install", "connect", "disconnect", "send", "print", "undo", "refresh", "reload", "reopen", "expand", "collapse")
+	"install", "connect", "disconnect", "send", "print", "undo", "refresh", "reload", "reopen", "expand", "collapse",
+	"confirm", "verify", "apply")
 _ACT = "(?:" + "|".join(re.escape(verb) for verb in ACTS) + ")"
 ACT = _ACT
 STARTS_ACT = re.compile(

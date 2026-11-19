@@ -125,6 +125,15 @@ HELP = {
 	"get_voice": "download the speech model",
 	"remove_voice": "delete the speech model",
 	"power": "shut down the computer",
+	# The ten things that used to need sighted help (docs/PLAN-ten-scenarios.md).
+	"look_picture": "what does the latest picture in this chat say",
+	"fill_blank": "click the line next to full name and type my name",
+	"step_through": "click next until the installation starts",
+	"format_document": "format this document in apa style",
+	"check_layout": "does my resume fit on one page",
+	"human_check": "click the verify you are human box",
+	"pick_option": "select the dark blue colour option",
+	"pick_seat": "find a free window seat near the front",
 }
 
 

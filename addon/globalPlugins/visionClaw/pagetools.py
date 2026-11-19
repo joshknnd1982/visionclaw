@@ -9,8 +9,9 @@
 #                  fit this page (claw/pageview.py).
 #   form_trouble   says what may be stopping a form: fields marked as not valid, fields that must be filled in
 #                  and are empty, and the page's error messages, each with its field; then puts NVDA's reading
-#                  position on the first of them and says so. Where the page tells NVDA nothing, the text in the
-#                  page's picture is read for lines that say what is wrong.
+#                  position on the first of them and says so. Where the page tells NVDA nothing, the picture of
+#                  the page is measured: a field outlined in red, a line written in red (claw/colours.py, plain
+#                  code, no model), and the text in the picture is read for lines that say what is wrong.
 # Neither changes anything on the page. Every function that touches NVDA runs on NVDA's main thread.
 
 import addonHandler
@@ -19,7 +20,8 @@ import config
 import controlTypes
 
 from . import fixruntime, ocr
-from .claw import audit, fixmatch, pageview
+from .claw import audit, colours, fixmatch, pageview
+from .claw.scrolling import pixels
 from .claw.tools import VERBATIM, ToolError
 from .vclog import log
 
@@ -102,6 +104,52 @@ def _drawnLines(plugin, document, onMain):
 		return []
 
 
+def _redMarks(plugin, document, onMain, fields):
+	"""What the picture of the page shows in red, for a page that tells NVDA nothing about its form: (the fields
+	outlined in red, the lines written in red, how many fields were on the screen to be looked at). Measured from
+	the pixels; a fault here is no fault of the form, and gives nothing."""
+	if not fields or not config.conf["visionClaw"]["useOcr"]:
+		return [], [], 0
+
+	def places():
+		from . import deepquery, mousetools
+		root = document.rootNVDAObject
+		place = None if getattr(root, "hasIrrelevantLocation", False) else root.location
+		if not place or place.width < 8 or place.height < 8:
+			return None, [], 1.0
+		area = (place.left, place.top, place.left + place.width, place.top + place.height)
+		found = []
+		for node in fields:
+			key = node.get("key")
+			try:
+				obj = document.getNVDAObjectFromIdentifier(int(key[0]), int(key[1]))
+				found.append(deepquery.boxOf(obj))
+			except Exception:
+				found.append(None)
+		return area, found, mousetools.scaleAt(place.left, place.top)
+
+	try:
+		area, boxes, scale = onMain(places)
+		if area is None:
+			return [], [], 0
+		image = plugin._grab(area)
+		width, height = image.size
+		# Only what is on the screen now is in the picture.
+		inside = []
+		for node, box in zip(fields, boxes):
+			if box is None:
+				continue
+			left, top, right, bottom = box[0] - area[0], box[1] - area[1], box[2] - area[0], box[3] - area[1]
+			if left >= 0 and top >= 0 and right <= width and bottom <= height:
+				inside.append((node, (left, top, right, bottom)))
+		marked = colours.marked(image, [box for _node, box in inside], pixels(3, scale))
+		written = colours.redLines(image, ocr.recognize(image))
+		return [inside[index][0] for index in marked], written, len(inside)
+	except Exception:
+		log.debugWarning("VisionClaw: the picture of the page could not be measured for fields marked in red", exc_info=True)
+		return [], [], 0
+
+
 def register(add, plugin, text, onMain):
 	"""Add the tools. add and text are nvdatools' own; onMain runs a function on NVDA's main thread."""
 
@@ -126,7 +174,7 @@ def register(add, plugin, text, onMain):
 	def formTrouble(task):
 		document, _title, _address, nodes = page(task)
 		found = pageview.trouble(nodes)
-		moved, drawn = False, []
+		moved, drawn, red, written, looked = False, [], [], [], 0
 		if found.first is not None:
 			try:
 				onMain(_moveTo, document, found.first)
@@ -136,8 +184,17 @@ def register(add, plugin, text, onMain):
 				log.error("VisionClaw: the reading position could not be put on the field in trouble", exc_info=True)
 		elif not found.notes:
 			task.check()
-			drawn = pageview.errorLines(_drawnLines(plugin, document, onMain))
-		return pageview.troubleText(found, moved=moved, drawn=drawn)
+			# The page tells NVDA nothing: a page that marks what is wrong only by a red border is measured.
+			red, written, looked = _redMarks(plugin, document, onMain, [node for node in nodes if pageview.isField(node)])
+			task.check()
+			if red:
+				try:
+					onMain(_moveTo, document, red[0])
+					moved = True
+				except Exception:
+					log.error("VisionClaw: the reading position could not be put on the field outlined in red", exc_info=True)
+			drawn = [line for line in pageview.errorLines(_drawnLines(plugin, document, onMain)) if line not in written]
+		return pageview.troubleText(found, moved=moved, drawn=drawn, red=red, written=written, looked=looked)
 
 	add("form_trouble",
 		"find out why a form on the web page will not send or submit: fields marked as not valid, required fields "

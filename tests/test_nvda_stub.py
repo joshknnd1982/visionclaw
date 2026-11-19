@@ -431,7 +431,7 @@ assert instance.dataDir == DATA and instance.portableSettings()["searchEngine"] 
 instance.controller._stopped.set()
 instance.controller._thread.join(5)
 registry = instance.orchestrator.registry
-assert len(registry.names()) == 105, registry.names()
+assert len(registry.names()) == 113, registry.names()
 # Lessons from searches that happened to find something misled; they are dropped when VisionClaw starts.
 assert instance.memory.all() == ["Tool set_setting: this form failed: {} (x). This form worked: {}."], instance.memory.all()
 assert set(planner.available(registry)) == set(planner.RECIPES), set(planner.RECIPES) - set(planner.available(registry))
@@ -879,7 +879,19 @@ worked, result = registry.call(task, "click_item", {"item": "Sign in", "action":
 assert worked and activated == ["Sign in"] and not questions and result == "Clicked Sign in link.", result
 registry.call(task, "list_items", {"about": "buy"})
 worked, result = registry.call(task, "click_item", {"item": "the Buy now button", "action": "click", "asked": ""})
-assert worked and activated[-1] == "Buy now" and questions == ["Click Buy now button?"], (result, questions)
+# A button that buys is always asked about, with what the page says is to be paid, and not asked about a second time.
+assert worked and activated[-1] == "Buy now" and len(questions) == 1 and questions[0].startswith("\"Buy now\" buys, books or pays."), (result, questions)
+# The user says no to it: nothing is pressed, and the answer says that nothing was bought. With confirmations
+# turned off it is asked about all the same.
+registry.call(task, "list_items", {"about": "buy"})
+pressedBefore = list(activated)
+conf["visionClaw"]["confirmChanges"] = False
+instance.clawAsk = lambda question, choices: questions.append(question) or 1
+worked, result = registry.call(task, "click_item", {"item": "the Buy now button", "action": "click", "asked": ""})
+assert worked and activated == pressedBefore and len(questions) == 2, (result, questions)
+assert result == "Nothing was clicked: \"Buy now button\" was not pressed, so nothing was bought, booked or paid.", result
+conf["visionClaw"]["confirmChanges"] = True
+instance.clawAsk = lambda question, choices: questions.append(question) or 0
 # A right-click on a web page item goes there and opens its context menu; nothing is followed or pressed.
 registry.call(task, "list_items", {"about": "home"})
 before = list(activated)

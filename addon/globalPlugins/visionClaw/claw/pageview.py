@@ -467,9 +467,34 @@ def _howToFix(node):
 	return ""
 
 
-def troubleText(found, moved=False, drawn=()):
+def redText(red, written, looked, moved=False):
+	"""What the picture of the page shows where the page itself tells NVDA nothing: the fields that are outlined in
+	red, and the lines written in red. red: the fields, as the page's controls, in page order. written: the lines
+	of red text. looked: how many fields were on the screen to be looked at. Measured from the pixels by plain
+	code (claw/colours.py); no model looked."""
+	lines = []
+	if red:
+		count = len(red)
+		lines.append(
+			f"In the picture of the page, {many(count, 'field is', 'fields are')} outlined in red, which is how a page "
+			f"usually marks what is wrong: {_listed([fieldText(node) for node in red[:SHOWN_TROUBLE]])}"
+			+ (f", and {count - SHOWN_TROUBLE} more" if count > SHOWN_TROUBLE else "") + ".")
+	if written:
+		lines.append("Written in red in the picture: " + " ".join(line if line[-1:] in ".!?" else line + "." for line in written[:4]))
+	if red and moved:
+		name = _label(red[0]) or FIELDS.get(red[0].get("role"), "field")
+		lines.append(f"NVDA's reading position is now on the first of them, {name}. {_howToFix(red[0])}".strip())
+	if lines:
+		lines.append(
+			f"This was measured from the colours of the {many(looked, 'field')} that are on the screen now; fields further "
+			"up or down were not looked at. Scroll and ask again to check those.")
+	return lines
+
+
+def troubleText(found, moved=False, drawn=(), red=(), written=(), looked=0):
 	"""What may be stopping the form, said one field to a line, the first field first.
-	moved: NVDA's reading position was put on the first of them. drawn: lines read from the page's picture."""
+	moved: NVDA's reading position was put on the first of them. drawn: lines read from the page's picture.
+	red, written, looked: what the picture of the page shows in red, where the page itself says nothing (redText)."""
 	if not found.items and not found.notes:
 		if not found.fields:
 			lines = ["This page has no form fields that NVDA can read, so nothing can be said about a form here."]
@@ -477,10 +502,20 @@ def troubleText(found, moved=False, drawn=()):
 			lines = [
 				f"Looked at the {many(found.fields, 'form field')} of this page. None is marked as not valid or as "
 				"required and empty, and the page shows no error message that NVDA can read."]
+		marks = redText(red, written, looked, moved)
+		if marks:
+			lines.extend(marks)
+			if drawn:
+				lines.append("These lines of the picture may say why: " + " ".join(f"{line}." if line[-1:] not in ".!?" else line for line in drawn))
+			return "\n".join(lines)
 		if drawn:
 			lines.append("In the picture of the page, these lines may say why: " + " ".join(f"{line}." if line[-1:] not in ".!?" else line for line in drawn))
 		else:
 			lines.append(
+				"No field on the screen is outlined in red and nothing is written in red there. The page may check only "
+				"when its button is pressed, or the fields in trouble are further up or down: scroll and ask again. Or ask "
+				"VisionClaw to describe the window, and the model that sees pictures looks at it."
+				if looked else
 				"The reason may be shown only as a picture or by a colour, or the page may check only when its button "
 				"is pressed. Ask VisionClaw to describe the window, and the model that sees pictures looks at it.")
 		return "\n".join(lines)

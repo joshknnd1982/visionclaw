@@ -12,6 +12,7 @@
 import re
 
 from . import computer, controls, dates, debuglog, direct, gamepad, guide, memories, partners, places, pointer, policy, profiles, router, touch, understand
+from . import docformat, humancheck, images, paper, seats, shopping, wizard
 from .llm import LLMError, clip
 from .task import Step
 from .tools import ANSWER
@@ -505,6 +506,51 @@ RECIPES = {
 		"lock the computer, put it to sleep, restart it, shut it down or sign out of Windows, or call off a restart "
 		"or shutdown that is waiting",
 		("power",)),
+	# What a sighted helper was needed for, done on this computer (docs/PLAN-ten-scenarios.md). Each of these is
+	# read from the user's own words by plain code (its function in _NEEDS), so it is offered only where the words
+	# ask for it, and where they do no model is asked.
+	"look_picture": (
+		"look at one picture on the page or in the window",
+		"look at one picture on the web page or in the window in front and answer a question about it: the latest "
+		"picture in a chat, a screenshot or meme someone sent, a product's photo, the photos of a gallery; reads its "
+		"text, says what it shows, measures its colours",
+		("look_picture",)),
+	"fill_blank": (
+		"click a line or box on a form that is only a picture, and type on it",
+		"on a scanned or flattened PDF, or another form that is only a picture: click the printed line or check box "
+		"that belongs to a label, and type the user's text there",
+		("fill_blank",)),
+	"step_through": (
+		"go through an installer page after page",
+		"press one button, such as Next, on page after page of an installer or set-up window until something is "
+		"reached, unchecking boxes that offer extra software on the way",
+		("step_through",)),
+	"format_document": (
+		"format the document",
+		"format the Microsoft Word document in front: a style such as APA or MLA, or its font, font size, line "
+		"spacing, margins, alignment, first-line indent or hanging indent; in Google Docs, say which keys do it",
+		("format_document",)),
+	"check_layout": (
+		"check the document's layout",
+		"say how many pages the Word document in front has, whether it fits on one page, and whether text boxes, "
+		"pictures or tables overlap or reach beyond the page",
+		("check_layout",)),
+	"human_check": (
+		"help with a check that asks whether you are a person",
+		"for a check on a web page that asks whether the user is a person (a captcha): say which kind it is and the "
+		"ways through it that need no sight, press its check box, say what each square of a puzzle shows, and click "
+		"the squares the user names",
+		("human_check",)),
+	"pick_option": (
+		"choose an option of a product, or say which is chosen",
+		"on a shop's page, choose a size, colour, storage or style option by its name or by its measured colour, or "
+		"say which option is chosen now",
+		("pick_option",)),
+	"pick_seat": (
+		"find and choose a seat on a seat map",
+		"on a seat map, find the free seats that fit what the user wants (window, aisle, front, a row), say the best "
+		"few, and click one after asking",
+		("pick_seat",)),
 }
 # The step that checks what a request depends on ("if you see the Recycle Bin, open it") is no recipe: plain
 # code puts it before the steps of what is to be done (`conditional`).
@@ -537,6 +583,20 @@ def _codeName(part):
 # Words that point to a recipe. Checked in this order; the first that matches is the hint given to the model,
 # and the choice when the model fails.
 _HINTS = (
+	# The jobs of docs/PLAN-ten-scenarios.md. Each has a function that reads what is asked from the user's own
+	# words and gives None where they do not ask for it, so these rows name a job only where the words do.
+	("step_through", lambda part: wizard.wish(part) is not None),
+	("fill_blank", lambda part: paper.wish(part) is not None),
+	("format_document", lambda part: docformat.wish(part) is not None),
+	("check_layout", lambda part: docformat.layoutWish(part) is not None),
+	("human_check", humancheck.about),
+	("pick_seat", lambda part: seats.seatWish(part) is not None),
+	("pick_option", lambda part: shopping.optionWish(part) is not None and not guide.asks(part)),
+	("look_picture", lambda part: images.meant(part) is not None),
+	# A field of a form that is marked only by a red border: what is stopping the form is found, and the reading
+	# position is put there (pagetools measures the picture where the page tells NVDA nothing).
+	("form_trouble", r"\b(fields?|box(es)?|forms?)\b.{0,60}\b(red (border|outline|box|line|frame)|(outlined|highlighted|marked|circled) in red)\b"
+		r"|\bred (border|outline|frame)\b.{0,60}\b(fields?|box(es)?|forms?)\b"),
 	# A file or folder of the user's that is made, renamed, moved, copied or deleted. First of all: the words must
 	# speak of a file, a folder or a document, or write a name with its ending, and then "delete the file
 	# notes.txt" is not about VisionClaw's notes on a program.
@@ -785,7 +845,8 @@ _HINTS = (
 	("open_website", lambda part: bool(re.search(
 		r"\b(open|go to|visit|load|browse to)\b.*(\w\.[a-z]{2,}\b|web ?site|web ?page|\burl\b)", part.lower()))
 		and not (computer.namesFile(part) and not re.search(r"web ?site|web ?page|\burl\b|\bwww\.|https?:", part.lower()))),
-	("fill_field", r"\b(type|enter|write|fill|put)\b.*\b(in|into)\b.*\b(field|box|form|search)\b"),
+	("fill_field", r"\b(type|enter|write|fill|put)\b.*\b(in|into)\b.*\b(field|box|form|search)\b"
+		r"|\b(apply|use|enter|redeem|add)\b.{0,20}\b(promo(?:tion(?:al)?)?|coupon|discount|voucher|gift)\s+code\b"),
 	# Which model to use or switch to: a suggestion (claw/advice.py). Before add-ons, NVDA's drivers and the models that are installed,
 	# which "which model is best for writing add-ons" would otherwise set off.
 	("model_advice", r"^(?!.*\b(picture|image|photo|screen|window|page|site|article|car|phone|printer|braille)\b.*\bmodel\b)(?=.*("
@@ -833,7 +894,8 @@ _HINTS = (
 	("change_setting", _SETTING_WORDS),
 	("do_command", r"\bnvda('?s)? (menu|speech viewer|python console|log viewer|elements list|braille viewer)\b"),
 	("click", r"\bright[- ]click\b|\bdouble[- ]click\b|\bhover\b|\bpoint (at|to)\b"),
-	("click", r"\b(click|press|push|activate|select|choose|start|open)\b.*\b(button|link|item|menu|tab|icon|game|option)|\bclick\b"),
+	("click", r"\b(click|press|push|activate|select|choose|start|open)\b.*\b(button|link|item|menu|tab|icon|game|option|tool|preset|"
+		r"toggle|swatch|mode)|\bclick\b"),
 	# A program, folder or file opened by its name. After everything above that the word open also starts, and
 	# never for "it" or "this", which is the thing that has the focus.
 	("open_thing", r"^\s*(please )?(can you |could you )?(open|launch|fire up)\b( up)? (?!(it|this|that|them|these|those|"
@@ -855,6 +917,9 @@ _HINTS = (
 		r"|\b(give|get|tell|check|what('s| is| are))\b.*\b(time|date|battery)\b|\bwhat (time|day|date) is it\b"
 		r"|\bwhat('s| is) (on|in) (the |my )?clipboard\b"
 		r"|\bhow (much|full|low|empty) (is )?(the |my )?(battery|power|charge)\b|\bbattery (level|left|status|charge)\b"),
+	# What a game or a drawn window shows in a grid or a panel is looked at, and its text read with it.
+	("describe", r"\b(read|tell me|say|what (?:is|are)|list)\b.{0,160}\b(inventory|stats|skill points?|equipped|scoreboard|leaderboard|"
+		r"health bar|hud)\b"),
 	("read_text", r"\bread\b.*\b(text|everything)\b|\bread (me )?(the |this |all of the )?(whole )?(window|screen)\b"
 		r"|\bwhat (does|do) (the |this |that )?(text|message|dialog|window|screen|label|error)\b.{0,30}\bsay\b"),
 	("describe", r"^\W*(please\s+)?(can you\s+|could you\s+)?describe\b"),
@@ -923,7 +988,18 @@ _WHY = re.compile(rf"(?:^|[.!?]\s+){computer._POLITE}why (?:does|do|is|are|did|c
 # What a how-question may still be: a question of its own kind, or being led through the task.
 _ANSWERS = (
 	"explain_keys", "nvda_question", "work_through", "coach", "addon_question", "jaws_help", "voice_info", "own_voice",
-	"program_settings", "web_page", "explore_page", "form_trouble", "classic_speech", "controller_info", "mouse_way")
+	"program_settings", "web_page", "explore_page", "form_trouble", "classic_speech", "controller_info", "mouse_way", "human_check")
+
+
+_TURNED_THING = re.compile(r"\b(knobs?|dials?|faders?|sliders?|rotary)\b", re.IGNORECASE)
+# Words that say the program, window or page in front is meant.
+_IN_FRONT = re.compile(
+	r"\b(in|inside|within|on|of|from)\s+(this|the)\s+(?:[\w+-]+\s+){0,2}(plug-?in|program|app|application|window|launcher|game|"
+	r"dialog|installer|panel|vst)\b", re.IGNORECASE)
+_OPENS_INSIDE = re.compile(
+	r"^\s*(?:please\s+)?(?:open|go to|go into|show|bring up|switch to|enter)\s+(?:the|its|my|this)\s+[\w' +&-]{2,50}?"
+	r"(?:\s+(?:in|inside|within|on|of|from)\s+(?:this|the)\s+[\w' +-]{2,40})?\s*[.!]?\s*$", re.IGNORECASE)
+_CHOOSES_INSIDE = re.compile(r"^\s*(?:please\s+)?(?:select|choose|pick|activate)\s+(?:the|a|an|my|this)\s+\S", re.IGNORECASE)
 
 
 def hint(part, before=None):
@@ -947,6 +1023,22 @@ def hint(part, before=None):
 		rest = profiles.without(computer.own(part))
 		if re.search(_SETTING_WORDS, rest.lower()) and (profiles.restricts(part) or _NVDAS_OWN.search(rest)):
 			return "change_setting"
+	# A knob, dial, fader or slider that is to show a number is set to it; taking hold of it for the arrow keys
+	# is for turning it by ear. "Turn the Mix knob down to 35 percent."
+	if found in (OTHER, "work_control", "drag", "change_setting", "scroll", "click") and _TURNED_THING.search(text):
+		wished = controls.wish(part)
+		if (wished is not None and wished["what"] == controls.SET and not profiles.everywhere(part)
+				and not _NVDAS_OWN.search(part)):
+			return "set_control"
+	# In the program in front, right after a click there or where the words say "in this launcher": "open the
+	# Settings menu" and "select the Warm Vocal preset" are clicks on things of that program. They are not NVDA's
+	# settings and not a program opened by its name; a place of Windows that is named stays what it is.
+	if (before in _INSIDE or _IN_FRONT.search(text)) and not computer.opensPlace(part):
+		own = computer.own(part)
+		if found in ("change_setting", "open_thing", OTHER) and _OPENS_INSIDE.match(own):
+			return "click"
+		if found == OTHER and _CHOOSES_INSIDE.match(own):
+			return "click"
 	# A named control of the program in front: where the words say "in this program", or right after a click or
 	# another control there. What can hardly mean anything else, as the computer's own volume, stays what it is.
 	if (found in (OTHER, "change_setting", "click", "drag", "work_control", "nvda_question", "scroll")
@@ -1026,9 +1118,14 @@ _SUBORDINATE = re.compile(
 _QUESTION = re.compile(r"^\s*(what|which|who|where|when|how|is|are|do|does|can|could|will|should)\b", re.IGNORECASE)
 _REPORTS = re.compile(r"^\s*(?:please\s+)?(tell|say|read|describe|report|list|summari[sz]e|count)\b", re.IGNORECASE)
 # What only looks: a report joined to it by "and" is about what was looked at, and stays with it.
-_LOOKS = ("read_place", "describe", "read_text", "where_am_i", "check_access", "page_outline", "explore_page", "form_trouble", "web_page", "nvda_question", "explain_keys")
+_LOOKS = ("read_place", "describe", "read_text", "where_am_i", "check_access", "page_outline", "explore_page", "form_trouble", "web_page", "nvda_question", "explain_keys",
+	"look_picture", "check_layout")
 # Recipes whose words are the user's own text, which may hold commas and "and" of its own.
-_WHOLE = ("learn_app", "write_addon", "add_skill", "add_fix", "work_through", "teach_words")
+_WHOLE = ("learn_app", "write_addon", "add_skill", "add_fix", "work_through", "teach_words", "step_through", "format_document", "pick_seat",
+	"human_check", "look_picture")
+# Recipes that are kept whole where plain rules find nothing to split: their tools read the whole of what was said.
+# Where plain rules do split ("click the Medium size swatch, select the dark blue colour option"), each part stands.
+_WHOLE_UNSPLIT = ("fill_blank", "pick_option", "check_layout", "form_trouble")
 # What is wrong, then one short wish about it that says "it" or "that": "..., make it stop", "..., fix that".
 _COMPLAINT = re.compile(
 	r"^(?!\s*(?:please\s+)?(?:can you\s+)?(?:open|close|click|press|type|turn|set|go|switch|start|find|read|tell|show)\b)"
@@ -1043,6 +1140,16 @@ _FREE_TEXT = (
 _ONE_THING = re.compile(
 	r"\b(check|look|go|try|go ahead|have a look|take a look)\s+and\s+(?=(?:see|check|look|find out|tell me)\b)", re.IGNORECASE)
 _JOINED = " \u2060and\u2060 "
+# What is said in quotes is one thing, whatever commas and "and" it holds: a label printed on a form, a name.
+_IN_QUOTES = re.compile(
+	r"\"[^\"]{1,80}\"|\u201c[^\u201d]{1,80}\u201d|(?<![\w])'[^']{1,80}'(?![\w])|\u2018[^\u2019]{1,80}\u2019")
+_COMMA_MARK = "\u2063"
+# A name of two words joined by "and" before the kind of thing it names: the Fill and Sign tool.
+_NAMED_AND = re.compile(
+	r"\b([A-Z][\w-]*)\s+and\s+(?=[A-Z][\w-]*(?:\s+[\w-]+){0,2}?\s+(?:tool|button|menu|tab|option|dialog|window|panel|page|box|mode|"
+	r"icon|link|command|item|feature|section|pane)\b)")
+_TYPES_ON_IT = re.compile(
+	r"^\s*(?:then\s+)?(?:(?:type|write|enter|put|print|fill in)\b|(?:click|press|tap)\s+(?:on\s+)?(?:there|it|that)\b)", re.IGNORECASE)
 
 
 def _isCondition(text):
@@ -1056,6 +1163,9 @@ def plainSplit(request):
 	before it to be understood is left to the model. A thing that depends on something ("if you see the
 	Recycle Bin, open it") is kept whole."""
 	pieces = []
+	# What is in quotes, and a name such as Fill and Sign, is never split: its commas and its "and" are put aside.
+	request = _IN_QUOTES.sub(lambda hit: hit.group(0).replace(",", _COMMA_MARK).replace(" and ", _JOINED), " ".join(request.split()))
+	request = _NAMED_AND.sub(lambda hit: hit.group(1) + _JOINED, request)
 	# The "and" of "check and see" is put aside, so that nothing is split there, and put back afterwards.
 	for sentence in _SENTENCE.split(_ONE_THING.sub(lambda hit: hit.group(1) + _JOINED, " ".join(request.split()))):
 		sentence = sentence.strip().rstrip(".!;").strip()
@@ -1087,7 +1197,15 @@ def plainSplit(request):
 			how = "then"
 	if len(pieces) < 2:
 		return None
-	pieces = _resolved([(text.replace(_JOINED, " and "), how) for text, how in pieces])
+	pieces = [(text.replace(_JOINED, " and ").replace(_COMMA_MARK, ","), how) for text, how in pieces]
+	# What is typed belongs to the line it is typed on: "click the line next to Name and type my name" is one thing.
+	joined = []
+	for text, how in pieces:
+		if joined and how == "and" and _TYPES_ON_IT.match(text) and paper.wish(joined[-1][0]) is not None:
+			joined[-1] = (f"{joined[-1][0]} and {text}", joined[-1][1])
+		else:
+			joined.append((text, how))
+	pieces = _resolved(joined)
 	if len(pieces) < 2:
 		return None
 	for index, (text, how) in enumerate(pieces):
@@ -1202,6 +1320,12 @@ def split(llm, role, request, note=""):
 		return plain[:MAX_PARTS]
 	if _isCondition(request):
 		return [request]  # one thing that depends on something: kept whole
+	# What plain rules cannot split, and what the job's own function reads from the words as a whole: one thing,
+	# kept in the user's own words. Measured with Qwen3.5 9B on 2026-11-19 (tests/eval/requests-ten.json): split by
+	# the model, "this pdf is just a scan, click the line beside Full Name and type Jordan Lee" typed the name as a
+	# job of its own, and "one of the boxes on this form has a red border, take me to it" went looking for "it".
+	if hint(request) in _WHOLE_UNSPLIT:
+		return [request]
 	if len(request) < 200 and not _CONNECTORS.search(_ONE_THING.sub(r"\1 ", request)):
 		return [request]  # clearly one thing: no model needed
 	user = f"Request: {clip(request, 800)}"
@@ -1260,6 +1384,10 @@ def decided(part, registry, before=None):
 		return guess
 	# A thing inside a part of Windows, to be clicked: the words name it and the place, and no window has it.
 	if guess == "click" and guess in available(registry) and places.clicksIn(part) is not None:
+		return guess
+	# Right after a click in a program, "open the Settings menu" is a click there too (see hint).
+	if (guess == "click" and guess in available(registry) and before in _INSIDE and hint(part) != "click"
+			and _OPENS_INSIDE.match(computer.own(part))):
 		return guess
 	# A named control of the program in front, where the words say "this program" or right after a click or
 	# another control there, and nothing in the words is NVDA's own. Measured the same day: after "find and
@@ -1361,12 +1489,17 @@ _NEEDS = {
 	# Remembering is only meant where the words ask for it or say something lasting about the user. A real
 	# model sent "see if it needs to be emptied or not" there, and the request was kept as a memory.
 	"remember": lambda part: (memories.asksToRemember(part) or memories.lasting(part)) or None,
-	"teach_words": understand.wishOf}
+	"teach_words": understand.wishOf,
+	# The jobs of docs/PLAN-ten-scenarios.md: each is offered only where its own function finds it in the words.
+	"step_through": wizard.wish, "fill_blank": paper.wish, "format_document": docformat.wish,
+	"check_layout": docformat.layoutWish, "human_check": lambda part: humancheck.about(part) or None, "pick_seat": seats.seatWish,
+	"pick_option": lambda part: None if guide.asks(part) else shopping.optionWish(part), "look_picture": images.meant}
 # Recipes the words point to that can hardly mean anything else: locking and shutting down, the Recycle Bin, the
 # computer's own volume. Where the words point to one of them, it is taken, whatever a model chose. Each of
 # their tools asks the user before it changes anything.
 _SURE = ("power", "windows_part", "read_place", "empty_bin", "recycle_bin", "system_volume", "file_task", "pick_date", "work_through",
-	"teach_words")
+	"teach_words", "step_through", "fill_blank", "format_document", "check_layout", "human_check", "pick_seat", "pick_option",
+	"look_picture")
 
 
 def fitted(choice, part, guess):
@@ -1406,7 +1539,8 @@ def quickTriage(request):
 	return {
 		"kind": recipes[0],
 		"complexity": complexity(recipes),
-		"needs_vision": any(r in ("describe", "click", "make_hotkey", "read_text", "fix_access", "check_access", "touch", "pressure") for r in recipes),
+		"needs_vision": any(r in ("describe", "click", "make_hotkey", "read_text", "fix_access", "check_access", "touch", "pressure",
+			"look_picture", "human_check") for r in recipes),
 		"needs_code": "write_addon" in recipes,
 	}
 

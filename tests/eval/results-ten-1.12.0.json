@@ -1,0 +1,760 @@
+{
+ "label": "ten-1.12.0",
+ "models": {
+  "backend": "auto",
+  "visionModel": "qwen3.5-9b",
+  "coderModel": "qwen3.5-9b-coder"
+ },
+ "stepwise": "always",
+ "rows": [
+  {
+   "request": "what does the last pic in this chat say",
+   "expect": [
+    [
+     "look_picture"
+    ]
+   ],
+   "got": [
+    "look_picture"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  },
+  {
+   "request": "my sister just sent a meme, what's funny about it",
+   "expect": [
+    [
+     "look_picture"
+    ]
+   ],
+   "got": [
+    "look_picture"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.0,
+   "state": "done"
+  },
+  {
+   "request": "can you tell me what's in the screenshot Dave posted",
+   "expect": [
+    [
+     "look_picture"
+    ]
+   ],
+   "got": [
+    "look_picture"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  },
+  {
+   "request": "is the dress in the product picture red or more of a pink",
+   "expect": [
+    [
+     "look_picture"
+    ]
+   ],
+   "got": [
+    "look_picture"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.0,
+   "state": "done"
+  },
+  {
+   "request": "go through the hotel photos and tell me if any show a pool",
+   "expect": [
+    [
+     "look_picture"
+    ]
+   ],
+   "got": [
+    "look_picture"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.0,
+   "state": "done"
+  },
+  {
+   "request": "this pdf is just a scan, click the line beside Full Name and type Jordan Lee",
+   "expect": [
+    [
+     "fill_blank"
+    ]
+   ],
+   "got": [
+    "fill_blank",
+    "type_text"
+   ],
+   "verdict": "wrong",
+   "asked": [],
+   "seconds": 7.5,
+   "state": "done"
+  },
+  {
+   "request": "put today's date on the line next to Date in this scanned form",
+   "expect": [
+    [
+     "fill_blank"
+    ]
+   ],
+   "got": [
+    "fill_blank"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  },
+  {
+   "request": "there's a dotted line that says Signature, click on it for me",
+   "expect": [
+    [
+     "fill_blank"
+    ]
+   ],
+   "got": [
+    "fill_blank"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.7,
+   "state": "done"
+  },
+  {
+   "request": "tick the box next to Yes on this scanned pdf",
+   "expect": [
+    [
+     "fill_blank"
+    ]
+   ],
+   "got": [
+    "fill_blank"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  },
+  {
+   "request": "keep hitting Next in this installer till it's ready to install, and say no to any extra junk it offers",
+   "expect": [
+    [
+     "step_through"
+    ]
+   ],
+   "got": [
+    "step_through"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.0,
+   "state": "done"
+  },
+  {
+   "request": "get me through this setup wizard",
+   "expect": [
+    [
+     "step_through",
+     "work_through"
+    ]
+   ],
+   "got": [
+    "step_through"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  },
+  {
+   "request": "press Continue over and over until it asks for my email",
+   "expect": [
+    [
+     "step_through"
+    ]
+   ],
+   "got": [
+    "step_through"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.0,
+   "state": "done"
+  },
+  {
+   "request": "make this whole document double spaced",
+   "expect": [
+    [
+     "format_document"
+    ]
+   ],
+   "got": [
+    "format_document"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  },
+  {
+   "request": "my professor wants MLA format, can you set this paper up that way",
+   "expect": [
+    [
+     "format_document"
+    ]
+   ],
+   "got": [
+    "format_document"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.0,
+   "state": "done"
+  },
+  {
+   "request": "change the font of this document to Arial 11 point",
+   "expect": [
+    [
+     "format_document"
+    ]
+   ],
+   "got": [
+    "format_document"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  },
+  {
+   "request": "give the works cited a half inch hanging indent",
+   "expect": [
+    [
+     "format_document"
+    ]
+   ],
+   "got": [
+    "format_document"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.0,
+   "state": "done"
+  },
+  {
+   "request": "does my cover letter still fit on one page",
+   "expect": [
+    [
+     "check_layout"
+    ]
+   ],
+   "got": [
+    "check_layout"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.0,
+   "state": "done"
+  },
+  {
+   "request": "how many pages is this document",
+   "expect": [
+    [
+     "check_layout"
+    ]
+   ],
+   "got": [
+    "check_layout"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.0,
+   "state": "done"
+  },
+  {
+   "request": "are any of the text boxes in this flyer overlapping",
+   "expect": [
+    [
+     "check_layout"
+    ]
+   ],
+   "got": [
+    "check_layout"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.0,
+   "state": "done"
+  },
+  {
+   "request": "there's one of those I'm not a robot boxes, can you press it",
+   "expect": [
+    [
+     "human_check"
+    ]
+   ],
+   "got": [
+    "human_check"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.0,
+   "state": "done"
+  },
+  {
+   "request": "this site wants me to prove I'm human, what are my options",
+   "expect": [
+    [
+     "human_check"
+    ]
+   ],
+   "got": [
+    "human_check"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  },
+  {
+   "request": "what's in each square of this captcha",
+   "expect": [
+    [
+     "human_check"
+    ]
+   ],
+   "got": [
+    "human_check"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  },
+  {
+   "request": "click squares 2, 5 and 8 and then hit verify",
+   "expect": [
+    [
+     "human_check"
+    ]
+   ],
+   "got": [
+    "human_check"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.0,
+   "state": "done"
+  },
+  {
+   "request": "pick the large size",
+   "expect": [
+    [
+     "pick_option"
+    ]
+   ],
+   "got": [
+    "pick_option"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  },
+  {
+   "request": "I want the green one, choose that colour",
+   "expect": [
+    [
+     "pick_option"
+    ]
+   ],
+   "got": [
+    "pick_option",
+    "describe"
+   ],
+   "verdict": "wrong",
+   "asked": [],
+   "seconds": 1.7,
+   "state": "done"
+  },
+  {
+   "request": "is the 128 gig storage option the one that's selected",
+   "expect": [
+    [
+     "pick_option"
+    ]
+   ],
+   "got": [
+    "pick_option"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  },
+  {
+   "request": "find me an aisle seat near the front on this seat map",
+   "expect": [
+    [
+     "pick_seat"
+    ]
+   ],
+   "got": [
+    "pick_seat"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.0,
+   "state": "done"
+  },
+  {
+   "request": "is seat 14C still free",
+   "expect": [
+    [
+     "pick_seat"
+    ]
+   ],
+   "got": [
+    "pick_seat"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.0,
+   "state": "done"
+  },
+  {
+   "request": "I'd like a window seat in an exit row, pick one",
+   "expect": [
+    [
+     "pick_seat"
+    ]
+   ],
+   "got": [
+    "pick_seat"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.0,
+   "state": "done"
+  },
+  {
+   "request": "set the reverb dial to 40 percent",
+   "expect": [
+    [
+     "set_control"
+    ]
+   ],
+   "got": [
+    "set_control"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.0,
+   "state": "done"
+  },
+  {
+   "request": "bring the cutoff knob up to 75",
+   "expect": [
+    [
+     "set_control"
+    ]
+   ],
+   "got": [
+    "set_control"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  },
+  {
+   "request": "work your way through this printer utility and turn on duplex printing",
+   "expect": [
+    [
+     "work_through"
+    ]
+   ],
+   "got": [
+    "work_through"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  },
+  {
+   "request": "one of the boxes on this form has a red border, take me to it",
+   "expect": [
+    [
+     "form_trouble"
+    ]
+   ],
+   "got": [
+    "form_trouble",
+    "go_to"
+   ],
+   "verdict": "wrong",
+   "asked": [],
+   "seconds": 2.5,
+   "state": "done"
+  },
+  {
+   "request": "why can't I send this form, something must be wrong",
+   "expect": [
+    [
+     "form_trouble"
+    ]
+   ],
+   "got": [
+    "form_trouble",
+    "nvda_question"
+   ],
+   "verdict": "wrong",
+   "asked": [],
+   "seconds": 2.2,
+   "state": "done"
+  },
+  {
+   "request": "in this launcher, open the options screen",
+   "expect": [
+    [
+     "click"
+    ]
+   ],
+   "got": [
+    "click"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 1.5,
+   "state": "done"
+  },
+  {
+   "request": "read me my health and ammo from the hud",
+   "expect": [
+    [
+     "describe",
+     "read_text"
+    ]
+   ],
+   "got": [
+    "describe"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 1.6,
+   "state": "done"
+  },
+  {
+   "request": "describe this picture",
+   "expect": [
+    [
+     "describe"
+    ]
+   ],
+   "got": [
+    "describe"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.7,
+   "state": "done"
+  },
+  {
+   "request": "open my pictures folder",
+   "expect": [
+    [
+     "open_thing",
+     "files"
+    ]
+   ],
+   "got": [
+    "open_thing"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  },
+  {
+   "request": "read the current line",
+   "expect": [
+    [
+     "do_command",
+     "explain_keys"
+    ]
+   ],
+   "got": [
+    "read_text"
+   ],
+   "verdict": "wrong",
+   "asked": [],
+   "seconds": 0.5,
+   "state": "done"
+  },
+  {
+   "request": "click the Options button",
+   "expect": [
+    [
+     "click"
+    ]
+   ],
+   "got": [
+    "click"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.7,
+   "state": "done"
+  },
+  {
+   "request": "choose the second option in this list",
+   "expect": [
+    [
+     "click",
+     "press_keys"
+    ]
+   ],
+   "got": [
+    "click"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.7,
+   "state": "done"
+  },
+  {
+   "request": "install the latest version of visionclaw",
+   "expect": [
+    [
+     "update_visionclaw"
+    ]
+   ],
+   "got": [
+    "update_visionclaw"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.8,
+   "state": "done"
+  },
+  {
+   "request": "press Next",
+   "expect": [
+    [
+     "click",
+     "press_keys"
+    ]
+   ],
+   "got": [
+    "press_keys"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.7,
+   "state": "done"
+  },
+  {
+   "request": "how do I double space in Word",
+   "expect": [
+    [
+     "explain_keys",
+     "nvda_question"
+    ]
+   ],
+   "got": [
+    "explain_keys"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.8,
+   "state": "done"
+  },
+  {
+   "request": "check the box that says remember me",
+   "expect": [
+    [
+     "click",
+     "set_control"
+    ]
+   ],
+   "got": [
+    "remember"
+   ],
+   "verdict": "asked",
+   "asked": [
+    "VisionClaw is not sure what you mean by \"check the box that says remember me\". What should it do?"
+   ],
+   "seconds": 1.6,
+   "state": "done"
+  },
+  {
+   "request": "close the window",
+   "expect": [
+    [
+     "window"
+    ]
+   ],
+   "got": [
+    "window"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.8,
+   "state": "done"
+  },
+  {
+   "request": "what's on the screen right now",
+   "expect": [
+    [
+     "describe"
+    ]
+   ],
+   "got": [
+    "describe"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.7,
+   "state": "done"
+  },
+  {
+   "request": "is my resume saved in documents",
+   "expect": [
+    [
+     "files"
+    ]
+   ],
+   "got": [
+    "files"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.7,
+   "state": "done"
+  },
+  {
+   "request": "turn the volume up to 60 percent",
+   "expect": [
+    [
+     "system_volume"
+    ]
+   ],
+   "got": [
+    "change_setting"
+   ],
+   "verdict": "wrong",
+   "asked": [],
+   "seconds": 0.8,
+   "state": "done"
+  }
+ ]
+}

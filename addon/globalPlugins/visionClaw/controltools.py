@@ -9,7 +9,8 @@
 #   1. in what NVDA knows of the window in front;
 #   2. on the other pages of a dialog that has tabs, one after another, and the user is told which page;
 #   3. in the window's picture, for a window NVDA cannot read: then VisionClaw works with the mouse, compares
-#      the picture before and after, and says what it saw, and what it could only guess.
+#      the picture before and after, and says what it saw, and what it could only guess. A drawn knob or slider
+#      is set to a number by moving it a step at a time and reading the number shown at it (claw/target.py).
 # The least risky way that works is used: the control's own action through NVDA or Windows itself first, the
 # keyboard next, the mouse last. The user is asked before anything is changed, and told what the control was
 # and what it is now, never only what was tried.
@@ -21,7 +22,7 @@ import api
 import config
 
 from . import deepquery, fixruntime, mousetools
-from .claw import computer, controls, dragcontrol, policy, prompts
+from .claw import computer, controls, dragcontrol, policy, prompts, target
 from .claw.catalog import VISION
 from .claw.llm import clip
 from .claw.tools import VERBATIM, ToolError
@@ -237,9 +238,29 @@ def register(add, plugin, text, onMain, confirm, screen):
 			return f"Turned {shown} {what}, {computer.many(moved, 'step')}, with the mouse." + (
 				f" It now shows: {clip(now, 80)}" if now else " The picture changed there; it shows no value VisionClaw can read.")
 		if what == controls.SET:
-			raise ToolError(
-				f"{shown} is only in the window's picture, so it cannot be set to a number. Ask to turn it up or down, and "
-				"VisionClaw says what it shows after each try.")
+			# A drawn knob or slider is set to a number the way a sighted person does it: moved a step at a time,
+			# with the number shown at it read after every step (claw/target.py). Plain code; no model.
+			if not config.conf["visionClaw"]["useOcr"]:
+				raise ToolError(
+					f"{shown} is only in the window's picture, and reading text in pictures is turned off in VisionClaw's "
+					"settings, so the number it shows cannot be read. Ask to turn it up or down instead.")
+			x, y, radius = dragcontrol.handleOf(result.items, found[0])
+			control = newControl(shown, "control", (info.convertXToScreen(x), info.convertYToScreen(y)), box, radius or None,
+				find={"item": shown})
+			confirm(target.question(shown, wish["value"], wish["percent"]))
+			keys = plugin.controlKeys
+			taken, said = keys.start(control)
+			if not taken:
+				raise ToolError(said)
+			try:
+				with keys._lock:
+					outcome = target.seek(
+						wish["value"], wish["percent"], lambda: keys._readLines(box),
+						lambda direction, size: keys._stroke(box, direction, size), task.check, name=shown)
+			finally:
+				mousetools._onMain(lambda: keys.stop(say=False))
+			task.items = None
+			return target.text(shown, wish["value"], wish["percent"], outcome)
 		# On or off, seen only in the picture: what it is now can only be read by the model that sees.
 		point = result.screenPoint(item)
 		area = dragcontrol.around(point, dragcontrol.AREA, box)
@@ -281,6 +302,27 @@ def register(add, plugin, text, onMain, confirm, screen):
 			raise ToolError(
 				"The request does not say which control of this program to set and how. Name the control, and say on or "
 				"off, up or down, or a number.")
+		names = wish.get("names") or [wish["name"]]
+		if len(names) < 2:
+			return setOne(task, wish)
+		# Several controls named in one breath: "turn on UI narration and subtitles". The whole name is tried first,
+		# because one control may be called so; then each on its own, and each is asked about and said.
+		try:
+			return setOne(task, wish)
+		except ToolError:
+			pass
+		said, failed = [], []
+		for name in names:
+			task.check()
+			try:
+				said.append(setOne(task, dict(wish, name=name, names=[name])))
+			except ToolError as e:
+				failed.append(str(e))
+		if not said:
+			raise ToolError(" ".join(failed))
+		return " ".join(said + failed)
+
+	def setOne(task, wish):
 		found = onMain(findKnown, wish)
 		where, looked = "", 0
 		if not found:

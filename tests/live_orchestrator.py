@@ -76,6 +76,7 @@ def makeRegistry(rt, state):
 		"speech.rate": ["speech: rate", 50, "a number from 0 to 100"],
 		"speech.symbolLevel": ["speech: symbol level", "some", "one of: none, some, most, all"],
 		"keyboard.speakTypedCharacters": ["keyboard: speak typed characters", "on", "on or off"],
+		"keyboard.speakTypedWords": ["keyboard: speak typed words", "off", "on or off"],
 	}
 
 	def findSetting(task, words):
@@ -83,6 +84,7 @@ def makeRegistry(rt, state):
 			"speech.rate": "speed fast faster slow slower quick talk talking speak speaking",
 			"speech.symbolLevel": "punctuation symbols level",
 			"keyboard.speakTypedCharacters": "echo typing letters keys characters typed",
+			"keyboard.speakTypedWords": "echo typing words typed",
 		}
 		scored = sorted(((score(words, f"{v[0]} {aliases[k]}"), k, v) for k, v in settings.items()), key=lambda x: -x[0])
 		found = [f"{k}: {v[0]}. Now: {v[1]}. Allowed: {v[2]}." for s, k, v in scored if s >= 0.25]
@@ -875,6 +877,52 @@ def makeRegistry(rt, state):
 		"NVDA's Speech settings are open, for VisionClaw's voice; the test opens nothing.", "Looking at VisionClaw's own voice",
 		dict(askedField), tell=V)
 
+	# The ten things that used to need sighted help (docs/PLAN-ten-scenarios.md): each stand-in answers as the
+	# real tool would on a made-up window, and does nothing.
+	simple("look_picture",
+		"look at one picture on the web page or in the window in front and answer a question about it: the latest "
+		"picture in a chat, a screenshot or meme someone sent, a product's photo, the photos of a gallery; reads its "
+		"text, says what it shows, measures its colours",
+		"The last picture on this page, which the page calls \"A dog at a desk\": It says: I have no idea what I am "
+		"doing. The test looked at nothing.", "Looking at the picture", dict(askedField), looks=True, tell=V)
+	simple("fill_blank",
+		"on a form that is only a picture, such as a scanned or flattened PDF: click the printed line or check box "
+		"that belongs to a label, and type the user's text on it",
+		"Clicked the line to the right of \"Full Name\" and typed \"Jordan Lee\". The text is now read there in the "
+		"picture. The test clicked nothing.", "Finding the place on the form", dict(askedField), changes=True, tell=V)
+	simple("step_through",
+		"go through an installer or a set-up window page after page: press one button, such as Next, again and again "
+		"until something is reached; uncheck boxes that offer extra software; ask before terms are accepted and before "
+		"the installation starts",
+		"Page 1, Setup - Welcome; pressed Next. Page 2, Setup - Ready to Install; pressed Install, as you said. The "
+		"test pressed nothing.", "Going through the pages", dict(askedField), changes=True, tell=V)
+	simple("format_document",
+		"format the Microsoft Word document in front: a style such as APA or MLA, or its font, font size, line "
+		"spacing, margins, alignment, first-line indent or hanging indent",
+		"Formatted the document: the font is Times New Roman, 12 point; the lines are double-spaced. Control+Z in Word "
+		"takes it back. The test changed nothing.", "Formatting the document", dict(askedField), changes=True, tell=V)
+	simple("check_layout",
+		"say how many pages the Word document in front has, whether it fits on one page, and whether text boxes, "
+		"pictures or tables overlap or reach beyond the page",
+		"The document has 2 pages; the second page has 3 lines. Nothing overlaps. The test read nothing.",
+		"Checking the layout", dict(askedField), looks=True, tell=V)
+	simple("human_check",
+		"for a check on a web page that asks whether the user is a person (a captcha): say which kind it is and the "
+		"ways through it that need no sight, press its check box, say what each square of a puzzle shows, and click "
+		"the squares the user names",
+		"This page has a check that asks whether you are a person, with a box to press. The test pressed nothing.",
+		"Looking at the check", dict(askedField), changes=True, tell=V)
+	simple("pick_option",
+		"on a shop's page, choose a size, colour, storage or style option by its name or by its measured colour, or "
+		"say which option is chosen now",
+		"Chose the option Dark blue. The page marks it as chosen now. The test clicked nothing.",
+		"Choosing the option", dict(askedField), changes=True, tell=V)
+	simple("pick_seat",
+		"on a seat map, find the free seats that fit what the user wants (window, aisle, front, a row), say the best "
+		"few, and click one after asking",
+		"The map has 30 rows. Free window seats near the front: 4A and 5F. The test clicked nothing.",
+		"Finding a seat", dict(askedField), changes=True, tell=V)
+
 	def classicSpeech(task, asked):
 		wish = partners.classicWish(asked) or {"what": partners.INFO}
 		state["classic"] = wish
@@ -1175,6 +1223,21 @@ REQUESTS = (
 	"Make a new skill: when I ask about recipes, read the ingredients first, with their amounts exactly.",
 	"Which skills do you have?",
 	"Turn off the game skill.",
+	# The ten things that used to need sighted help (docs/PLAN-ten-scenarios.md), in the words of the article
+	# they were built against; tests/eval/requests-ten.json has them in words that were never tuned on.
+	"Make NVDA only speak words when I type.",
+	"Uncheck any bundled promotional toolbars in this installer and click Next until the installation starts.",
+	"Click the Play button in this launcher, open the Settings menu, and turn on UI narration and subtitles.",
+	"Check why this form did not submit, tell me the error message, and jump my cursor straight to the field with the red error outline.",
+	"Select the Fill and Sign tool, click directly on the blank line next to 'Applicant Full Name,' and type my name.",
+	"Turn the graphical Mix knob down to 35 percent and click the Bypass toggle.",
+	"Read the text inside the latest image posted in this WhatsApp chat and explain the visual joke.",
+	"Format this entire Word document in APA 7th edition style: set the font to 12-point Times New Roman, double-space all paragraphs, and apply a 0.5-inch hanging indent to the References section.",
+	"Check the visual layout of my resume and tell me if everything fits cleanly onto a single page without any overlapping text boxes.",
+	"Locate and click the 'Verify you are human' Cloudflare Turnstile checkbox on screen.",
+	"Select all squares with traffic lights.",
+	"Click the Medium size swatch, select the dark blue color option, and confirm the storage capacity is set to 256GB.",
+	"Find an available window seat ahead of the wing on this aircraft map and click it to reserve my seat.",
 )
 
 

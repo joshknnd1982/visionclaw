@@ -88,6 +88,16 @@ _NEWS = re.compile(
 	r"\bwhat('s| is| was) (new|changed|fixed|different)\b|\bnew (in|features?|versions?|things?)\b|\brelease notes?\b"
 	r"|\b(latest|newest|this|last|new|current) (version|release|update)\b|\bchange ?log\b|\b20\d\d\.\d\b"
 	r"|\bnvda\b.*\b(changed|changes|fixed|fixes)\b|\b(changed|changes|fixed|fixes)\b.*\bnvda\b", re.IGNORECASE)
+# What a sighted helper was needed for (docs/PLAN-ten-scenarios.md): asked only when the question names one of them.
+_SIGHTED_HELP = re.compile(
+	r"\b(scanned|flattened|untagged|fill and sign|blank lines?|dotted lines?|line to sign|sign(ing)? a (pdf|form|document)|"
+	r"installers?|setup wizards?|install wizards?|next until|bundled|toolbars?|"
+	r"(latest|last|newest) (picture|image|photo)|memes?|product (photo|picture|image)|gallery|pictures? in (a|this|the) chat|"
+	r"apa|mla|double[- ]?spac\w+|line spacing|hanging indent|margins?|fits? on (one|a single) page|page count|how many pages|"
+	r"text ?box(es)?|captchas?|recaptcha|hcaptcha|not a robot|verify (you are|i am|i'm) human|audio challenge|"
+	r"swatch(es)?|(colou?r|size|storage) options?|seat ?maps?|(window|aisle) seats?|exit row|"
+	r"red (border|outline|text)|outlined in red|card numbers?|security codes?|cvv)\b"
+	r"|\b(knob|dial|fader)\b.{0,40}\b(percent|number|\d+)\b|\btype\b.{0,20}\b(password|pin)\b", re.IGNORECASE)
 # Where each knowledge file belongs, and what it is called when an answer is taken from it, and, for some,
 # what a question or the program in front must name for the file to be asked. A file that is not listed is
 # NVDA's.
@@ -112,6 +122,9 @@ NOTES = {
 	"visionclaw-asking": (
 		NVDA, "VisionClaw's notes on settings for one program, follow-up requests, calendars, asking by voice and models",
 		_ASKING_NOTES),
+	"visionclaw-sighted-help": (
+		NVDA, "VisionClaw's notes on scanned forms, installers, pictures in a chat, documents, checks, shopping and seats",
+		_SIGHTED_HELP),
 }
 # Written for people who write add-ons. Left out unless the question is about that.
 DEVELOPER_NOTES = frozenset(("addon-development", "objects-and-events", "nvda-inside", "guides"))
