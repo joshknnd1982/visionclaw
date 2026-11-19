@@ -2320,8 +2320,9 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	@script(
 		# Translators: Description of a command in the Input Gestures dialog.
 		description=_(
-			"Turns object names on or off. When on, every object without a name, or with a vague one, is named by the "
-			"local model wherever you move, in browse mode too, and the name is saved."),
+			"Turns object names on or off. When on, every object that is truly unlabelled, with no label from Windows, "
+			"the browser or the program, is named by the local model wherever you move, in browse mode too, and the name "
+			"is saved."),
 		gesture="kb:NVDA+alt+b",
 	)
 	def script_toggleIconLabeler(self, gesture):
@@ -2340,6 +2341,36 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			conf()["objectNamesTold"] = True
 			text += ". " + self._objectNamesAdvice()
 		ui.message(text)
+
+	@script(
+		# Translators: Description of a command in the Input Gestures dialog.
+		description=_(
+			"Asks the local model to name the object where you are, in browse mode the control or picture at the "
+			"cursor, from its picture: also where object names left it alone or could not name it, and where it has a "
+			"label you do not understand. The name is said and saved."),
+		gesture="kb:NVDA+shift+alt+b",
+	)
+	def script_nameByModel(self, gesture):
+		if not self._dataReady():
+			self.showDataDialog()
+			return
+		focus = api.getFocusObject()
+		try:
+			from . import overlay
+		except ImportError:
+			overlay = None
+		if overlay is not None and isinstance(getattr(focus, "recognizer", None), overlay.OverlayRecognizer):
+			# Translators: Said when NVDA+Shift+Alt+B is pressed in the overlay, whose items already come from the picture.
+			ui.message(_("The overlay's items are read from the picture already. NVDA+Alt+N gives one your own name."))
+			return
+		try:
+			why = self.namer.askHere()
+		except Exception:
+			log.error("VisionClaw: the object here could not be read for naming", exc_info=True)
+			# Translators: Reported when there is nothing at the review position that can be named.
+			why = _("Nothing here can be named.")
+		if why:
+			ui.message(why)
 
 	def _objectNamesAdvice(self):
 		"""Said once, the first time object names are turned on: a small model is best for fixes made on the fly

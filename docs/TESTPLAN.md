@@ -869,5 +869,25 @@ None of these has run inside NVDA. Each is one real run; say what you hear.
 - [ ] Turn off "Play a soft tick while waiting for a description": no beep before a name.
 - [ ] A busy program (File Explorer, Outlook) with names on: NVDA is as quick as before when arrowing through lists.
 
+## Only the truly unlabelled, and a name when you ask (1.14.0)
+- [ ] With object names on, File Explorer's list of a Pictures folder: arrow through photos named like IMG_4021.jpg.
+      No beep, no "probably": the file names are said as they are.
+- [ ] A web page with page numbers (search results) and an A to Z list of letters: arrow and Tab through them. No beep;
+      NVDA says 2, 3, A, B as before.
+- [ ] Excel or another spreadsheet: arrow through empty cells. No beep, no name.
+- [ ] A web form with a field that has only a hint (placeholder) and no label: no beep; NVDA says the hint as before.
+- [ ] A button with an X or a + on it: no beep. Then press NVDA+Shift+Alt+B on it: the beep, then a name such as
+      "probably Close". Tab away and back: the new name is said in place of X. NVDA+Alt+N twice: it is listed as
+      "asked for by you"; forget it, and X is said again.
+- [ ] NVDA+Shift+Alt+B in browse mode on a link or picture at the cursor: the beep, then the name; arrow away and back
+      without leaving browse mode: the name is said.
+- [ ] NVDA+Shift+Alt+B with object names off: the name is said once, with "Object names are off, so it is said only
+      now; NVDA+Alt+B turns them on".
+- [ ] NVDA+Shift+Alt+B on a heading: it says the heading is read from its own text. On something the model cannot
+      name: "The model could not tell from its picture what this is."
+- [ ] A WPF program (for example one with a field whose label is beside it but not in its name): the label is said
+      for the field, with no beep and no "probably".
+- [ ] NVDA+Alt+N on a button with its own label (such as X): give it your own name; NVDA says your name from then on.
+
 ## Stopping NVDA
 - [ ] NVDA exits without an error, and no `vcengine.exe` is left running (Task Manager).

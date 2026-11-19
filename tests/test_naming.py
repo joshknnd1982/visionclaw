@@ -62,11 +62,59 @@ for name, role in (
 for name, role in (
 		("Edit", "BUTTON"), ("Picture", "BUTTON"), ("Download", "BUTTON"), ("OK", "BUTTON"), ("Go", "BUTTON"),
 		("iPhone", "LINK"), ("eBay", "LINK"), ("None", "RADIOBUTTON"), ("Search", "EDITABLETEXT"),
-		("Company logo", "GRAPHIC"), ("Clear", "BUTTON"), ("A", "STATICTEXT")):
+		("Company logo", "GRAPHIC"), ("Clear", "BUTTON"), ("A", "STATICTEXT"), ("Password", "PASSWORDEDIT"),
+		("Menu", "MENUBUTTON"), ("Search", "COMBOBOX"), ("Email address", "EDITABLETEXT")):
 	assert not naming.vague(name, role), (name, role)
+
+# --- Truly unlabelled: what the interfaces give is a label, however short or odd ---
+# The owner said on 2026-11-19: object names named buttons and objects that Windows' and the browsers' accessibility
+# interfaces already name; only the truly unlabelled may be named.
+
+for name, role in (
+		("", "BUTTON"), ("   ", "LINK"), ("", "BUTTON"), ("​", "BUTTON"), (" ‍", "LINK"),
+		("button", "BUTTON"), ("Button", "BUTTON"), ("btn", "BUTTON"), ("link", "LINK"), ("check box", "CHECKBOX"),
+		("edit", "EDITABLETEXT"), ("undefined", "BUTTON"), ("null", "LINK"), ("unlabeled", "BUTTON"),
+		("[object Object]", "BUTTON"), ("IMG_4021.jpg", "GRAPHIC"), ("image", "GRAPHIC"), ("Image 3", "GRAPHIC"),
+		("https://example.com/a.png", "GRAPHIC"), ("3f2a9c1b7d4e8f60a1b2", "BUTTON"), ("spacer", "GRAPHIC")):
+	assert naming.unlabelled(name, role), (name, role)
+for name, role in (
+		("2", "LINK"), ("A", "LINK"), ("X", "BUTTON"), ("Q", "BUTTON"), ("7", "BUTTON"), ("+", "BUTTON"),
+		("×", "BUTTON"), ("⚙", "BUTTON"), ("😀", "BUTTON"), ("…", "BUTTON"), ("IMG_4021.jpg", "LISTITEM"),
+		("photo.jpg", "DESKTOPICON"), ("report.pdf", "LISTITEM"), ("btnClose", "BUTTON"), ("button1", "BUTTON"),
+		("ic_settings_24", "BUTTON"), ("Untitled", "LISTITEM"), ("Untitled document", "LINK"), ("Logo", "GRAPHIC"),
+		("Company logo", "GRAPHIC"), ("Text", "EDITABLETEXT"), ("Password", "PASSWORDEDIT"), ("Menu", "MENUBUTTON"),
+		("Edit", "BUTTON"), ("Picture", "BUTTON"), ("Download", "GRAPHIC"), ("https://example.com", "LINK"),
+		("3f2a9c1b7d4e8f60a1b2", "LISTITEM"), ("Search", "EDITABLETEXT"), ("OK", "BUTTON")):
+	assert not naming.unlabelled(name, role), (name, role)
+# A label from elsewhere: a description, the hint in an empty field, the object that labels it.
+assert naming.labelled("", "EDITABLETEXT", ["", "Search the site"])
+assert naming.labelled("", "BUTTON", ["Opens the settings", ""])
+assert not naming.labelled("", "BUTTON", ["", "", None])
+assert naming.interfaceName("EDITABLETEXT", label="Quantity") == "Quantity"
+assert naming.interfaceName("BUTTON", inside="Save") == "Save", "a button's words inside it, as browse mode reads them"
+assert naming.interfaceName("PANE", inside="Save") == "", "a pane is not named by what it holds"
+assert naming.interfaceName("BUTTON", label="", inside="") == ""
+# A model's name without the kind NVDA says itself after it; a state is part of a name.
+assert naming.withoutKind("Search field", "EDITABLETEXT") == "Search"
+assert naming.withoutKind("Shuffle toggle button", "TOGGLEBUTTON") == "Shuffle"
+assert naming.withoutKind("Delete selected", "BUTTON") == "Delete selected"
+assert naming.withoutKind("Button", "BUTTON") == "Button", "nothing is taken where nothing would be left"
+assert naming.decide("Search field", "", "", "EDITABLETEXT") == ("Search", False)
 
 # --- Which objects are named ---
 
+assert not naming.wanted("LINK", [], "2"), "a page number is a label"
+assert not naming.wanted("LISTITEM", ["FOCUSABLE"], "IMG_4021.jpg"), "a file in a list of files is named by its file"
+assert not naming.wanted("TABLECELL", ["FOCUSABLE", "FOCUSED"], ""), "an empty cell of a spreadsheet is no control"
+assert naming.wanted("TABLECELL", ["CLICKABLE"], ""), "an empty cell made to be pressed is"
+assert not naming.wanted("LIST", ["FOCUSABLE"], "") and not naming.wanted("DOCUMENT", ["FOCUSED"], "")
+assert naming.wanted("LISTITEM", ["FOCUSABLE"], ""), "a picture in a gallery list"
+assert not naming.wanted("PANE", ["FOCUSABLE"], "", holds=True), "a pane that holds objects: those are named"
+assert not naming.wanted("LISTITEM", ["FOCUSABLE"], "", text="Blue shirt"), "the words inside it"
+assert not naming.wanted("EDITABLETEXT", ["FOCUSABLE"], "", others=["", "Search the site"]), "the hint in the field"
+assert not naming.wanted("BUTTON", ["FOCUSABLE"], "", others=["Close the window", ""]), "its description"
+assert not naming.wanted("EDITABLETEXT", ["FOCUSABLE"], "", others=["", "", "Quantity"]), "the object that labels it"
+assert naming.wanted("BUTTON", ["FOCUSABLE"], ""), "only the picture of an icon font"
 assert naming.wanted("BUTTON", ["FOCUSABLE"], "")
 assert naming.wanted("GRAPHIC", [], "photo_123.jpg")
 assert not naming.wanted("BUTTON", ["FOCUSABLE"], "Save")
@@ -105,6 +153,10 @@ assert naming.decide("Settings", "", "") == ("Settings", False)
 assert naming.decide("", "Save", "") == ("Save", False), "the text in the picture, where the model gave nothing"
 assert naming.decide("", "", "close") == ("Close", False)
 assert naming.decide("", "#@!", "") == ("", False)
+# A model's name that is itself vague is no name (Qwen3.5 4B on a field with nothing around it, 2026-11-19).
+assert naming.decide("Edit field", "", "", "EDITABLETEXT") == ("", False)
+assert naming.decide("Button", "", "", "BUTTON") == ("", False)
+assert naming.decide("Edit", "", "", "BUTTON") == ("Edit", False), "an Edit button is a real name"
 assert naming.spoken({"name": "Play", "by": naming.MODEL, "sure": False}) == "probably Play"
 assert naming.spoken({"name": "Play", "by": naming.MODEL, "sure": True}) == "Play"
 assert naming.spoken({"name": "Mute", "by": naming.YOU, "sure": True}) == "Mute"
@@ -114,7 +166,9 @@ assert naming.spoken({"name": "Play", "by": naming.MODEL}, "vermutlich {name}") 
 # --- The question and the picture ---
 
 assert naming.question("BUTTON").startswith("The picture shows one button that has no name.")
-assert "just before it or just above it" in naming.question("EDITABLETEXT")
+assert naming.question("EDITABLETEXT").startswith("The picture shows one edit field that has no name.")
+# The space before a narrow field is as wide as for a wide one: its label is there too ("Quantity" was cut).
+assert naming.pictureBox("SPINBUTTON", (140, 46, 220, 74))[0] == 140 - 28 * 8
 assert naming.pictureBox("BUTTON", (100, 100, 120, 120)) == (95, 95, 125, 125)
 field = naming.pictureBox("EDITABLETEXT", (300, 200, 500, 220), (0, 0, 1000, 800))
 assert field[0] == 140 and field[1] == 180 and field[2] > 500, field
@@ -164,6 +218,21 @@ assert [f[0]["controlIdentifier_ID"] for f in found] == ["2", "4"], [f[0]["contr
 assert found[0][2] == [("button", "Back")], found[0][2]
 assert ("button", "Forward") in found[1][3], found[1][3]
 assert len(naming.candidates(stretch, limit=1)) == 1
+# What the page tells NVDA is a label: page numbers, letters, a field's hint, a description; and a picture deep inside a
+# link is part of the link.
+labelledStretch = [
+	start("LINK", "2", ID=11), "2", end(),
+	start("LINK", "", ID=12), "A", end(),
+	start("EDITABLETEXT", "", ID=13, placeholder="Search the site"), end(),
+	start("EDITABLETEXT", "", ID=14, **{"IAccessible2::attribute_placeholder": "Email"}), "me@example.com", end(),
+	start("BUTTON", "", ID=15, description="Close the window"), "", end(),
+	start("LINK", "Home", ID=16), start("SECTION", "", ID=17), start("GRAPHIC", "", ID=18), end(), end(), "Home", end(),
+	start("TABLECELL", "", ID=19, states=[Role("FOCUSABLE")]), end(),
+]
+assert naming.candidates(labelledStretch, limit=10) == [], [f[0]["controlIdentifier_ID"] for f in naming.candidates(
+	labelledStretch, limit=10)]
+assert [f[0]["controlIdentifier_ID"] for f in naming.candidates(
+	[start("BUTTON", "", ID=20), "", end(), start("EDITABLETEXT", "", ID=21), end()], limit=5)] == ["20", "21"]
 
 # --- The names kept ---
 
@@ -196,6 +265,21 @@ assert again.forget("spotify", "b" * 20) and again.entry("spotify", "b" * 20) is
 setUserEmpty = again.setUser("spotify", "a" * 20, "")
 assert again.entry("spotify", "a" * 20) is None
 assert naming.describe({"by": naming.MODEL, "sure": False}) == "guessed by the model, said with probably"
+# A name the user asked the model for is said even over a label, and a name the model gives by itself never replaces it.
+asking = naming.NameStore(os.path.join(folder, "asked.json"))
+assert not asking.overriding() and not asking.overriding("notepad")
+assert asking.setGuess("notepad", "h" * 20, "Close", role="BUTTON", asked=True)
+assert asking.entry("notepad", "h" * 20) == {"name": "Close", "by": naming.MODEL, "sure": False, "role": "BUTTON",
+	"asked": True}
+assert naming.overrides(asking.entry("notepad", "h" * 20)) and asking.overriding("notepad") and asking.overriding()
+assert not asking.overriding("spotify")
+assert not asking.setGuess("notepad", "h" * 20, "Exit"), "a name the model gives by itself never replaces an asked one"
+assert asking.setGuess("notepad", "h" * 20, "Quit", asked=True), "asked again, the new answer is kept"
+assert asking.setGuess("notepad", "i" * 20, "Play") and not naming.overrides(asking.entry("notepad", "i" * 20))
+assert naming.describe(asking.entry("notepad", "h" * 20)) == "asked for by you, guessed by the model, said with probably"
+assert asking.save() and naming.NameStore(os.path.join(folder, "asked.json")).entry("notepad", "h" * 20)["asked"]
+asking.forget("notepad", "h" * 20)
+assert not asking.overriding("notepad")
 
 # --- Sharing ---
 
@@ -451,13 +535,92 @@ plugin.run()
 assert said == ["Sign in"], said
 ocrRead["text"] = ""
 
+# --- Only the truly unlabelled are named (the owner, 2026-11-19) ---
+
+said.clear()
+asked.clear()
+beeps.clear()
+# A field labelled by another object (UI Automation's LabeledBy, IAccessible2's labelled-by), which NVDA does not say
+# by itself: that label is said as it is, and no model is asked.
+quantity = made("EDITABLETEXT", place=(80, 700, 60, 20))
+quantity.labeledBy = Thing("STATICTEXT", "Quantity", place=(10, 700, 60, 20))
+api.getFocusObject = api.getNavigatorObject = lambda: quantity
+assert quantity.name == "Quantity"
+# A button whose words are in an object inside it, as WPF gives them: said as they are.
+draft = made("BUTTON", place=(190, 695, 80, 30))
+draft.firstChild = Thing("STATICTEXT", "Save draft", place=(200, 700, 50, 20))
+api.getFocusObject = api.getNavigatorObject = lambda: draft
+assert draft.name == "Save draft"
+# A button with a description, a page number, a file in a list of files, an empty cell of a table and a pane that
+# holds other objects: none is named.
+described = made("BUTTON", place=(300, 700, 20, 20))
+described.description = "Close the window"
+holder = made("PANE", place=(0, 0, 400, 300))
+holder.firstChild = Thing("BUTTON", "OK")
+for thing in (quantity, draft, described, made("LINK", "2", place=(340, 700, 12, 20)),
+		made("LISTITEM", "IMG_4021.jpg", place=(360, 700, 80, 60)),
+		made("TABLECELL", place=(460, 700, 60, 20), states=("FOCUSABLE", "FOCUSED")), holder):
+	api.getFocusObject = api.getNavigatorObject = lambda thing=thing: thing
+	thing.name
+	plugin.run()
+assert asked == [] and said == [] and beeps == [], (asked, said, beeps)
+assert described.name == "" and made("LISTITEM", "IMG_4021.jpg").name == "IMG_4021.jpg"
+# A name the model gave by itself before, where the object has a label (VisionClaw 1.13.0 named such objects), is not
+# said over the label.
+plugin.labels.setGuess("spotify", naming.ruleKey({"role": "LINK", "autoId": "PageTwo"}), "Next page", role="LINK")
+assert made("LINK", "2", place=(340, 700, 12, 20), autoId="PageTwo").name == "2"
+
+# NVDA+Shift+Alt+B: the user asks the model for a name where the object has a label of its own. The name is said at
+# once and from then on, also where NVDA makes the same button again.
+closeBox = made("BUTTON", "X", place=(900, 20, 20, 20), autoId="CloseBox")
+api.getFocusObject = api.getNavigatorObject = lambda: closeBox
+Model.answers = ["Close"]
+assert namer.askHere() is None
+plugin.run()
+assert said == ["Close"] and beeps == [1], "sure: its own code calls it CloseBox"
+assert closeBox.name == "Close"
+assert made("BUTTON", "X", place=(500, 300, 20, 20), autoId="CloseBox").name == "Close"
+assert plugin.labels.entry("spotify", naming.ruleKey({"role": "BUTTON", "autoId": "CloseBox"}))["asked"]
+# Asked where the model cannot tell: that is said, not nothing.
+said.clear()
+mystery = made("BUTTON", place=(940, 20, 20, 20))
+api.getFocusObject = api.getNavigatorObject = lambda: mystery
+Model.answers = ["unknown"]
+assert namer.askHere() is None
+plugin.run()
+assert said == ["The model could not tell from its picture what this is."], said
+api.getNavigatorObject = lambda: made("HEADING1")
+assert "read from its own text" in namer.askHere()
+api.getNavigatorObject = lambda: made("BUTTON", place=(10, 10, 0, 0))
+assert "not on the screen" in namer.askHere()
+
 # Names off: nothing is given and no class is put first.
 namesOn["on"] = False
 namer.refresh()
 assert gear.name == "", "names off: NVDA's own name"
 assert type(made("BUTTON")) is Thing
+# NVDA+Shift+Alt+B still names the object where the user is, and says that names are off.
+said.clear()
+options = Thing("BUTTON", "Opt", place=(960, 60, 20, 20))
+api.getFocusObject = api.getNavigatorObject = lambda: options
+Model.answers = ["Options"]
+assert namer.askHere() is None
+plugin.run()
+assert said == ["probably Options. Object names are off, so it is said only now; NVDA+Alt+B turns them on."], said
 namesOn["on"] = True
 namer.refresh()
+# After NVDA restarts, nothing in its code tells that button apart, so it is found by its picture when the user is on
+# it: the name asked for is said, and NVDA says it from then on.
+said.clear()
+namer._session.clear()
+options = made("BUTTON", "Opt", place=(960, 60, 20, 20))
+api.getFocusObject = api.getNavigatorObject = lambda: options
+assert options.name == "Opt", "not known yet: its own label"
+assert said == ["probably Options"], said
+assert options.name == "probably Options"
+other = made("BUTTON", "Opt", place=(10, 760, 20, 20))
+api.getFocusObject = api.getNavigatorObject = lambda: other
+assert other.name == "Opt" and said == ["probably Options"], "another button with that label keeps its own"
 
 # --- Browse mode, with a stand-in page ---
 
@@ -525,6 +688,36 @@ namer.store.setGuess("site:example-music.com", naming.ruleKey({"role": "GRAPHIC"
 alone = [start("GRAPHIC", "", ID=9, **{"IAccessible2::attribute_src": "https://cdn.x.com/logo-wave.png"}), end()]
 picture = [c.field for c in page.TextInfo(page, alone).getTextWithFields() if isinstance(c, Command) and c.command == "controlStart"]
 assert picture[0]["name"] == "Wave Music", picture
+
+# NVDA+Shift+Alt+B in browse mode: the control at the cursor, which has a label of its own, is named by the model when
+# asked, and NVDA says that name there from then on, in browse mode.
+textInfos.FieldCommand = Command
+
+
+class Caret:
+	def __init__(self, commands):
+		self.commands = commands
+
+	def expand(self, unit):
+		pass
+
+	def getTextWithFields(self, formatConfig=None):
+		return self.commands
+
+
+goLine = [start("BUTTON", "Go", ID=12), "Go", end()]
+page.passThrough = False
+page.makeTextInfo = lambda position: Caret(goLine)
+api.getFocusObject = lambda: types.SimpleNamespace(treeInterceptor=page)
+said.clear()
+Model.answers = ["Search"]
+assert namer.askHere() is None
+plugin.run()
+assert said == ["probably Search"], said
+goField = [c.field for c in page.TextInfo(page, goLine).getTextWithFields() if isinstance(c, Command) and c.command == "controlStart"]
+assert goField[0]["name"] == "probably Search", goField
+page.makeTextInfo = lambda position: Caret(["Plain text"])
+assert "no control or picture here" in namer.askHere()
 
 namer.terminate()
 assert page.TextInfo is PageInfo, "the page's own class is put back when VisionClaw closes"

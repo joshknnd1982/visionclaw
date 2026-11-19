@@ -55,6 +55,19 @@ LEFT = frozenset((
 ))
 # The states that make a holder something to press or move to.
 CLICKABLE_STATES = frozenset(("CLICKABLE", "FOCUSABLE", "FOCUSED", "LINKED"))
+# The states that make a holder something to press, not only a place to move to.
+PRESSED_STATES = frozenset(("CLICKABLE", "LINKED"))
+# Holders of text, data or other objects: moving to an empty one (an empty cell of a spreadsheet, an empty list, a
+# page without a title) is no reason to name it. Named only where the program made it something to press.
+PRESSED_ONLY = frozenset((
+	"TABLECELL", "DATAITEM", "HEADERITEM", "TABLECOLUMNHEADER", "TABLEROWHEADER", "STATICTEXT", "LABEL", "PARAGRAPH",
+	"CAPTION", "NOTE", "TEXTFRAME", "DOCUMENT", "TERMINAL", "FORM", "LIST", "TREEVIEW", "TABLE", "DATAGRID", "TOOLBAR",
+	"TABCONTROL", "MENU", "POPUPMENU", "ARTICLE", "PROPERTYPAGE", "OPTIONPANE", "SCROLLPANE", "LAYEREDPANE", "ROOTPANE",
+	"INTERNALFRAME", "GLASSPANE", "VIEWPORT", "SPLITPANE", "DIRECTORYPANE", "DESKTOPPANE", "INPUTWINDOW",
+))
+# Controls that are named by the words inside them, as NVDA reads them in browse mode.
+BY_CONTENT = frozenset(("LINK", "BUTTON", "TOGGLEBUTTON", "MENUBUTTON", "SPLITBUTTON", "DROPDOWNBUTTON", "MENUITEM",
+	"CHECKMENUITEM", "RADIOMENUITEM", "TAB", "LISTITEM", "TREEVIEWITEM", "CHECKBOX", "RADIOBUTTON", "SWITCH"))
 # The states of an object that cannot be seen, so that there is no picture to name it from.
 UNSEEN_STATES = frozenset(("INVISIBLE", "OFFSCREEN", "DEFUNCT"))
 # Fields: what names them is usually written next to them, so the picture takes in what is before and above them.
@@ -86,10 +99,12 @@ _PICTURE_WORDS = (
 _ANY_WORDS = "untitled|unlabeled|unlabelled|unnamed|placeholder|dummy|null|undefined|nil|svg|div|span|clickable|btn|img|ico"
 # What each kind of object is also called; a name that only says it is no name.
 _KIND_ALIASES = {
-	"BUTTON": "button|btn", "TOGGLEBUTTON": "button|toggle", "MENUBUTTON": "button|menu", "SPLITBUTTON": "button",
+	# Only words that say nothing more than the kind: "Password" on a password field and "Menu" on a menu button are
+	# what those are called (Qwen3.5 4B's right answer "Password" was dropped while "password" was here, 2026-11-19).
+	"BUTTON": "button|btn", "TOGGLEBUTTON": "button|toggle", "MENUBUTTON": "button", "SPLITBUTTON": "button",
 	"DROPDOWNBUTTON": "button|drop down|dropdown", "LINK": "link|url|href", "TAB": "tab", "CHECKBOX": "checkbox|check box",
 	"RADIOBUTTON": "radio|radio button|option", "EDITABLETEXT": "edit|text|textbox|text box|input|field|edit field|text field",
-	"PASSWORDEDIT": "password|edit|input|field", "COMBOBOX": "combo|combobox|select|dropdown|drop down", "MENUITEM": "menu item|item",
+	"PASSWORDEDIT": "edit|input|field", "COMBOBOX": "combo|combobox|select|dropdown|drop down", "MENUITEM": "menu item|item",
 	"LISTITEM": "item|list item", "SLIDER": "slider|range", "SWITCH": "switch|toggle",
 }
 
@@ -154,24 +169,113 @@ def vague(name, role=""):
 	return plainText(text) in (kindWord(role), role.lower())
 
 
-def clickable(states):
-	return any(state in CLICKABLE_STATES for state in states or ())
+def clickable(states, role=""):
+	"""Whether a holder is something to press or move to; for one of PRESSED_ONLY, something to press."""
+	need = PRESSED_STATES if role in PRESSED_ONLY else CLICKABLE_STATES
+	return any(state in need for state in states or ())
 
 
-def wanted(role, states=(), name="", text="", hidden=False):
-	"""Whether an object needs a name: its role is one that is named, it can be seen, its name is vague, and a
-	holder (WHEN_CLICKABLE) is something to press or move to and has no text of its own."""
+# --- Truly without a name ---
+#
+# The owner said on 2026-11-19: "make sure it only labels objects, states, roles, etcetera, which are **truly**
+# unlabeled", after object names had named buttons and objects that the accessibility interfaces of Windows and the
+# browsers already name. vague() above judges a name a model, the text in a picture or a shared file gives, before it
+# is used; it is strict on purpose. Whether an object needs a name at all is the opposite question, and is answered
+# far more narrowly here: whatever the program or page gives NVDA is its label, however short or odd.
+
+# Characters NVDA cannot say: never printed, spaces, joiners, marks that only change another character, and the
+# private use area, where icon fonts keep their pictures.
+_UNSAID = frozenset(("Co", "Cn", "Cc", "Cf", "Cs", "Zs", "Zl", "Zp", "Mn", "Me"))
+# Words a program gives only by a mistake in its code: there was no label to give.
+_NO_LABEL = re.compile(r"^\W*(?:undefined|null|nil|\[object object\]|unlabeled|unlabelled|unnamed|no name|untitled)\W*$",
+	re.IGNORECASE)
+# The words NVDA itself says for a kind of object; a name made only of them adds nothing to what NVDA says.
+_ROLE_ONLY = {
+	"BUTTON": "button|btn", "TOGGLEBUTTON": "button|toggle button", "MENUBUTTON": "button|menu button",
+	"SPLITBUTTON": "button|split button", "DROPDOWNBUTTON": "button|drop down button|dropdown button", "LINK": "link",
+	"TAB": "tab", "CHECKBOX": "checkbox|check box", "RADIOBUTTON": "radio button|radio", "SWITCH": "switch",
+	"EDITABLETEXT": "edit|edit field|text field|textbox|text box|input", "PASSWORDEDIT": "edit|password edit|input",
+	"COMBOBOX": "combo box|combobox|dropdown|drop down", "MENUITEM": "menu item", "SLIDER": "slider",
+	"SPINBUTTON": "spin button", "PROGRESSBAR": "progress bar", "SCROLLBAR": "scroll bar|scrollbar",
+}
+_ROLE_ONLY_PATTERN = {role: re.compile(rf"^\W*(?:{words})\W*$", re.IGNORECASE) for role, words in _ROLE_ONLY.items()}
+# Pictures without a label of their own, as screen readers have always called them: their name is their file, a web
+# address, a code, or a word that only says they are pictures.
+_UNLABELLED_PICTURES = frozenset(("GRAPHIC", "IMAGEMAP", "FIGURE", "CANVAS", "CHART", "DIAGRAM", "ANIMATION"))
+# Only what says it is a picture; "logo", "banner" or "download" say a little more, and are a label.
+_PICTURE_ONLY = _wordsPattern(
+	"image|img|images|graphic|graphics|picture|pic|photo|photograph|foto|icon|spacer|thumbnail|thumb|placeholder|blank"
+	"|dummy|alt|alt text|no alt|pixel|transparent|figure|screen shot|screenshot|svg|canvas|untitled|unlabeled|unlabelled"
+	"|unnamed")
+_HEX_CODE = re.compile(r"^\s*[0-9a-f-]{16,}\s*$", re.IGNORECASE)
+
+
+def said(text):
+	"""The characters of a text that NVDA can say: letters, digits, punctuation, signs and emoji, without the pictures of
+	an icon font and the characters that are never printed."""
+	return "".join(char for char in str(text or "") if unicodedata.category(char) not in _UNSAID)
+
+
+def unlabelled(name, role=""):
+	"""Whether the name an accessibility interface gives an object is no label at all, so that the object is truly
+	unlabelled: nothing, or only what NVDA cannot say (spaces, the pictures of an icon font, characters never printed);
+	a word a program gives only by a mistake ("undefined", "null", "unlabeled"); only the word NVDA says for its kind
+	anyway ("button" on a button); on a control, a long code of hexadecimal digits; and on a picture, the file it was
+	made from, a web address or a word that only says it is a picture. Everything else is its label, however short or
+	odd: one letter or digit (a page number, a key of an on-screen keyboard), a sign such as + or ×, an emoji, a file
+	name in a list of files, a name from the program's code such as btnClose."""
+	text = " ".join(str(name or "").split())
+	if not said(text).strip():
+		return True
+	if len(text) > 200:
+		return False
+	if _NO_LABEL.match(text) and role in NAMED:
+		return True
+	pattern = _ROLE_ONLY_PATTERN.get(role)
+	if pattern is not None and pattern.match(text):
+		return True
+	if role in _UNLABELLED_PICTURES:
+		return bool(_FILEISH.search(text) or _PICTURE_ONLY.match(text))
+	return role in NAMED and bool(_HEX_CODE.match(text))
+
+
+def labelled(name, role="", others=()):
+	"""Whether an object has a label from the accessibility interfaces: its own name, or any of others, which are what
+	the interfaces say of it besides: its description (a tooltip, aria-describedby, the title of a web page's element,
+	UI Automation's help text), the hint written in an empty field (placeholder), and the name of the object that
+	labels it (labelledBy)."""
+	if not unlabelled(name, role):
+		return True
+	return any(not unlabelled(other) for other in others or () if other)
+
+
+def interfaceName(role, label="", inside=""):
+	"""The label the accessibility interfaces give an object whose own name is no label, said as it is, without a model:
+	the name of the object that labels it (labelledBy, which NVDA does not say by itself), else, for a control named by
+	what it holds (BY_CONTENT), the words of the objects inside it, which NVDA reads in browse mode but not on the focus.
+	"" when neither is a label."""
+	for text in (label, inside if role in BY_CONTENT else ""):
+		text = " ".join(str(text or "").split())
+		if text and not unlabelled(text):
+			return text[:150].rstrip()
+	return ""
+
+
+def wanted(role, states=(), name="", text="", hidden=False, others=(), holds=False):
+	"""Whether an object is truly unlabelled and so is named by the model: its role is one that is named, it can be
+	seen, nothing the interfaces say of it is a label (labelled, with others), a control named by what is inside it
+	(BY_CONTENT) has no words inside it, and a holder (WHEN_CLICKABLE) is something to press or move to (clickable),
+	holds no other objects (holds) and has no text of its own. text: the words inside it, as NVDA reads them."""
 	if hidden or role not in NAMED and role not in WHEN_CLICKABLE:
 		return False
 	if any(state in UNSEEN_STATES for state in states or ()):
 		return False
-	if not vague(name, role):
+	if labelled(name, role, others):
 		return False
 	if role in WHEN_CLICKABLE:
-		return clickable(states) and vague(text, role)
-	if role in ("LINK", "BUTTON", "TOGGLEBUTTON", "MENUITEM", "TAB", "LISTITEM", "CHECKBOX", "RADIOBUTTON"):
-		# Named by the text in it, which NVDA reads in browse mode.
-		return vague(text, role)
+		return not holds and clickable(states, role) and unlabelled(text, role)
+	if role in BY_CONTENT:
+		return unlabelled(text, role)
 	return True
 
 
@@ -224,11 +328,30 @@ def placeWords(scope):
 
 # --- Browse mode: which controls of a stretch of a page need a name ---
 
+def fieldOthers(field):
+	"""What NVDA's copy of a page says of a control besides its name: its description (aria-describedby, the title of
+	the element) and the hint written in an empty field (placeholder; NVDA keeps it only while the field is empty, the
+	browser always)."""
+	field = field or {}
+	return [str(field.get(key) or "") for key in ("description", "placeholder", "IAccessible2::attribute_placeholder")]
+
+
+def insideControl(entry):
+	"""Whether a control of a stretch of a page is inside a link, a button or another control named by what it holds,
+	at any depth."""
+	up = entry.get("up")
+	while up is not None:
+		if up["node"]["role"] in BY_CONTENT:
+			return True
+		up = up.get("up")
+	return False
+
+
 def candidates(commands, limit=2):
 	"""The controls in a stretch of a web page, as NVDA gives it in browse mode (texts, and fields that start and end),
-	that need a name: [(field, node, before, after)], up to limit, in reading order. A picture that is all a link or
-	button holds is left: the link or button is the one named. before and after are the named controls around it,
-	each (kind, name), for the model that names it."""
+	that are truly unlabelled (wanted): [(field, node, before, after)], up to limit, in reading order. A picture that is
+	part of a link, a button or another control is left: that control is the one named, where it needs a name. before
+	and after are the named controls around it, each (kind, name), for the model that names it."""
 	stack, found, named = [], [], []
 	for command in commands:
 		if isinstance(command, str):
@@ -251,13 +374,11 @@ def candidates(commands, limit=2):
 	for entry in found:
 		node = entry["node"]
 		text = " ".join(entry["text"].split())
-		if not wanted(node["role"], node["states"], node["name"], text, node["hidden"]):
+		holds = any(other["up"] is entry for other in found)
+		if not wanted(node["role"], node["states"], node["name"], text, node["hidden"], fieldOthers(entry["field"]), holds):
 			continue
-		up = entry["up"]
-		if node["role"] == "GRAPHIC" and up is not None and up["node"]["role"] in ("LINK", "BUTTON", "TOGGLEBUTTON"):
-			continue
-		if node["role"] in WHEN_CLICKABLE and any(other["up"] is entry for other in found):
-			continue  # it holds other objects; those are what is named
+		if node["role"] in PICTURES and insideControl(entry):
+			continue  # a picture that is part of a link, a button or another control: that control is what is named
 		before = named[max(0, entry["at"] - working.NEIGHBOURS):entry["at"]]
 		after = named[entry["at"]:entry["at"] + working.NEIGHBOURS]
 		out.append((entry["field"], node, before, after))
@@ -300,10 +421,32 @@ def readName(read):
 	return text if not vague(text) else ""
 
 
-def decide(modelName, read="", code=""):
+def withoutKind(name, role=""):
+	"""A name without the word for the object's kind at its end, which NVDA says itself right after the name: "Search
+	field" on an edit field is Search, "Shuffle toggle button" on a toggle button is Shuffle. Nothing is taken where
+	nothing would be left. A state is not taken off: "Delete selected" is a name."""
+	text = " ".join(str(name or "").split())
+	if not text:
+		return ""
+	kinds = [word for word in (_ROLE_ONLY.get(role, "").split("|") + [kindWord(role)]) if word and word != "control"]
+	if role in ("EDITABLETEXT", "PASSWORDEDIT", "COMBOBOX"):
+		kinds += ["field", "box"]
+	for kind in sorted(set(kinds), key=len, reverse=True):
+		if text.lower().endswith(" " + kind):
+			text = text[:-len(kind)].rstrip(" ,;:-")
+			break
+	return text
+
+
+def decide(modelName, read="", code="", role=""):
 	"""(name, sure) from what the model that sees answered, the text read in the object's own picture, and what its
 	code calls it. The model's name first; where it gave none, the text in the picture, then the code's words; each
-	of those alone is only probable. ("", False) when nothing gave a name."""
+	of those alone is only probable. ("", False) when nothing gave a name. A model's name that is itself vague is no
+	name: asked about a field with nothing around it, Qwen3.5 4B answered "Edit field" (tests/live_object_names.py,
+	2026-11-19)."""
+	modelName = withoutKind(modelName, role)
+	if modelName and vague(modelName, role):
+		modelName = ""
 	if modelName:
 		return modelName, sure(modelName, read, code)
 	text = readName(read)
@@ -330,13 +473,18 @@ def spoken(entry, probably=PROBABLY):
 	return probably.format(name=entry["name"])
 
 
+def overrides(entry):
+	"""Whether a saved name is said even where the object has a label of its own: a name the user gave, or one the user
+	asked the model for. A name the model gave by itself is said only where the object is truly unlabelled."""
+	return bool(entry) and (entry.get("by") == YOU or bool(entry.get("asked")))
+
+
 def question(role, around=""):
-	"""The question about the picture of one object without a name (working.nameQuestion, measured with drawn
-	buttons). A field is in the middle of a picture that also takes in what is before and above it."""
-	text = working.nameQuestion(kindWord(role), around)
-	if role in FIELDS:
-		text += " The words just before it or just above it usually say what it is for."
-	return text
+	"""The question about the picture of one object without a name: working.nameQuestion, measured with drawn buttons.
+	A field is shown with what is before and above it (pictureBox). A sentence for fields that said where its label
+	usually is was measured on 2026-11-19 with Qwen3.5 4B and changed nothing (10 of 11 drawn fields with it and
+	without, tests/live_object_names.py), so it is not added."""
+	return working.nameQuestion(kindWord(role), around)
 
 
 def pictureBox(role, box, bounds=None):
@@ -346,7 +494,9 @@ def pictureBox(role, box, bounds=None):
 	left, top, right, bottom = box
 	width, height = right - left, bottom - top
 	if role in FIELDS:
-		left -= min(width, max(height * 8, 1))
+		# Eight times its height before it, whatever its width: a narrow field such as a spin box has its label
+		# beside it too (with its own width, "Quantity" was cut to "antity", seen on 2026-11-19).
+		left -= max(height * 8, 1)
 		top -= height
 		right += max(1, height // 4)
 		bottom += max(1, height // 4)
@@ -490,7 +640,38 @@ class NameStore:
 			if not name:
 				return None
 			by = about.get("by") if about.get("by") in (PERSON, MODEL) else MODEL
-			return {"name": name, "by": by, "sure": bool(about.get("sure")), "role": about.get("role", "")}
+			found = {"name": name, "by": by, "sure": bool(about.get("sure")), "role": about.get("role", "")}
+			if about.get("asked"):
+				found["asked"] = True
+			return found
+
+	def overriding(self, scope=None):
+		"""Whether a place has names that are said even where the object has a label of its own (overrides): names the
+		user gave, and names the user asked the model for. Without a place: whether any place has."""
+		kinds = self.overrideKinds()
+		return bool(kinds) if scope is None else scope in kinds
+
+	def overrideKinds(self, scope=None):
+		"""How the overrides of a place are kept: a set of "rule" (by what the object's code calls it) and "picture" (by
+		its picture). Without a place: {place: kinds} for every place that has any. Counted again only when the names
+		change."""
+		with self._lock:
+			if getattr(self, "_overridingAt", None) != self.version:
+				self._overridingAt = self.version
+				places = {}
+				for place, entry in self._data.items():
+					if not isinstance(entry, dict):
+						continue
+					about = entry.get("about") if isinstance(entry.get("about"), dict) else {}
+					keys = list(entry.get("user") or {}) + [key for key, facts in about.items()
+						if isinstance(facts, dict) and facts.get("asked") and key in (entry.get("guess") or {})]
+					kinds = {"rule" if str(key).startswith(RULE) else "picture" for key in keys}
+					if kinds:
+						places[place] = kinds
+				self._overridingPlaces = places
+			if scope is None:
+				return self._overridingPlaces
+			return self._overridingPlaces.get(scope, set())
 
 	def setUser(self, scope, key, name, role=""):
 		"""A name the user gave; an empty name takes the user's name away."""
@@ -507,9 +688,11 @@ class NameStore:
 			self._changed()
 		self.save()
 
-	def setGuess(self, scope, key, name, sure=False, role="", by=MODEL):
+	def setGuess(self, scope, key, name, sure=False, role="", by=MODEL, asked=False):
 		"""A name a model gave, or a person in a shared file (by=PERSON). It never replaces the user's own name, and a
-		model's never replaces a person's. Returns whether it was kept."""
+		model's never replaces a person's. asked: the user asked the model for this name (NVDA+Shift+Alt+B), so it is
+		said even where the object has a label of its own, and a name the model gives by itself never replaces it.
+		Returns whether it was kept."""
 		name = cleanName(name)
 		if not name or not key:
 			return False
@@ -518,11 +701,13 @@ class NameStore:
 			if key in place["user"]:
 				return False
 			old = place["about"].get(key) or {}
-			if by == MODEL and key in place["guess"] and old.get("by") == PERSON:
+			if by == MODEL and key in place["guess"] and (old.get("by") == PERSON or old.get("asked") and not asked):
 				return False
 			place["guess"].pop(key, None)
 			place["guess"][key] = name
 			place["about"][key] = {"by": by, "sure": bool(sure), "role": role, "saved": _today()}
+			if asked:
+				place["about"][key]["asked"] = True
 			guesses = place["guess"]
 			if len(guesses) > MAX_GUESSES:
 				for oldKey in list(guesses):
@@ -665,4 +850,5 @@ def describe(entry):
 		return "your name"
 	if entry["by"] == PERSON:
 		return "shared by a person"
-	return "read from its picture, sure" if entry.get("sure") else "guessed by the model, said with probably"
+	text = "read from its picture, sure" if entry.get("sure") else "guessed by the model, said with probably"
+	return "asked for by you, " + text if entry.get("asked") else text

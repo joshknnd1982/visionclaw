@@ -1,6 +1,6 @@
 # VisionClaw status
 
-Updated 2026-11-19, version 1.13.0.
+Updated 2026-11-19, version 1.14.0.
 
 ## What exists
 
@@ -2553,13 +2553,105 @@ a button with an icon font's sign, both named in reading order with one beep, an
 afterwards; a picture's file known on the site named without the model; the page's own class put back when
 VisionClaw closes. `tests/run_all.py` passes.
 
-What was not tested: nothing of this has run inside NVDA, and no real model was asked. The question to the model is
-the one measured on 2026-11-19 with drawn buttons (9B 29 to 33 of 34, 2B 29 to 31, 0.8B 24 to 23); the sentence
-added for fields ("The words just before it or just above it usually say what it is for") was not measured. Whether
-NVDA's virtual buffer gives a link's picture its file in the field it reads, how often a UI Automation runtime id
-is asked for in a busy program, and how a real page feels with names arriving after NVDA has spoken, are the first
-things to try in NVDA (`docs/TESTPLAN.md`). A page NVDA reads through UI Automation (Word with UI Automation, the
-old Edge) has no `_normalizeControlField` and gets no names in its text yet; its objects outside browse mode do.
+Measured with the real model, after the release, the same day: Qwen3.5 4B in Q4_K_M, the one vision model on this
+computer (the owner's VisionClaw uses it), in the bundled engine on the GeForce RTX 5060 Laptop GPU. The 9B, 2B and
+0.8B of the earlier naming measurement are no longer on this computer.
+- Icon buttons as object names ask them (`tests/live_naming.py`, its "as VisionClaw now asks" column, which is the
+  same question and rule): first set 17 of 17, second set 16 of 17 (the letter i in a circle was called Help).
+- `tests/live_object_names.py`, written before it was run: eight buttons with their text drawn in them, 8 of 8, and
+  all eight would be said without probably where Windows OCR reads the same text (the drawn text stood in for
+  Windows OCR, which plain Python cannot reach here). Eleven fields shown with what is before and above them: 10 of
+  11 with the question measured for buttons, 10 of 11 with a sentence for fields added; the sentence changed nothing
+  and was dropped. The miss was the field with nothing around it, which the model called "Edit field".
+- What the measurement found, and what was changed (in the working tree after 1.13.0, not yet released):
+  `naming.decide` now drops a model's name that is itself vague, so "Edit field" is no name and NVDA's own word
+  stays; and "password" and "menu" were taken out of the words that only name a kind, because they made a password
+  field labelled Password and a menu button called Menu count as unnamed (1.13.0 would have renamed them, said with
+  probably). After these, 11 of 11 fields; that run is no blind measure, the set is spent for the first rule.
+- Drawing the fields before the run also showed that the picture of a narrow field cut its label ("Quantity" became
+  "antity"); the space before a field is now eight times its height, whatever its width.
+- An answer took 0.4 seconds in the middle, at most 2.0, with the engine already started.
+
+What was not tested: nothing of this has run inside NVDA. Whether NVDA's virtual buffer gives a link's picture its
+file in the field it reads, how often a UI Automation runtime id is asked for in a busy program, how the overlay class
+and the page's wrapped class behave with other add-ons, and how a real page feels with names arriving after NVDA has
+spoken, are the first things to try in NVDA (`docs/TESTPLAN.md`). Real Windows OCR on small buttons was not run. A
+page NVDA reads through UI Automation (Word with UI Automation, the old Edge) has no `_normalizeControlField` and gets
+no names in its text yet; its objects outside browse mode do.
+
+## Only the truly unlabelled, and a name when asked (1.14.0, 2026-11-19)
+
+The owner said on 2026-11-19: "the new nvda+alt+b object labeler is naming buttons and objects that already have labels
+(which do not need labels) because they are already known through various windows and browser accessibility apis. make
+sure it only labels objects, states, roles, etcetera, which are **truely** unlabeled. and let me press a keyboard
+shortcut to add an AI label if the algorithm fails to label an unknown object automatically."
+
+Why 1.13.0 named labelled objects, read from its code: whether an object needed a name was `naming.vague`, which was
+written to judge a model's answer and is strict on purpose, so a page number or a letter link ("2", "A"), X and + on
+buttons, a file name such as IMG_4021.jpg in File Explorer's list, a name from code (btnClose) and a hexadecimal id all
+counted as no name; outside browse mode the words inside an object were never read (`wanted` got no text), so every
+focusable list, table cell, pane and document without a name of its own was named, an empty cell of a spreadsheet
+included; a description, a field's placeholder and the object that labels a field (UI Automation's LabeledBy,
+IAccessible2's labelled-by, which NVDA does not say by itself) were not looked at; a picture two levels inside a link was
+named although the link has words; and the user's own name (NVDA+Alt+N) was saved but never said over a label.
+
+What was built:
+- `naming.unlabelled`: whether what an interface gives is no label at all (nothing; only an icon font's signs or
+  characters never printed; only the kind's own word; "undefined", "null", "unlabeled"; a long hexadecimal code on a
+  control; on a picture its file, an address or a word that only says it is a picture). `labelled` with what the
+  interfaces say besides the name; `wanted` with them, with `holds` (a holder that holds objects is not named) and
+  `PRESSED_ONLY` (cells, lists, tables, documents and other holders of text are named only where the program made them
+  something to press, never only for being focusable). `vague` is unchanged and still judges what a model, the text in
+  a picture or a shared file gives.
+- Browse mode: `fieldOthers` (description, placeholder, also the browser's own placeholder attribute, which NVDA keeps
+  only while a field is empty) and `insideControl` (a picture at any depth inside a link, button, menu item, tab, list
+  item or check box). NVDA's `_getPlaceholderAttribute` and when it speaks a description were read from NVDA
+  2026.3.1's source (`virtualBuffers/__init__.py`, `gecko_ia2.py`, `speech/speech.py`).
+- Outside browse mode, `nametools.interfaceWords`, read once for each object NVDA makes and for two seconds: the
+  name of `obj.labeledBy` (read from `NVDAObjects/__init__.py`, `IAccessible/__init__.py` and `UIA/__init__.py` of
+  NVDA 2026.3.1: IA2's labelled-by relation, then accNavigate; UI Automation's LabeledBy), the names of the first six
+  objects inside it, its description, a web page's placeholder (`IA2Attributes`, never NVDAObject.placeholder, which
+  logs on objects without one), and for a holder its value. Read through the objects' own names before VisionClaw's
+  (`baseName`), so that a label pointing back cannot loop. The label linked to a field, and the words inside a button,
+  menu item, tab, list item or check box, are said as they are where the object's own name is no label
+  (`naming.interfaceName`): no model, no "probably".
+- A model's guess is said only where the object is truly unlabelled, so the names 1.13.0 gave labelled objects are no
+  longer said. A name the user gave, or asked for, is said over a label (`naming.overrides`); only in a program or
+  website that has such names is anything looked up for a labelled object (`NameStore.overriding`, `overrideKinds`):
+  by what this run of NVDA knows of it, by its code, and, for the object the user is on, by its picture, once for each
+  object (`Namer._overrideByPicture`).
+- NVDA+Shift+Alt+B (`script_nameByModel`, `Namer.askHere`): the object where the user is, in browse mode the control at
+  the cursor, is named by the model from its picture whatever its label, also while object names are off; the beep,
+  then the name, or "The model could not tell from its picture what this is."; saved with `asked`, which a guess the
+  model makes by itself never replaces; said with "Object names are off, so it is said only now" when they are off.
+  A heading, the overlay and an object off the screen are told why not. The names window says "asked for by you".
+- `naming.withoutKind`: a model's name loses the kind NVDA says right after it ("Search field" on a field is Search);
+  a state is never taken off ("Delete selected").
+- The keys were checked against every command of NVDA (`tests/nvda_commands.json`): NVDA+Alt+L, which looked free, is
+  NVDA's own for braille auto scroll; NVDA+Shift+Alt+B is no command of NVDA's.
+
+How it was tested: `tests/test_naming.py`, plain Python, with new tables of labels and of what is truly unlabelled; the
+browse mode stretch with page numbers, a letter, two placeholders, a description, a picture two levels inside a link and
+a focusable empty cell, none named; the NVDA side with stand-ins: a field labelled by another object said with that
+label and the model not asked; a button whose words are in an object inside it; a button with a description, a page
+number, a photo's file in a list, an empty focused cell and a pane that holds a button, none named and no beep; a guess
+1.13.0 made for a labelled link not said; NVDA+Shift+Alt+B on an X button with an automation id (named, sure, said
+there and on the same button made again), on a button the model cannot name, on a heading, off the screen, with object
+names off, after a restart where only the picture tells the button apart (found when the user is on it, another
+button with the same label keeps its own), and in browse mode at the cursor, said there afterwards without leaving
+browse mode. `tests/run_all.py` passes in a clean copy of 1.13.0 with only this release's files.
+
+Measured again with the real Qwen3.5 4B after the change, from that clean copy, because `decide` now also takes the
+kind off a model's name (`withoutKind`): `tests/live_object_names.py` 8 of 8 buttons with text, all eight sure, and 11
+of 11 fields, 0.4 seconds an answer in the middle; `tests/live_naming.py` 17 of 17, and with `--second` 16 of 17 (the
+letter i in a circle called Help, as before). The same as before the change. What is truly unlabelled is plain code
+and was not put to a model.
+
+What was not tested: nothing of this has run inside NVDA. Whether `labeledBy` is quick enough in a busy UI Automation
+program, whether WPF and WinUI programs give the words of a button to an object inside it as the stand-in does, and
+how often a program gives a label only through LabeledBy, are the first things to try (`docs/TESTPLAN.md`, "Only the
+truly unlabelled"). A name asked for on a labelled control of a web page that has no id or picture file is found again
+in browse mode only while the page stays loaded.
 
 ## Next session
 

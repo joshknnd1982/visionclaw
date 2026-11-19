@@ -122,6 +122,55 @@ def identity(obj):
 	return ("at", handle, roleOf(obj), location) if location else None
 
 
+def baseName(obj):
+	"""An object's name before VisionClaw's, so that reading a related object never asks object names again."""
+	if obj is None:
+		return ""
+	own = getattr(obj, "visionClawBaseName", None)
+	return str((_safe(own, "") if own is not None else _safe(lambda: obj.name, "")) or "")
+
+
+# The objects inside an object whose words are read, at most; and how long what was read holds for one object.
+INSIDE_LOOKED = 6
+WORDS_SECONDS = 2
+
+
+def interfaceWords(obj, role):
+	"""What the accessibility interfaces say of an object besides its own name, read once for each object NVDA makes:
+	"label", the name of the object that labels it (NVDAObject.labeledBy: UI Automation's LabeledBy, IAccessible2's
+	labelled-by relation); "inside", the names of the first objects inside it; "others", its description (a tooltip,
+	aria-describedby, UI Automation's help text) and the hint written in a web page's field (placeholder); "holds",
+	whether it has objects inside it; "text", the words inside it and, for a holder, its value; "given", the label to say
+	from these (naming.interfaceName)."""
+	cached = obj.__dict__.get("_visionClawWords")
+	now = time.monotonic()
+	if cached is not None and now - cached["at"] < WORDS_SECONDS:
+		return cached
+	label = _safe(lambda: obj.labeledBy)
+	labelText = baseName(label) if label is not None and label is not obj and not _safe(lambda: label == obj, False) else ""
+	words, child = [], _safe(lambda: obj.firstChild)
+	holds = child is not None
+	for _i in range(INSIDE_LOOKED):
+		if child is None:
+			break
+		name = baseName(child)
+		if name and not naming.unlabelled(name, roleOf(child)):
+			words.append(name)
+		child = _safe(lambda c=child: c.next)
+	inside = " ".join(" ".join(words).split())[:200]
+	web = _safe(lambda: obj.IA2Attributes)
+	others = [str(_safe(lambda: obj.description, "") or ""), str(web.get("placeholder") or "") if hasattr(web, "get") else ""]
+	text = inside
+	if role in naming.WHEN_CLICKABLE:
+		value = _safe(lambda: obj.value, "")
+		if isinstance(value, str) and value.strip():
+			text = (value + " " + text).strip()
+	found = {"label": labelText, "inside": inside, "others": others + [labelText], "holds": holds, "text": text,
+		"given": naming.interfaceName(role, labelText, inside), "at": now}
+	obj.__dict__["_visionClawWords"] = found
+	return found
+
+
 def boxOf(location):
 	if not location or location[2] < MIN_SIDE or location[3] < MIN_SIDE:
 		return None
@@ -161,6 +210,7 @@ class Namer:
 		self._session = collections.OrderedDict()
 		self._sessionVersion = 0
 		self._tried = {}
+		self._looked = {}
 		self._pending = collections.OrderedDict()
 		self._jobQueued = False
 		self._jobSerial = 0
@@ -236,17 +286,40 @@ class Namer:
 			self._hadTrouble()
 
 	def nameFor(self, obj, base):
+		"""The name NVDA says for an object: its own label wherever it has one; else the label the interfaces give
+		elsewhere (interfaceWords); else, where it is truly unlabelled, its saved name, or the model is asked. A name the
+		user gave or asked the model for (naming.overrides) is said in every case."""
 		if not self.working:
 			return base
 		role = roleOf(obj)
-		if not naming.vague(base, role):
-			return base
-		if role in naming.WHEN_CLICKABLE and not naming.clickable(statesOf(obj)):
-			return base
+		states = statesOf(obj)
+		if not naming.unlabelled(base, role) or role in naming.WHEN_CLICKABLE and not naming.clickable(states, role):
+			return self._overridden(obj, base)
+		words = interfaceWords(obj, role)
 		found = self.known(obj)
+		if naming.overrides(found):
+			return naming.spoken(found, self.probably)
+		if not naming.wanted(role, states, base, words["text"], others=words["others"], holds=words["holds"]):
+			return words["given"] or base
 		if found:
 			return naming.spoken(found, self.probably)
 		self._noticed(obj)
+		return base
+
+	def _overridden(self, obj, base):
+		"""An object with a label of its own: its label, unless the user gave it a name or asked the model for one. Only
+		in a program or website that has such names is anything looked up: by what this run of NVDA knows of the object,
+		by what its code calls it, and, for the object the user is on, by its picture (_consider)."""
+		if not self.store.overriding():
+			return base
+		kinds = self.store.overrideKinds(scopeOf(obj))
+		if not kinds:
+			return base
+		found = self.known(obj) if "rule" in kinds else self._sessionEntry(identity(obj))
+		if naming.overrides(found):
+			return naming.spoken(found, self.probably)
+		if found is None and "picture" in kinds:
+			self._noticed(obj)
 		return base
 
 	def known(self, obj):
@@ -326,7 +399,13 @@ class Namer:
 		if not hasattr(obj, "visionClawBaseName"):
 			return False
 		role = roleOf(obj)
-		if not naming.wanted(role, statesOf(obj), _safe(obj.visionClawBaseName, "")):
+		words = interfaceWords(obj, role)
+		if not naming.wanted(role, statesOf(obj), _safe(obj.visionClawBaseName, ""), words["text"], others=words["others"],
+				holds=words["holds"]):
+			if speak:
+				self._overrideByPicture(obj, role)
+			return False
+		if role in naming.PICTURES and self._insideControl(obj):
 			return False
 		if self.known(obj):
 			return False
@@ -365,6 +444,48 @@ class Namer:
 		})
 		self._want(target, first)
 		return True
+
+	def _overrideByPicture(self, obj, role):
+		"""The object the user is on has a label of its own, and its program keeps names the user gave or asked for by
+		their picture: look for its picture among them, once for each object and each change of the names while NVDA
+		runs. Found, the name is said and kept for this run, so that NVDA says it from then on."""
+		scope = scopeOf(obj)
+		if role not in naming.NAMED and role not in naming.WHEN_CLICKABLE:
+			return
+		if "picture" not in self.store.overrideKinds(scope):
+			return
+		ident = identity(obj)
+		if ident is None or self._sessionEntry(ident) is not None:
+			return
+		with self._lock:
+			if self._looked.get(ident) == self.store.version:
+				return
+			if len(self._looked) > SESSION_SIZE:
+				self._looked.clear()
+			self._looked[ident] = self.store.version
+		box = boxOf(_safe(lambda: obj.location))
+		if box is None:
+			return
+		target = self._pictured(role, box, boxOf(_safe(lambda: api.getForegroundObject().location)), False)
+		if target is None:
+			return
+		found = self.store.entry(scope, target["key"])
+		if naming.overrides(found):
+			self._remember(ident, scope, [target["key"]])
+			self._said(obj, found, True)
+
+	@staticmethod
+	def _insideControl(obj):
+		"""Whether a picture is part of a button, a link or another control named by what it holds: that control is the
+		one named, where it needs a name (as naming.insideControl in browse mode)."""
+		up = obj
+		for _i in range(3):
+			up = _safe(lambda o=up: o.parent)
+			if up is None:
+				return False
+			if roleOf(up) in naming.BY_CONTENT:
+				return True
+		return False
 
 	def _around(self, obj):
 		"""The named objects just before and after one, as (kind, name), for the model that names it."""
@@ -452,10 +573,16 @@ class Namer:
 		"""Name the object reached last that is still waiting. Runs in VisionClaw's background thread, which gives way
 		to anything the user asks for."""
 		with self._lock:
-			if not self._pending or not self.working:
+			target = None
+			while self._pending:
+				ident, target = self._pending.popitem(last=True)
+				# A name the user asked for is looked for also while object names are off.
+				if self.working or target.get("asked") and self._alive:
+					break
+				target = None
+			if target is None:
 				self._jobQueued = False
 				return True
-			ident, target = self._pending.popitem(last=True)
 		board = getattr(self.plugin, "board", None)
 		job = None
 		if target.get("speak") and board is not None:
@@ -479,11 +606,14 @@ class Namer:
 					self._pending.move_to_end(ident, last=True)
 			return False  # stopped: the background thread tries again later
 		name, sure = result
+		asked = bool(target.get("asked"))
 		if name:
 			entry = {"name": name, "by": naming.MODEL, "sure": sure, "role": target["role"]}
-			self.store.setGuess(target["scope"], target["key"], name, sure, target["role"])
+			if asked:
+				entry["asked"] = True
+			self.store.setGuess(target["scope"], target["key"], name, sure, target["role"], asked=asked)
 			if target.get("rule") is not None:
-				self.store.setGuess(target["scope"], naming.ruleKey(target["rule"]), name, sure, target["role"])
+				self.store.setGuess(target["scope"], naming.ruleKey(target["rule"]), name, sure, target["role"], asked=asked)
 			self._remember(ident, target["scope"], [target["key"], naming.ruleKey(target.get("rule"))])
 			wx.CallAfter(self._named, target, entry)
 		else:
@@ -491,6 +621,9 @@ class Namer:
 				self._tried[ident] = time.monotonic()
 				if len(self._tried) > SESSION_SIZE:
 					self._tried.clear()
+			if asked:
+				# Translators: Said when the user asked the model to name an object (NVDA+Shift+Alt+B) and it gave no name.
+				wx.CallAfter(self._speak, _("The model could not tell from its picture what this is."))
 		with self._lock:
 			self._jobQueued = False
 		wx.CallAfter(self._kick)
@@ -528,7 +661,7 @@ class Namer:
 			modelName = ""
 		if cancel.is_set():
 			return None
-		return naming.decide(modelName, read, target["code"])
+		return naming.decide(modelName, read, target["code"], role)
 
 	def _named(self, target, entry):
 		"""Main thread: the name has come. Said if the user is still there; kept in the notes on the program."""
@@ -544,6 +677,20 @@ class Namer:
 				notes.keepName(where, accessnotes.keyOf(target["rule"]), naming.kindWord(target["role"]), entry["name"])
 		except Exception:
 			log.debugWarning("VisionClaw: a name could not be kept in the notes", exc_info=True)
+		if target.get("asked"):
+			# The user asked for this name: it is said wherever they are now, with what follows from names being off.
+			text = naming.spoken(entry, self.probably)
+			if not self.working:
+				# Translators: Said after a name the user asked the model for, while object names are off.
+				text += ". " + _("Object names are off, so it is said only now; NVDA+Alt+B turns them on.")
+			self._speak(text)
+			if target["kind"] == "field":
+				document = target["document"]()
+				if document is not None:
+					_safe(lambda: __import__("braille").handler.handleCaretMove(document))
+			else:
+				_safe(lambda: __import__("braille").handler.handleUpdate(target["obj"]))
+			return
 		if not target.get("speak"):
 			return
 		if target["kind"] == "field":
@@ -614,25 +761,34 @@ class Namer:
 			return None
 
 	def fieldName(self, document, attrs):
-		"""Give a control of NVDA's copy of a page its saved name, where its own is vague."""
+		"""Give a control of NVDA's copy of a page its saved name, where it is truly unlabelled; and the name the user gave
+		it or asked the model for, wherever it is."""
 		if not self.working:
 			return
 		role = getattr(attrs.get("role"), "name", "")
 		if role not in naming.NAMED and role not in naming.WHEN_CLICKABLE:
 			return
-		if not naming.vague(attrs.get("name"), role):
-			return
-		if role in naming.WHEN_CLICKABLE and not naming.clickable(
-				[getattr(s, "name", str(s)) for s in attrs.get("states") or ()]):
-			return
+		states = [getattr(s, "name", str(s)) for s in attrs.get("states") or ()]
+		if naming.labelled(attrs.get("name"), role, naming.fieldOthers(attrs)) or (
+				role in naming.WHEN_CLICKABLE and not naming.clickable(states, role)):
+			if not self.store.overriding():
+				return
+			found = self._fieldEntry(document, attrs)
+			if not naming.overrides(found):
+				return
+		else:
+			found = self._fieldEntry(document, attrs)
+		if found:
+			attrs["name"] = naming.spoken(found, self.probably)
+			attrs["alwaysReportName"] = True
+
+	def _fieldEntry(self, document, attrs):
 		found = self._sessionEntry(self.fieldIdent(attrs))
 		if found is None:
 			rule = naming.ruleFor(naming.fieldNode(attrs))
 			if rule is not None:
 				found = self.store.entry(self._scope(document), naming.ruleKey(rule))
-		if found:
-			attrs["name"] = naming.spoken(found, self.probably)
-			attrs["alwaysReportName"] = True
+		return found
 
 	def reachedText(self, info, reason):
 		"""NVDA has just spoken a stretch of a page in browse mode, for a move of the caret, the review cursor, quick
@@ -746,7 +902,7 @@ class Namer:
 		base = _safe(obj.visionClawBaseName, "") if hasattr(obj, "visionClawBaseName") else (_safe(lambda: obj.name) or "")
 		found = self.known(obj) if hasattr(obj, "visionClawBaseName") else None
 		return {"ident": identity(obj), "role": role, "scope": scope, "keys": keys, "base": base,
-			"name": found["name"] if found else ("" if naming.vague(base, role) else base)}
+			"name": found["name"] if found else ("" if naming.unlabelled(base, role) else base)}
 
 	def _currentField(self, document):
 		info = document.makeTextInfo(textInfos.POSITION_CARET)
@@ -782,10 +938,101 @@ class Namer:
 		elif name.startswith(self.probably.format(name="")):
 			name = name[len(self.probably.format(name="")):]
 		return {"ident": ident, "role": node["role"], "scope": scope, "keys": keys, "base": node["name"],
-			"name": "" if naming.vague(name, node["role"]) else name}
+			"name": "" if naming.unlabelled(name, node["role"]) else name}
 
 	def giveName(self, here, name):
 		"""Keep the name the user gave the object or control where they are; an empty name takes theirs away."""
 		for key in here["keys"]:
 			self.store.setUser(here["scope"], key, name, here["role"])
 		self._remember(here["ident"], here["scope"], here["keys"])
+
+	# --- A name the user asks the model for ---
+
+	def askHere(self):
+		"""Ask the model that sees for a name for the object or page control where the user is, because the user asked
+		(NVDA+Shift+Alt+B): also where object names are off, where it has a label of its own, and where the model could
+		not name it before. The name is said when it comes, and kept so that it is said there from then on, while object
+		names are on. Returns None when the model has been asked, else a sentence that says why it cannot be."""
+		if not self._alive or self._trouble >= MAX_TROUBLE:
+			# Translators: Said when object names stopped after too many problems.
+			return _("Object names had too many problems and are stopped until NVDA restarts.")
+		focus = api.getFocusObject()
+		document = getattr(focus, "treeInterceptor", None)
+		if document is not None and hasattr(document, "getNVDAObjectFromIdentifier") and not getattr(document, "passThrough", True):
+			target = self._askField(document)
+		else:
+			target = self._askObject(api.getNavigatorObject())
+		if isinstance(target, str):
+			return target
+		target["asked"] = True
+		with self._lock:
+			self._tried.pop(target["ident"], None)
+		self._want(target, first=True)
+		return None
+
+	def _askObject(self, obj):
+		role = roleOf(obj)
+		if obj is None or role not in naming.NAMED and role not in naming.WHEN_CLICKABLE:
+			# Translators: Said when NVDA+Shift+Alt+B is pressed on something read from its own text, such as a heading.
+			# {kind} is what NVDA calls it.
+			return _("This {kind} is read from its own text, so it is not given a name.").format(
+				kind=_safe(lambda: obj.role.displayString, role.lower() or "object"))
+		box = boxOf(_safe(lambda: obj.location))
+		if box is None:
+			# Translators: Said when the object to be named by the model is not on the screen.
+			return _("This object is not on the screen, so there is no picture to name it from.")
+		window = boxOf(_safe(lambda: api.getForegroundObject().location))
+		target = self._pictured(role, box, window, True)
+		if target is None:
+			return self._noPicture()
+		ident = identity(obj) or ("asked", role, box)
+		scope = scopeOf(obj)
+		node = facts(obj)
+		before, after = self._around(obj)
+		title = _safe(lambda: api.getForegroundObject().name) or ""
+		place = scope[5:] if scope.startswith("site:") else scope
+		target.update({
+			"kind": "object", "ident": ident, "role": role, "scope": scope, "rule": naming.ruleFor(node, dialogTitle()),
+			"code": audit.codeName(node), "around": working.aroundText(place, scope.startswith("site:"), title, before, after),
+			"neighbours": before + after, "others": [place, title], "obj": obj,
+		})
+		return target
+
+	def _askField(self, document):
+		info = document.makeTextInfo(textInfos.POSITION_CARET)
+		info.expand(textInfos.UNIT_CHARACTER)
+		field = None
+		for command in info.getTextWithFields():
+			if isinstance(command, textInfos.FieldCommand) and command.command == "controlStart":
+				role = getattr(command.field.get("role"), "name", "")
+				if role in naming.NAMED or role in naming.WHEN_CLICKABLE:
+					field = command.field
+		ident = self.fieldIdent(field) if field is not None else None
+		if ident is None:
+			# Translators: Said when NVDA+Shift+Alt+B is pressed in browse mode where there is no control or picture.
+			return _("There is no control or picture here to name. Move to one first, then press NVDA+Shift+Alt+B.")
+		node = naming.fieldNode(field)
+		obj = _safe(lambda: document.getNVDAObjectFromIdentifier(ident[1], ident[2]))
+		box = boxOf(_safe(lambda: obj.location)) if obj is not None else None
+		if box is None:
+			return _("This object is not on the screen, so there is no picture to name it from.")
+		window = boxOf(_safe(lambda: api.getForegroundObject().location))
+		target = self._pictured(node["role"], box, window, True)
+		if target is None:
+			return self._noPicture()
+		scope = self._scope(document)
+		title = _safe(lambda: document.rootNVDAObject.name) or ""
+		place = scope[5:] if scope.startswith("site:") else scope
+		target.update({
+			"kind": "field", "ident": ident, "role": node["role"], "scope": scope, "rule": naming.ruleFor(node),
+			"code": audit.codeName(node), "around": working.aroundText(place, scope.startswith("site:"), title),
+			"neighbours": [], "others": [place, title], "generation": self._browseGeneration,
+			"document": weakref.ref(document),
+		})
+		return target
+
+	@staticmethod
+	def _noPicture():
+		# Translators: Said when the picture of the object to be named could not be taken, as when the screen curtain
+		# is on.
+		return _("A picture of it could not be taken. If the screen curtain is on, turn it off for a moment and try again.")

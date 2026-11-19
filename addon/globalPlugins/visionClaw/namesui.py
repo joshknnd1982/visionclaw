@@ -103,6 +103,10 @@ class NamesDialog(wx.Dialog):
 		else:
 			# Translators: Who gave a saved name: the model, which is not sure, so NVDA says "probably" before it.
 			who = _("guessed by the model, said with probably")
+		if entry.get("asked") and entry["by"] == naming.MODEL:
+			# Translators: Added before who gave a saved name, when the user asked the model for it with NVDA+Shift+Alt+B.
+			# {who} is one of the texts above.
+			who = _("asked for by you, {who}").format(who=who)
 		return f"{entry['name']}, {kind}, {who}"
 
 	def refresh(self):

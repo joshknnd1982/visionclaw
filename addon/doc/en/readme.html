@@ -12,8 +12,19 @@ If VisionMate is installed, disable it in the Add-on Store: VisionClaw uses the 
 next. The first parts say what is new. Every feature of VisionClaw, old and new, is explained after them.</p>
 
 <!-- news: written by tools/write_help.py from manifest.ini; do not change it by hand -->
-<p>This help is for VisionClaw 1.13.0.</p>
-<h2>What is new in 1.13.0</h2>
+<p>This help is for VisionClaw 1.14.0.</p>
+<h2>What is new in 1.14.0</h2>
+<ul>
+<li>Object names, NVDA+Alt+B, now name only objects that are truly unlabelled. Whatever Windows, the browser or the program gives NVDA is left as it is, however short or odd: a page number or a letter such as X, a sign such as +, a file name in a list of files, a password field labelled Password, a menu button called Menu, a name from the program's code such as btnClose. A description or tooltip, the hint written in an empty field, the words inside a button and a label the program links to a field count as a label too. Empty table cells, empty lists, panes that hold other objects and pictures inside a button or link are no longer named. A name the model gave such an object in 1.13.0 is no longer said.</li>
+<li>Where a program links a label to a field, or puts a button's words in an object inside it, and NVDA does not say them, VisionClaw now says them as they are, without the model.</li>
+<li>New key NVDA+Shift+Alt+B: asks the model to name the object where you are, in browse mode the control or picture at the cursor, where object names left it alone or could not name it, and also while object names are off. You hear the soft beep, then the name, or that the model could not tell. The name is saved and said there from then on, over the program's own label; forget it in the window of saved names, NVDA+Alt+N pressed twice.</li>
+<li>Your own name, given with NVDA+Alt+N, is now said also where the object has a label of its own. Before, it was saved, but NVDA kept saying the program's label.</li>
+<li>A name the model gives no longer ends with the kind NVDA says itself, so a field is "probably Search", not "probably Search field".</li>
+<li>Fixed: a name the model gives that says nothing, such as "Edit field" for a field with nothing around it, is no longer said; NVDA's own word stays.</li>
+<li>Object names show the model the label beside a narrow field too, such as a quantity box; before, the label could be cut off.</li>
+<li>Object names were measured with the real Qwen3.5 4B: icon buttons 17 of 17 and 16 of 17, buttons with text 8 of 8, fields 11 of 11, about half a second a name.</li>
+</ul>
+<h2>What was new in 1.13.0</h2>
 <ul>
 <li>Object names. Press NVDA+Alt+B and VisionClaw says "Object names on". From then on, every object without a name, or with a vague one, is named by the local model that sees the moment you reach it, however you move: Tab, Shift+Tab, Control+Tab and the arrow keys; browse mode with the arrow keys, the quick navigation keys and the elements list, without leaving browse mode; object navigation; the review cursor; and the mouse. Vague means a file name such as icon_close.svg, a word such as button or image, only symbols or the signs of an icon font, a single letter on an icon, or a name from the program's code such as btnClose. Press NVDA+Alt+B again and it says "Object names off".</li>
 <li>A short, soft, high beep says that a name for the object you are on is on its way, which helps on a slower computer. It goes with the setting "Play a soft tick while waiting for a description": turn that off and the beep is off too.</li>
@@ -25,12 +36,6 @@ next. The first parts say what is new. Every feature of VisionClaw, old and new,
 <li>A list of everything NVDA knows about objects, read from the source of NVDA 2026.3.1: 156 roles, 53 states, 357 classes of objects, the browse mode documents, the 78 programs NVDA has its own support for, and every way of moving with its keys (focus, object navigation, review, the caret, browse mode quick navigation, tables, the mouse and touch). It is the file docs/NVDA-OBJECTS.md in VisionClaw's repository on GitHub, and object names sort every one of those roles.</li>
 <li>The box "How to use VisionClaw", shown in the models window once the models are ready, now names every key of VisionClaw: NVDA+Alt+V to speak a request (Alt+V in the Ask VisionClaw window), NVDA+Alt+J for controller mode, NVDA+Alt+I for the skills window, NVDA+Alt+U to look for a newer version, all the keys of the overlay, and how to give a key in NVDA's Input Gestures dialog, under VisionClaw, to the two commands that have none.</li>
 <li>Stated plainly: object names were tested with plain Python and stand-ins for NVDA, a page in browse mode, the screen and the model. They have not been run inside NVDA or with a real model yet, and a page that NVDA reads through UI Automation, such as a Word document, does not get names in its text yet.</li>
-</ul>
-<h2>What was new in 1.12.1</h2>
-<ul>
-<li>Fixed: the question before models are suggested could not be worked with NVDA. In the models window (NVDA+Alt+M), press "Suggest models for what I want to do": NVDA now says each choice as a check box, checked or not checked, and says it again when Space checks or unchecks it. Check one or more with Space, then press Enter. Before, NVDA said nothing about the check boxes, so Space seemed to do nothing.</li>
-<li>The same for the list "Jobs it is for" when you make or change a skill in the skills window (NVDA+Alt+I): each job is said as a check box, checked or not checked.</li>
-<li>Stated plainly: tested with the real wxPython and a stand-in for NVDA's own check list, the one VisionClaw's window for removing models and its memories window already use. Not run inside NVDA yet.</li>
 </ul>
 <p>How to use each of these is explained in its own part of this page, further down.</p>
 <!-- /news -->
@@ -63,8 +68,10 @@ way.</li>
 <li>NVDA+Alt+D: describe the image, or copied image file, on the clipboard.</li>
 <li>NVDA+Alt+O: open or close the overlay, the window as a list of its texts and icons.</li>
 <li>NVDA+Alt+G: turn automatic descriptions of images without a label on or off.</li>
-<li>NVDA+Alt+B: turn object names on or off: every object without a name, or with a vague one, is named by the
-local model wherever you move, in browse mode too.</li>
+<li>NVDA+Alt+B: turn object names on or off: every object that is truly unlabelled is named by the local model
+wherever you move, in browse mode too.</li>
+<li>NVDA+Shift+Alt+B: ask the local model to name the object where you are, also where object names left it
+alone.</li>
 <li>NVDA+Alt+N: give your own name to the object where you are, or to an overlay item. Press it twice for the window
 of saved object names.</li>
 </ul>
@@ -80,6 +87,7 @@ focus again, and VisionClaw tells you each step as it works. Some examples, each
 <li>Open Notepad. Check and see if my recycle bin needs to be emptied. Turn down my system volume.</li>
 <li>Create a folder called Taxes in my documents.</li>
 <li>What is on my screen? Press the Play button in this window.</li>
+<li>What is the focused control? What does this button do? Is this checkbox checked?</li>
 <li>Explore this page. Why won't this form submit?</li>
 <li>Write an add-on that beeps when a link gets the focus.</li>
 <li>Remember that I use a braille display with 40 cells.</li>
@@ -87,8 +95,12 @@ focus again, and VisionClaw tells you each step as it works. Some examples, each
 <p>The two models must agree on how to handle your request before anything happens. If they do not agree, you
 are asked to choose. If you chose one model for both jobs, vision and code, there are not two to agree: the
 model chooses what to do and checks its own work, and VisionClaw says "the model". Its choice is checked
-against your own words; if the two still differ after it has looked again, you are asked which you meant.</p>
-<p>If a step does not work, you are asked whether to skip it, try again or stop. A fault inside VisionClaw ends
+against your own words; if the two still differ after it has looked again, you are asked which you meant, but only
+when one of the two ways would change something. When both only look, as describing the screen and looking it up in
+NVDA, VisionClaw does not ask: it tries one, what NVDA says before a picture, and the other if the first finds
+nothing, and tells you so.</p>
+<p>If a step does not work, you are asked whether to skip it, try again or stop; a way that only looks and has
+another way waiting is followed by that way instead, without a question. A fault inside VisionClaw ends
 only the step it happened in; the rest of your request is still done. By default VisionClaw also asks before it
 changes a setting, clicks, presses keys or types; you can turn that off in the settings. Anything that could take
 speech or braille away, or that cannot be undone, is always asked about, whatever the settings say. What
@@ -215,6 +227,21 @@ program in front has settings of its own. "Stop announcing capital letters in Wo
 the program in front has settings of its own and you say neither, VisionClaw asks: only in this program, or
 everywhere? After a change it names the programs that keep a value of their own for that setting.</p>
 
+<h2>The control you are on</h2>
+<p>Ask about the control you are on in your own words, and VisionClaw answers at once from what NVDA knows, without
+asking you what you meant: "what is the focused control", "what does this button do", "what happens if I press Enter
+here", "is this checkbox checked", "is this button greyed out", "does this have a shortcut key", "what is the
+navigator object on", "what's under my mouse". In browse mode it is the link, button or field at your reading
+position.</p>
+<p>The answer starts with what you asked: yes or no for a state, then its kind and name, the window and the program,
+its state (checked, pressed, expanded, unavailable), its value or selected text, its place in its list, what it is
+inside of, its own description and shortcut key, how it is used from the keyboard, and NVDA's own key that says it,
+for next time (NVDA+Tab for the focus). A control without a name is given the name you or VisionClaw saved for it;
+if there is none, the model that sees reads one from its picture, said with "probably" where it is not sure. Asked
+what a button does where nothing says it, the model guesses from its name and picture, and the answer says it is a
+guess. Nothing is pressed or changed. "Tell me everything NVDA knows about this control" still gives every technical
+fact.</p>
+
 <h2>Questions: NVDA, the program, the window, Windows</h2>
 <p>A question such as "how do I", "what key", "what is" or "what does this key do" is asked of four places,
 every time, in this order:</p>
@@ -335,6 +362,7 @@ field afterwards.</p>
 <li>NVDA+Alt+D: describe the image or image file on the clipboard.</li>
 <li>NVDA+Alt+G: turn automatic descriptions of images without a label on or off.</li>
 <li>NVDA+Alt+B: turn object names on or off; see Object names below.</li>
+<li>NVDA+Shift+Alt+B: ask the model to name the object where you are; see Object names below.</li>
 <li>NVDA+Alt+N: give your own name to the object where you are, or to an overlay item; twice for the saved
 names.</li>
 </ul>
@@ -355,19 +383,33 @@ the key you hear is NVDA's own.</p>
 <h2>Object names</h2>
 <p>Many programs, games and web pages have buttons, pictures and other controls without a name, or with a name
 that says nothing: NVDA then says only "button", "graphic", a file name such as icon_close.svg, or the sign of an
-icon font. Press NVDA+Alt+B and VisionClaw says "Object names on". From then on every object without a name, or
-with a vague one, is named by the local model that sees, the moment you reach it, and the name is saved. Press
-NVDA+Alt+B again and it says "Object names off". These are accessibility fixes made on the fly, for the times you
-just want a control to say what it is: nothing is written, installed or asked.</p>
+icon font. Press NVDA+Alt+B and VisionClaw says "Object names on". From then on every object that is truly
+unlabelled, with no label from Windows, the browser or the program, is named by the local model that sees, the
+moment you reach it, and the name is saved. Press NVDA+Alt+B again and it says "Object names off". These are
+accessibility fixes made on the fly, for the times you just want a control to say what it is: nothing is written,
+installed or asked. When an object is not named and you want a name for it anyway, press NVDA+Shift+Alt+B.</p>
 <ul>
 <li>However you move: Tab, Shift+Tab, Control+Tab and the arrow keys in lists and menus; in browse mode the arrow
 keys, the quick navigation keys such as B for the next button and G for the next graphic, and NVDA+F7's elements
 list, without leaving browse mode; object navigation, such as NVDA+Numpad 6 or NVDA+Shift+Right Arrow on a laptop;
 the review cursor; and the mouse. NVDA asks the object for its name, and VisionClaw answers with the saved one.</li>
-<li>Vague names count as no name: a file name, a web address or a code; a word that only says what kind of thing it
-is, such as button, link, image or icon; only symbols, emoji or the signs of an icon font; a single letter on a
-button or icon, such as X; and a name from the program's code, such as btnClose or ic_settings_24. A real name such
-as Edit, Picture or Download is left as it is.</li>
+<li>Only what is truly unlabelled is named: whatever Windows, the browser or the program gives NVDA is a label,
+however short or odd, and is left as it is: one letter or number, such as a page number or X; a sign such as + or an
+emoji; a file name in a list of files; a name from the program's code, such as btnClose. The label the program gives
+in another way counts too: a description or tooltip, the hint written in an empty field, the words inside a button,
+and the text the program says labels a field. Where NVDA would not say such a label by itself, VisionClaw says it, as
+it is, without the model: the label next to a field that the program links to it, and the words inside a button.
+Truly unlabelled is: no name at all; only the signs of an icon font or characters that are never printed; only the
+word for its kind, such as button on a button; a word a program gives by a mistake, such as undefined; and on a
+picture, its file name, a web address or a word that only says it is a picture. An empty table cell, an empty list
+and a pane that holds other objects are not named, and nor is a picture inside a button or link: the button or link
+is named instead, where it needs a name.</li>
+<li>Ask for a name yourself: NVDA+Shift+Alt+B asks the model for a name for the object where you are, in browse mode
+for the control or picture at the cursor: where object names left it alone because it has a label you do not
+understand, such as X, where the model could not name it before, and also while object names are off. The beep says
+the name is on its way, then you hear it, with probably where the model is not sure, or that the model could not
+tell. It is saved, and said there from then on, over the program's own label, while object names are on; forget it
+in the window of saved names.</li>
 <li>When a name for the object you are on is on its way, you hear a short, soft, high beep, then the name. On a
 slower computer this tells you to wait a moment. The beep goes with the setting "Play a soft tick while waiting for
 a description": turn that off and this beep is off too.</li>
@@ -381,7 +423,8 @@ further down, and in a program the objects next to the one you reach, are named 
 names are ready when you get there.</li>
 <li>NVDA+Alt+N gives your own name to the object where you are: in browse mode the control or picture at the cursor,
 elsewhere the object at the review position, or the current item of the overlay. Leave the name empty to take your
-name away. Your own name always wins. You can also ask: "call this button play".</li>
+name away. Your own name always wins, also over the program's own label. You can also ask: "call this button
+play".</li>
 <li>Press NVDA+Alt+N twice, or the button "Saved object names: change, forget or share them" in VisionClaw's settings,
 for the window of saved object names: the programs and websites with names, the names of the one you choose with
 who gave each and how sure it is, and the buttons Change the selected name, Forget checked names, Forget all names
@@ -827,7 +870,8 @@ It is a short table of words, all about working the computer with the keyboard, 
 still chooses and plain code still checks.</li>
 <li>A question about how to do something is answered with the keys, and nothing is done; a question that begins with
 why is answered. When the model's choice also fits your words, VisionClaw goes with it instead of asking you; it asks
-only when your words clearly point elsewhere.</li>
+only when your words clearly point elsewhere and one of the two ways would change something. Between two ways that
+only look it does not ask: it tries one, then the other if the first finds nothing.</li>
 <li>How well VisionClaw chooses is measured on sets of requests in words it was never tuned on, with the real model,
 and a change is kept only when it measures better.</li>
 </ul>

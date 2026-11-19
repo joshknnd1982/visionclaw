@@ -1317,16 +1317,39 @@ keyboard and speech alone.
   - **Every role NVDA has is sorted** (`naming.NAMED`, `WHEN_CLICKABLE`, `LEFT`) against `tests/nvda_objects.json`,
     which `tools/write_nvda_objects.py` wrote from NVDA 2026.3.1's source, with `docs/NVDA-OBJECTS.md` for the owner.
     For a newer NVDA, run the tool on its source again and sort what is new; never write a role from memory.
-  - **Vague is plain code's** (`naming.vague`): a file name, an address, a code, a word that only names the kind,
-    only symbols or an icon font's signs, one letter on an icon, a name from code. A real name such as Edit,
-    Picture or Download is never vague on a button; the picture words count only on pictures. Add a case to
-    `tests/test_naming.py` for every name the owner finds wrongly taken or left.
+  - **Only the truly unlabelled are named.** The owner said on 2026-11-19, after 1.13.0 named buttons and objects that
+    Windows' and the browsers' interfaces already name: "make sure it only labels objects, states, roles, etcetera,
+    which are **truly** unlabeled. and let me press a keyboard shortcut to add an AI label if the algorithm fails".
+    Whether an object needs a name is `naming.unlabelled` and `wanted`, never `vague`: whatever the interfaces give is
+    a label, however short or odd (a page number, X, +, an emoji, a file name in a list of files, btnClose). Truly
+    unlabelled is only: nothing, only what NVDA cannot say (an icon font's signs, characters never printed), only the
+    kind's own word, a program's mistake ("undefined"), a long hexadecimal code on a control, and on a picture its file,
+    an address or a word that only says it is a picture. A label from elsewhere counts too (`labelled`, `others`):
+    the description, the placeholder, the object that labels it (labelledBy), the words inside a control
+    (`BY_CONTENT`); and where NVDA does not say the last two, VisionClaw says them as they are, without a model
+    (`interfaceName`, `nametools.interfaceWords`). A holder that holds objects, an empty one of `PRESSED_ONLY` that is
+    only focusable (an empty cell), and a picture inside a control (`insideControl`) are not named. A model's guess
+    is said only where the object is truly unlabelled; a name the user gave or asked for (`naming.overrides`) is said
+    over a label. Add a case to `tests/test_naming.py` for every object the owner finds wrongly named or left.
+  - **A name when the user asks** (NVDA+Shift+Alt+B, `Namer.askHere`): the object where the user is, in browse mode
+    the control at the cursor, named by the model whatever its label, also while object names are off; kept with
+    `asked` (`NameStore.setGuess(asked=True)`), which a guess the model makes by itself never replaces. What came is
+    always said, and so is "The model could not tell".
+  - **Vague is plain code's** (`naming.vague`), and judges only a name that a model, the text in a picture or a shared
+    file gives, before it is used: a file name, an address, a code, a word that only names the kind, only symbols or
+    an icon font's signs, one letter on an icon, a name from code. A real name such as Edit, Picture or Download is
+    never vague on a button; the picture words count only on pictures. A model's name loses the kind NVDA says itself
+    at its end (`withoutKind`), never a state.
   - **Where NVDA asks for a name, VisionClaw answers**: outside browse mode an overlay class from the plugin's own
     chooseNVDAObjectOverlayClasses; in browse mode the page's TextInfo wrapped at `_normalizeControlField`, as
     fixruntime.py does. Both call the object's own name first and never let an error reach NVDA. What was read from
     NVDA's source is at the top of `nametools.py`; read it again before changing this.
   - **"probably" is plain code's** (`naming.sure`, `decide`, `spoken`): a name is sure only where the text read in
     the object's own picture or the words of its own code agree with the model. Never ask a model how sure it is.
+    A model's name that is itself vague is no name (`decide`): Qwen3.5 4B called a bare field "Edit field".
+  - **Measured on 2026-11-19 with Qwen3.5 4B** (`tests/live_naming.py`, `tests/live_object_names.py`): icon buttons
+    17 of 17 and 16 of 17, text buttons 8 of 8, fields 10 of 11 with the question measured for buttons; a sentence
+    for fields added nothing and was dropped. Measure a change to the question or the picture with both scripts.
   - **What tells an object apart is what belongs to it alone** (`naming.ruleFor`): an id, an automation id, a
     picture's file, a control number inside a titled dialog; else its picture. Never a class name.
   - **A shared file is data, checked line by line** (`naming.readShared`), and never replaces the user's own name.
@@ -1399,7 +1422,8 @@ addon/
                              given the one NVDA command it is about
     helpers.py               app helpers and generated add-ons: loading them live, their hotkeys
     nametools.py             object names: the class that gives an object its saved name, the page in browse mode
-                             given its names, naming where the user is in the background, NVDA+Alt+N
+                             given its names, naming where the user is in the background, what the interfaces say of
+                             an object besides its name, NVDA+Alt+N, and a name asked for with NVDA+Shift+Alt+B
     namesui.py               the window of saved object names: change, forget, share, add shared names
     profiletools.py          an NVDA setting for the program in front only: NVDA's configuration profile for it
                              made, turned on, written to only while it is the one NVDA writes to, listed, deleted
@@ -1501,8 +1525,8 @@ addon/
                              sight, what the user's words ask, the squares; the person answers it
       shopping.py            what buys and what is to be paid, what is never typed, a product's options
       seats.py               a seat map from the names of its seats or from its picture; which seats fit a wish
-      naming.py              object names as plain logic: every role of NVDA sorted, vague names, what tells an
-                             object apart, how sure a name is, the names kept and shared
+      naming.py              object names as plain logic: every role of NVDA sorted, what is truly unlabelled, vague
+                             names, what tells an object apart, how sure a name is, the names kept and shared
       busy.py                what VisionClaw is busy with for the user, and a status update when it has been quiet
                              too long: when one is due, what it says, when nothing is said
       router.py              which kinds of request and which tools a model is offered: by where the user is,
@@ -1811,6 +1835,9 @@ A session is done only when its "Done when" line is true.
   the model that sees as the user reaches it: focus, browse mode, object navigation, review, the mouse; saved, said
   with probably where not sure, shared as a file; every role of NVDA 2026.3.1 sorted. Tested with stand-ins; not
   run inside NVDA or with a real model.
+- [x] **3.65 Only the truly unlabelled, and a name when asked.** Whatever the interfaces give is a label; the label
+  linked to a field and the words inside a button said without a model; NVDA+Shift+Alt+B names the object where the
+  user is on request, also over a label and with names off. Tested with stand-ins; not run inside NVDA.
 - [ ] **3.5 Test inside NVDA.** Install the build in NVDA (ask the user first) and walk through
   `docs/TESTPLAN.md`. Fix what breaks. *Done when:* every item in the test plan is ticked by a real run.
 
@@ -1882,8 +1909,11 @@ python -u tests/live_hard.py FOLDER9 coderId FOLDER14 hardId   an everyday model
 VC_HARD=qwen3-14b python -u tests/live_codeplan.py FOLDER   the model for hard cases writes and reviews the nine add-ons
 python tests/test_codeplan.py            an add-on read into pieces, its frame, run against stand-ins for NVDA; pieces
                                          written, corrected and reviewed one at a time; the work sheet; one method fixed
-python tests/test_naming.py              object names: every role sorted, vague names, sure or probably, the store,
-                                         sharing; the NVDA side with stand-ins for objects, a page and the model
+python tests/test_naming.py              object names: every role sorted, truly unlabelled and vague names, sure or
+                                         probably, the store, sharing; the NVDA side with stand-ins for objects, a page
+                                         and the model; labels from elsewhere; a name asked for with NVDA+Shift+Alt+B
+python -u tests/live_object_names.py MODELS ID   a real vision model names drawn text buttons and fields the way
+                                         object names ask; with tests/live_naming.py for icon buttons
 python tools/write_nvda_objects.py SRC VERSION   writes docs/NVDA-OBJECTS.md and tests/nvda_objects.json from NVDA's
                                          source
 python tests/test_ten.py                 colours and places measured in drawn pictures, a form that is only a picture, a
