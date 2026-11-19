@@ -11,7 +11,7 @@
 import time
 
 from . import agent, consensus, debuglog, followups, lookup, pageview, planner, planning, policy, prompts, shapes
-from . import corrections, understand, worksheet
+from . import corrections, sentences, understand, worksheet
 from . import memories as memoriesModule
 from . import skills as skillsModule
 from . import task as taskModule
@@ -56,6 +56,58 @@ _VERIFY_SYSTEM = (
 SKIP, RETRY, STOP = 0, 1, 2
 
 
+class _Spoken:
+	"""The answer to a request said while the model writes it, a sentence at a time (claw/sentences.py): what plain
+	code has ready first, then the model's sentences as they come, each with what plain code corrects in the whole
+	answer (keys as NVDA writes them, nothing of the question the model was given), then the rest. Every piece is a SAY
+	event, which the add-on speaks; the whole answer still comes as the ANSWER event, for reading afterwards."""
+
+	def __init__(self, task):
+		self.task = task
+		# Whether anything was said, and whether anything the model wrote was.
+		self.used = False
+		self.fromModel = False
+		# A piece that was only words of the question ("Based on the information found,") says nothing; the sentence
+		# goes on in the next piece, which then begins the sentence.
+		self._upper = False
+		self._sentences = sentences.Sentences(self._piece)
+
+	def say(self, text):
+		"""A piece plain code has ready, said as it is."""
+		text = plainSpeech(text)
+		if text:
+			self._emit(text)
+		return bool(text)
+
+	def feed(self, delta):
+		self._sentences.feed(delta)
+
+	def flush(self):
+		self._sentences.flush()
+
+	def _piece(self, text):
+		"""A piece the model wrote."""
+		piece = " ".join(str(text or "").split())
+		spoken = plainSpeech(text)
+		# A long first sentence is begun at a comma: it is not the end of a sentence.
+		if piece.endswith(",") and spoken.endswith("."):
+			spoken = spoken[:-1] + ","
+		spoken = unframed(nvdaKeys(spoken)).strip()
+		if not spoken:
+			self._upper = self._upper or bool(piece)
+			return False
+		if self._upper:
+			spoken = spoken[0].upper() + spoken[1:]
+			self._upper = False
+		self.fromModel = True
+		self._emit(spoken)
+		return True
+
+	def _emit(self, text):
+		self.used = True
+		self.task.emit(taskModule.SAY, text)
+
+
 class Orchestrator:
 	"""runtime: the two models, or one model that does both jobs. registry: the tools.
 	askUser(question, choices) returns the index the user chose, or None.
@@ -98,6 +150,9 @@ class Orchestrator:
 		self.understanding = None
 		# Where the work sheets of requests are written (claw/worksheet.py), or None to keep them in memory only.
 		self.workFolder = None
+		# Whether the answer is said a sentence at a time while the model writes it (SAY events), or whole when it has
+		# finished: the user's choice, set by the add-on (the setting "streamAnswers"). Off where nobody listens.
+		self.streaming = lambda: False
 
 	def _oneByOne(self):
 		try:
@@ -235,19 +290,20 @@ class Orchestrator:
 		self._runSteps(llm, task, request, params)
 		# What was found is checked by plain code; a way of looking that found nothing is followed by the next way.
 		self._nextWays(llm, task, request, params)
-		answer = self._answer(llm, task, request, params)
+		# A request that followed the one before it, or whose words were understood as other words: the user is told
+		# what it was taken as, before the answer.
+		taken = self._taken(task, request)
 		# A plan the model wrote itself is checked by the other model; recipes report their own failures.
-		if params.verify and planner.OTHER in recipes and not self._allFailed(task):
+		verified = params.verify and planner.OTHER in recipes and not self._allFailed(task)
+		spoken = self._spoken(task, verified)
+		answer = self._answer(llm, task, request, params, spoken, taken)
+		if verified:
 			answer = self._verify(llm, task, request, params, answer)
 
 		# What the next request may lean on is the answer itself, without what is added to it below.
 		task.plainAnswer = answer
-		# A request that followed the one before it, or whose words were understood as other words: the user is told
-		# what it was taken as.
-		if getattr(task, "said", ""):
-			answer = f"{followups.taken(task.said, request)} {answer}"
-		elif getattr(task, "understood", ""):
-			answer = f"{understand.taken(request)} {answer}"
+		if taken is not None:
+			answer = f"{taken} {answer}"
 		self._learn(task)
 		self._keepPlan(task, request, recipes, how)
 		self._keepModel(task)
@@ -258,9 +314,36 @@ class Orchestrator:
 		offered = self._offered(task, request, recipes)
 		if offered:
 			answer = f"{answer.rstrip()}\n{offered}" if answer else offered
+		if spoken is not None and spoken.used:
+			# The answer was said while the model wrote it: what was added to it is said after it, and the answer
+			# itself comes whole for reading.
+			spoken.say(kept)
+			spoken.say(offered)
+			task.streamed = True
 		task.answer = answer
 		task.emit(taskModule.ANSWER, answer)
 		task.setState(taskModule.DONE, "Finished.")
+
+	@staticmethod
+	def _taken(task, request):
+		"""What the request was taken as, in a sentence, or None when it was taken as the user said it."""
+		if getattr(task, "said", ""):
+			return followups.taken(task.said, request)
+		if getattr(task, "understood", ""):
+			return understand.taken(request)
+		return None
+
+	def _spoken(self, task, verified):
+		"""Where the answer is said while the model writes it (_Spoken), or None when it is said whole at the end: where
+		the user turned that off, where the other model checks the answer and may change it, and where a question about a
+		correction may follow it, as a window that comes up silences what NVDA is still saying."""
+		try:
+			wanted = bool(self.streaming())
+		except Exception:
+			wanted = False
+		if not wanted or verified or getattr(task, "corrects", ""):
+			return None
+		return _Spoken(task)
 
 	def _follow(self, llm, task, request):
 		"""For a request that follows the one before it (claw/followups.py): (the request written out in full,
@@ -692,9 +775,11 @@ class Orchestrator:
 				task.infoTools.append(step.tool)
 		return told, info, failed
 
-	def _answer(self, llm, task, request, params):
+	def _answer(self, llm, task, request, params, spoken=None, taken=None):
 		"""Tell the user the result. What tools did is said in the tools' own words, so nothing is claimed that
-		did not happen; only information that was looked up is put into words by a model."""
+		did not happen; only information that was looked up is put into words by a model.
+		spoken: where the answer is said while the model writes it (_Spoken), or None; taken: what the request was taken
+		as, said first. Only an answer a model writes is said that way: what plain code says is ready at once."""
 		task.check()
 		steps = task.steps
 		last = len(steps) - 1
@@ -702,6 +787,13 @@ class Orchestrator:
 		task.emit(taskModule.STEP, f"Step {last + 1} of {len(steps)}: {steps[last].title}.")
 		told, info, failed = self._outcome(task)
 		pieces = list(told)
+		if not info or params.oneByOne:
+			spoken = None
+		if spoken is not None:
+			if taken:
+				spoken.say(taken)
+			for piece in told:
+				spoken.say(piece)
 		if info and params.oneByOne:
 			# A very small model is not asked to put what was found into its own words: it makes things up.
 			pieces += [self._quoted(llm, part, result, tool) for (part, result), tool in zip(info, task.infoTools)]
@@ -718,15 +810,24 @@ class Orchestrator:
 			if wanted:
 				user += "\nThe user asked VisionClaw to remember this about answers:\n" + "\n".join(f"- {line}" for line in wanted)
 			try:
-				summary = llm.text(self.lead, prompts.speaking(_ANSWER_TASK, found=user), user, maxTokens=params.answerTokens, reasoning=params.reasoning)
+				summary = llm.text(
+					self.lead, prompts.speaking(_ANSWER_TASK, found=user), user, maxTokens=params.answerTokens,
+					reasoning=params.reasoning, onText=spoken.feed if spoken is not None else None)
 			except LLMError:
 				summary = ""
+			if spoken is not None:
+				spoken.flush()
 			# What plain code can correct in the model's words, it corrects: keys as NVDA writes them, and nothing of
 			# the question the model was given.
 			summary = unframed(nvdaKeys(" ".join((summary or "").split())))
 			pieces.append(summary or " ".join(result for _part, result in info))
+			if spoken is not None and not spoken.fromModel:
+				# The model wrote nothing that could be said: what was found is said as it is, as in the whole answer.
+				spoken.say(pieces[-1])
 		if failed:
 			pieces.append("This could not be done: " + "; ".join(uncut(f) for f in failed) + ".")
+			if spoken is not None:
+				spoken.say(pieces[-1])
 		answer = " ".join(plainSpeech(p) for p in pieces if p) or "Nothing was done."
 		steps[last].status, steps[last].result = taskModule.STEP_DONE, answer
 		return answer

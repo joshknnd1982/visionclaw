@@ -184,6 +184,8 @@ def logText(task):
 	"""Everything a task did, for reading afterwards."""
 	lines = [_("Request: {request}").format(request=task.request), ""]
 	for _seconds, kind, text in task.log:
+		if kind == taskModule.SAY:
+			continue  # a piece of the answer, which follows whole
 		if kind == taskModule.ANSWER:
 			lines += ["", _("Answer: {answer}").format(answer=text), ""]
 		elif kind == taskModule.THINK:

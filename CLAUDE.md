@@ -202,6 +202,24 @@ keyboard and speech alone.
   - **Never arm a stop on NVDA's speech being silenced before speech has begun.** NVDA silences speech at every key
     press (`inputCore.py`, `executeGesture`), so a key pressed while waiting, NVDA+Alt+P included, would throw the
     answer away without a word. A spoken answer arms it at its first piece (`SentenceSpeaker(onFirst=)`).
+- **An answer a model writes is spoken while it is written, unless the user turned that off** (`claw/sentences.py`,
+  `orchestrator._Spoken`, the setting `streamAnswers`). The owner asked on 2026-11-19 that tokens be streamed "into
+  NVDA's speech queue sentence-by-sentence", and then: "let the user choose through a setting under visionclaw
+  settings to turn this on or off for slower computers." What follows from it:
+  - **One way of cutting**: a request's answer, a description and an answer in the description window are cut into
+    pieces by `sentences.Sentences`; turned off, it gives all of it at once at the end. Nothing is dropped on the way:
+    the pieces together are the answer, however long (`tests/test_stream_answers.py`, `tests/test_speaker.py`).
+  - **A request's answer**: what plain code has ready first (how the request was understood, the tools' own
+    sentences), then the model's sentences as SAY events, each with what plain code corrects in the whole answer
+    (`nvdaKeys`, `unframed`), then what is added after it. The ANSWER event still carries the whole answer, for
+    NVDA+Alt+P and the Ask window, and `task.streamed` says that it was said.
+  - **Said whole** where saying it early could be wrong or cut off: a plan the model wrote itself, whose result is
+    checked and may change; a correction, after which a question may come up and silence NVDA; the very smallest
+    models, which quote. A check that may replace what the model wrote must run on each piece before it is said, or
+    turn the speaking off for that answer.
+  - The stop is armed at the first piece (the rule above); before it, the ticks and status updates go on. The
+    orchestrator says nothing in pieces unless the add-on turns it on, so the tests and evaluation scripts hear the
+    answer whole. On is the default; never make speaking in pieces the only way.
 - **The user stays in charge.** Models must agree before a task starts; when they do not, the user chooses where
   one of the ways would change something. Between ways that only look, one is tried and then the other, and the user
   is told (see "Between two ways that only look"). Settings changes and new add-ons are confirmed with the user unless
@@ -1625,6 +1643,8 @@ addon/
                              to find it next time only for someone who says they are new to this
       busy.py                what VisionClaw is busy with for the user, and a status update when it has been quiet
                              too long: when one is due, what it says, when nothing is said
+      sentences.py           text a model is still writing, cut into pieces to be spoken one at a time; or all of it
+                             at once when it has finished, the user's choice for a slow computer
       router.py              which kinds of request and which tools a model is offered: by where the user is,
                              by the part before, and by what the words name
       pointer.py             which mouse action is meant, where a drag ends, how pointer mode moves; how long
@@ -1942,6 +1962,9 @@ A session is done only when its "Done when" line is true.
   Measured with the real Qwen3.5 4B on two new sets, one held out; not run inside NVDA.
 - [x] **3.66 Which version is installed.** VisionClaw, NVDA, an add-on or the program in front, that version alone,
   and where to find it next time only for someone new to this. Tested with plain Python and stand-ins; not run in NVDA.
+- [x] **3.67 Answers spoken while they are written.** A request's answer a sentence at a time while the model writes
+  it, like descriptions; a setting turns it off for every answer and description, for a slow computer. Tested with
+  plain Python, a stand-in model that writes in pieces and stand-ins for NVDA; not run inside NVDA.
 - [ ] **3.5 Test inside NVDA.** Install the build in NVDA (ask the user first) and walk through
   `docs/TESTPLAN.md`. Fix what breaks. *Done when:* every item in the test plan is ticked by a real run.
 
@@ -2022,6 +2045,10 @@ python tests/test_focus.py               the control the user is on: what the wo
                                          two ways that only look tried one after the other without a question
 python tests/test_whole.py               nothing the user reads or hears is cut, and the request reaches every model
                                          and tool whole; a very long request and result from start to end
+python tests/test_stream_answers.py      a request's answer said a sentence at a time while a stand-in model writes it,
+                                         nothing lost; where it is said whole instead
+python -u tests/live_stream.py MODELS VISIONID CODERID   the real model's answers said in pieces: when the first piece
+                                         comes against the whole answer, and that the pieces are the answer; VC_ASK
 python tests/test_versions.py            which version the words ask about, the job, the answer; the tool against
                                          stand-ins for NVDA is in tests/test_nvda_stub.py
 python tools/write_nvda_objects.py SRC VERSION   writes docs/NVDA-OBJECTS.md and tests/nvda_objects.json from NVDA's

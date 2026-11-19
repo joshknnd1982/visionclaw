@@ -37,7 +37,7 @@ from speech import extensions as speechExtensions
 from . import autodescribe, clawui, controlkeys, curtain, dialogs, explorer, followup, hardware, helpers, imaging, labels, localmedia, mousetools, nvdatools, ocr, sounds, updater, viewers, winzapp
 from . import asktools, memorytools, nametools, ownvoice, padtools, touchinput, voiceui
 from .claw import busy, catalog, direct, drivers, guides, learn, offers, planning, policy, portable, prompts, training, understand, worksheet
-from .claw import modelpick, naming
+from .claw import modelpick, naming, sentences
 from .claw.changes import ChangeLog
 from .claw import debuglog
 from .claw import task as clawTask
@@ -181,6 +181,9 @@ confspec = {
 	"autoFixAddons": "boolean(default=True)",
 	"confirmChanges": "boolean(default=True)",
 	"speakProgress": "boolean(default=True)",
+	# Whether answers and descriptions are spoken a sentence at a time while the model writes them, or whole when it has
+	# finished (claw/sentences.py): on a slow computer speech can stutter while the model writes.
+	"streamAnswers": "boolean(default=True)",
 	# After how many seconds of quiet VisionClaw says how far a long request or description is, or never
 	# (claw/busy.py).
 	"statusUpdates": 'option("10", "15", "30", "60", "off", default="15")',
@@ -430,53 +433,28 @@ def _clean(text):
 
 
 class SentenceSpeaker:
-	"""Speaks streamed text one sentence at a time, so speech starts before the model finishes."""
+	"""Speaks streamed text one sentence at a time, so speech starts before the model finishes (claw/sentences.py);
+	or, with whole, all of it at once when the model has finished: the user's choice for a slow computer, where speech
+	can stutter while the model writes (the setting "streamAnswers")."""
 
-	_END = re.compile(r"(\S*)[.!?。！？](?=\s)|\n")
-	# Shorter pieces are joined with the next one, so list labels like "Phone number:" are not spoken alone.
-	_MIN_CHARS = 30
-	# A long first sentence is started at a comma once it is this long, so speech begins sooner.
-	_FIRST_CLAUSE_CHARS = 60
-	_CLAUSE = re.compile(r",(?=\s)")
-
-	def __init__(self, cancel, prefix="", onFirst=None):
+	def __init__(self, cancel, prefix="", onFirst=None, whole=False):
 		"""onFirst() is called just before the first piece is spoken."""
 		self._cancel = cancel
-		self._buf = ""
 		self._prefix = prefix
 		self._onFirst = onFirst
 		self.spokeAnything = False
+		self._pieces = sentences.Sentences(self._say, whole=whole)
+		self.whole = self._pieces.whole
 
 	def feed(self, delta):
-		self._buf += delta
-		pos = 0
-		while True:
-			m = self._END.search(self._buf, pos)
-			if not m:
-				self._sayFirstClause()
-				return
-			pos = m.end()
-			word = m.group(1) or ""
-			# "R." "Nr." "Tel." are abbreviations or initials, not sentence ends.
-			if 0 < len(word) <= 3 and word[0].isupper():
-				continue
-			if len(self._buf[:pos].strip()) < self._MIN_CHARS:
-				continue
-			self._say(self._buf[:pos])
-			self._buf = self._buf[pos:]
-			pos = 0
-
-	def _sayFirstClause(self):
-		if self.spokeAnything or len(self._buf) < self._FIRST_CLAUSE_CHARS:
-			return
-		commas = [m.end() for m in self._CLAUSE.finditer(self._buf) if m.end() >= self._MIN_CHARS]
-		if commas:
-			self._say(self._buf[:commas[-1]])
-			self._buf = self._buf[commas[-1]:]
+		self._pieces.feed(delta)
 
 	def flush(self):
-		self._say(self._buf)
-		self._buf = ""
+		self._pieces.flush()
+
+	def drop(self):
+		"""Forget what was not spoken yet: the model is asked again from the start."""
+		self._pieces.drop()
 
 	def _say(self, text):
 		text = _clean(text)
@@ -487,6 +465,17 @@ class SentenceSpeaker:
 					self._onFirst()
 			self.spokeAnything = True
 			_speak(text)
+			return True
+		return False
+
+
+def _whole():
+	"""Whether answers and descriptions are spoken whole when the model has finished, not a sentence at a time while it
+	writes: the user's choice for a slow computer."""
+	try:
+		return not conf()["streamAnswers"]
+	except Exception:
+		return False
 
 
 def _curtainBlockedMessage():
@@ -616,6 +605,8 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		self.orchestrator.facts = self._clawFacts
 		self.orchestrator.understanding = self.understanding
 		self.orchestrator.workFolder = self.workDir
+		# Whether a request's answer is spoken a sentence at a time while the model writes it (claw/orchestrator.py).
+		self.orchestrator.streaming = lambda: not _whole()
 		# Telling the user, once, what can be downloaded for them (claw/offers.py).
 		self.offers = offers.Offers(os.path.join(DATA_DIR, "offered.json"))
 		self.orchestrator.offer = lambda request, recipes: self.offers.next(request, recipes, self.downloadState())
@@ -1145,11 +1136,32 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 				job = getattr(task, "statusJob", None)
 				if job is not None:
 					job.heardNow()
+		elif kind == clawTask.SAY:
+			self._sayPiece(task, text)
 		elif kind == clawTask.ANSWER:
+			if getattr(task, "streamed", False):
+				return  # said already, a piece at a time while the model wrote it
 			_sound("done")
 			_speak(text)
 		elif kind == clawTask.ERROR:
 			_sound("error")
+			_speak(text)
+
+	def _sayPiece(self, task, text):
+		"""One piece of a request's answer, spoken while the model writes the rest (claw/orchestrator.py). At the first
+		piece the answer begins: the sound for a finished request, and no more status updates; from then on whatever
+		silences NVDA, such as Control, stops the rest. Not before: NVDA silences itself at every key press, and a key
+		pressed while waiting, such as NVDA+Alt+P, must not throw the answer away. The whole answer is kept all the
+		same, for NVDA+Alt+P and the Ask window, once the request has finished."""
+		quiet = getattr(task, "quiet", None)
+		if quiet is None:
+			quiet = task.quiet = threading.Event()
+			job = getattr(task, "statusJob", None)
+			if job is not None:
+				job.hush()
+			_sound("done")
+			self._speakingCancel = quiet
+		if not quiet.is_set():
 			_speak(text)
 
 	def startClawTask(self, request, reasoning):
@@ -1185,6 +1197,8 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			log.error("VisionClaw: the task failed", exc_info=True)
 		finally:
 			self.board.end(task.statusJob)
+			if self._speakingCancel is getattr(task, "quiet", None):
+				self._speakingCancel = None
 			self._lastRequest = time.monotonic()
 			# Between requests, descriptions use the everyday pick, not one made for the request that ended.
 			self._pickModels(None)
@@ -1519,7 +1533,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 
 		# Translators: Spoken before an automatic description of an image without a label.
 		speaker = None if detailed or mode == ICON else SentenceSpeaker(
-			cancel, prefix=_("Image: ") if mode == AUTO else "", onFirst=started)
+			cancel, prefix=_("Image: ") if mode == AUTO else "", onFirst=started, whole=_whole())
 		conversation = {"start": None, "history": []}
 		window = dialogs.StreamingResult(
 			onOpened=started, onAsk=lambda question, dialog: self._askFollowUp(conversation, question, dialog),
@@ -1527,7 +1541,9 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 
 		def onText(delta):
 			if speaker is not None:
-				stopBeeps.set()
+				# Said whole, the description is still being written: the ticks go on until it is spoken.
+				if not speaker.whole:
+					stopBeeps.set()
 				speaker.feed(delta)
 			elif window is not None:
 				window.feed(delta)
@@ -1546,6 +1562,8 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 					# The GPU can fail mid-request (e.g. driver reset). Retry once on the processor.
 					if attempt or (speaker and speaker.spokeAnything) or not self._engine.usingGpu:
 						raise
+					if speaker is not None:
+						speaker.drop()  # the processor writes the description again from the start
 					log.warning("VisionClaw: the graphics backend failed, trying the next one", exc_info=True)
 					self.runtime.markFailed(VISION)
 		except EngineError as e:
@@ -1607,20 +1625,26 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			# Translators: What the model is doing while it answers. {model} is "vision model" or "model".
 			self._seeing(_("The {model} is answering.")), cancel=cancel)
 
-		def started():
-			# The answer is being spoken: no more status updates, and from now on Control stops it. Not before: NVDA
-			# silences itself at every key press, and reading on in the window must not throw the answer away.
-			job.hush()
-			self._speakingCancel = cancel
-
-		speaker = SentenceSpeaker(cancel, onFirst=started)
 		state = {"open": False}
 
-		def onText(delta):
+		def opened():
 			if not state["open"]:
 				state["open"] = True
 				job.hush()
 				_sound("receive")
+
+		def started():
+			# The answer is being spoken: no more status updates, and from now on Control stops it. Not before: NVDA
+			# silences itself at every key press, and reading on in the window must not throw the answer away.
+			opened()
+			self._speakingCancel = cancel
+
+		speaker = SentenceSpeaker(cancel, onFirst=started, whole=_whole())
+
+		def onText(delta):
+			# Said whole, the answer is still being written: status updates go on until it is spoken.
+			if not speaker.whole:
+				opened()
 			speaker.feed(delta)
 
 		try:

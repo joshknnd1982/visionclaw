@@ -5155,5 +5155,41 @@ instance._iconsCounted(done=1)  # a batch that ends after the overlay closed cha
 assert instance._iconStatus is None
 sys.modules["ui"].message = realUiMessage
 
+# Answers spoken a sentence at a time while the model writes them (claw/orchestrator.py), the setting streamAnswers:
+# on by default and handed to the orchestrator; the first piece plays the sound of a finished request, ends the status
+# updates and arms the stop on NVDA's speech being silenced; after Control nothing more is spoken; the whole answer
+# that follows is not spoken again, and the Ask window's record has it once. Turned off, everything is said whole.
+assert conf["visionClaw"]["streamAnswers"] is True
+assert instance.orchestrator.streaming() is True and plugin._whole() is False
+conf["visionClaw"]["streamAnswers"] = False
+assert instance.orchestrator.streaming() is False and plugin._whole() is True
+conf["visionClaw"]["streamAnswers"] = True
+piecesSaid, soundsPlayed, hushed = [], [], []
+realSpeak, realSound = plugin._speak, plugin._sound
+plugin._speak, plugin._sound = piecesSaid.append, soundsPlayed.append
+streamTask = taskModule.Task("how do I read the title of this window")
+streamTask.statusJob = types.SimpleNamespace(hush=lambda: hushed.append(True), heardNow=lambda: None)
+instance._onClawEvent(streamTask, taskModule.SAY, "The key is NVDA+t.")
+assert piecesSaid == ["The key is NVDA+t."] and soundsPlayed == ["done"] and hushed == [True], (piecesSaid, soundsPlayed)
+assert instance._speakingCancel is streamTask.quiet and not streamTask.quiet.is_set()
+instance._onClawEvent(streamTask, taskModule.SAY, "Press it twice to have the title spelled.")
+assert piecesSaid[-1] == "Press it twice to have the title spelled." and soundsPlayed == ["done"] and hushed == [True]
+instance._onSpeechCanceled()  # Control, or anything else that silences NVDA
+instance._onClawEvent(streamTask, taskModule.SAY, "A sentence after Control.")
+assert len(piecesSaid) == 2, piecesSaid
+streamTask.streamed = True
+whole = "The key is NVDA+t. Press it twice to have the title spelled. A sentence after Control."
+instance._onClawEvent(streamTask, taskModule.ANSWER, whole)
+assert len(piecesSaid) == 2 and soundsPlayed == ["done"], (piecesSaid, soundsPlayed)
+streamTask.log = [(0, taskModule.SAY, "The key is NVDA+t."), (1, taskModule.ANSWER, whole)]
+assert clawui.logText(streamTask).count("The key is NVDA+t.") == 1, clawui.logText(streamTask)
+streamTask.state, streamTask.answer = taskModule.DONE, whole
+assert clawui.progressText(streamTask).endswith(whole)  # NVDA+Alt+P says the whole answer once it has finished
+instance._speakingCancel = None
+wholeTask = taskModule.Task("what is on the screen")
+instance._onClawEvent(wholeTask, taskModule.ANSWER, "The screen shows a game menu.")
+assert piecesSaid[-1] == "The screen shows a game menu." and soundsPlayed == ["done", "done"]
+plugin._speak, plugin._sound = realSpeak, realSound
+
 instance.terminate()
 print("OK")

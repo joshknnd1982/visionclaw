@@ -127,6 +127,11 @@ class VisionClawPanel(gui.settingsDialogs.SettingsPanel):
 		self.speakProgress = checkbox(
 			# Translators: Checkbox in settings.
 			_("Say each step while VisionClaw works on a re&quest"), "speakProgress")
+		self.streamAnswers = checkbox(
+			# Translators: Checkbox in settings. Turned off, an answer or a description is spoken whole when the model
+			# has finished writing it.
+			_("Speak answers and descriptions a sentence at a &time while the model writes them (turn this off if speech "
+				"stutters on a slow computer)"), "streamAnswers")
 		self.statusUpdates = helper.addLabeledControl(
 			# Translators: Label of the choice of when VisionClaw says by itself how far a long request, description or
 			# answer is.
@@ -258,6 +263,7 @@ class VisionClawPanel(gui.settingsDialogs.SettingsPanel):
 		c["searchEngine"] = SEARCH_IDS[max(0, self.searchEngine.GetSelection())]
 		c["confirmChanges"] = self.confirmChanges.GetValue()
 		c["speakProgress"] = self.speakProgress.GetValue()
+		c["streamAnswers"] = self.streamAnswers.GetValue()
 		c["statusUpdates"] = busy.CHOICES[max(0, self.statusUpdates.GetSelection())]
 		c["ownVoice"] = self.ownVoice.GetValue()
 		c["readAhead"] = self.readAhead.GetValue()

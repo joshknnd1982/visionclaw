@@ -97,6 +97,12 @@ A question about the screen with several parts, such as what is in this photo an
 asked of the model that sees one part at a time, each with the rule of its kind. You hear each answer after its
 own question.
 
+## Answers spoken while they are written, a sentence at a time, and turning that off
+The answer to a request, a description and an answer in the description window are spoken a sentence at a time
+while the model writes them. Once the answer has begun, Control stops the rest; NVDA+Alt+P says the whole answer
+again once VisionClaw has finished. In VisionClaw's settings, Speak answers and descriptions a sentence at a time while the model writes them turns it off for a slow computer
+where speech stutters: then each is spoken whole when the model has finished.
+
 ## Status updates while VisionClaw takes long, how far it is, and turning them off
 When a large model or high thinking keeps you waiting, VisionClaw says how far it is after 15 seconds of quiet,
 and again every 15 seconds. NVDA+Alt+P says it at any time; NVDA+Alt+X stops it. In VisionClaw's settings, Status

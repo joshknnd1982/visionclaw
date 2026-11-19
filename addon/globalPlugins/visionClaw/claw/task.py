@@ -18,6 +18,9 @@ FINISHED = (DONE, FAILED, CANCELLED)
 
 # Kinds of progress event. STATE and STEP are worth speaking; the rest go to the task window's log.
 STATE, STEP, DETAIL, TALK, THINK, ANSWER, ERROR = "state", "step", "detail", "talk", "think", "answer", "error"
+# A piece of the answer, said while the model writes the rest (claw/orchestrator.py). The ANSWER event still comes,
+# with the whole answer for reading; task.streamed then says that it was said already.
+SAY = "say"
 
 PENDING, RUNNING, STEP_DONE, STEP_FAILED, SKIPPED = "pending", "running", "done", "failed", "skipped"
 # A step that was not done because what it depends on did not hold: "if you see the Recycle Bin, open it", and
@@ -82,6 +85,8 @@ class Task:
 		# Set when the task could not start because a model has not been downloaded: "vision" or "coder".
 		self.missing = None
 		self.params = None
+		# Whether the answer was said a piece at a time while the model wrote it (SAY events).
+		self.streamed = False
 
 	def emit(self, kind, text):
 		self.log.append((time.monotonic() - self.started, kind, text))

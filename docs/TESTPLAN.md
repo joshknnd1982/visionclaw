@@ -925,5 +925,18 @@ None of these has run inside NVDA. Each is one real run; say what you hear.
       find it next time. Without "beginner", that sentence is not said.
 - [ ] "Is there a newer version of VisionClaw?": still the check on GitHub, with its question first.
 
+## Answers spoken while they are written (1.16.0)
+- [ ] NVDA+Alt+C, "how do I read the title of this window": the first sentence is spoken before the model has
+      finished; the rest follows sentence by sentence, with keys as NVDA writes them ("NVDA+t"), and nothing is
+      spoken twice.
+- [ ] The same, and press Control after the first sentence: nothing more is spoken. Then NVDA+Alt+P: "Finished."
+      and the whole answer. The Ask window (NVDA+Alt+C) shows it once under Last task.
+- [ ] The same, and press NVDA+Alt+P before anything of the answer is spoken: the answer still comes.
+- [ ] A request that changes something, "make NVDA speak a little faster": its answer is spoken whole, as before.
+- [ ] VisionClaw's settings: uncheck "Speak answers and descriptions a sentence at a time while the model writes
+      them". The same question is then spoken whole, once the model has finished; NVDA+Alt+F's description too, with
+      the soft ticks going on until it is spoken; and an answer in the description window (NVDA+Alt+F twice) too.
+- [ ] With a large model on the processor only: does speech stutter while the model writes, with the setting on?
+
 ## Stopping NVDA
 - [ ] NVDA exits without an error, and no `vcengine.exe` is left running (Task Manager).

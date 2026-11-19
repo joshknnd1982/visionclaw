@@ -1,6 +1,6 @@
 # VisionClaw status
 
-Updated 2026-11-19, version 1.15.2.
+Updated 2026-11-19, version 1.16.0.
 
 ## What exists
 
@@ -2847,6 +2847,62 @@ What is left, all on the job chosen, not the wording; for a later change, measur
   combination, which the rule for keys cannot see.
 
 Not run inside NVDA. `python tests/run_all.py`: every test passed.
+
+## Answers spoken while they are written (1.16.0, 2026-11-19)
+
+The owner asked whether VisionClaw already routes tools by the window in front, streams speech sentence by sentence,
+and caps tokens and steps. Routing (`claw/router.py`: 14 to 20 of 106 kinds of request offered for four everyday
+requests, measured with plain code; one tool's form at a time) and the caps (a token limit on every model call; a
+step tried 2 to 4 times and once with a hint, then the user is asked; at most 4 to 8 steps in a plan the model writes,
+8 parts in a request, 2 next ways a part) were already there. Descriptions and answers in the description window were
+already spoken a sentence at a time; the answer to a request was spoken only when the model had finished it. The owner
+said to change that, "but let the user choose through a setting under visionclaw settings to turn this on or off for
+slower computers". So:
+
+- `claw/sentences.py` (new): the way streamed text is cut into pieces, taken out of the add-on's `SentenceSpeaker`
+  unchanged, and the choice to give all of it at once at the end.
+- `orchestrator._Spoken`: where a model words the answer, what plain code has ready is said first, then the model's
+  sentences as SAY events while it writes, each with `nvdaKeys` and `unframed` applied as to the whole answer, then
+  what is added after it. The ANSWER event still carries the whole answer; `task.streamed` tells the add-on that it
+  was said. Said whole: a plan the model wrote itself (checked first), after a correction (a question may follow),
+  the very smallest models (quoted), and where the setting cannot be read.
+- The add-on (`__init__.py`): the first piece plays the sound of a finished request, ends the status updates and arms
+  the stop on NVDA's speech being silenced; pieces after that are not spoken; the whole answer is not spoken again.
+  The setting `streamAnswers`, "Speak answers and descriptions a sentence at a time while the model writes them", on
+  by default, covers descriptions and answers in the description window too. Said whole, a description keeps its
+  ticks and an answer in the description window its status updates until it is spoken, and a description that the
+  processor writes again after the graphics card failed starts from nothing.
+
+Tested:
+- `tests/test_stream_answers.py` (new, in `run_all.py`): whole requests with a stand-in model that writes its answer
+  in pieces of 1 to 5000 characters. The first sentence comes before the answer is finished; the pieces together are
+  the answer word for word, also for an answer of over 4000 characters; "NVDA plus t" is said as "NVDA+t" and "Based on
+  the information found," is not said; what the request was taken as comes first and a sentence said once comes last;
+  turned off, nothing is said in pieces and the answer is the same; stopped while the model writes, nothing more is
+  said and no answer follows; said whole for a plain-code answer, the very smallest models, a plan the model wrote
+  itself with its check, and a correction.
+- `tests/test_speaker.py`: the same pieces as before, all at once when said whole, and what was written before a
+  retry forgotten.
+- `tests/test_nvda_stub.py`: the setting is on by default and reaches the orchestrator; the first piece plays the sound
+  once and ends the status updates; after Control nothing more is spoken; the whole answer is not spoken again; the
+  Ask window's record has the answer once; NVDA+Alt+P says the whole answer once it has finished.
+- `python tests/run_all.py`: every test passed.
+- `tests/live_stream.py` (new): the real Qwen3.5 4B for both jobs, the model VisionClaw picks on this computer, in the
+  bundled engine, with the stand-in tools of `tests/live_orchestrator.py`; nothing spoken, the pieces written down with
+  their time. Nine requests on the GeForce RTX 5060, seven of them said in pieces; in each of the seven the pieces
+  together were the answer word for word, no piece had a key with "plus" or the words of the model's question, and keys
+  were as NVDA writes them (NVDA+control+escape). Four answers of one sentence came in one piece. "explain the screen curtain to me:
+  what it is, how to turn it on and off, and why I would want it" came in 7 pieces: the first 0.7 seconds after the
+  model began, the whole answer 2.4 seconds after. A request of three questions thought for 16 seconds first (thinking
+  at Medium for a complex request); pieces came only after that. Two requests were answered by plain code and were
+  said whole, as they should be.
+- The same screen-curtain request on the processor alone (`VC_BACKEND=cpu`), as on a slow computer: 10 pieces, the
+  first 5.0 seconds after the model began, the whole answer 14.1 seconds after; so the user hears it 9 seconds sooner,
+  and each next sentence came about a second after the one before, sooner than a sentence takes to be spoken.
+
+Not tested: nothing of this has run inside NVDA; whether speech stutters while the model writes on the processor, and
+how the pieces sound one after the other in NVDA's speech queue, are not known. Found in passing, not changed: asked
+"what pressing the key once, twice and three times does", the 4B answered that each press "does not change anything".
 
 ## Next session
 

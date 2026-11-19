@@ -23,21 +23,21 @@ chat apps, and names for unlabelled buttons.
 > [docs/STATUS.md](docs/STATUS.md) for exactly what was tested.
 
 <!-- news: written by tools/write_help.py from manifest.ini; do not change it by hand -->
-This README is for VisionClaw 1.15.3.
+This README is for VisionClaw 1.16.0.
 
-## What is new in 1.15.3
+## What is new in 1.16.0
+
+- The answer to your request is spoken a sentence at a time while the model is still writing it, so you hear the first sentence sooner instead of waiting in silence. Press NVDA+Alt+C and ask "how do I read the title of this window": the first sentence comes as soon as the model has written it. Keys are written the way NVDA writes them, as before. Once the answer has begun, Control stops the rest.
+- The whole answer is still kept: once VisionClaw has finished, press NVDA+Alt+P to hear all of it again, or read it under Last task in the Ask VisionClaw window (NVDA+Alt+C).
+- A new setting in VisionClaw's settings, "Speak answers and descriptions a sentence at a time while the model writes them", is on by default. Turn it off if speech stutters or pauses on a slow computer: then the answer to a request, a description (NVDA+Alt+A, W, F or D) and an answer in the description window are each spoken whole once the model has finished, and the ticks and status updates go on until then.
+- Still spoken whole, as before: an answer made only of what the tools did, which is ready at once; an answer to a plan the model wrote itself, which is checked before you hear it; and the answer after "no, I meant", when a question may follow it.
+- Measured with the real Qwen3.5 4B: on the processor alone, as on a slow computer, the first sentence of a ten-sentence answer came 9 seconds before the whole answer was ready, and each next sentence about a second after the one before; on the graphics card, 1 to 2 seconds sooner. Tested with plain Python and stand-ins for NVDA; not yet run inside NVDA, so how it sounds there is not yet known.
+
+## What was new in 1.15.3
 
 - Keys in VisionClaw's answers are written the way NVDA writes them. Press NVDA+Alt+C and ask "how do I hear the window title" or "which key turns on the screen curtain": you hear and read NVDA+t and NVDA+control+escape, where the model had written "NVDA plus t". On a braille display the key now looks as it does in NVDA's own lists.
 - An answer no longer speaks of "the information provided" or "the information found", words from VisionClaw's question to the model that meant nothing to you. When nothing that was looked up answers your question, you hear that it could not be found in what was looked up.
 - VisionClaw's answers are now measured, not only which job it chooses. Two new sets of requests in casual words are carried out from start to finish with stand-ins for NVDA, and plain code checks what you would hear: nothing cut, no Markdown, nothing only a sighted person can follow, no key that does not exist, keys written as NVDA writes them, and the facts the answer must give. With Qwen3.5 4B for both jobs: 25 of 32 answers right before and 27 after on the set the corrections were made from, and 23 of 30 before and 26 after on the set held out. Nothing about how you ask changes. Not yet run inside NVDA.
-
-## What was new in 1.15.2
-
-- Fixed: long answers were cut off with "...[cut]". Everything VisionClaw says and shows is now whole, however long: the answer to your request, every question it asks you, every "You asked" before a change, and what each step found when you read back the last request in the Ask window (NVDA+Alt+C). Ask "which add-ons are installed" and every add-on is named.
-- Your own request is never shortened. A long request, typed or spoken with NVDA+Alt+C or NVDA+Alt+V, reaches every model and every tool whole; before, the tools read only its first 200 to 300 characters. What you ask VisionClaw to remember is kept whole too.
-- Lists you ask for are said whole, with no "and more": say "tell me all objects in the system tray" or "what icons are on my desktop" and every one is named; the same for the control you are on, the squares of a check that asks whether you are a person, and what is new in a newer version.
-- VisionClaw's log keeps every entry whole, with every question to a model as it was sent. Open it with the button "Open VisionClaw's log" in VisionClaw's settings.
-- What stays short is only what a small model reads of looked-up pages, notes and results, so that it is not swamped; you never hear that part shortened.
 
 How to use each of these is explained in its own part of this README, further down.
 <!-- /news -->
@@ -651,6 +651,31 @@ overlay being named (NVDA+Alt+O), and an add-on VisionClaw wrote being corrected
 - **Reading on while you wait**: while VisionClaw waits for a description or an answer about a picture, other
   keys no longer stop it: you can read on, or press NVDA+Alt+P, and the description still comes. Press
   NVDA+Alt+X to stop it. Once it is being spoken, Control stops it, as before.
+
+## Answers spoken while they are written
+
+When the answer to your request is written by a model, as when VisionClaw looked something up for you, you hear it
+a sentence at a time while the model is still writing it, instead of waiting in silence for all of it. Press
+**NVDA+Alt+C** and ask "how do I read the title of this window": the first sentence comes as soon as the model has
+written it. Descriptions (NVDA+Alt+A, W, F or D) and answers to questions in the description window are spoken the
+same way, and follow the same setting.
+
+- **What comes first**: how your request was understood, when VisionClaw says so, and what the tools did, which is
+  ready at once; then the model's sentences as they come; then anything VisionClaw adds after it, such as a memory
+  it kept.
+- **Keys are written as NVDA writes them** in every sentence, as in the whole answer: NVDA+t, not "NVDA plus t".
+- **Control stops the rest**, once the answer has begun, as it stops a description. A key you press before the
+  first sentence, NVDA+Alt+P too, does not throw the answer away.
+- **The whole answer is kept**: once VisionClaw has finished, press **NVDA+Alt+P** to hear all of it again, or read
+  it under **Last task** in the Ask VisionClaw window (NVDA+Alt+C).
+- **When it is spoken whole anyway**: when the answer is only what the tools did, which is ready at once; with the
+  very smallest models, which quote what was looked up instead of wording it; when the model wrote a plan of its
+  own, whose result is checked before you hear it, because the check may change it; and after "no, I meant ...",
+  when a question may follow the answer and its window would silence NVDA.
+- **Your choice**: in VisionClaw's settings, **Speak answers and descriptions a sentence at a time while the model writes them**. It is on by default.
+  Turn it off if speech stutters or pauses between sentences on a slow computer, where the model and the speech share
+  the processor: then you hear each answer and description whole, once the model has finished. While you wait, the
+  soft ticks and the status updates go on until it is spoken.
 
 ## Asking by voice
 
@@ -1755,6 +1780,8 @@ NVDA menu, Preferences, Settings, VisionClaw. In the order you meet them:
 - **When an add-on VisionClaw wrote fails, have the models debug and correct it by themselves.**
 - **Ask me before VisionClaw changes a setting, clicks, presses keys or types.**
 - **Say each step while VisionClaw works on a request.**
+- **Speak answers and descriptions a sentence at a time while the model writes them**: on by default; turn it off if
+  speech stutters on a slow computer, and each answer and description is spoken whole once the model has finished.
 - **Status updates while VisionClaw takes long, as with a large model or high thinking**: after 10, 15, 30 or 60
   seconds of quiet, and as often while it lasts; or never, and you press NVDA+Alt+P when you want to know. The
   suggested choice is 15 seconds.
