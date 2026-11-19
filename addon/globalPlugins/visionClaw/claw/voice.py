@@ -324,6 +324,39 @@ MAX_NAMES = 12
 TOKENS = 220
 
 
+# Words that are no names worth telling: the speech model knows them already.
+_EVERYDAY = frozenset((
+	"ok", "cancel", "yes", "no", "close", "open", "save", "file", "edit", "view", "help", "new", "next", "back", "button",
+	"menu", "window", "tab", "home", "search", "settings", "options", "tools", "more", "minimize", "maximize", "restore",
+	"apply", "exit", "start", "stop", "play", "pause", "the", "and", "of", "to", "a", "an", "in", "on", "for", "untitled"))
+# How many names of the window in front go to the model besides NAMES. The owner's words and the program come first.
+MAX_HERE = MAX_NAMES - len(NAMES)
+
+
+def _worthTelling(name):
+	"""Whether a name of the window in front is worth telling the speech model: short, with a letter, and not made of
+	words it knows anyway."""
+	name = " ".join(str(name or "").split())
+	if not name or len(name) > 30 or len(name.split()) > 3 or not re.search(r"[A-Za-z]", name):
+		return False
+	return any(word not in _EVERYDAY for word in re.findall(r"[a-z0-9+#]+", name.lower()))
+
+
+def namesHere(program="", title="", focus="", controls=(), taught=()):
+	"""The names the user may say about where they are, for the speech model to hear right, the likeliest first: the
+	program, the words the user taught VisionClaw, the focused control, the parts of the window's title, and the names
+	of the window's controls. At most MAX_HERE, each once. Plain code; nothing of it is kept."""
+	found = []
+	titleParts = [part.strip() for part in re.split(r"\s+[-|:\u2013\u2014]\s+", str(title or "")) if part.strip()]
+	for name in [program] + list(taught or ()) + [focus] + titleParts + list(controls or ()):
+		name = " ".join(str(name or "").split())
+		if _worthTelling(name) and name.lower() not in (known.lower() for known in found + list(NAMES)):
+			found.append(name)
+		if len(found) >= MAX_HERE:
+			break
+	return found
+
+
 def context(names=()):
 	"""What the speech model is told before it listens: the names that may be said. names: more of them, such as
 	the program in front."""
@@ -342,9 +375,36 @@ _HEAD = re.compile(r"^\s*language\s+[A-Za-z]{2,24}(?:\s+[A-Za-z]{2,24})?\s*<asr_
 _NO_SPEECH = re.compile(r"^\s*language\s+none\b", re.IGNORECASE)
 
 
-def heard(answer):
+def _joined(text):
+	return re.sub(r"[^a-z0-9]+", "", text.lower())
+
+
+def fitted(text, names):
+	"""What was heard, with a name it was told written as the name is written where it heard the same letters split
+	otherwise: "wave table" is Wavetable and "foobar 2000" is foobar2000 when those names were told. Only where the
+	letters and digits are the very same; a word that only sounds like a name is left as it was heard."""
+	words = str(text or "").split()
+	for name in sorted({" ".join(str(n or "").split()) for n in names or ()}, key=len, reverse=True):
+		target = _joined(name)
+		if len(target) < 4 or " " in name:
+			continue
+		at = 0
+		while at < len(words):
+			for size in (3, 2):
+				piece = words[at:at + size]
+				if len(piece) == size and _joined(" ".join(piece)) == target:
+					tail = re.search(r"[^A-Za-z0-9]*$", piece[-1]).group(0)
+					head = re.match(r"^[^A-Za-z0-9]*", piece[0]).group(0)
+					words[at:at + size] = [head + name + tail]
+					break
+			at += 1
+	return " ".join(words)
+
+
+def heard(answer, names=()):
 	"""The words of the model's answer, without the marks it puts around them; "" when it heard no speech.
-	The model answers as: language English<asr_text>Make NVDA speak faster."""
+	The model answers as: language English<asr_text>Make NVDA speak faster. names: what it was told; a name it heard
+	split into words is joined again (fitted)."""
 	text = str(answer or "")
 	if _NO_SPEECH.match(text):
 		return ""
@@ -353,7 +413,7 @@ def heard(answer):
 		text = text.split("<asr_text>", 1)[1]
 	text = " ".join(_TAG.sub(" ", text).split())
 	# A recording of a room with nobody speaking comes back as a mark or a lone word of noise.
-	return text if re.search(r"[A-Za-z0-9À-￿]{2,}", text) else ""
+	return fitted(text, tuple(NAMES) + tuple(names or ())) if re.search(r"[A-Za-z0-9À-￿]{2,}", text) else ""
 
 
 def saidText(text):

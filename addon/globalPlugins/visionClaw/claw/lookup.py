@@ -78,7 +78,11 @@ _ASKING_NOTES = re.compile(
 	r"taught (you|visionclaw)|work ?sheets?|piece by piece|in pieces|one piece|several parts|one question at a time|"
 	# Status updates while VisionClaw takes long (claw/busy.py).
 	r"status updates?|how far (along )?(is |are )?(you|visionclaw)|(you|visionclaw) (is |are )?tak\w+ (so |too |this )?long|"
-	r"still working)\b"
+	r"still working|"
+	# Who picks the model for each job, a correction kept as the user's own words, and votes (claw/modelpick.py,
+	# claw/corrections.py, llm.LLM._vote).
+	r"picks? (the |a |my )?models?|which model does each job|models? for each (job|request)|no,? i meant|"
+	r"not what i (meant|asked)|correct(ing)? (you|visionclaw)|got (it|my request) wrong|asked more than once|votes?)\b"
 	# JAWS with a written-out key, as in "JAWS's Insert+F7". JAWS alone is not enough: "what is the JAWS cursor
 	# called in NVDA" was answered with the note on the JAWS Migration Assistant (measured on 2026-11-18).
 	r"|\bjaws\b.{0,20}\w\+\w", re.IGNORECASE)
@@ -88,6 +92,13 @@ _NEWS = re.compile(
 	r"\bwhat('s| is| was) (new|changed|fixed|different)\b|\bnew (in|features?|versions?|things?)\b|\brelease notes?\b"
 	r"|\b(latest|newest|this|last|new|current) (version|release|update)\b|\bchange ?log\b|\b20\d\d\.\d\b"
 	r"|\bnvda\b.*\b(changed|changes|fixed|fixes)\b|\b(changed|changes|fixed|fixes)\b.*\bnvda\b", re.IGNORECASE)
+# Questions about stubborn programs, controls and web pages, the access notes and the model for hard cases.
+_STUBBORN = re.compile(
+	r"\b(stubborn|inaccessible|not accessible|unlabel+ed|without a name|no name|custom (controls?|drop-?downs?|menus?)|"
+	r"plain parts|reads? (it |this )?as (a )?(pane|unknown|group|text|clickable)|says (pane|unknown|clickable)|"
+	r"(checked|pressed|expanded|collapsed|selected|on or off)\b.{0,30}\b(state|say|says|announce\w*)|states? (is |are )?missing|"
+	r"access notes|hard cases?|larger model|bigger model|14 ?b|model for hard|window (is )?(hidden|behind)|behind another window|"
+	r"focus (is )?(lost|stuck)|takes? no focus|does not take the focus|toolkit|window class)", re.IGNORECASE)
 # What a sighted helper was needed for (docs/PLAN-ten-scenarios.md): asked only when the question names one of them.
 _SIGHTED_HELP = re.compile(
 	r"\b(scanned|flattened|untagged|fill and sign|blank lines?|dotted lines?|line to sign|sign(ing)? a (pdf|form|document)|"
@@ -122,6 +133,8 @@ NOTES = {
 	"visionclaw-asking": (
 		NVDA, "VisionClaw's notes on settings for one program, follow-up requests, calendars, asking by voice and models",
 		_ASKING_NOTES),
+	"visionclaw-stubborn": (
+		NVDA, "VisionClaw's notes on stubborn programs, controls and web pages, and the model for hard cases", _STUBBORN),
 	"visionclaw-sighted-help": (
 		NVDA, "VisionClaw's notes on scanned forms, installers, pictures in a chat, documents, checks, shopping and seats",
 		_SIGHTED_HELP),

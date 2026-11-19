@@ -14,7 +14,7 @@ import wx
 from gui import guiHelper
 
 from . import clawui, padtools
-from .claw import backend, busy, debuglog, memories, policy, updates
+from .claw import backend, busy, debuglog, memories, modelpick, policy, updates
 from .claw import voice as voiceWords
 
 addonHandler.initTranslation()
@@ -70,6 +70,15 @@ class VisionClawPanel(gui.settingsDialogs.SettingsPanel):
 			_("Ask the models &one small question at a time:"), wx.Choice, choices=clawui.stepwiseLabels())
 		self.oneAtATime.SetSelection(
 			policy.STEPWISE_CHOICES.index(c["oneAtATime"]) if c["oneAtATime"] in policy.STEPWISE_CHOICES else 0)
+		self.modelPick = helper.addLabeledControl(
+			# Translators: Label of the choice of who picks the model for each job (claw/modelpick.py).
+			_("Which &model does each job:"), wx.Choice, choices=[
+				# Translators: A choice of who picks the model for each job: the user, in the models window.
+				_("The models I chose in the models window; VisionClaw only suggests"),
+				# Translators: A choice of who picks the model for each job: VisionClaw, among the downloaded models.
+				_("VisionClaw picks from the models on this computer for each request, without asking"),
+			])
+		self.modelPick.SetSelection(modelpick.CHOICES.index(c["modelPick"]) if c["modelPick"] in modelpick.CHOICES else 0)
 		self.remember = helper.addLabeledControl(
 			# Translators: Label of the choice of when VisionClaw keeps something the user said, as a memory.
 			_("&Remember things:"), wx.Choice, choices=[
@@ -234,6 +243,7 @@ class VisionClawPanel(gui.settingsDialogs.SettingsPanel):
 		c["backend"] = backend.CHOICES[max(0, self.backend.GetSelection())]
 		c["reasoning"] = policy.REASONING_CHOICES[max(0, self.reasoning.GetSelection())]
 		c["oneAtATime"] = policy.STEPWISE_CHOICES[max(0, self.oneAtATime.GetSelection())]
+		c["modelPick"] = modelpick.CHOICES[max(0, self.modelPick.GetSelection())]
 		c["updateCheck"] = updates.MODES[max(0, self.updateCheck.GetSelection())]
 		c["debugLog"] = debuglog.LEVELS[max(0, self.debugLog.GetSelection())]
 		c["remember"] = memories.WHEN[max(0, self.remember.GetSelection())]

@@ -10,7 +10,9 @@ is loaded into NVDA. Read every add-on it prints.
 The requests and what each must do were written on 2026-11-19, before either way was run on them.
 
   python -u tests/live_codeplan.py MODELS [visionId] [coderId]
+  VC_HARD=qwen3-14b python -u tests/live_codeplan.py MODELS   the model for hard cases writes and reviews, as in a hard case
 """
+import contextlib
 import os
 import re
 import sys
@@ -175,9 +177,18 @@ def main():
 	if not models.installed(VISION):
 		sys.exit("No model found.")
 	rt = runtime.ModelRuntime(harness.ENGINE_DIR, models, lambda: chosen)
-	print("coder:", rt.entry(CODER)["name"], "| reviewer:", rt.entry(VISION)["name"])
+	# VC_HARD: the id of a model for hard cases (claw/hardcase.py); it writes and reviews every add-on, as in a hard case.
+	hard = os.environ.get("VC_HARD", "")
+	hardEntry = next((entry for entry in models.entries(CODER) if entry["id"] == hard), None) if hard else None
+	if hard and (hardEntry is None or not models.isInstalled(hardEntry)):
+		sys.exit(f"The model for hard cases {hard} is not in {folder}.")
+	case = rt.hardCase(hardEntry) if hardEntry else contextlib.nullcontext()
+	case.__enter__()
+	print("coder:", rt.entry(CODER)["name"], "| reviewer:", rt.entry(VISION)["name"], "| a hard case" if hardEntry else "")
 	knowledge = Knowledge()
 	params = policy.select({"complexity": policy.COMPLEX, "needs_code": True})._replace(oneModel=policy.isOneModel(rt))
+	if hardEntry:
+		params = params._replace(oneModel=True, oneByOne=False)
 	score = {"one piece": [0, 0, 0.0], "in pieces": [0, 0, 0.0]}
 	try:
 		# VC_ONLY: only the cases whose request has one of these parts (separated by |); VC_WAYS: only these ways.
@@ -203,6 +214,8 @@ def main():
 				seconds = time.time() - start
 				score[way][2] += seconds
 				score[way][0] += 1
+				if hardEntry and rt.whereText():
+					print("   " + rt.whereText())
 				try:
 					wrong = check(source)
 				except Exception as e:
@@ -220,6 +233,7 @@ def main():
 			print(f"{way}: {passed} of {len(CASES)} passed the checks, {right} of {len(CASES)} did what was asked, "
 				f"{seconds:.0f} seconds in all")
 	finally:
+		case.__exit__(None, None, None)
 		rt.stop()
 
 

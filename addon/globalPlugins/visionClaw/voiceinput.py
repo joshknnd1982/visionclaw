@@ -196,7 +196,7 @@ class Ears:
 				answer = engine.chat(messages, voice.TOKENS, cancel=cancel, raw=True)
 			finally:
 				engine.stop()
-		found = voice.heard(answer)
+		found = voice.heard(answer, names)
 		debuglog.log("voice", (
 			f"{entry['name']} was ready after {ready:.1f} s and answered after {time.monotonic() - started:.1f} s in all, "
 			f"for {len(pcm) / (voice.RATE * voice.SAMPLE_BYTES):.1f} s of sound. It heard {len(found.split())} words."))

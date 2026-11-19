@@ -190,6 +190,35 @@ class Voice:
 		self.stopDownload()
 
 
+# How many controls of the window in front are read, and for how long at most, for the names told to the speech model.
+NAMES_LIMIT = 60
+NAMES_SECONDS = 0.15
+
+
+def namesHere(plugin=None):
+	"""The names the user may say about where they are, for the speech model to hear right (voice.namesHere): the program
+	in front, the words the user taught VisionClaw, the focused control, the window's title, and the names of a few of
+	its controls, read quickly. Main thread. Never raises: names only help, and listening must not wait for them."""
+	import api
+	from . import fixruntime
+	program, title, focus, controls, taught = "", "", "", [], []
+	try:
+		window, current = api.getForegroundObject(), api.getFocusObject()
+		module = getattr(window, "appModule", None)
+		program = (getattr(module, "productName", "") or getattr(module, "appName", "") or "").strip()
+		title, focus = window.name or "", current.name or ""
+		for node in fixruntime.windowNodes(window, limit=NAMES_LIMIT, seconds=NAMES_SECONDS):
+			if node.get("name") and "INVISIBLE" not in (node.get("states") or ()):
+				controls.append(node["name"])
+	except Exception:
+		log.debugWarning("VisionClaw: the names of the window in front could not be read for the speech model", exc_info=True)
+	try:
+		taught = [said for said, _meant in plugin.understanding.own()] if plugin is not None else []
+	except Exception:
+		taught = []
+	return voice.namesHere(program, title, focus, controls, taught)
+
+
 def register(add, plugin, text, mustAgree):
 	"""Add the tools about asking by voice. add and text are nvdatools' own."""
 	from .claw.tools import VERBATIM, ToolError

@@ -29,12 +29,14 @@ import config
 import inputCore
 from .vclog import log
 
-from . import controlkeys, deepquery, fixruntime, mousetools, nvdainfo, ocr
+from . import controlkeys, deepquery, fixruntime, hardtools, mousetools, nvdainfo, ocr
+from .claw import accessnotes, hardcase
 from .claw import addons as addonsModule
-from .claw import audit, direct, dragcontrol, fixes, helpfiles, lookup, match, microaddons, pointer, policy, scrolling, web, working
+from .claw import audit, direct, dragcontrol, fixes, helpfiles, lookup, match, microaddons, pointer, policy, prompts, scrolling
+from .claw import web, working
 from .claw.catalog import CODER, VISION
 from .claw.fixmatch import hostOf, labelOf, matches, nodeFromObject, plainText
-from .claw.llm import LLM, clip
+from .claw.llm import LLM, MEDIUM, LLMError, clip
 from .claw.tools import VERBATIM, ToolError
 from .engine import prepareImage
 from .nvdatools import UserSaidNo, _safe, onMain
@@ -235,6 +237,21 @@ def controlText(inspection):
 	return " ".join(lines)
 
 
+def _wayFromPicture(plugin, llm, image):
+	"""How the control in the middle of a picture is worked, as the model that sees says. One question for every model:
+	two smaller ones made the smallest models worse (claw/working.py)."""
+	return working.wayFrom(llm.json(
+		VISION, working.VISION_SYSTEM, "How does a person work the control in the middle of this picture with a mouse?",
+		working.JUDGE_SCHEMA, maxTokens=30, image=prepareImage(image, 448)))
+
+
+def _wayFromFacts(plugin, llm, facts):
+	"""How a control is worked, as the coder model makes it out from what is reported about it."""
+	return working.wayFrom(llm.json(
+		CODER, working.CODER_SYSTEM, "What is reported about the control:\n" + working.factsText(facts),
+		working.JUDGE_SCHEMA, maxTokens=30))
+
+
 def _calling(node):
 	"""What to call a control when talking about it."""
 	name = clip(labelOf(node), 40)
@@ -263,17 +280,13 @@ def judge(plugin, task, place, node=None, obj=None):
 	if box is not None:
 		try:
 			image = plugin._grab((box[0] - 12, box[1] - 12, box[2] + 12, box[3] + 12))
-			seen = working.wayFrom(llm.json(
-				VISION, working.VISION_SYSTEM, "How does a person work the control in the middle of this picture with a mouse?",
-				working.JUDGE_SCHEMA, maxTokens=30, image=prepareImage(image, 448)))
+			seen = _wayFromPicture(plugin, llm, image)
 		except Exception:
 			task.check()
 			log.debugWarning("VisionClaw: the vision model could not judge a control", exc_info=True)
 	try:
 		# A bare window gives the coder model nothing to reason from; then it is not asked.
-		thought = None if not working.telling(facts) else working.wayFrom(llm.json(
-			CODER, working.CODER_SYSTEM, "What is reported about the control:\n" + working.factsText(facts),
-			working.JUDGE_SCHEMA, maxTokens=30))
+		thought = None if not working.telling(facts) else _wayFromFacts(plugin, llm, facts)
 	except Exception:
 		task.check()
 		log.debugWarning("VisionClaw: the coder model could not judge a control", exc_info=True)
@@ -286,7 +299,44 @@ def judge(plugin, task, place, node=None, obj=None):
 	else:
 		task.emit("talk", f"How {calling} is worked: the vision model says "
 			f"{seen or 'nothing'}, the coder model says {thought or 'nothing'}.")
-	return {"way": way, "sure": sure, "by": by, "facts": facts, "focusable": bool(facts.get("focusable"))}
+	return {"way": way, "sure": sure, "by": by, "facts": facts, "focusable": bool(facts.get("focusable")),
+		"seen": seen, "thought": thought, "telling": working.telling(facts)}
+
+
+def accessNotes(plugin):
+	"""What VisionClaw found about stubborn programs and websites, one Markdown file each (claw/accessnotes.py)."""
+	notes = getattr(plugin, "_accessNotes", None)
+	if notes is None:
+		notes = plugin._accessNotes = accessnotes.AccessNotes(os.path.join(plugin.dataDir, accessnotes.FOLDER))
+	return notes
+
+
+def _hardJudge(plugin, task, hard):
+	"""Put the controls whose way the picture and the facts did not settle to the model for hard cases, after asking.
+	hard: [(node, verdict)]; a verdict it settles is changed in place. Returns a sentence for the report, or ""."""
+	why = hardcase.JUDGE.format(count=len(hard))
+
+	def work():
+		llm = LLM(plugin.runtime, task)
+		for node, verdict in hard:
+			task.check()
+			try:
+				answer = working.wayFrom(llm.json(
+					CODER, working.CODER_SYSTEM, "What is reported about the control:\n" + working.factsText(verdict["facts"]),
+					working.JUDGE_SCHEMA, maxTokens=30, reasoning=MEDIUM))
+			except LLMError:
+				task.check()
+				log.debugWarning("VisionClaw: the model for hard cases could not judge a control", exc_info=True)
+				continue
+			way, sure = hardcase.settles(verdict.get("seen"), verdict.get("thought"), answer)
+			task.emit("talk", f"How {_calling(node)} is worked: the model for hard cases says {answer or 'nothing'}.")
+			if way:
+				verdict.update(way=way, sure=sure, settled=sure, by=(
+					"the model for hard cases, agreeing with one of the answers before" if sure else "the model for hard cases"))
+		return ""
+
+	used, said = hardtools.attempt(plugin, task, why, work)
+	return "" if used else said
 
 
 def _controlFor(plugin, place, node, way, site):
@@ -356,9 +406,7 @@ def _pictured(plugin, task, window):
 		left, top, right, bottom = item["box"]
 		box = (info.convertXToScreen(left) - 12, info.convertYToScreen(top) - 12, info.convertXToScreen(right) + 12, info.convertYToScreen(bottom) + 12)
 		try:
-			way = working.wayFrom(llm.json(
-				VISION, working.VISION_SYSTEM, "How does a person work the control in the middle of this picture with a mouse?",
-				working.JUDGE_SCHEMA, maxTokens=30, image=prepareImage(plugin._grab(box), 448)))
+			way = _wayFromPicture(plugin, llm, plugin._grab(box))
 		except Exception:
 			task.check()
 			continue
@@ -408,9 +456,9 @@ def _specialFindings(controls, told):
 	return findings
 
 
-def _worked(plugin, task, place, deep, site=""):
+def _worked(plugin, task, place, deep, site="", scope=None):
 	"""How a sighted person works what is here, and what the keyboard cannot do. Returns (a sentence for the
-	report's summary, the findings)."""
+	report's summary, the findings). scope: the program or website (fixes.scopeOf), whose notes are read and added to."""
 	page = place.kind == "page"
 	found = working.survey(place.nodes, page=page)
 	sentences = [working.waysText(found["ways"])]
@@ -421,10 +469,24 @@ def _worked(plugin, task, place, deep, site=""):
 	special = list(found["special"])
 	if deep and found["unsure"]:
 		task.emit("detail", "Finding out how the controls are worked whose kind NVDA cannot tell.")
-		told = []
+		told, verdicts = [], []
+		notes, scope = accessNotes(plugin), scope or {}
 		for node in found["unsure"][:working.MAX_JUDGED]:
 			task.check()
-			verdict = judge(plugin, task, place, node)
+			key = accessnotes.keyOf(audit.signature(node), node.get("role"), labelOf(node))
+			before = notes.known(scope, key)
+			if before in working.WAYS:
+				# Agreed or settled here before: the same answer at once, without asking a model again.
+				verdicts.append((node, key, {"way": before, "sure": True, "known": True,
+					"by": "what VisionClaw found here before", "focusable": "FOCUSABLE" in (node.get("states") or ())}))
+				continue
+			verdicts.append((node, key, judge(plugin, task, place, node)))
+		hard = [(node, verdict) for node, _key, verdict in verdicts if hardcase.isHardJudgement(verdict)]
+		hardSaid = _hardJudge(plugin, task, hard) if hard else ""
+		for node, key, verdict in verdicts:
+			if not verdict.get("known") and verdict["way"] != working.UNSURE:
+				how = accessnotes.SETTLED if verdict.get("settled") else accessnotes.AGREED if verdict["sure"] else accessnotes.ONE
+				notes.keepWay(scope, key, _calling(node), verdict["way"], how)
 			told.append(f"{_calling(node)}: {verdict['way']}, says {verdict['by']}")
 			fix = working.remedy(verdict["way"], verdict["focusable"])
 			if verdict["way"] in working.SPECIAL:
@@ -441,6 +503,7 @@ def _worked(plugin, task, place, deep, site=""):
 			+ ("the model, shown the picture and told what is reported" if policy.isOneModel(plugin.runtime) else "both models")
 			+ ", and a model can be wrong: "
 			+ "; ".join(told) + ".")
+		sentences.append(hardSaid)
 	elif found["unsure"]:
 		sentences.append(
 			"NVDA cannot tell the kind of " + audit._plural(len(found["unsure"]), "thing") + " here that may be worked; a "
@@ -601,9 +664,12 @@ def inspect(plugin, task, target="auto", depth="deep"):
 			task.emit("detail", "Watching the page for a moment, to see what changes by itself.")
 			_wait(task, CHANGE_WAIT_SECONDS)
 			later = _pageNodes(task, document)
-		ways, more = _worked(plugin, task, types.SimpleNamespace(kind="page", nodes=nodes, where=document), deep, site)
+		ways, more = _worked(plugin, task, types.SimpleNamespace(kind="page", nodes=nodes, where=document), deep, site,
+			fixes.scopeOf(site=site))
 		report = audit.auditPage(nodes, title=title, site=site, later=later, drawn=drawn, browser=app, ways=ways, more=more)
 		found = Inspection("page", fixes.scopeOf(site=site), nodes, document, report, title, focus)
+		if deep:
+			_keepFound(plugin, found.scope, report)
 		if not site:
 			found.extra = "This page has no web address, so fixes cannot be tied to it."
 		return found
@@ -617,10 +683,28 @@ def inspect(plugin, task, target="auto", depth="deep"):
 		bars, seen = _visual(plugin, task, box)
 		_wait(task, CHANGE_WAIT_SECONDS)
 		later = _windowNodes(task, window)
-	ways, more = _worked(plugin, task, types.SimpleNamespace(kind="window", nodes=nodes, where=window), deep)
+	ways, more = _worked(plugin, task, types.SimpleNamespace(kind="window", nodes=nodes, where=window), deep,
+		scope=fixes.scopeOf(app=app))
 	ways = " ".join(part for part in (ways, _inputFacts(plugin)) if part)
 	report = audit.auditWindow(nodes, title=title, app=app, later=later, drawn=drawn, bars=bars, seen=seen, ways=ways, more=more)
-	return Inspection("window", fixes.scopeOf(app=app), nodes, window, report, title, focus)
+	found = Inspection("window", fixes.scopeOf(app=app), nodes, window, report, title, focus)
+	if deep:
+		windowClass = onMain(lambda: _safe(lambda: window.windowClassName) or "")
+		toolkit, meaning = working.toolkitOf(windowClass)
+		if toolkit:
+			accessNotes(plugin).keepKind(found.scope, f"Its window has the class {windowClass}, which is {toolkit}. {meaning}")
+		_keepFound(plugin, found.scope, report)
+	return found
+
+
+def _keepFound(plugin, scope, report):
+	"""What a deep inspection found, in one line of the place's access notes. Never a fault."""
+	try:
+		said = "; ".join(clip(finding.text, 90) for finding in report.findings[:4])
+		more = f"; and {len(report.findings) - 4} more" if len(report.findings) > 4 else ""
+		accessNotes(plugin).keepFound(scope, (said + more) if said else "No problems were found")
+	except Exception:
+		log.debugWarning("VisionClaw: what the inspection found could not be kept in the access notes", exc_info=True)
 
 
 def _samePlace(inspection):
@@ -655,31 +739,56 @@ def usedKeys(plugin):
 	return used
 
 
+def _around(inspection, node):
+	"""Where a control is (working.aroundText): the program or website, the window's title, and the named controls just
+	before and just after it, in the order of the window or page, each as (kind, name). Returns (the sentence, the
+	controls around it)."""
+	nodes = inspection.nodes
+	at = next((i for i, other in enumerate(nodes) if other is node), None)
+	before = after = []
+	if at is not None:
+		def named(found):
+			return [(str(other.get("role") or "control").lower(), labelOf(other)) for other in found
+				if plainText(labelOf(other))][:working.NEIGHBOURS]
+		before = list(reversed(named(reversed(nodes[max(0, at - 12):at]))))
+		after = named(nodes[at + 1:at + 13])
+	place = inspection.scope.get("site") or inspection.scope.get("app") or ""
+	return working.aroundText(place, bool(inspection.scope.get("site")), inspection.title, before, after), before + after
+
+
 def nameByLooking(plugin, task, inspection, group):
 	"""A name for controls that have none, from what the vision model sees in their picture, or "".
 	Where several controls share what tells them apart, two are looked at; only if both get the same name do
-	they all get it. Otherwise they look different, and one name for all would be wrong."""
+	they all get it. Otherwise they look different, and one name for all would be wrong. It answers in a form of one
+	short field; a model that is not small is told where the control is, and a name that copies what is around it is
+	not used (working.named)."""
 	members = group["nodes"]
 	names = []
+	llm = LLM(plugin.runtime, task)
+	entry = _safe(lambda: plugin.runtime.entry(VISION))
 	for node in members[:2]:
 		task.check()
 		box = onMain(lambda n=node: _boxOf(_controlOf(inspection, n)))
 		if box is None:
 			continue
+		around, neighbours = _around(inspection, node)
+		others = [inspection.scope.get("site") or inspection.scope.get("app") or "", inspection.title]
 		try:
-			image = plugin._grab((box[0] - 6, box[1] - 6, box[2] + 6, box[3] + 6))
-			answer = plugin.runtime.describe(
-				prepareImage(image, config.conf["visionClaw"]["detailSize"]),
-				f"This picture shows one {group['kind']} that has no name. What does it do or show? Answer with only "
-				"one to three words that would be a good name for it. If you cannot tell, answer: unknown.",
-				24, cancel=task.cancel)
+			image = prepareImage(
+				plugin._grab((box[0] - 6, box[1] - 6, box[2] + 6, box[3] + 6)), config.conf["visionClaw"]["detailSize"])
+
+			def ask(around):
+				answer = llm.json(VISION, prompts.seeing(working.NAME_SYSTEM), working.nameQuestion(group["kind"], around),
+					working.NAME_SCHEMA, maxTokens=24, image=image)
+				return audit.cleanName(answer.get("name") if isinstance(answer, dict) else answer)
+
+			name = working.named(ask, entry, around, neighbours, others)
 		except Exception:
 			# No picture, for example while the screen curtain is on: this control stays without a name, and
 			# the fixes that need no picture are still made. A task the user stopped is still stopped.
 			task.check()
 			log.debugWarning("VisionClaw: a control could not be named from its picture", exc_info=True)
 			continue
-		name = audit.cleanName(answer)
 		task.emit("talk", f"The {policy.roleName(VISION, policy.isOneModel(plugin.runtime))} looked at a "
 			f"{group['kind']} without a name and calls it: {name or 'unknown'}")
 		names.append(name)
@@ -687,6 +796,7 @@ def nameByLooking(plugin, task, inspection, group):
 		return ""
 	if len(members) > 1 and (len(names) < 2 or plainText(names[0]) != plainText(names[1])):
 		return ""
+	accessNotes(plugin).keepName(inspection.scope, accessnotes.keyOf(group.get("rule")), group["kind"], names[0])
 	return names[0]
 
 

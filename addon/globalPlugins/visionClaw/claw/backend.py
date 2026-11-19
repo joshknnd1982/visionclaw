@@ -91,8 +91,23 @@ def describe(backend):
 	return f"{backend.device.name} ({kind})"
 
 
-def engineArgs(backend, hasProjector):
-	"""Engine arguments that put the model on this backend."""
+def splits(memoryGb, backend):
+	"""Whether a model is larger than a graphics chip's whole memory, so that it is split between the chip and the
+	processor at once: the 14B model for hard cases on a card of 8 GB. Qwen3.5 9B (7.6 GB) ran whole on the owner's
+	card of 8 GB (7.96 GB) on 2026-11-19, so a model that is only close to the size of the chip is first tried whole.
+	Never for the processor."""
+	if backend is None or backend.kind == CPU or backend.device is None:
+		return False
+	return (memoryGb or 0) > backend.device.totalMb / 1024
+
+
+def engineArgs(backend, hasProjector, split=False):
+	"""Engine arguments that put the model on this backend. split: the model is larger than the chip; then the
+	engine itself puts as many of its layers on the chip as fit and the rest on the processor ("-ngl auto", with
+	its "--fit" on, read from the bundled engine's own help on 2026-11-19). A model that fits is put on the chip
+	whole, as before."""
 	if backend.kind == CPU:
 		return ["-ngl", "0", "--device", "none"] + (["--no-mmproj-offload"] if hasProjector else [])
+	if split:
+		return ["-ngl", "auto", "--fit", "on", "--device", backend.device.id]
 	return ["-ngl", "99", "--device", backend.device.id]

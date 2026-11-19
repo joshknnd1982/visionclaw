@@ -15,8 +15,25 @@ next. The first parts say what is new. Every feature of VisionClaw, old and new,
 <p>This help is for VisionClaw 1.12.0.</p>
 <h2>What is new in 1.12.0</h2>
 <ul>
+<li>A larger model for hard cases. VisionClaw's everyday models stay at 9B or smaller. Qwen3 14B, in Q4_K_M or Q6_K, is kept for what they could not do: an add-on that does not pass VisionClaw's checks, will not start, or fails again after it was corrected, and a control of a stubborn program where its picture and what is reported about it say different things. Then VisionClaw asks whether to try once more with the larger model. Choose it in the models window, NVDA+Alt+M, in the new list Model for hard cases; nothing is downloaded unless you choose it there, and you can uncheck "Ask me before the model for hard cases is used". Say "fix my add-on Beeper with the model for hard cases" to use it at once. It is slower and reads and writes text only: no Qwen model of that size sees pictures.</li>
+<li>A model larger than your graphics card is shared between the card and the processor, instead of running on the processor alone. A model that should fit but does not start whole on the card is tried that way too before the card is given up.</li>
+<li>Models suggested for what you want to do. In the models window, press "Suggest models for what I want to do", check with Space what you want VisionClaw for (planning, pictures, add-ons, quick answers, stubborn programs, hard cases, asking by voice) and press Enter: the reasons are in the box at the top and the suggested models in the lists. Nothing is downloaded until you press the first button. Or ask: "which model is best for stubborn programs", "should I get the model for hard cases", "which speech model should I use". The answer also says whether your graphics card has room for the Q6_K of the suggested model, and that the speech models come only as Q8_0.</li>
+<li>VisionClaw keeps notes on stubborn programs and websites. After "check this program" or "check this page", how each control is worked, names read from pictures and what drew the window are kept in a Markdown file for that program or website, in the folder access of VisionClaw's data folder. A control agreed on before is not put to the models again. The file is yours to read, change or delete.</li>
+<li>Better names for controls without one. Say "check this program", then "fix them". The model that sees answers in a short form with clear rules, and a larger model is also told the program, the window and the named controls around the control; a name that only copies one of them is not used, and "Play button" becomes Play. Measured on 34 drawn icon buttons: Qwen3.5 9B named 33 rightly where 29 before, Qwen3.5 2B 31 where 29; Qwen3.5 0.8B 23 where 24.</li>
+<li>A state that may be missing is reported: tabs of which none says it is selected, and buttons that open something but do not say whether it is open. Say "check this page". Then ask "which tab is selected" and the model that sees reads it from the picture.</li>
+<li>Asking by voice hears the names where you are. The speech model is told the program, the window's title, the focused control, a few controls and the words you taught VisionClaw, and a name it heard split in two, such as "wave table", is joined again. Measured with Windows' own voices: 53 of 54 requests that name things in a program heard rightly, where 36 before; it did not hear a name where none was said.</li>
+<li>Five new skills: a control that does not say its state, a web page control built from plain parts, a window that is hidden or takes no focus, a control NVDA calls the wrong kind, and the model for hard cases; and notes VisionClaw looks things up in about all of it. Ask "what does VisionClaw remember about stubborn programs".</li>
 <li>When a large model or high thinking keeps you waiting, VisionClaw tells you by itself how far it is, after 15 seconds of quiet and every 15 seconds while it lasts: "Still describing the screen, 30 seconds so far. The vision model is looking at the picture." It says which step a request is on, whether a model is still starting or thinking first, and how many of the overlay's icons are done. This works for requests (NVDA+Alt+C, NVDA+Alt+V), descriptions (NVDA+Alt+A, W, F, D), answers in the description window, the words you spoke, the overlay's icons (NVDA+Alt+O) and an add-on being corrected. The first update reminds you that NVDA+Alt+P says how far it is at any time, and NVDA+Alt+X stops it. Nothing is said while a question waits for you or the microphone is open. Choose 10, 15, 30 or 60 seconds, or turn the updates off, in VisionClaw's settings: Status updates while VisionClaw takes long. Tested with plain Python and stand-ins for NVDA; not yet heard inside NVDA.</li>
 <li>NVDA+Alt+P now also says how far a description, an answer about a picture, the words you spoke or the overlay's icons are, and NVDA+Alt+X also stops a description or an answer that is still on its way. While you wait for a description, other keys no longer throw it away: read on, or press NVDA+Alt+P, and it still comes. Once it is spoken, Control stops it, as before.</li>
+<li>Let VisionClaw pick the model for each job. In VisionClaw's settings, "Which model does each job" has two choices: the models you chose in the models window, which stays the default, or "VisionClaw picks from the models on this computer for each request, without asking". Then, before each request, VisionClaw picks among the models you have downloaded: for planning and pictures the largest that fits your graphics card; for writing an add-on the largest model for code that fits beside it, or the same model when it writes code too, so that nothing more is loaded; a faster one only when you said you want speed and the request is not a hard one. It never downloads anything and never picks the model for hard cases. Nothing is said while it picks: press NVDA+Alt+P to hear what it picked, or ask "which model are you using".</li>
+<li>Keep your own choice and still hear VisionClaw's view. Ask "which model are you using", and VisionClaw also says which models on this computer it would pick for planning and for code, only where they differ from yours. It is never said by itself, and nothing changes until you choose.</li>
+<li>Say once how fast you like answers, and it counts from then on. "The 9B is too slow for me", "I like quick answers" or "accuracy matters most to me" is kept as a memory without being asked, and the model VisionClaw picks or suggests follows it. Say "forget that" to undo it.</li>
+<li>Memories are found by what they mean. A memory about the system tray is found when you ask about the notification area, and one about how fast your voice talks when you ask to make the speech quicker.</li>
+<li>Say what you meant when VisionClaw got it wrong. Say "no, I meant turn off the typing echo", "not that, the notification area" or "that's not what I asked, I wanted the Start menu": VisionClaw does what you meant instead. When that went well, it asks once whether to understand your first words that way from now on; say yes, and they are kept with your own words. It asks only when "Remember things" is on its first choice. To undo it, say "forget the word" and the words.</li>
+<li>The add-on writer and questions about a picture understand casual words too. "Make an add-on that chimes whenever focus hits a link" is read as "beeps whenever focus lands on a link", "yells 'new mail' when a dialog pops up" as "says 'new mail'"; "what's scribbled on the whiteboard" asks for what is written, "tally up the icons" for a count, "what's lit up" for what is highlighted. Words in quotes, the words an add-on is to say, and keys are never changed. The lines are in understanding.md, under headings that end ", in add-ons" and ", in questions about a picture".</li>
+<li>A small model is asked a choice more than once. When Qwen3.5 2B, 0.8B or Qwen2.5 Coder 1.5B chooses among a few fixed answers, such as what kind of request this is, it is asked three times, and the answer most of them gave is taken. Larger models are asked once.</li>
+<li>Stated plainly, for the seven points above: measured with the real Qwen3.5 2B, Qwen3.5 0.8B and Qwen2.5 Coder 1.5B on the built-in AMD Radeon 780M: the three answers changed little, because choosing the job is mostly done by plain code; on 202 requests with the 2B one more was right and one question to you fewer, none was worse, and choosing took a third longer; with the 0.8B nothing changed. The new words were measured by plain code on requests written for it before anything was run on them: add-on requests read rightly went from 3 to 11 of 20 not used to write the words, picture questions stayed at 12 of 16. Picking the model, the correction and its question were tested with stand-ins only. None of this was run inside NVDA yet.</li>
+<li>Stated plainly: the naming, the speech model and the judging were measured with the real models. Qwen3 14B was measured too, in Q4_K_M, shared between an 8 GB graphics card and the processor: of nine add-ons written piece by piece, all nine did what was asked, where those of Qwen3.5 9B did eight, in about the same time; written as one piece, six where the 9B's did four. Of twelve controls a program draws itself, it told six rightly, as the 9B did, with fewer wrong guesses, at about 17 seconds each. Nothing of this was run inside NVDA yet. Tried and dropped: asking the smallest models how a control is worked in two small questions, which made them worse (Qwen3.5 0.8B 5 of 16 drawn controls to 3, 2B 13 to 9).</li>
 <li>Ten things that used to need sighted help, each explained under that heading in the help. A picture in a chat or on a page: say "what does the latest picture in this chat say", "read the text in the latest image in this chat and explain the joke", or "look at the product photo, is this jacket navy blue or black"; VisionClaw finds that picture, cuts it out and asks the model that sees one question at a time, and a colour is measured from the pixels first.</li>
 <li>A form that is only a picture, such as a scanned PDF. Say "click the line next to Full Name and type my name", "click the dotted line labelled Signature so I can sign", or "check the box next to Yes in this scanned form". The label is found in the picture's text and its line or box in the pixels. Your name comes from what you asked VisionClaw to remember, or you are asked. VisionClaw never signs for you.</li>
 <li>An installer gone through page after page. Say "uncheck any bundled toolbars in this installer and click Next until the installation starts". Each page is said, boxes that offer extra software are unchecked and named, licence terms are never accepted without asking you, and the button that starts the installation is asked about.</li>
@@ -117,6 +134,20 @@ word shh" to forget one, and "forget all the words I taught you" to forget all o
 first. They are kept in the file understanding.md in VisionClaw's data folder, one line each, which you can read and
 change in any editor. A word of fewer than two letters, an everyday word like "it", and a word that means itself
 cannot be taught; you are told why.</p>
+<p>When VisionClaw got it wrong, say what you meant: "no, I meant turn off the typing echo", "not that, the
+notification area" or "that's not what I asked, I wanted the Start menu". VisionClaw does what you meant instead, and
+tells you which request it takes as corrected. When that went well, it asks once whether to understand your first
+words that way from now on. Say yes, and they are kept with your own words, so that the next time they are understood
+rightly at once; say no, and nothing is kept. It asks only when "Remember things" is on its first choice. To undo it,
+say "forget the word" and the words.</p>
+<p>The add-on writer and questions about a picture understand your words too. After the whole request is understood,
+the part that writes an add-on reads it again with words of its own: "make an add-on that chimes whenever focus hits a
+link" is read as "beeps whenever focus lands on a link", and "yells 'new mail' when a dialog pops up" as "says 'new
+mail'". The part that asks about a picture does the same to know what kind of answer you want: "what's scribbled on
+the whiteboard" asks for what is written, "tally up the icons" for a count, "what's lit up" for what is highlighted;
+the model is still asked in your own words. Words in quotes, the words an add-on is to say, and keys are never changed.
+These words are in understanding.md, under headings that end ", in add-ons" and ", in questions about a picture". The
+description window answers your questions as before.</p>
 
 <h2>The work sheet: every request in small pieces</h2>
 <p>Every request has a work sheet: a Markdown file with the plan, what each small step is given, and what it found.
@@ -158,6 +189,10 @@ recording is written to the disk. The first time, VisionClaw asks whether to dow
 from Hugging Face. A larger one can be chosen in the settings. Ask "can I ask you by voice?" to hear whether it
 is set up and which speech model listens, "download the speech model" to get it now, and "delete the speech
 model" to remove it.</p>
+<p>The speech model is told the names you are likely to say: the program in front, the words you taught VisionClaw,
+the focused control, the window's title and a few of its controls. A name it heard split in two, such as "wave table"
+for Wavetable, is joined again. Measured with Windows' own voices on requests that name things in programs: 53 of 54
+heard rightly, where 36 before.</p>
 
 <h2>Requests that follow the one before</h2>
 <p>After a request you can say: do that again; a bit more; the other way, too much or too fast; say that again;
@@ -386,6 +421,19 @@ program its keys do what they always do.</p>
 <p>No model writes this add-on's code: it is put together from fixed, tested parts and the list of your
 fixes. A control that nothing in the page's code tells apart from others cannot be named reliably, and the
 report says how many those are. A name taken from a button's picture is a guess, and you are told so.</p>
+<p>Names from pictures: the model that sees answers in one to three words that say what the control does, never its
+colour or shape. A larger model is also told the program, the window and the named controls around the control; a
+small one is not, because it copied those names. A name that only copies one of them is not used, and "Play button"
+becomes Play, since NVDA says the kind itself.</p>
+<p>A state that may be missing: the report says when tabs report none of them as selected, and when buttons that open
+or show something do not say whether it is open. Then ask "which tab is selected" or "what is open here": the model
+that sees reads it from the picture, and says so.</p>
+<p>What VisionClaw remembers about the place: after a deep check, how each control is worked, names read from
+pictures, what drew the window and what the check found are kept in a Markdown file for that program or website, in
+the folder access of VisionClaw's data folder. A control the models agreed on before is not put to them again. When
+VisionClaw writes an add-on for that program, the lines that fit go with the request. The file is yours to read,
+change or delete. Where the picture and what is reported still disagree, VisionClaw offers the model for hard cases,
+if it is on your computer.</p>
 
 <h2>How a sighted person works each control</h2>
 <p>An inspection also says how a sighted person works what is there: clicked, dragged, hovered over, held down,
@@ -665,7 +713,7 @@ add-on. Small models make mistakes.</p>
 
 <h2>Skills</h2>
 <p>A skill tells VisionClaw how a kind of job is done well for a blind person: describing a photo, web forms,
-email, braille, games, NVDA for a beginner, and many more; 61 come with VisionClaw. VisionClaw chooses skills from
+email, braille, games, NVDA for a beginner, stubborn controls, and many more; 66 come with VisionClaw. VisionClaw chooses skills from
 the words of your request, at most two at a time. A skill never holds code, and every change is still asked
 about.</p>
 <p>Make your own in words: "make a new skill: when I ask about recipes, read the ingredients first". Ask "which
@@ -681,7 +729,10 @@ file, one for each memory, in the folder memories of its data, and uses them wit
 something lasting you say about how you work the computer when nothing else kept it, and says so and how to undo
 it; the setting "Remember things" decides this. Ask "what do you remember", "forget that", or "forget all", which
 is always asked about. The memories window, from the button in the settings, has a check box for each memory,
-the whole memory to read, Forget checked, and Forget all and start over.</p>
+the whole memory to read, Forget checked, and Forget all and start over. How fast you like answers is kept without
+being asked: "the 9B is too slow for me", "I like quick answers", "accuracy matters most to me"; the model VisionClaw
+picks or suggests follows it. Memories are found by what they mean: a memory about the system tray is found when you
+ask about the notification area.</p>
 
 <h2>Your library</h2>
 <p>Put Markdown, text, saved web pages or Word documents into VisionClaw's library folder, and questions are
@@ -770,13 +821,47 @@ models, VisionClaw offers to remove the ones you no longer use.</li>
 smaller model", "which model is best for writing add-ons", "suggest a model". VisionClaw suggests one from your
 graphics card and memory, what was measured with each model and on which day, and your own review: how your requests
 went with each model on this computer, kept in models-went.json, and what you asked it to remember about a model. No
-model is asked, nothing goes online, and nothing is changed: you choose in the models window, NVDA+Alt+M.</li>
+model is asked, nothing goes online, and nothing is changed: you choose in the models window, NVDA+Alt+M. Ask too
+about "stubborn programs", "the model for hard cases" or "which speech model should I use": the answer also says
+whether your graphics card has room for the Q6_K of the suggested model, whether the model for hard cases runs on your
+computer and how, and that the speech models come only as Q8_0.</li>
+<li>In the models window, the button "Suggest models for what I want to do": check what you want VisionClaw for with
+Space (planning, pictures, add-ons, quick answers, stubborn programs, hard cases, asking by voice) and press Enter. The
+reasons are put into the box at the top and the suggested models into the lists. Nothing is downloaded until you press
+the first button.</li>
+<li>Let VisionClaw pick the model for each job. In VisionClaw's settings, "Which model does each job" is at first "The
+models I chose in the models window; VisionClaw only suggests". Choose "VisionClaw picks from the models on this
+computer for each request, without asking", and before each request VisionClaw picks among the models you have
+downloaded, by plain code: for planning and pictures the largest that fits your graphics card with room to spare, or
+with no card that holds one the largest that fits your memory; for writing an add-on the largest model for code that
+fits beside it, or the same model when it writes code too, so that nothing more is loaded; a faster one only when you
+said you want speed, such as "the 9B is too slow for me", and the request is not a hard one and has no picture or code
+in it. A model with which your requests went badly here is passed over while another can do the job. It never
+downloads anything and never picks the model for hard cases. Nothing is said while it picks: press NVDA+Alt+P to hear
+what it picked, or ask "which model are you using". With your own choice kept, that question also tells you which
+models on this computer VisionClaw would pick, only where they differ from yours; it is never said by itself.</li>
+<li>A small model is asked a choice more than once. When Qwen3.5 2B, 0.8B or Qwen2.5 Coder 1.5B chooses among a few
+fixed answers, such as what kind of request this is, it is asked three times and the answer most of them gave is taken;
+larger models are asked once. Measured with the real 2B and 0.8B choosing the job: on 202 requests with the 2B one more
+was right and one question fewer, none worse, and choosing took a third longer; with the 0.8B nothing changed.</li>
+<li>The model for hard cases. The everyday models are 9B or smaller. Qwen3 14B, in Q4_K_M or Q6_K, is kept for what
+they could not do: an add-on that does not pass VisionClaw's checks, will not start, or fails again after it was
+corrected, and a control of a stubborn program whose picture and what is reported about it say different things. Then
+VisionClaw asks whether to try once more with it. Choose it in the models window, in the list "Model for hard cases"
+under the coder lists; None is chosen at first, so nothing of 9 GB is downloaded unasked. Uncheck "Ask me before the
+model for hard cases is used" to be asked no more, or say "fix my add-on Beeper with the model for hard cases" to use it
+at once. It is slower, the everyday models come back with the next request, NVDA+Alt+X stops it, and it reads and
+writes text only: no Qwen model of that size sees pictures. Measured in Q4_K_M on an 8 GB card shared with the
+processor: of nine add-ons written piece by piece, all nine did what was asked, where those of Qwen3.5 9B did eight;
+of twelve controls a program draws itself, it told six rightly, as the 9B did, with fewer wrong guesses.</li>
 <li>The two very small models, Qwen3.5 0.8B and Qwen2.5 Coder 0.5B, are asked one small question at a time and
 answer a question about something looked up with a line of it, word for word. They are fast and less
 accurate.</li>
 <li>Where the models run: a dedicated graphics card, Vulkan, or the processor. If the chosen place does not work,
 VisionClaw falls back by itself: dedicated card, then Vulkan, then the processor. Two large models that do not
-fit on one chip run side by side, the second on another chip or the processor.</li>
+fit on one chip run side by side, the second on another chip or the processor. A model larger than the card is
+shared between the card and the processor, as much of it on the card as fits; a model that should fit but does not
+start whole is tried that way too before the card is given up.</li>
 </ul>
 
 <h2>VisionClaw's own log</h2>
@@ -821,6 +906,8 @@ instead of the two taking turns.</li>
 <li>How much the models think before acting: Automatic, Off, Low, Medium, High.</li>
 <li>Ask the models one small question at a time: Automatic, Always or Never. Automatic does this for the two very
 small models only.</li>
+<li>Which model does each job: the models you chose in the models window, and VisionClaw only suggests; or VisionClaw
+picks from the models on this computer for each request, without asking.</li>
 <li>Remember things: when you ask, and when you say something lasting about yourself or how you like things;
 only when you ask it to remember; or never.</li>
 <li>What VisionClaw remembers, to forget some or all: opens the memories window.</li>

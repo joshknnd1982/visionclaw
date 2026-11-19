@@ -26,9 +26,9 @@ import ui
 import wx
 from .vclog import log
 
-from . import computertools, mousetools, net, nvdainfo, ocr, placetools, profiletools, webtools
+from . import computertools, hardtools, mousetools, net, nvdainfo, ocr, placetools, profiletools, webtools
 from .claw import changes, commands, computer, debuglog, drivers, fixes, gamepad, guides, helpfiles, inside, lookup, match, microaddons, offers, pointer, policy, profiles, prompts, training, web
-from .claw import codeplan, guide, pictures, places, planning
+from .claw import accessnotes, codeplan, guide, hardcase, pictures, places, planning
 from .claw.catalog import CODER, VISION
 from .claw.llm import LLM, clip
 from .claw.memory import score, wordList, words as wordsOf
@@ -1187,10 +1187,29 @@ def coderNotes(plugin, task, purpose, notes):
 		# add-on is for.
 		stepGuide(task) or addonGuide(getattr(plugin, "skills", None), purpose),
 		memorytools.forCoder(plugin, purpose).strip(),
+		accessLines(plugin, purpose),
 		guideLines(plugin, purpose, notes),
 		notes,
 	]
 	return "\n".join(part for part in parts if part)
+
+
+def accessLines(plugin, purpose):
+	"""What VisionClaw found before about the program in front (claw/accessnotes.py): only the lines that share a telling
+	word with what the add-on is for, or "". Never a fault: it only helps."""
+	try:
+		app = onMain(lambda: _safe(lambda: api.getForegroundObject().appModule.appName) or "")
+		if not app:
+			return ""
+		notes = accessnotes.AccessNotes(os.path.join(plugin.dataDir, accessnotes.FOLDER))
+		return notes.forModels(fixes.scopeOf(app=app), purpose, strict=True)
+	except Exception:
+		return ""
+
+
+def _hardParams(params):
+	"""The form of a request for the model for hard cases: one model writes and reviews, and it is not very small."""
+	return params._replace(oneModel=True, oneByOne=False) if params is not None else params
 
 
 def debugFacts(error):
@@ -1256,8 +1275,26 @@ def fixAddon(plugin, task, name, said=""):
 	# What a skill says, what the user asked VisionClaw to remember, their library, the notes on accessibility
 	# interfaces and the lines of the developer guides that belong with the add-on come before the notes.
 	notes = coderNotes(plugin, task, purpose, notes)
-	fixed = codeplan.fixMethod(LLM(plugin.runtime, task), task, purpose, source, problems, notes, task.params, CODER, VISION,
-		sheet=getattr(task, "sheet", None))
+
+	def fixing(params):
+		return codeplan.fixMethod(LLM(plugin.runtime, task), task, purpose, source, problems, notes, params, CODER, VISION,
+			sheet=getattr(task, "sheet", None))
+
+	fixed = None
+	if meta.get("repairs", 0) >= 1 or hardcase.asked(getattr(task, "request", "")):
+		# Corrected before and failing again, or asked for in the user's own words: a hard case. The model for hard cases
+		# is offered first; without it, or when the user says no, the everyday models try again as before.
+		why = hardcase.ASKED if hardcase.asked(getattr(task, "request", "")) else hardcase.FIX_AGAIN
+		used, said = hardtools.attempt(plugin, task, why, lambda: fixing(_hardParams(task.params)))
+		fixed = said if used else None
+	if fixed is None:
+		try:
+			fixed = fixing(task.params)
+		except ToolError as e:
+			used, said = hardtools.attempt(plugin, task, hardcase.FIX, lambda: fixing(_hardParams(task.params)))
+			if not used:
+				raise ToolError(" ".join(part for part in (str(e), said) if part))
+			fixed = said
 	repairs = meta.get("repairs", 0) + 1
 	store.save(ident, fixed, purpose, repairs=repairs)
 	try:
@@ -2320,8 +2357,26 @@ def build(plugin):
 			found = plugin.knowledge.text(words, limit=2, chars=500, sources=("addon-development", "objects-and-events"))
 			return coderNotes(plugin, task, words, found)
 
-		source = codeplan.write(llm, task, purpose, facts, notes, params, CODER, VISION, notesFor=notesFor,
-			sheet=getattr(task, "sheet", None), usedKeys=usedKeys())
+		def writing(llm, params):
+			return codeplan.write(llm, task, purpose, facts, notes, params, CODER, VISION, notesFor=notesFor,
+				sheet=getattr(task, "sheet", None), usedKeys=usedKeys())
+
+		source = None
+		if hardcase.asked(getattr(task, "request", "")):
+			# The user's own words ask for the model for hard cases: it writes the add-on from the start.
+			used, said = hardtools.attempt(
+				plugin, task, hardcase.ASKED, lambda: writing(LLM(plugin.runtime, task), _hardParams(params)))
+			source = said if used else None
+		if source is None:
+			try:
+				source = writing(llm, params)
+			except ToolError as e:
+				# A hard case: the model for hard cases may write it, after the user says yes (claw/hardcase.py).
+				used, said = hardtools.attempt(
+					plugin, task, hardcase.ADDON, lambda: writing(LLM(plugin.runtime, task), _hardParams(params)))
+				if not used:
+					raise ToolError(" ".join(part for part in (str(e), said) if part))
+				source = said
 		keys = microaddons.gestures(source)
 		keyText = " Keys: " + "; ".join(f"{k} ({d})" if d else k for k, d in keys) + "." if keys else ""
 		# What the code really does, found by checking it, in plain words: nobody has to read code.
@@ -2346,25 +2401,42 @@ def build(plugin):
 			choice = plugin.clawAsk(_("Turn the add-on {name} on?").format(name=name), choices[:2])
 		if choice != 0:
 			raise UserSaidNo()
-		for attempt in range(params.codeRepairs + 1):
-			task.check()
-			plugin.helpers.store.save(name, source, purpose)
-			try:
-				onMain(plugin.helpers.loadAddon, name)
-				return f"The add-on {microaddons.slug(name)} is on.{keyText}"
-			except Exception as e:
-				error = f"{type(e).__name__}: {e}"
-				task.emit("detail", f"The add-on did not start: {error}")
-				plugin.helpers.store.remove(name)
-				if attempt == params.codeRepairs:
-					break
-				source = microaddons.repair(llm, CODER, purpose, source, [f"NVDA could not start it: {error}"], params)
-				problems = microaddons.check(source)
-				if problems:
-					source = microaddons.repair(llm, CODER, purpose, source, problems, params)
-				if microaddons.check(source):
-					break
-		raise ToolError("The add-on could not be made to start. Try describing what it should do in a simpler way.")
+		state = {"source": source, "error": ""}
+
+		def starting(llm, params, first):
+			"""Turn the add-on on; where NVDA cannot start it, correct it and try again. Returns the sentence for the
+			user, or None when it could not be made to start. first: the source is tried as it is first."""
+			for attempt in range(params.codeRepairs + 1):
+				task.check()
+				if attempt or not first:
+					fixed = microaddons.repair(
+						llm, CODER, purpose, state["source"], [f"NVDA could not start it: {state['error']}"], params)
+					problems = microaddons.check(fixed)
+					if problems:
+						fixed = microaddons.repair(llm, CODER, purpose, fixed, problems, params)
+					if microaddons.check(fixed):
+						return None
+					state["source"] = fixed
+				plugin.helpers.store.save(name, state["source"], purpose)
+				try:
+					onMain(plugin.helpers.loadAddon, name)
+					return f"The add-on {microaddons.slug(name)} is on.{keyText}"
+				except Exception as e:
+					state["error"] = f"{type(e).__name__}: {e}"
+					task.emit("detail", f"The add-on did not start: {state['error']}")
+					plugin.helpers.store.remove(name)
+			return None
+
+		started = starting(llm, params, True)
+		if started:
+			return started
+		used, said = hardtools.attempt(
+			plugin, task, hardcase.START, lambda: starting(LLM(plugin.runtime, task), _hardParams(params), False))
+		if used and said:
+			return said
+		raise ToolError(" ".join(part for part in (
+			"The add-on could not be made to start.", "" if used else said,
+			"Try describing what it should do in a simpler way.") if part))
 
 	add("create_addon",
 		"have the coder model write a small NVDA add-on, for new behaviour that no other tool can give", createAddon, {
@@ -2415,8 +2487,9 @@ def build(plugin):
 	# Which models VisionClaw itself has and uses. Plain code reads the settings and the disk: a model does not
 	# know its own name, and would make one up.
 	def modelInfo(task):
+		picked = _safe(lambda: plugin.modelPickText(), "") or ""
 		# Translators: Added to the answer about VisionClaw's models. The key is the default one.
-		return plugin.runtime.aboutText() + " " + _("To see, remove or choose other models, press NVDA+Alt+M.")
+		return " ".join(part for part in (plugin.runtime.aboutText(), picked, _("To see, remove or choose other models, press NVDA+Alt+M.")) if part)
 
 	# Which model fits what the user wants to do, suggested by plain code from what was measured, this computer and
 	# how requests went here (claw/advice.py). Nothing is changed: the user chooses in the models window.
@@ -2433,12 +2506,14 @@ def build(plugin):
 		outcomes = _safe(lambda: plugin.orchestrator.outcomes.counts(), {}) or {}
 		remembered = advice.remembers(_safe(lambda: [entry.text() for entry in plugin.memories.all()], []) or [])
 		one = bool(_safe(lambda: policy.isOneModel(runtime), False))
-		return advice.advise(asked or task.request, catalog.CATALOG, chosen, stored, dedicated, ram, outcomes, remembered, one)
+		speech = {entry["id"] for entry, _size, whole in (_safe(lambda: plugin.voice.store.stored(), []) or []) if whole}
+		return advice.advise(asked or task.request, catalog.CATALOG, chosen, stored, dedicated, ram, outcomes, remembered, one,
+			speech)
 
 	add("model_advice",
 		"suggest which of VisionClaw's models fits what the user wants to do: planning and carrying out tasks, describing "
-		"pictures, writing add-ons, or speed; from this computer, what was measured and how requests went here; changes "
-		"nothing",
+		"pictures, writing add-ons, speed, stubborn programs, the larger model for hard cases, or asking by voice; from "
+		"this computer, what was measured and how requests went here; changes nothing",
 		modelAdvice, {"asked": text("what the user asked for, in their own words", maxLength=300, auto=True)},
 		looks=True, title="Suggesting a model", tell=VERBATIM)
 

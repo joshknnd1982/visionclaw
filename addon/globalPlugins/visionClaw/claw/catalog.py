@@ -37,6 +37,11 @@ _Q35_9B = ("unsloth/Qwen3.5-9B-GGUF", "3885219b6810b007914f3a7950a8d1b469d598a5"
 _C05 = ("Qwen/Qwen2.5-Coder-0.5B-Instruct-GGUF", "ebb2015119c907b064c512bf053e945850b5875f")
 _C15 = ("Qwen/Qwen2.5-Coder-1.5B-Instruct-GGUF", "f86cb2c1fa58255f8052cc32aeede1b7482d4361")
 _C7 = ("Qwen/Qwen2.5-Coder-7B-Instruct-GGUF", "13fb94bfda8c8cf22497dc57b78f391a9acb426a")
+# Qwen3 14B, the model for hard cases (the owner, 2026-11-19: "capped at 9b parameter models, with edge cases using a
+# 14b parameter model"). Read from Hugging Face's API on 2026-11-19: no Qwen model of 10 to 16 billion parameters sees
+# pictures (Qwen3.5, 3.6 and 3.8 go from 9B to 27B; Qwen3-VL from 8B to 32B), so the model for hard cases reads and
+# writes text only: what NVDA and Windows report about a control, and add-ons. Qwen's own conversion, one file per quant.
+_Q3_14B = ("Qwen/Qwen3-14B-GGUF", "530227a7d994db8eca5ab5ced2fb692b614357fd")
 
 _Q35_2B_MODEL = _file(*_Q35_2B, "Qwen3.5-2B-Q4_K_M.gguf", 1280835840,
 	"aaf42c8b7c3cab2bf3d69c355048d4a0ee9973d48f16c731c0520ee914699223")
@@ -71,6 +76,9 @@ _Q6_FILES = {
 		"9b05dce8089197c866b9f76e1db45de8617cda98d9d06059958cb8ad32c56dfa"),
 	"qwen2.5-coder-7b": _file(*_C7, "qwen2.5-coder-7b-instruct-q6_k.gguf", 6254198784,
 		"46291ddea1bfb608fe63d9a1907eea6918bda87a7626593edc4bf97c5fd73f9d"),
+	# Read on 2026-11-19 at the same revision as its Q4_K_M file.
+	"qwen3-14b": _file(*_Q3_14B, "Qwen3-14B-Q6_K.gguf", 12121937248,
+		"ec1f1d1421d7636a23e17645cac6fda39ee4b5f1f11e42eb09238089705ef699"),
 }
 _Q6_FILES["qwen3.5-4b-coder"] = _Q6_FILES["qwen3.5-4b"]
 _Q6_FILES["qwen3.5-9b-coder"] = _Q6_FILES["qwen3.5-9b"]
@@ -82,6 +90,9 @@ _Q6_FILES["qwen3.5-9b-coder"] = _Q6_FILES["qwen3.5-9b"]
 # thinking: the model has its own thinking mode that can be switched on and off.
 # memoryGb: about how much memory it uses while loaded. maxContext: the largest context VisionClaw gives it.
 # suggest: False for a model that is offered but never suggested first, because it is very small.
+# edge: True for a model kept for hard cases: larger than VisionClaw's everyday models, offered always, never suggested
+#   for everyday use, and used for one step when the chosen models could not do a hard job, after the user says yes
+#   (claw/hardcase.py). It may not fit on the graphics card; then it is split between the card and the processor.
 # quant: which quant its weights file is (QUANTS). The entries of one model in other quants follow it.
 # The models of one role are listed from the smallest to the largest.
 _Q4_ENTRIES = [
@@ -160,6 +171,17 @@ _Q4_ENTRIES = [
 		"small": False, "thinking": True, "memoryGb": 7.0, "maxContext": 32768, "licence": "Apache 2.0",
 		"source": _Q35_9B[0], "files": [_Q35_9B_MODEL],
 	},
+	{
+		# memoryGb: the file (8.4 GB), what 8192 tokens of context take (40 layers, 8 key and value heads of 128:
+		# 1.25 GB) and the engine's working memory.
+		"id": "qwen3-14b", "quant": Q4, "dir": "qwen3-14b", "role": CODER, "name": "Qwen3 14B", "small": False,
+		"edge": True, "thinking": True, "memoryGb": 10.4, "maxContext": 32768, "licence": "Apache 2.0",
+		"source": _Q3_14B[0],
+		"files": [
+			_file(*_Q3_14B, "Qwen3-14B-Q4_K_M.gguf", 9001752960,
+				"500a8806e85ee9c83f3ae08420295592451379b4f8cf2d0f41c15dffeb6b81f0"),
+		],
+	},
 ]
 
 
@@ -195,7 +217,7 @@ _VISIONMATE = {
 LIST_URL = "https://raw.githubusercontent.com/joshknnd1982/visionclaw/main/models.json"
 LIST_FORMAT = 1
 # When the list in this version was last brought up to date with what the Qwen team has published.
-LIST_UPDATED = "2026-11-18"
+LIST_UPDATED = "2026-11-19"
 LIST_BYTES = 400000
 MAX_OFFERED = 40
 # Who may publish the files: the Qwen team itself, and Unsloth, whose conversions the built-in models use.
@@ -227,6 +249,11 @@ def quantOf(entry):
 				if _namesQuant(f["name"], quant):
 					return quant
 	return ""
+
+
+def isEdge(entry):
+	"""Whether a model is kept for hard cases (the entry's edge), and so never suggested or picked for everyday use."""
+	return bool(entry) and entry.get("edge") is True
 
 
 def _modelKey(entry):
@@ -352,6 +379,8 @@ def checkEntry(raw):
 	}
 	if raw.get("suggest") is False:
 		entry["suggest"] = False
+	if raw.get("edge") is True:
+		entry["edge"] = True
 	if needs:
 		entry["minVersion"] = needs
 	if quant:
@@ -688,7 +717,8 @@ def recommend(role, memoryGb=None, dedicatedMb=0):
 	"""The catalog id to offer first: the larger model only where it clearly fits, in the suggested quant. Only
 	built-in models are suggested, since those are the ones that were tried, and never the very smallest."""
 	roomy = (dedicatedMb or 0) >= 11000 or (memoryGb or 0) >= 30
-	choices = [e for e in CATALOG if e["role"] == role and e.get("suggest", True) and quantOf(e) == DEFAULT_QUANT]
+	choices = [e for e in CATALOG if e["role"] == role and e.get("suggest", True) and not isEdge(e)
+		and quantOf(e) == DEFAULT_QUANT]
 	chosen = next((e for e in choices if e["small"] != roomy), choices[0])
 	# The quant too is only a suggestion: Q4_K_M, unless measuring showed another clearly better for this model.
 	return (variant(CATALOG, chosen, suggestedQuant(chosen)) or chosen)["id"]

@@ -16,7 +16,7 @@ import wx
 from .vclog import log
 
 from . import net, sounds
-from .claw import catalog
+from .claw import advice, catalog, hardcase
 
 addonHandler.initTranslation()
 
@@ -100,6 +100,27 @@ def modelLabel(models, entry, suggestedId):
 	if entry.get("suggest") is False:
 		# Translators: Added to the very smallest models in the list, which are offered but never suggested.
 		label += _(", very small: fast, less accurate")
+	if catalog.isEdge(entry):
+		# Translators: Added to the larger model in the list that VisionClaw keeps for hard cases.
+		label += _(", for hard cases: larger and slower")
+	return label
+
+
+def hardLabel(models, entry):
+	"""One choice of the list Model for hard cases: none, or one quant of the model for hard cases with its size."""
+	if entry is None:
+		# Translators: The first choice of the list of models for hard cases.
+		return _("None: never use a larger model for hard cases")
+	if models.isInstalled(entry):
+		# Translators: A model for hard cases that is on this computer. {name} is like "Qwen3 14B Q4_K_M".
+		label = _("{name}, on this computer").format(name=catalog.displayName(entry))
+	else:
+		# Translators: A model for hard cases that is not downloaded yet. {name} is like "Qwen3 14B Q4_K_M", {size} megabytes.
+		label = _("{name}, {size} MB to download").format(name=catalog.displayName(entry), size=_mb(models.missingBytes(entry)))
+	if catalog.quantOf(entry) == catalog.suggestedQuant(entry):
+		# Translators: Added to the quant of the model for hard cases that is suggested. The owner, 2026-11-19: Q4_K_M
+		# "should be plenty good".
+		label += _(", suggested")
 	return label
 
 
@@ -161,11 +182,14 @@ class ModelsDialog(wx.Dialog):
 	Enter starts, Space reads the progress while working. Every model is always offered: the computer only
 	decides which one is suggested."""
 
-	def __init__(self, parent, models, conf, suggested, onInstalled, notes=(), onChosen=None):
+	def __init__(self, parent, models, conf, suggested, onInstalled, notes=(), onChosen=None, machine=None):
 		"""models: the catalog. conf: the add-on's settings. suggested: {role: model id}.
 		notes: sentences about this computer, shown under the welcome text.
-		onChosen(keys) is called with the stored models the new choice uses, once they are ready."""
+		onChosen(keys) is called with the stored models the new choice uses, once they are ready.
+		machine() gives (dedicated graphics memory in MB, memory in GB), for the suggestion by what the user wants to
+		do; without it that button is not shown."""
 		self._suggested = suggested
+		self._machine = machine
 		self._looking = False
 		# Translators: Title of the window for choosing and downloading the models.
 		super().__init__(parent, title=_("VisionClaw models"))
@@ -191,7 +215,11 @@ class ModelsDialog(wx.Dialog):
 			"larger, slower and more exact, which helps most when add-ons are written for you. The choice is yours. "
 			"The very small ones are for a computer that can run nothing larger: they make more mistakes, so "
 			"VisionClaw asks them one small question at a time. "
-			"A model is downloaded only once, and you can change your choice here at any time."
+			"A model is downloaded only once, and you can change your choice here at any time.\n\n"
+			"The model for hard cases, under the two lists, is larger and slower. It is never used every day: only "
+			"when the chosen models could not write or correct an add-on, or could not tell how a stubborn control is "
+			"worked, and only after you say yes, unless you uncheck the box under it. It reads and writes text only, "
+			"and may share the work between the graphics card and the processor."
 		)
 		if notes:
 			intro += "\n\n" + "\n".join(notes)
@@ -228,6 +256,18 @@ class ModelsDialog(wx.Dialog):
 			self._quantChoices[role] = quants
 			chosen = self._conf["visionModel" if role == catalog.VISION else "coderModel"]
 			self._fill(role, self._wanted(role, chosen) or self._wanted(role, suggested.get(role)))
+		# Translators: Label of the list of larger models kept for hard cases.
+		main.Add(wx.StaticText(self, label=_("Model for &hard cases:")), flag=wx.LEFT | wx.RIGHT, border=10)
+		self._hardEntries = [None] + hardcase.candidates(self._models.entries(catalog.CODER))
+		self.hardChoice = wx.Choice(self, choices=[hardLabel(self._models, e) for e in self._hardEntries])
+		self.hardChoice.SetSelection(self._hardAt(self._conf.get("hardModel", "")))
+		self._hardTouched = False
+		self.hardChoice.Bind(wx.EVT_CHOICE, lambda e: self._hardChanged())
+		main.Add(self.hardChoice, flag=wx.ALL | wx.EXPAND, border=10)
+		# Translators: A check box under the list of models for hard cases.
+		self.hardAsk = wx.CheckBox(self, label=_("As&k me before the model for hard cases is used"))
+		self.hardAsk.SetValue(self._conf.get("hardCases", hardcase.ASK) != hardcase.ALWAYS)
+		main.Add(self.hardAsk, flag=wx.LEFT | wx.RIGHT | wx.BOTTOM, border=10)
 		self.gauge = wx.Gauge(self, range=100)
 		self.gauge.Hide()
 		main.Add(self.gauge, flag=wx.LEFT | wx.RIGHT | wx.EXPAND, border=10)
@@ -238,6 +278,13 @@ class ModelsDialog(wx.Dialog):
 		# Translators: Button that closes the window without downloading.
 		self.closeBtn = wx.Button(self, wx.ID_CANCEL, label=_("&Later"))
 		buttons.Add(self.startBtn)
+		self.suggestBtn = None
+		if machine is not None:
+			# Translators: Button that asks what the user wants VisionClaw for, and puts the models suggested for it into
+			# the lists without downloading anything.
+			self.suggestBtn = wx.Button(self, label=_("&Suggest models for what I want to do..."))
+			buttons.Add(self.suggestBtn, flag=wx.LEFT, border=10)
+			self.suggestBtn.Bind(wx.EVT_BUTTON, lambda e: self._suggest())
 		buttons.Add(self.lookBtn, flag=wx.LEFT, border=10)
 		buttons.Add(self.closeBtn, flag=wx.LEFT, border=10)
 		main.Add(buttons, flag=wx.ALL | wx.ALIGN_RIGHT, border=10)
@@ -251,6 +298,26 @@ class ModelsDialog(wx.Dialog):
 		self.Bind(wx.EVT_CLOSE, self._onClose)
 		self.Bind(wx.EVT_CHAR_HOOK, self._onKey)
 		self.text.SetFocus()
+
+	def _hardAt(self, setting):
+		"""Where the list of models for hard cases starts: the one chosen before, else the first on this computer when
+		none was chosen yet, else None. Nothing large is chosen for download unless the user chooses it."""
+		if setting == hardcase.NONE:
+			return 0
+		for at, entry in enumerate(self._hardEntries):
+			if entry is not None and entry["id"] == setting:
+				return at
+		for at, entry in enumerate(self._hardEntries):
+			if entry is not None and not setting and self._models.isInstalled(entry):
+				return at
+		return 0
+
+	def _hardChanged(self):
+		self._hardTouched = True
+		self._updateButton()
+
+	def _hardSelected(self):
+		return self._hardEntries[min(max(0, self.hardChoice.GetSelection()), len(self._hardEntries) - 1)]
 
 	def _wanted(self, role, modelId):
 		"""The entry of a role's list with this id, or None. An older setting names a Q4_K_M entry by its id."""
@@ -308,8 +375,15 @@ class ModelsDialog(wx.Dialog):
 		}
 
 	def _toDownload(self):
-		"""The chosen models that are not here yet."""
-		return [e for e in self._selected().values() if e is not None and not self._models.isInstalled(e)]
+		"""The chosen models that are not here yet, the model for hard cases last."""
+		chosen = list(self._selected().values())
+		if getattr(self, "hardChoice", None) is not None:
+			chosen.append(self._hardSelected())
+		found = []
+		for e in chosen:
+			if e is not None and not self._models.isInstalled(e) and all(e["id"] != other["id"] for other in found):
+				found.append(e)
+		return found
 
 	def _missingBytes(self, entries):
 		"""Bytes still to download for these models, counting a file two of them share only once."""
@@ -348,6 +422,66 @@ class ModelsDialog(wx.Dialog):
 			self._start()
 			return
 		evt.Skip()
+
+	def _purposeLabels(self):
+		return {
+			# Translators: A choice of what the user wants VisionClaw for, when models are suggested.
+			advice.PLAN: _("Planning and carrying out what I ask"),
+			# Translators: A choice of what the user wants VisionClaw for, when models are suggested.
+			advice.SEE: _("Describing pictures and the screen"),
+			# Translators: A choice of what the user wants VisionClaw for, when models are suggested.
+			advice.CODE: _("Writing and fixing add-ons"),
+			# Translators: A choice of what the user wants VisionClaw for, when models are suggested.
+			advice.FAST: _("Quick answers more than exact ones"),
+			# Translators: A choice of what the user wants VisionClaw for, when models are suggested.
+			advice.ACCESS: _("Making stubborn programs, controls and web pages usable"),
+			# Translators: A choice of what the user wants VisionClaw for, when models are suggested.
+			advice.HARD: _("A larger model for hard cases"),
+			# Translators: A choice of what the user wants VisionClaw for, when models are suggested.
+			advice.VOICE: _("Asking by voice"),
+		}
+
+	def _suggest(self, picked=None):
+		"""Ask what the user wants VisionClaw for, say what fits this computer and why in the box at the top, and choose
+		the suggested models in the lists. Nothing is downloaded or kept until the user presses the first button.
+		picked: the purposes, without asking (for tests)."""
+		if self._working or self._machine is None:
+			return
+		labels = self._purposeLabels()
+		order = [ident for ident, _words, _role, _pattern in advice.PURPOSES]
+		if picked is None:
+			dialog = wx.MultiChoiceDialog(
+				self,
+				# Translators: Asked before models are suggested. The user checks one or more choices.
+				_("What do you want VisionClaw for most? Check one or more with Space, then press Enter."),
+				# Translators: Title of the question asked before models are suggested.
+				_("Suggest models"), [labels[ident] for ident in order])
+			try:
+				if dialog.ShowModal() != wx.ID_OK:
+					return
+				picked = [order[at] for at in dialog.GetSelections()]
+			finally:
+				dialog.Destroy()
+		dedicated, ram = self._machine()
+		selected = self._selected()
+		chosen = {role: entry["id"] for role, entry in selected.items() if entry is not None}
+		stored = {ident for model in self._models.stored() if not model["partial"] for ident in model["ids"]}
+		one = bool(selected.get(catalog.VISION) and selected.get(catalog.CODER)
+			and selected[catalog.VISION].get("dir") == selected[catalog.CODER].get("dir"))
+		entries = self._models.entries()
+		text = advice.advise(picked or [], entries, chosen, stored, dedicated, ram, oneModel=one)
+		found = advice.choices(picked or [], entries, dedicated, ram, chosen, one)
+		for role in (catalog.VISION, catalog.CODER):
+			if found[role] is not None:
+				self._fill(role, found[role])
+		if found[advice.HARD] is not None:
+			self.hardChoice.SetSelection(self._hardEntries.index(found[advice.HARD]))
+			self._hardTouched = True
+		self._updateButton()
+		self._setText(text + "\n\n" + _(
+			# Translators: Said after models were suggested in the models window.
+			"The lists below now show the suggested models. Nothing is downloaded or changed until you press the first "
+			"button; you can still choose others."))
 
 	def _look(self):
 		"""Look for newer models, but only after the user has said yes: this is the one time VisionClaw goes
@@ -418,7 +552,9 @@ class ModelsDialog(wx.Dialog):
 		self._cancel.clear()
 		self.startBtn.Hide()
 		self.lookBtn.Hide()
-		for choice in list(self._choices.values()) + list(self._quantChoices.values()):
+		if self.suggestBtn is not None:
+			self.suggestBtn.Hide()
+		for choice in list(self._choices.values()) + list(self._quantChoices.values()) + [self.hardChoice, self.hardAsk]:
 			choice.Disable()
 		# Translators: Button that cancels the download.
 		self.closeBtn.SetLabel(_("&Cancel"))
@@ -463,10 +599,19 @@ class ModelsDialog(wx.Dialog):
 		chosen = self._selected()
 		self._conf["visionModel"] = chosen[catalog.VISION]["id"] if chosen[catalog.VISION] else ""
 		self._conf["coderModel"] = chosen[catalog.CODER]["id"] if chosen[catalog.CODER] else "none"
+		hard = self._hardSelected()
+		if hard is not None:
+			self._conf["hardModel"] = hard["id"]
+		elif self._hardTouched or self._conf.get("hardModel"):
+			# Only a choice the user made says never; untouched, any model for hard cases put on the disk is used.
+			self._conf["hardModel"] = hardcase.NONE
+		self._conf["hardCases"] = hardcase.ASK if self.hardAsk.GetValue() else hardcase.ALWAYS
 		self.gauge.Hide()
 		self.startBtn.Hide()
 		self.lookBtn.Hide()
-		for choice in list(self._choices.values()) + list(self._quantChoices.values()):
+		if self.suggestBtn is not None:
+			self.suggestBtn.Hide()
+		for choice in list(self._choices.values()) + list(self._quantChoices.values()) + [self.hardChoice, self.hardAsk]:
 			choice.Disable()
 		self.closeBtn.SetLabel(_("&Close"))
 		# Translators: Shown when the models are ready, followed by the usage guide.
@@ -474,18 +619,20 @@ class ModelsDialog(wx.Dialog):
 		self.Layout()
 		self._onInstalled()
 		if self._onChosen is not None:
-			keep = [catalog.storeKey(entry) for entry in chosen.values() if entry is not None]
+			keep = [catalog.storeKey(entry) for entry in list(chosen.values()) + [hard] if entry is not None]
 			wx.CallAfter(self._onChosen, keep)
 
 	def _failed(self, error):
 		self._working = False
 		self.gauge.Hide()
-		for choice in list(self._choices.values()) + list(self._quantChoices.values()):
+		for choice in list(self._choices.values()) + list(self._quantChoices.values()) + [self.hardChoice, self.hardAsk]:
 			choice.Enable()
 		# Translators: Button to retry a failed download.
 		self.startBtn.SetLabel(_("&Try again"))
 		self.startBtn.Show()
 		self.lookBtn.Show()
+		if self.suggestBtn is not None:
+			self.suggestBtn.Show()
 		self.closeBtn.SetLabel(_("&Close"))
 		if "CERTIFICATE_VERIFY_FAILED" in error:
 			# Translators: Shown when the download fails because the secure connection can't be checked.

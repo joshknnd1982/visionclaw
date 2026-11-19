@@ -19,6 +19,8 @@
 
 import re
 
+from . import understand
+
 DESCRIBE, TEXT, COUNT, FIND, WHERE, COLOUR, PEOPLE, CHART, FOCUS = (
 	"describe", "text", "count", "find", "where", "colour", "people", "chart", "focus")
 MAX_PIECES = 4
@@ -74,6 +76,19 @@ def pieces(question):
 	text = " ".join(str(question or "").split())
 	if not text:
 		return []
+	parts = _parts(text)
+	# The kind of each part is told from the plain words of the lines of understanding.md "in questions about a picture"
+	# and the user's own words (claw/understand.py): "what's scribbled on it" asks for what is written. The model is still
+	# asked in the user's own words, part for part; only where the plain words split otherwise are they asked in those.
+	reading = understand.current().read(text, where=understand.PICTURE)
+	plain = _parts(reading.text) if reading.changed and reading.text else parts
+	if len(plain) != len(parts):
+		parts = plain
+	return [(kindOf(told), said) for told, said in zip(plain, parts)] or [(kindOf(text), text)]
+
+
+def _parts(text):
+	"""A question's separate questions, in order. A piece of fewer than two words belongs to the one before it."""
 	parts = []
 	for part in _SPLIT.split(text):
 		part = part.strip(" ,.;")
@@ -85,7 +100,7 @@ def pieces(question):
 		parts.append(part)
 	if len(parts) > MAX_PIECES:
 		parts = parts[:MAX_PIECES - 1] + [" and ".join(parts[MAX_PIECES - 1:])]
-	return [(kindOf(part), part) for part in parts] or [(kindOf(text), text)]
+	return parts
 
 
 def rule(kind):

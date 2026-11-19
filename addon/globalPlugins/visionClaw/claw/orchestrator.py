@@ -11,7 +11,7 @@
 import time
 
 from . import agent, consensus, debuglog, followups, lookup, pageview, planner, planning, policy, prompts, shapes
-from . import understand, worksheet
+from . import corrections, understand, worksheet
 from . import memories as memoriesModule
 from . import skills as skillsModule
 from . import task as taskModule
@@ -87,6 +87,8 @@ class Orchestrator:
 		# The request before this one, for a request that follows it (claw/followups.py): "do that again",
 		# "and the pitch?". Kept while NVDA runs, and nowhere else.
 		self.last = None
+		# The request before, as the user said it, for a correction of it (claw/corrections.py). Only while NVDA runs.
+		self.lastSaid = ""
 		self.clock = time.monotonic
 		# How requests were done well on this computer (claw/planning.py), or None; set by the add-on.
 		self.plans = None
@@ -106,6 +108,7 @@ class Orchestrator:
 	def run(self, task):
 		"""Carry out a task. Never raises: the outcome is in task.state and task.answer."""
 		debuglog.log("task", f"New request: {task.request!r}. Reasoning setting: {task.reasoning}.")
+		task.original = task.request
 		try:
 			task.sheet = worksheet.Sheet(self.workFolder, task.request)
 		except Exception as e:
@@ -149,6 +152,7 @@ class Orchestrator:
 				try:
 					self.last = followups.Last(
 						task.request, getattr(task, "plainAnswer", "") or task.answer, self.clock(), task.state == taskModule.DONE)
+					self.lastSaid = getattr(task, "original", "") or task.request
 				except Exception as e:
 					debuglog.error("followups", "The request could not be kept for the next one", e)
 		return task
@@ -165,6 +169,8 @@ class Orchestrator:
 		task.setState(taskModule.UNDERSTANDING, "Understanding your request.")
 		# The user's words, understood the way a text adventure understands its player: casual words and the user's
 		# own taught words become the plain words VisionClaw knows, by plain code.
+		# "No, I meant ...": what was meant is done instead of the request before (claw/corrections.py).
+		request = self._corrected(task, request)
 		request = self._understand(task, request)
 		# A request that follows the one before it is written out in full first, or answered at once.
 		request, background = self._follow(llm, task, request)
@@ -245,7 +251,7 @@ class Orchestrator:
 		self._learn(task)
 		self._keepPlan(task, request, recipes, how)
 		self._keepModel(task)
-		kept = self._keep(task)
+		kept = self._keep(task) or self._keepCorrection(task, request)
 		if kept:
 			answer = f"{answer.rstrip()}\n{kept}" if answer else kept
 		# One sentence, said once, that something which fits this request can be downloaded (claw/offers.py).
@@ -310,6 +316,60 @@ class Orchestrator:
 		full = followups.checked(written, request, last, mustChange=followups.strong(request))
 		debuglog.log("followups", f"The model wrote {written!r}; plain code " + ("stands behind it." if full else "does not use it."))
 		return full
+
+	def _corrected(self, task, request):
+		"""For a request that corrects the one before it ("no, I meant X"): what was meant, which is done instead, and
+		the words of the request before are kept on the task for the question at the end (_keepCorrection). Any other
+		request comes back as it is. Plain code reads it; a fault here never ends the request."""
+		try:
+			meant = corrections.correctionOf(request)
+		except Exception as e:
+			debuglog.error("corrections", "The request could not be read for a correction", e)
+			return request
+		if not meant:
+			return request
+		last = self.last
+		age = None if last is None else max(0.0, self.clock() - last.when)
+		before = self.lastSaid if age is not None and age <= corrections.SOON_SECONDS else ""
+		task.request = meant
+		if before:
+			task.corrects = before
+			task.emit(taskModule.TALK, (
+				f"You said: \"{request}\". So the request before, \"{before}\", was not what you meant. This is taken as: {meant}"))
+		else:
+			task.emit(taskModule.DETAIL, f"Taken as: {meant}")
+		debuglog.log("corrections", f"{request!r} corrects {before!r}; done instead: {meant!r}")
+		return meant
+
+	def _keepCorrection(self, task, request):
+		"""After a correction that went well, and only when the user lets VisionClaw keep things: asks once whether the
+		words of the request before should be understood as what was meant from now on, and with a yes keeps them as the
+		user's own words (claw/understand.py). Returns the sentence that tells the user, or "". Never a fault."""
+		before = getattr(task, "corrects", "")
+		if not before or self.understanding is None:
+			return ""
+		try:
+			if self.remembering() != memoriesModule.AUTO or planning.outcome(task) is not True:
+				return ""
+			pair = corrections.offer(self.understanding.trimmed(before), request, understand.refusal)
+			if pair is None:
+				return ""
+			said, meant = pair
+			choice = self.askUser("That was done. " + corrections.question(said, meant), list(corrections.CHOICES))
+			if choice != 0:
+				debuglog.log("corrections", f"The user did not want {said!r} kept as {meant!r}.")
+				return ""
+			self.understanding.teach(said, meant)
+		except ValueError as e:
+			return f"These words were not kept: {e}"
+		except (taskModule.Cancelled, consensus.Declined):
+			return ""
+		except Exception as e:
+			debuglog.error("corrections", "A correction could not be kept", e)
+			return ""
+		debuglog.log("corrections", f"Kept as the user's own words: {said!r} means {meant!r}")
+		return (f"From now on, VisionClaw understands \"{said}\" as \"{meant}\". To undo it, say forget the word "
+			f"{said}.")
 
 	def _understand(self, task, request):
 		"""The request as VisionClaw understands its words (claw/understand.py). Where the meaning of a word was

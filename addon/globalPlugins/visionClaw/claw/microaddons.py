@@ -304,7 +304,7 @@ def tidy(source, purpose, facts=""):
 		except SyntaxError:
 			return "".join(source)
 		lines = source.splitlines(keepends=True)
-	source = fixRoles(fixNames(source))
+	source = _dropEventDecorators(fixRoles(fixNames(source)))
 	program = _programAsked(purpose, facts)
 	if program and program.lower() not in _limits(source):
 		source = _limitTo(source, program)
@@ -340,6 +340,25 @@ def fixNames(source):
 	if not re.search(r"^\s*from\s+datetime\s+import\b", source, re.MULTILINE):
 		source = _DATETIME.sub(lambda found: f"datetime.datetime.{found.group(1)}(", source)
 	return source
+
+
+def _dropEventDecorators(source):
+	"""NVDA finds an event of an add-on by its name alone (event_gainFocus and so on); a decorator on it is made up and
+	stops the add-on from loading. Qwen3 14B wrote @eventHandler.registerEvent("event_valueChange") on 2026-11-19
+	(tests/live_codeplan.py, VC_HARD). Plain code takes such a decorator off an event."""
+	try:
+		tree = ast.parse(source)
+	except SyntaxError:
+		return source
+	lines = source.splitlines(keepends=True)
+	drop = []
+	for node in ast.walk(tree):
+		if isinstance(node, ast.FunctionDef) and node.name.startswith("event_"):
+			for decorator in node.decorator_list:
+				drop.extend(range(decorator.lineno, decorator.end_lineno + 1))
+	for lineno in sorted(set(drop), reverse=True):
+		del lines[lineno - 1]
+	return "".join(lines)
 
 
 def fixRoles(source):

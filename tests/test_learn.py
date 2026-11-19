@@ -398,7 +398,8 @@ for capable, line, answer in (
 	runner.stepwise = lambda: "always"
 	task = runner.run(taskModule.Task("How do I copy text?"))
 	assert task.state == taskModule.DONE and task.answer == answer, (capable, task.answer)
-	assert len(model.prompts) == (2 if capable else 1)
+	# The same question asked again is a small model's vote (claw/llm.py), not a question of another kind.
+	assert len(set(model.prompts)) == (2 if capable else 1)
 	if capable:
 		assert "Where the user is: Program: notepad. Window title: Untitled." in model.prompts[1]
 		assert "2. From Windows: Copy, cut, paste. Control+C copies." in model.prompts[1]

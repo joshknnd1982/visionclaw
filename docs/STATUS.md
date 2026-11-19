@@ -2216,6 +2216,120 @@ itself; what each call is fed does. So the work sheet was made the one place eac
   loaded into NVDA, and the look tool's questions in parts have run only against stand-ins. `docs/TESTPLAN.md` has a
   new section for them.
 
+## Stubborn controls, the model for hard cases, and models suggested by task (1.12.0, 2026-11-19)
+
+The owner asked, in one request: "when fixing the most stubborn accessibility issues with various windows, apps,
+controls, control states, objects, object states, roles, classes, window states ... including all kinds of website
+objects and controls, make visionclaw and its parsers, orchestrators, use the various small AI models work to the best
+of their ability. Use clever worded skills, cleverly worded system prompts, RAG, and memory markdown file usage to get
+the most out of the modded smallclaw, visionclaw itself, the model that allows for dictation, and all offered qwen AI
+models from the smallest to the largest, capped at 9b parameter models, with edge cases using a 14b parameter model.
+and ensure q4_k_m and q6_k are offered as model quant choices. and ensure visionclaw can suggest model type based on
+hardware and the task the user wishes to perform." Four other Claude sessions worked in the same checkout at the same
+time; the files were split between them by message, and each staged only its own.
+
+**Which 14B model.** Read from Hugging Face's API on 2026-11-19 (`api/models?author=Qwen&sort=createdAt`): the newest
+families with small sizes are still Qwen3.5 (0.8B, 2B, 4B, 9B); Qwen3.6 and Qwen3.8 start at 27B; Qwen-Drive-1.0-4B is
+for driving. No Qwen model of 10 to 16 billion parameters sees pictures (Qwen3-VL goes from 8B to 32B). Of the text
+models, Qwen3 14B (Apache 2.0, with a thinking mode) and Qwen2.5 Coder 14B (Apache 2.0) exist in both quants as single
+files. Qwen3 14B was taken, from Qwen's own page `Qwen/Qwen3-14B-GGUF` at revision 530227a7, Q4_K_M 9,001,752,960
+bytes and Q6_K 12,121,937,248 bytes with their SHA-256: it thinks before it answers, which is what a hard case needs.
+Qwen2.5 Coder 14B was not added; it can be, on the owner's word. Every model is still offered in Q4_K_M and Q6_K
+(`tests/test_parts.py`), the 14B too; the speech models exist only as Q8_0, and the suggestion says so.
+
+**What was built** (the rules are in CLAUDE.md):
+- `claw/catalog.py`: Qwen3 14B as an entry with `edge` (`isEdge`), for the coder's job; never suggested for everyday use;
+  `models.json` written again (20 entries, list of 2026-11-19); a fetched entry keeps `edge` only as True.
+- `claw/backend.py`, `claw/runtime.py`: a model larger than the chip is split between it and the processor
+  (`-ngl auto --fit on`, read from the bundled engine's help: `--fit` defaults to on and fits what is not set); a model
+  that should fit and does not start whole is tried split before the chip is given up; a failed split does not mark the
+  chip as broken. `runtime.hardCase(entry)` uses the model for hard cases for both jobs, in one thread only, unloads the
+  everyday models first and itself afterwards. `whereText` says when a model is shared with the processor.
+- `claw/hardcase.py`, `hardtools.py`: what a hard case is, the question, the user's own words that ask for it, and
+  using it for one piece of work. Used by `create_addon` (writing that does not pass the checks, an add-on that does
+  not start, or the user's words), `fix_addon` (an add-on corrected before that fails again, or one that cannot be
+  corrected) and the inspection (controls whose picture and facts did not settle; `hardcase.settles`).
+- The models window: the list "Model for hard cases" (None first) and the check box "Ask me before the model for hard
+  cases is used" (settings `hardModel`, `hardCases`); the button "Suggest models for what I want to do", which asks
+  with check boxes and puts the suggested models into the lists (`advice.choices`) without downloading anything.
+- `claw/advice.py`: purposes stubborn programs, hard cases and asking by voice; how the 14B would run on this computer;
+  whether the card has room for the Q6_K of the suggestion; the last sentence, with NVDA+Alt+M, is never cut.
+- `claw/accessnotes.py`: what was found about a program or website as a Markdown file in `access` of the data folder;
+  agreed ways reused without asking a model (`known`); the add-on writer gets the lines that share a telling word
+  (`nvdatools.accessLines`); what drew the window and what each deep check found are kept too.
+- Naming a control without a name (`working.NAME_SYSTEM`, `NAME_SCHEMA`, `aroundText`, `named`, `tellAround`,
+  `copies`): a system prompt (`prompts.seeing`) where there was none, a form of one short field, the surroundings for a
+  model that is not small, a copied name asked again and then dropped; `audit.cleanName` takes "button" and its like off
+  the end of a name.
+- `audit._stateless`: a finding when tabs report none as selected, or buttons that open or show something report no
+  state.
+- The speech model: `voice.namesHere` and `voiceui.namesHere` (the program, the user's taught words, the focus, the
+  title's parts, a few controls, read in at most 0.15 seconds), and `voice.fitted` (a told name heard split is joined).
+- Skills: `control-states`, `custom-web-control`, `window-states`, `wrong-kind-of-control`, `model-for-hard-cases`
+  (63 built in). Notes looked things up in: `knowledge/visionclaw-stubborn.md`, gated in `lookup.NOTES` (`_STUBBORN`).
+
+**Measured with the real models** (Qwen3.5 9B from the owner's add-on folder; Qwen3.5 2B, 0.8B and Qwen2.5 Coder 1.5B
+from `C:\Users\joshk\vc-test-models`, downloaded with the owner's yes by another session; Qwen3-ASR 0.6B Q8_0):
+
+- **Naming a control without a name** (`tests/live_naming.py`): seventeen drawn buttons each, sixteen icons and an empty
+  one, with a program, a title and the named controls around each. The first set and its rules were written before
+  anything was run; the rule that only a model that is not small is told the surroundings was made from the first set,
+  and the second set was written after that and before anything was run on it. Named rightly (an empty button must get
+  no name; a name copied from a control around it counts as wrong):
+
+  | Model | Set | As before | Instructions and form | With the surroundings | As VisionClaw now asks |
+  |---|---|---|---|---|---|
+  | Qwen3.5 9B | first | 16 | 16 | 17 | 17 |
+  | Qwen3.5 9B | second | 13 | 13 | 16 | 16 |
+  | Qwen3.5 2B | first | 15 | 16 | 15 | 16 |
+  | Qwen3.5 2B | second | 14 | 15 | 12 | 15 |
+  | Qwen3.5 0.8B | first | 12 | 13 | 2 | 13 |
+  | Qwen3.5 0.8B | second | 12 | 10 | 5 | 10 |
+
+  Over both sets: 9B 29 to 33 of 34, 2B 29 to 31, 0.8B 24 to 23 (no real change). Told the surroundings, the 0.8B
+  copied them nearly every time ("Spotify Premium", "Outlook", "Archive"), and the 2B called an empty button "New Game";
+  that is why only a model that is not small is told them. The scorer was corrected once after the runs, before the
+  scores above were taken: "Wi-Fi" counts as wifi.
+- **The speech model told the names where the user is** (`tests/live_voice_names.py`, on the processor): requests
+  spoken into WAVE files by Windows' voices David and Zira. First set (14 requests, 28 recordings, written before the
+  run): told only VisionClaw's own names 20 right, told the window's names 24; `voice.fitted` was then made from its
+  misses ("wave table", "foobar 2000"), after which the same set gave 27. Second set (13 requests, 26 recordings, written
+  after `fitted` and before running): 16 right before, 26 now. Together 36 to 53 of 54. In both sets, requests that name
+  nothing of the window ("click the contact button" with Kontakt told) were heard as said. The one left: "foobar two
+  thousand".
+- **Tried and dropped: judging in two small questions for the smallest models** (`working.stepwiseWay`, written and
+  removed the same day): first the kind of control (dragged, pressed, typed, touched, only shows), then the way among
+  those of the kind. On the sixteen drawn controls of `tests/live_working.py`: Qwen3.5 0.8B 5 right in one question, 3 in
+  two; Qwen3.5 2B 13 and 9. The facts were decided by plain code in both (14 of 14). Every model gets one question.
+- **Qwen3 14B, with the owner's yes** ("yes. download it and test with it ... only use q4_k_m quant"): downloaded in
+  Q4_K_M through VisionClaw's own download code (`catalog.Catalog.download`, size and SHA-256 checked) into
+  `C:\Users\joshk\vc-test-models\qwen3-14b`, 8.4 GB in 90 seconds. It ran on the GeForce RTX 5060 Laptop GPU (8 GB)
+  shared with the processor: the engine took `-ngl auto --fit on`, and `whereText` said so. The owner's NVDA had
+  VisionClaw's 9B loaded on the same card at the time.
+  - *Add-ons* (`VC_HARD=qwen3-14b tests/live_codeplan.py`, the same nine add-ons and checks as the 9B above, the 14B
+    writing and reviewing as in a hard case): **piece by piece 9 of 9 did what was asked, 488 seconds** (the 9B: 8 of 9,
+    446 s; the Firefox-only add-on, which the 9B got wrong, was right); **as one piece 6 of 9, 581 seconds** (the 9B: 4
+    of 9, 1806 s, measured before one of the 9B's fixes). Its one-piece misses: the Firefox add-on spoke in Chrome
+    too, the checkbox add-on was silent when checked, and the progress bar add-on used a decorator NVDA does not have,
+    `@eventHandler.registerEvent`, which plain code now takes off an event (`microaddons._dropEventDecorators`).
+  - *Controls a program draws itself* (`tests/live_hard.py`, twelve facts plain code cannot decide, written before
+    the run): the 9B as the everyday coder 6 of 12 right, in 23 s; the 14B as in a hard case (reasoning medium) also
+    6 of 12, in 209 s, about 17 s each. The 14B said "cannot tell" five times where the 9B guessed, and made one wrong
+    guess where the 9B made three: as the one that settles a disagreement, it changes little and errs little.
+  - Recorded in `advice.MEASURED`, so a suggestion says it word for word.
+- **Not measured:** the split of a model that should fit but does not start whole was tested only against stand-in
+  engines (`tests/test_runtime.py`); the hard cases inside `create_addon`, `fix_addon` and the inspection were checked
+  with stand-ins, the 14B itself through the live tests above, not inside NVDA.
+
+**Tested with plain Python**: `tests/test_stubborn.py` (new: the access notes as a file, the user's changes, the limit,
+a broken path; hard cases, the question, the user's words, `settles`; missing states and what is no finding; the
+naming question and rule; the knowledge note; the names told to the speech model and `fitted`),
+`tests/test_runtime.py` (the split, a hard case in one thread only, a failed split), `tests/test_parts.py` (the 14B in
+both quants, never suggested, every everyday model 9B or smaller), `tests/test_models_window.py` (the list Model for
+hard cases, the check box, the button that suggests, with the real wxPython), `tests/test_advice.py` (every new purpose
+on four computers), `tests/test_skills.py` (the five skills chosen for their words), and the stub test's naming line.
+**Not run inside NVDA.** `docs/TESTPLAN.md` has a new section.
+
 ## Status updates while VisionClaw takes long (1.12.0, 2026-11-19)
 
 The owner asked on 2026-11-19: "If a visionclaw request, anything from nvda+alt+f, nvda+alt+o, nvda+alt+c,
@@ -2267,7 +2381,91 @@ the reminder to press NVDA+Alt+P harmful. Now it is armed when the first piece i
 reading, not the timing with the 9B, not braille (an update goes through `ownvoice.say`, which also brailles it).
 `docs/TESTPLAN.md` has a new section.
 
+## Small models stretched: a model picked for each job, votes, corrections kept, words understood everywhere (1.12.0, 2026-11-19)
+
+The owner asked: "claude must stretch the implementation of smallclaw which has been modded to work with visionclaw, and
+claude must stretch these small local offline AI models to their limits with appropriate clever skills, clever system
+prompts, clever RAG, clever memory save and memory recall, clever model suggestions for the user to choose depending on
+job, or let visionclaw pick with silent autosuggestions"; and while it was being done: "all visionclaw orchestrators must
+follow suit and also be flexible and adaptable and understand the meaning of the various ways a user may make various
+requests."
+
+Up to five sessions of Claude worked in this checkout that morning. This work was kept in a git worktree of its own
+(C:\Users\joshk\VisionMate-stretch, branch stretch-small-models, nothing committed) until 1.11.0 was released, so that
+it did not go unmeasured into 1.11.0's package, and was then put on top of 1.11.0 here; three overlapping places were
+merged by hand (`llm.py` with the status updates' `thinking=`, `settings.py` with `busy`, `__init__.py`).
+
+With the owner's yes, Qwen3.5 2B, Qwen3.5 0.8B and Qwen2.5 Coder 1.5B (Q4_K_M) were downloaded by VisionClaw's own
+verified download code into C:\Users\joshk\vc-test-models, outside the add-on, for measuring.
+
+**What was built** (the rules are in CLAUDE.md):
+- `claw/modelpick.py`, the setting "Which model does each job" (`modelPick`), `plugin._pickModels`, `_pickFor`,
+  `modelPickText`; the answer to "which model are you using" ends with it (`nvdatools.modelInfo`).
+- Votes: `llm.LLM.json`, `_vote`, `votedField`, `policy.votes`; `tests/eval_votes.py`.
+- Memory: recall by concepts (`memories.recallWords`); how fast answers should come kept without being asked.
+- `claw/corrections.py`, `orchestrator._corrected`, `_keepCorrection`, `understand.Grammar.trimmed`.
+- Scoped lines in `understanding.md`, `understand.use`, `current`, `Grammar.read(where=...)`, read by `codeplan.read` and
+  `pictures.pieces`; `tests/eval_words.py` and `tests/eval/words-*.json`.
+- Skills, prompts, notes: the skill Choosing a model says what to say when VisionClaw picks (shortened to stay under
+  `skills.GUIDE_CHARS`); three sections in `visionclaw-asking.md`, asked when a question names them (`lookup._ASKING_NOTES`).
+  No system prompt was changed: nothing measured called for it.
+
+**Tried and found not to work: confidence from the engine's token probabilities.** The bundled engine gives `logprobs`
+with a JSON schema, but they are the probabilities before the form's rules are applied: asked to choose among fixed
+jobs for "make nvda talk faster", Qwen3.5 9B wrote "change_setting", whose first token had a raw log-probability of
+-4.2, while the model would rather have written "Configure" (-2.7). They cannot say how sure the model is among the
+allowed answers, so agreement between repeated answers was used instead.
+
+**What was tested, and how.**
+- Plain Python: `tests/test_modelpick.py` (made-up computers: no card, 8 GB, 12 GB; speed wished for; a model that went
+  badly; two quants; the model for hard cases never picked; what is said), `tests/test_votes.py` (a scripted model:
+  majority, ties, stopping early, what is never voted on), `tests/test_corrections.py` (the ways people correct, and
+  whole requests: the offer, yes, no, "only when I ask", nothing before, a failed request), `tests/test_words_everywhere.py`,
+  `tests/test_memories.py`, and `tests/test_nvda_stub.py` (the setting off and on, the pick handed to the runtime, what is
+  said). In this checkout `python tests/run_all.py` fails only in `test_help.py`, on eight new recipes of another
+  session's uncommitted work that have no help words yet.
+- **Votes, with the real models**, choosing the job (`tests/eval_votes.py`, nothing carried out), on the AMD Radeon 780M
+  through Vulkan because the GeForce was in use by another session; Qwen2.5 Coder 1.5B as the second model; on the code
+  of 1.10.0, before this work was moved onto 1.11.0:
+
+  | Model, set | Votes off | Votes on | Time in choosing |
+  |---|---|---|---|
+  | Qwen3.5 2B, first set (137) | 130 right, 5 asked, 2 wrong | the same, request for request | 456 s to 609 s |
+  | Qwen3.5 2B, third set (65) | 58 right, 2 asked, 5 wrong | 59 right, 1 asked, 5 wrong | median 3.1 s to 4.5 s |
+  | Qwen3.5 0.8B, five answers, third set (65) | 56 right, 5 asked, 4 wrong | the same | 192 s to 330 s |
+
+  So votes change little where plain code already decides most; the smallest models now give three answers, as the
+  fourth and fifth changed nothing. Forms filled in by a small model were not measured.
+- **Words understood everywhere**, plain code (`python tests/eval_words.py`), sets written before anything was run on
+  them; the lines were written from the development sets only:
+
+  | Set | Only the lines every request gets (1.11.0) | With the lines of their own |
+  |---|---|---|
+  | Add-on requests, development (24) | 5 | 24 |
+  | Add-on requests, held out (20) | 3 | 11 |
+  | Picture questions, development (22) | 16 | 22 |
+  | Picture questions, held out (16) | 12 | 12 |
+
+  The held-out picture questions gained nothing; with no lines at all one more of them was read rightly (13), so a line
+  every request gets misleads one of them. It was not looked at, so as not to spend the set; a new set is needed to find
+  it. None of the scoped lines reaches the routing of a request, so `known.json` and sets 1 to 4 are unchanged by them.
+- **The piece-by-piece add-on writer of 1.11.0 with the small models** (`tests/live_codeplan.py`, on the Radeon, Qwen2.5
+  Coder 1.5B writing and Qwen3.5 2B reviewing): as one piece 8 of 9 passed the checks and 2 of 9 did what was asked in 91
+  seconds; in pieces 9 of 9 passed and 8 of 9 did what was asked in 49 seconds. The one miss (`datetime.now()`) was then
+  corrected by the 1.11.0 session (`microaddons.fixNames`), which measured 9 of 9 on the GeForce.
+- **Not run inside NVDA**: the setting and the picking in a running NVDA, the question after a correction, the add-on
+  writer and the look tool with their own lines. `docs/TESTPLAN.md` has a section for them.
+
 ## Next session
+
+1.12.0's part for small models (the section above): with the owner's yes, walk through "Small models stretched" in
+`docs/TESTPLAN.md` inside NVDA, first "Which model does each job" set to "VisionClaw picks" with two models on the disk.
+Then measure what votes do to forms a small model fills in, which nobody has measured, before giving small models more
+answers; and write a new held-out set of picture questions to find the line every request gets that misleads one of them.
+
+1.12.0 (this session's part): Qwen3 14B was measured in live tests (see above). Next, with the owner's yes, the new
+section of `docs/TESTPLAN.md`, "Stubborn controls, the model for hard cases, suggestions by task", in NVDA: the first
+item is a real hard case, with the 14B chosen in the models window.
 
 1.11.0 understands casual words and the user's own words, feeds every step from a work sheet, and writes add-ons
 piece by piece. First, with the owner's yes: the new section of `docs/TESTPLAN.md`, "Understanding your words, the

@@ -135,3 +135,48 @@ Changed only where something to do begins: at the start of a request, or after "
 - "where did [x] go", "where has [x] gone", "where did I put [x]", "where did I save [x]" mean "find [x]"
 - "lock up [x]" means "lock [x]"
 - "dump the recycle bin", "clear out the recycle bin", "clean out the recycle bin", "flush the recycle bin", "purge the recycle bin", "wipe the recycle bin", "dump my recycle bin", "clear out my recycle bin", "clean out my recycle bin" mean "empty the recycle bin"
+
+## Same meaning, in add-ons
+
+Only where VisionClaw reads a request for an add-on into its pieces: what the add-on says or does, and when. The
+lines above apply there too. Words in quotes, the words the add-on is to say, and keys are never changed.
+
+- "pings me", "beeps at me", "beep at me", "dings me", "dings at me" mean "beeps"
+- "makes nvda ding", "makes nvda beep", "make nvda ding", "make nvda beep" mean "beeps"
+- "makes nvda say", "make nvda say" mean "says"
+- "yells", "shouts", "hollers", "bellows", "blurts out", "blurts", "calls out", "pipes up", "whispers", "sings out" mean "says"
+- "yell", "shout", "holler", "bellow", "blurt out", "blurt", "call out", "pipe up", "whisper" mean "say"
+- "chimes", "bleeps", "pings", "boops", "chirps", "squeaks", "blips", "clicks softly", "goes ding", "goes beep", "goes boop" mean "beeps"
+- "chime", "bleep", "ping", "boop", "chirp", "squeak", "blip", "click softly" mean "beep"
+- "makes a sound", "makes a noise", "plays a sound", "makes a beep", "sounds a tone" mean "beeps"
+- "make a sound", "make a noise", "play a sound", "sound a tone" mean "beep"
+- "focus hits", "focus jumps to", "focus jumps onto" mean "focus lands on"
+- "when i focus [thing]", "whenever i focus [thing]" mean "when [thing] gets the focus"
+- "end up on", "end up at" mean "land on"
+- "gets ticked" means "gets checked"
+- "is ticked" means "is checked"
+- "gets unticked" means "gets unchecked"
+- "is unticked" means "is unchecked"
+- "becomes greyed out", "becomes grayed out" mean "becomes disabled"
+- "gets switched on", "gets turned on" mean "gets pressed"
+- "gets switched off", "gets turned off" mean "gets unpressed"
+- "goes busy" means "becomes busy"
+- "comes in" means "arrives"
+- "gets opened up" means "gets expanded"
+
+## Ways to say what to do, in add-ons
+
+- "whip up", "knock together", "rig up", "throw together", "cook up" mean "make"
+
+## Same meaning, in questions about a picture
+
+Only where VisionClaw reads a question about a picture or the screen into its parts, to know what kind of answer it
+wants. The lines above apply there too.
+
+- "make out" means "read"
+- "lettering" means "text"
+- "hue", "colouring", "coloring" mean "colour"
+- "tally up", "tally" mean "count"
+- "scribbled", "scrawled", "jotted down", "jotted" mean "written"
+- "trendline", "trend line" mean "trend"
+- "lit up" means "highlighted"

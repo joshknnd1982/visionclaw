@@ -720,6 +720,30 @@ shown for a moment and hidden again.
 - [ ] On a photo or a window: "what is in this picture, and is there any text in it?": two answers, each after its
       own question.
 
+## Stubborn controls, the model for hard cases, suggestions by task (1.12.0)
+- [ ] NVDA+Alt+M: under the two lists of the coder is the list "Model for hard cases", with "None: never use a larger
+      model for hard cases" chosen at first, then Qwen3 14B Q4_K_M and Q6_K with their sizes; under it the check box
+      "Ask me before the model for hard cases is used" is checked. Leaving None and pressing the first button downloads
+      nothing more than before.
+- [ ] In the models window, "Suggest models for what I want to do": a list of check boxes. Check "Making stubborn
+      programs, controls and web pages usable" with Space and press Enter: the box at the top says why, the lists show
+      the suggested models, and nothing is downloaded until the first button is pressed.
+- [ ] "Which model is best for stubborn programs?" and "which speech model should I use?": answered from this computer's
+      graphics card and memory, ending with NVDA+Alt+M. The first names the model for hard cases and how it would run.
+- [ ] With the owner's yes, download Qwen3 14B Q4_K_M in the models window. "What model is installed" names it. Say
+      "fix my add-on ... with the model for hard cases": no question; "Asking the model for hard cases" is said; it runs
+      shared between the card and the processor (VisionClaw's log: "-ngl auto"); with the next request the everyday
+      model is back.
+- [ ] An add-on the everyday model cannot write (or one that fails again after it was corrected): VisionClaw asks
+      whether to try once more with the larger model; No leaves everything as before.
+- [ ] "Check this program" where tabs or a "Show more" button report no state: the report says a state may be missing.
+- [ ] After a deep check of a program with controls NVDA cannot tell, the folder access in VisionClaw's data folder
+      holds a Markdown file named after the program. A second deep check says "what VisionClaw found here before" for
+      the controls that were agreed the first time, and asks no model about them.
+- [ ] "Fix them" in a program with an icon button that has no name: the name offered says what the button does.
+- [ ] NVDA+Alt+V in a program with an unusual name (Audacity, REAPER, Kontakt): speak a request that names it, or a
+      control of its window; the box shows the name written as the program writes it.
+
 ## Status updates while VisionClaw takes long (1.12.0)
 - [ ] With Qwen3.5 9B and "How much the models think before acting" set to High, NVDA+Alt+C: "write an add-on that
       beeps when a link gets the focus". After 15 seconds without a spoken step: "Still working on your request, 15
@@ -742,6 +766,29 @@ shown for a moment and hidden again.
 - [ ] Settings, "Status updates while VisionClaw takes long": Never, and no update is said, but NVDA+Alt+P still
       answers; 10 seconds, and updates come every 10 seconds.
 - [ ] With a braille display: the updates are shown on it too.
+
+## Small models stretched: which model does each job, corrections, words everywhere (1.12.0)
+- [ ] VisionClaw's settings: "Which model does each job" is there, after "Ask the models one small question at a time",
+      with "The models I chose in the models window; VisionClaw only suggests" chosen at first.
+- [ ] With your own choice: "which model are you using" answers as before; with more than one model on the disk, where
+      VisionClaw would pick another, the answer ends with "Of the models on this computer, VisionClaw would choose
+      differently" and how to let it. Nothing is said about it by itself.
+- [ ] Choose "VisionClaw picks from the models on this computer for each request, without asking", then ask "speak a
+      little faster". No question about models is asked; NVDA+Alt+P while it works says which model was picked and why.
+      "Which model are you using" then begins with "VisionClaw picks the model for each job itself" and says what it
+      picked last time.
+- [ ] With a small and a large model on the disk: "remember that the 9B is too slow for me", then "speak a little
+      faster": the smaller suggested model is picked; "describe the screen" still gets the largest that fits.
+- [ ] Choose your own models again: the models you chose in the models window are used again with the next request.
+- [ ] "Kill the echo", then "no, I meant turn off the typing echo": the typing echo is turned off (after the usual
+      question), then VisionClaw asks "That was done. Should VisionClaw understand "kill the echo" as ... from now on?".
+      Yes: the answer says so. A new "kill the echo" begins "Understood as". "Forget the word kill the echo" forgets it.
+- [ ] With "Remember things" set to "Only when I ask it to remember", the same correction is done without the question.
+- [ ] "Write an add-on that chimes whenever focus hits a link": it is read as a beep when a link gets the focus, and the
+      beep is written by plain code. Turned on, moving to a link beeps.
+- [ ] On a picture: "what's scribbled on the whiteboard, and tally up the icons": two answers, the first reading the
+      text, the second a count with the number first.
+- [ ] With Qwen3.5 2B as the model: requests work as before; each choice of what to do takes a little longer.
 
 ## Ten things that used to need sighted help (1.12.0)
 None of these has run inside NVDA. Each is one real run; say what you hear.

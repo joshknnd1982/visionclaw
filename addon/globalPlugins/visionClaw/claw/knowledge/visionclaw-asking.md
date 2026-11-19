@@ -3,7 +3,8 @@ one program only), claw/followups.py (a request that follows the one before it),
 (a date chosen in a calendar), claw/voice.py, voiceinput.py and voiceui.py (asking by voice), claw/advice.py (which
 model fits what you want to do); and on 2026-11-19 from claw/understand.py, wordtools.py, claw/worksheet.py,
 claw/codeplan.py and claw/pictures.py (how words are understood, your own words, the work sheet, an add-on written
-piece by piece, questions about a picture) and claw/busy.py (status updates while VisionClaw takes long). When the code
+piece by piece, questions about a picture) and claw/busy.py (status updates while VisionClaw takes long), and claw/modelpick.py,
+claw/corrections.py and claw/llm.py (picking the model for each job, a correction kept, votes). When the code
 changes, read it again and bring these up to date; do not write them from memory. Each section is short on
 purpose: one section is one answer, and it is given to the user word for word by the smallest models.
 Nothing may stand between this comment and the first heading but the title, or it becomes a section. -->
@@ -99,3 +100,17 @@ own question.
 When a large model or high thinking keeps you waiting, VisionClaw says how far it is after 15 seconds of quiet,
 and again every 15 seconds. NVDA+Alt+P says it at any time; NVDA+Alt+X stops it. In VisionClaw's settings, Status
 updates while VisionClaw takes long sets 10, 15, 30 or 60 seconds, or never.
+
+## Letting VisionClaw pick the model for each job, which model it picked, picking models by itself
+In VisionClaw's settings, Which model does each job: your own choice, or VisionClaw picks from the models on this
+computer for each request, without asking. It picks the largest that fits your graphics card, a model for code when
+it writes an add-on, and a faster one only if you said you want speed. Ask which model are you using to hear it.
+
+## No, I meant: correcting VisionClaw when it got your request wrong, and keeping the correction
+Say no, I meant, and what you wanted, or not that, and what you meant. VisionClaw does that instead. When it went
+well, it asks once whether to understand your first words that way from now on; with a yes they are kept as your
+own words. To undo it, say forget the word, and the words.
+
+## Small models asked more than once, votes, why a small model answers the same question several times
+A small model that chooses among a few fixed answers is asked three times, and the answer most of them gave is
+taken. It makes small models a little steadier and costs a little time. Larger models are asked once.

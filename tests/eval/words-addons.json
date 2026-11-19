@@ -1,0 +1,29 @@
+{
+ "about": "Requests for an add-on in casual words, to write the lines of understanding.md for the add-on writer from (claw/codeplan.py read). Written on 2026-11-19 before anything was run on them. Each expected piece: kind key or event; for a key its gesture as NVDA writes it; for an event its event, the kind of control (NVDA's Role) or null, and the state or null (! before it: the state is gone, as unchecked); body: beep, say:<the fixed words>, or model (the model writes the lines).",
+ "requests": [
+  {"request": "make an add-on that dings whenever I land on a link", "expect": [{"kind": "event", "event": "gainFocus", "role": "LINK", "state": null, "body": "beep"}]},
+  {"request": "whip up an addon that yells 'new mail' when a dialog pops up", "expect": [{"kind": "event", "event": "foreground", "role": "DIALOG", "state": null, "body": "say:new mail"}]},
+  {"request": "build me a script that chimes when a checkbox gets ticked", "expect": [{"kind": "event", "event": "stateChange", "role": "CHECKBOX", "state": "CHECKED", "body": "beep"}]},
+  {"request": "can you make a plugin that beeps every time I tab onto a button", "expect": [{"kind": "event", "event": "gainFocus", "role": "BUTTON", "state": null, "body": "beep"}]},
+  {"request": "add-on: shout 'careful' whenever an alert shows up", "expect": [{"kind": "event", "event": "alert", "role": null, "state": null, "body": "say:careful"}]},
+  {"request": "write an add-on that makes NVDA ding when a progress bar moves", "expect": [{"kind": "event", "event": "valueChange", "role": "PROGRESSBAR", "state": null, "body": "beep"}]},
+  {"request": "give me an add-on that bleeps whenever I arrow onto a heading", "expect": [{"kind": "event", "event": "gainFocus", "role": "HEADING", "state": null, "body": "beep"}]},
+  {"request": "an add-on that makes a sound when a combo box gets expanded", "expect": [{"kind": "event", "event": "stateChange", "role": "COMBOBOX", "state": "EXPANDED", "body": "beep"}]},
+  {"request": "make an addon that says 'done' once a button becomes greyed out", "expect": [{"kind": "event", "event": "stateChange", "role": "BUTTON", "state": "UNAVAILABLE", "body": "say:done"}]},
+  {"request": "make an add-on that pings me when a notification comes in", "expect": [{"kind": "event", "event": "UIA_notification", "role": null, "state": null, "body": "beep"}]},
+  {"request": "create an add-on that hollers 'hello' as soon as a window opens", "expect": [{"kind": "event", "event": "foreground", "role": "WINDOW", "state": null, "body": "say:hello"}]},
+  {"request": "build an add-on: when I focus an edit box, play a beep", "expect": [{"kind": "event", "event": "gainFocus", "role": "EDITABLETEXT", "state": null, "body": "beep"}]},
+  {"request": "make an addon that blips when a list item gets selected", "expect": [{"kind": "event", "event": "stateChange", "role": "LISTITEM", "state": "SELECTED", "body": "beep"}]},
+  {"request": "write an addon to beep at me whenever the value of a slider changes", "expect": [{"kind": "event", "event": "valueChange", "role": "SLIDER", "state": null, "body": "beep"}]},
+  {"request": "make an add-on that plays a tone whenever a menu item gets focus", "expect": [{"kind": "event", "event": "gainFocus", "role": "MENUITEM", "state": null, "body": "beep"}]},
+  {"request": "knock together an addon that says 'link' when I move onto a link", "expect": [{"kind": "event", "event": "gainFocus", "role": "LINK", "state": null, "body": "say:link"}]},
+  {"request": "an addon that beeps whenever focus hits a radio button", "expect": [{"kind": "event", "event": "gainFocus", "role": "RADIOBUTTON", "state": null, "body": "beep"}]},
+  {"request": "make an add-on where hitting nvda+shift+t blurts out the time", "expect": [{"kind": "key", "gesture": "NVDA+shift+t", "body": "model"}]},
+  {"request": "rig up an add-on so control+alt+n reads out the focused object's name", "expect": [{"kind": "key", "gesture": "control+alt+n", "body": "model"}]},
+  {"request": "make an add-on that boops when a toggle button gets switched on", "expect": [{"kind": "event", "event": "stateChange", "role": "TOGGLEBUTTON", "state": "PRESSED", "body": "beep"}]},
+  {"request": "write an add-on that pipes up 'loading' when the window goes busy", "expect": [{"kind": "event", "event": "stateChange", "role": "WINDOW", "state": "BUSY", "body": "say:loading"}]},
+  {"request": "make an addon that dings when a tree item gets opened up", "expect": [{"kind": "event", "event": "stateChange", "role": "TREEVIEWITEM", "state": "EXPANDED", "body": "beep"}]},
+  {"request": "an addon that clicks softly whenever a check box is unticked", "expect": [{"kind": "event", "event": "stateChange", "role": "CHECKBOX", "state": "!CHECKED", "body": "beep"}]},
+  {"request": "make me an add-on that announces 'tab' whenever I end up on a tab", "expect": [{"kind": "event", "event": "gainFocus", "role": "TAB", "state": null, "body": "say:tab"}]}
+ ]
+}

@@ -74,8 +74,18 @@ assert items(models[VISION]) == [
 	"Qwen3.5 4B, Q4_K_M 3255 MB to download, Q6_K 4004 MB to download",
 	"Qwen3.5 9B, Q4_K_M 6293 MB to download, Q6_K 7988 MB to download",
 ], items(models[VISION])
-assert len(items(models[CODER])) == 6 and items(models[CODER])[-1].startswith("No coder model now")
+assert len(items(models[CODER])) == 7 and items(models[CODER])[-1].startswith("No coder model now")
 assert items(models[CODER])[3] == "Qwen2.5 Coder 7B, Q4_K_M 4466 MB to download, Q6_K 5964 MB to download"
+# The model for hard cases is offered in the coder list too, the user's choice, and says what it is.
+assert items(models[CODER])[5] == (
+	f"Qwen3 14B, Q4_K_M {mb(9001752960)} MB to download, Q6_K {mb(12121937248)} MB to download, for hard cases: larger "
+	"and slower"), items(models[CODER])[5]
+# Its own list under the coder's: none is chosen at first, so nothing of 9 GB is added to the download unasked.
+hard = dialog.hardChoice
+assert items(hard) == [
+	"None: never use a larger model for hard cases", f"Qwen3 14B Q4_K_M, {mb(9001752960)} MB to download, suggested",
+	f"Qwen3 14B Q6_K, {mb(12121937248)} MB to download"], items(hard)
+assert hard.GetSelection() == 0 and dialog._hardSelected() is None and dialog.hardAsk.GetValue()
 # The older setting, without a quant, is Qwen3.5 2B in Q4_K_M: what the user had goes on working unchanged.
 assert models[VISION].GetSelection() == 1 and quants[VISION].GetSelection() == 0
 assert dialog._selected()[VISION]["id"] == "qwen3.5-2b"
@@ -107,7 +117,7 @@ dialog._modelChanged(CODER)
 quants[CODER].SetSelection(1)
 assert dialog._selected()[CODER]["id"] == "qwen2.5-coder-7b-q6k"
 # No coder model: there is nothing to choose in the quant list, and that is said.
-models[CODER].SetSelection(5)
+models[CODER].SetSelection(6)
 dialog._modelChanged(CODER)
 assert items(quants[CODER]) == ["No coder model, so there is no quant to choose"] and dialog._selected()[CODER] is None
 models[CODER].SetSelection(3)
@@ -116,10 +126,17 @@ assert dialog._selected()[CODER]["id"] == "qwen2.5-coder-7b-q6k"  # the quant ch
 
 # The choice is kept in the settings as the entry's id, and the files in use are told, so that the unused
 # quant can be offered for removal.
+before = dialog._missingBytes(dialog._toDownload())
+# The user chooses the model for hard cases in Q4_K_M: it joins the download, and the box says it is asked about.
+hard.SetSelection(1)
+dialog._hardChanged()
+assert dialog._toDownload()[-1]["id"] == "qwen3-14b" and dialog._missingBytes(dialog._toDownload()) == before + 9001752960
+dialog.hardAsk.SetValue(False)
 dialog._finished()
 app.ProcessPendingEvents()
-assert conf == {"visionModel": "qwen3.5-9b-q6k", "coderModel": "qwen2.5-coder-7b-q6k"}, conf
-assert chosenKeys == [["qwen3.5-9b@Q6_K", "qwen2.5-coder-7b@Q6_K"]], chosenKeys
+assert conf == {"visionModel": "qwen3.5-9b-q6k", "coderModel": "qwen2.5-coder-7b-q6k", "hardModel": "qwen3-14b",
+	"hardCases": "always"}, conf
+assert chosenKeys == [["qwen3.5-9b@Q6_K", "qwen2.5-coder-7b@Q6_K", "qwen3-14b"]], chosenKeys
 dialog.Destroy()
 
 # Opened again, the window shows what was chosen.
@@ -128,8 +145,45 @@ assert again._choices[VISION].GetSelection() == 3 and again._quantChoices[VISION
 assert again._selected()[CODER]["id"] == "qwen2.5-coder-7b-q6k"
 # Each list has a label before it, which NVDA reads, with a key of its own.
 labels = [child.GetLabel() for child in again.GetChildren() if isinstance(child, wx.StaticText)]
-assert labels == ["&Vision model:", "Vision model &quant:", "C&oder model:", "Coder model qu&ant:"], labels
+assert labels == ["&Vision model:", "Vision model &quant:", "C&oder model:", "Coder model qu&ant:", "Model for &hard cases:"], labels
+assert again._hardSelected()["id"] == "qwen3-14b" and not again.hardAsk.GetValue()
 again.Destroy()
+# Never chosen, a model for hard cases already on the disk is the one shown; "none" chosen stays none.
+withHard = Shelf(list(shelf.onDisk) + [("qwen3-14b", "Qwen3-14B-Q6_K.gguf")])
+seen = dialogs.ModelsDialog(None, withHard, {"visionModel": "qwen3.5-2b", "coderModel": ""}, suggested, _quiet)
+assert seen._hardSelected()["id"] == "qwen3-14b-q6k" and items(seen.hardChoice)[2] == "Qwen3 14B Q6_K, on this computer"
+assert items(seen.hardChoice)[1].endswith(", suggested")  # Q4_K_M is suggested, as for every model
+seen._finished()
+seen.Destroy()
+never = {"visionModel": "qwen3.5-2b", "coderModel": "", "hardModel": "none"}
+closed = dialogs.ModelsDialog(None, withHard, never, suggested, _quiet)
+assert closed._hardSelected() is None
+closed._finished()
+assert never["hardModel"] == "none"
+closed.Destroy()
+
+# Suggested for what the user wants to do (the owner, 2026-11-19: "suggest model type based on hardware and the task"):
+# the button is there only where the computer can be told, the reasons go into the box at the top, the suggested models
+# into the lists, and nothing is downloaded or kept until the first button is pressed.
+assert dialogs.ModelsDialog(None, shelf, {"visionModel": "qwen3.5-2b", "coderModel": ""}, suggested, _quiet).suggestBtn is None
+asked = {"visionModel": "qwen3.5-2b", "coderModel": ""}
+window = dialogs.ModelsDialog(None, shelf, asked, suggested, _quiet, machine=lambda: (8151, 31))
+assert window.suggestBtn.GetLabel() == "&Suggest models for what I want to do..."
+window._suggest(["access"])
+text = window.text.GetValue()
+assert text.startswith("This computer has 8 GB of graphics memory and 31 GB of memory. For making stubborn programs"), text
+assert "For hard cases" in text and text.endswith("you can still choose others."), text
+assert window._selected()[VISION]["id"] == "qwen3.5-9b" and window._hardSelected()["id"] == "qwen3-14b"
+assert asked == {"visionModel": "qwen3.5-2b", "coderModel": ""}  # nothing kept yet
+assert window._toDownload()[-1]["id"] == "qwen3-14b"
+# On a small computer the larger model for hard cases is not put into the list, and that is said.
+small = dialogs.ModelsDialog(None, shelf, {"visionModel": "qwen3.5-2b", "coderModel": ""}, suggested, _quiet, machine=lambda: (4096, 8))
+small._suggest(["code", "hard"])
+assert small._hardSelected() is None and "no larger model is suggested" in small.text.GetValue()
+assert small._selected()[CODER]["id"] == "qwen2.5-coder-1.5b", small._selected()[CODER]["id"]
+assert len(window._purposeLabels()) == len(__import__("visionClaw.claw.advice", fromlist=["x"]).PURPOSES)
+window.Destroy()
+small.Destroy()
 
 # The window of the models on the disk asks with what removing really frees: a shared projector is freed only
 # with the last quant of its model.

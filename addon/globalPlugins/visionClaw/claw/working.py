@@ -126,6 +126,80 @@ CODER_SYSTEM = (
 )
 
 
+# Tried and dropped on 2026-11-19: asking the very smallest models how a control is worked in two small questions, its
+# kind (dragged, pressed, typed, touched) and then the way among those of the kind. On the sixteen drawn controls of
+# tests/live_working.py, Qwen3.5 0.8B went from 5 right to 3 and Qwen3.5 2B from 13 to 9. Every model gets one question.
+
+
+# What the model that sees is told when it names a control that has none (accesstools.nameByLooking): its task first,
+# then the one rule of naming. No example: a small model copies one as the answer.
+NAME_SYSTEM = (
+	"You give a control of a computer program a name, from its picture, for a blind person whose screen reader will "
+	"say that name.\n"
+	"The name says what the control does when it is pressed, or what it shows, in one to three words, the way the "
+	"program itself would write it on a button. Never name it by its colour, its shape or where it is. The controls "
+	"around it are named only to tell you what kind of program and toolbar this is; this control does something else "
+	"than they do. If the picture does not show what it does, answer unknown.")
+NAME_SCHEMA = {"type": "object", "properties": {"name": {"type": "string", "maxLength": 40}}, "required": ["name"]}
+# How many named controls before and after a control are told to the model that names it.
+NEIGHBOURS = 2
+
+
+def aroundText(place="", isSite=False, title="", before=(), after=()):
+	"""Where a control is, in words: the program or website, the window's title, and the named controls just before and
+	just after it, each as (kind, name). "" when nothing is known."""
+	def clipped(text, chars):
+		text = " ".join(str(text or "").split())
+		return text if len(text) <= chars else text[:chars - 1].rstrip() + "..."
+
+	parts = []
+	if place:
+		parts.append(f"It is in the {'website' if isSite else 'program'} {place}"
+			+ (f", in the window titled {clipped(title, 80)}." if title else "."))
+	if before:
+		parts.append("Just before it: " + ", ".join(f"{kind} {clipped(name, 30)}" for kind, name in before) + ".")
+	if after:
+		parts.append("Just after it: " + ", ".join(f"{kind} {clipped(name, 30)}" for kind, name in after) + ".")
+	return " ".join(parts)
+
+
+def tellAround(entry):
+	"""Whether the model that names a control is told where it is (aroundText). Measured on 2026-11-19 with sixteen
+	drawn icon buttons (tests/live_naming.py): told the controls around it, Qwen3.5 9B named 17 of 17 rightly, where 16
+	without; Qwen3.5 2B copied a neighbour's name once (15, where 16 without) and Qwen3.5 0.8B nearly every time (2, where
+	13 without). So only a model that is not small is told."""
+	return bool(entry) and not entry.get("small", True)
+
+
+def copies(name, around=(), others=()):
+	"""Whether a name a model gave only copies a control around it, the program or the window's title. around:
+	[(kind, name)]; others: more names."""
+	plain = " ".join(re.sub(r"[^a-z0-9]+", " ", str(name or "").lower()).split())
+	if not plain:
+		return False
+	for other in [other for _kind, other in around or ()] + list(others or ()):
+		if plain == " ".join(re.sub(r"[^a-z0-9]+", " ", str(other or "").lower()).split()):
+			return True
+	return False
+
+
+def named(ask, entry, around="", neighbours=(), others=()):
+	"""A name for a control without one, the way VisionClaw asks for it: ask(around) asks the model that sees and returns
+	the name it gave, cleaned. A model that is not small is told where the control is (tellAround); a name that copies a
+	control around it, the program or the window's title is asked for once more without where it is, and given up when
+	it copies again. Returns the name, or ""."""
+	tell = tellAround(entry) and bool(around)
+	name = ask(around if tell else "")
+	if tell and copies(name, neighbours, others):
+		name = ask("")
+	return "" if copies(name, neighbours, others) else name
+
+
+def nameQuestion(kind, around=""):
+	"""The question about the picture of one control without a name."""
+	return " ".join(f"The picture shows one {kind or 'control'} that has no name. {around} What is a good name for it?".split())
+
+
 def byRole(node, box=None):
 	"""How a control is worked, from the kind NVDA says it is, or None when the kind does not say.
 	box: its place (left, top, right, bottom), which says which way a slider lies."""

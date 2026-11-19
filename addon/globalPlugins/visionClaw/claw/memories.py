@@ -17,7 +17,7 @@ import re
 import threading
 import time
 
-from . import debuglog, ranking
+from . import concepts, debuglog, ranking
 from .llm import clip
 from .memory import _COMMON, _WORD, stem
 
@@ -72,7 +72,11 @@ _LIKES = re.compile(
 	r"\b(i prefer|i'd prefer|i would prefer|i like it when|i like it if|i don'?t like|i do not like|i hate|"
 	r"i'd rather|i would rather|i want you to always|i want you to never|please always|please never|"
 	r"always (ask|tell|say|speak|read|use|give|let|answer|show|explain)|never (ask|tell|say|speak|read|use|give|"
-	r"let|answer|show|explain|change|touch)|from now on|in (the )?future|next time)\b",
+	r"let|answer|show|explain|change|touch)|from now on|in (the )?future|next time|"
+	# How fast VisionClaw's answers should come: kept so that the model that is picked or suggested for a job follows
+	# it (claw/modelpick.py, claw/advice.py). "The 9B is too slow for me", "I like quick answers".
+	r"(is|are|was|were|gets|feels) too (slow|fast) for me|(speed|accuracy) matters (more |most )?(to me)?|"
+	r"i (like|want|need) (quick|quicker|fast|faster|short|shorter) answers)\b",
 	re.IGNORECASE)
 # What a memory kept without being asked must be about: how this blind user works the computer. The owner asked
 # on 2026-11-17 that prompts, memories and skills always be about how blind people use computers: speech and
@@ -86,7 +90,8 @@ _COMPUTER = re.compile(
 	r"descriptions?|colou?rs?|picture\w*|screen|window|programs?|apps?|applications?|games?|browser|web|page|"
 	r"site|email|mail|document|file|folder|add-?ons?|settings?|ask\w*|confirm\w*|delet\w*|chang\w*|"
 	r"blind|deaf\w*|sight\w*|vision|low vision|magnif\w*|new to|beginner|learning|left[- ]handed|"
-	r"right[- ]handed|language|english|short|long|detail\w*|slow\w*|fast\w*|step|steps|hints?|help|lessons?|"
+	r"right[- ]handed|language|english|short|long|detail\w*|slow\w*|fast\w*|quick\w*|speed|accura\w*|step|steps|"
+	r"hints?|help|lessons?|"
 	r"coach\w*|teach\w*|explain\w*|guides?)\b", re.IGNORECASE)
 # A memory of how the user likes things done that is about how much help an answer gives: it goes with every
 # answer a model words, whatever the question is about (the owner, 2026-11-18: help is given "respecting the
@@ -222,6 +227,24 @@ def slug(text):
 
 def words(text):
 	return {stem(word) for word in _WORD.findall((text or "").lower()) if word not in _COMMON}
+
+
+# The concepts (claw/concepts.py) that name a thing of the computer, a place of Windows, speech, braille or how fast
+# or loud. A memory is found by them as by its own words. Those that only say what is wanted ("tell", "open",
+# "how many") or name things in general ("item", "program", "window") would find every memory, and are left out.
+_RECALLED_CONCEPTS = frozenset((
+	"@tray", "@taskbar", "@desktop", "@start", "@quicksettings", "@notification", "@page", "@file", "@folder",
+	"@speech", "@braille", "@network", "@battery", "@volume", "@clock", "@faster", "@slower", "@louder", "@quieter"))
+
+
+def recallWords(text):
+	"""The words a memory is found by: its telling words, and the concepts that name what it is about."""
+	found = words(text)
+	try:
+		found |= concepts.concepts(text) & _RECALLED_CONCEPTS
+	except Exception as e:
+		debuglog.error("memories", "The concepts of a text could not be read", e)
+	return found
 
 
 def _subject(fact):
@@ -395,12 +418,14 @@ class Memories:
 		return True
 
 	def find(self, said, limit=3, cover=0.0):
-		"""The memories the user's words are about, best first."""
+		"""The memories the user's words are about, best first. Words that mean the same thing find each other
+		(recallWords): a memory about the system tray is found by "the notification area"."""
 		kept = self.all()
-		asked = words(said)
+		asked = recallWords(said)
 		if not kept or not asked:
 			return []
-		entries = [(words(entry.title + " " + entry.program), words(entry.body + " " + entry.asked)) for entry in kept]
+		entries = [(recallWords(entry.title + " " + entry.program), recallWords(entry.body + " " + entry.asked))
+			for entry in kept]
 		return [kept[index] for index in ranking.rank(asked, entries, limit, cover=cover)]
 
 	def chosen(self, which):

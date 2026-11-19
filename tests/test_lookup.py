@@ -279,7 +279,9 @@ assert task.state == taskModule.DONE and [step.tool for step in task.steps] == [
 assert task.answer.startswith(
 	"From Windows: The desktop: going to it and navigating its icons with the keyboard. Press Windows+D to go to the desktop;"), task.answer
 assert "layout" not in task.answer
-assert len(model.prompts) == 1  # the model only chose what to do; it was not asked to pick or to rephrase
+# The model only chose what to do (a very small model is asked that same choice more than once: claw/llm.py's votes);
+# it was not asked to pick or to rephrase.
+assert len(set(model.prompts)) == 1
 # A larger model puts what was found into its own words, and is shown where each piece is from.
 task, model = run("How do I copy text?", small=False, answer="Press Control+C to copy.")
 assert task.answer == "Press Control+C to copy."

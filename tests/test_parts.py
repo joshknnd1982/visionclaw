@@ -9,6 +9,7 @@ import copy
 import hashlib
 import json
 import os
+import re
 import tempfile
 import threading
 import zipfile
@@ -162,7 +163,7 @@ finally:
 
 assert catalog.QUANTS == ("Q4_K_M", "Q6_K") and catalog.DEFAULT_QUANT == "Q4_K_M"
 fours = [e for e in catalog.CATALOG if catalog.quantOf(e) == catalog.Q4]
-assert len(fours) == 9 and len(catalog.CATALOG) == 18
+assert len(fours) == 10 and len(catalog.CATALOG) == 20
 for four in fours:
 	six = catalog.variant(catalog.CATALOG, four, catalog.Q6)
 	# Every model, the 7B and 9B included, can be had as Q6_K: from the same publisher, at the same revision,
@@ -179,7 +180,21 @@ for four in fours:
 	assert catalog.displayName(four).startswith(four["name"].split(",")[0] + " Q4_K_M")
 	assert catalog.variants(catalog.CATALOG, six) == [four, six] and catalog.storeKey(four) == four["dir"]
 	assert catalog.storeKey(six) == four["dir"] + "@Q6_K"
-assert catalog.displayName(catalog.CATALOG[-1]) == "Qwen3.5 9B Q6_K, used for coding"
+assert catalog.displayName(catalog.CATALOG[-3]) == "Qwen3.5 9B Q6_K, used for coding"
+# The model for hard cases (the owner, 2026-11-19: "capped at 9b parameter models, with edge cases using a 14b parameter
+# model"): Qwen3 14B, Qwen's own files, in both quants like every model, for the coder's job, never suggested, and
+# every everyday model is 9B or smaller.
+edges = [e for e in catalog.CATALOG if catalog.isEdge(e)]
+assert [e["id"] for e in edges] == ["qwen3-14b", "qwen3-14b-q6k"] and [catalog.quantOf(e) for e in edges] == ["Q4_K_M", "Q6_K"]
+assert all(e["role"] == CODER and e["source"] == "Qwen/Qwen3-14B-GGUF" and e["licence"] == "Apache 2.0" for e in edges)
+assert all(catalog.checkEntry(e)["edge"] is True for e in edges)
+assert catalog.displayName(edges[1]) == "Qwen3 14B Q6_K" and edges[0]["memoryGb"] > 9 and edges[1]["memoryGb"] > edges[0]["memoryGb"]
+assert all(float(re.search(r"(\d+(?:\.\d+)?)B", e["name"]).group(1)) <= 9 for e in catalog.CATALOG if not catalog.isEdge(e))
+for role in (VISION, CODER):
+	for memory, card in ((8, 0), (31, 8192), (64, 24576), (128, 49152)):
+		assert not catalog.isEdge(next(e for e in catalog.CATALOG if e["id"] == catalog.recommend(role, memory, card))), (role, memory, card)
+# A list that says nothing of edge has none; a fetched entry keeps it only as True.
+assert "edge" not in catalog.checkEntry(dict(edges[0], edge="yes")) and "edge" not in catalog.checkEntry(fours[0])
 assert catalog.models(catalog.CATALOG) == fours
 # What a file is, when an older list does not say: from its name, where Q6_K_XL is not Q6_K.
 assert catalog.quantOf({"files": [{"kind": "model", "name": "qwen2.5-coder-1.5b-instruct-q6_k.gguf"}]}) == "Q6_K"

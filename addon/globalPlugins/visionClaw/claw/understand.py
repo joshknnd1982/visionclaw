@@ -38,6 +38,13 @@ _SECTIONS = (("said for nothing at the start", START), ("said for nothing at the
 	("same meaning", SAME), ("ways to say what to do", TO_DO), ("your own words", OWN))
 # Changes of these kinds change what a word means, and the user is told: "Understood as: ...".
 SAID = (SAME, TO_DO, OWN)
+# Where else than in a whole request a line applies. The owner said on 2026-11-19: "all visionclaw orchestrators must
+# follow suit and also be flexible and adaptable and understand the meaning of the various ways a user may make
+# various requests." A section whose heading ends with ", in add-ons" applies only where the add-on writer reads a
+# request into pieces (claw/codeplan.py); ", in questions about a picture" only where a question about the screen
+# is read into its parts (claw/pictures.py). There, the lines every request gets apply too; elsewhere these never.
+ADDON, PICTURE = "add-ons", "pictures"
+_SCOPES = ((", in add-ons", ADDON), (", in questions about a picture", PICTURE))
 # What a taught word may be.
 MIN_LETTERS = 2
 MAX_SAID = 60
@@ -97,14 +104,16 @@ _OWN_WORDS = re.compile(
 class Rule:
 	"""One line of a file of words: phrases that mean one thing, where they may stand, and the kind of line."""
 
-	def __init__(self, phrases, meant, kind):
+	def __init__(self, phrases, meant, kind, scope=None):
 		self.phrases = [p for p in phrases if p.strip()]
 		self.meant = meant
 		self.kind = kind
+		# None: every request; ADDON or PICTURE: only where that is read (Grammar.read(where=...)).
+		self.scope = scope
 		self.patterns = [_compile(phrase, kind) for phrase in self.phrases]
 
 	def __repr__(self):
-		return f"Rule({self.phrases!r} -> {self.meant!r}, {self.kind})"
+		return f"Rule({self.phrases!r} -> {self.meant!r}, {self.kind}" + (f", {self.scope})" if self.scope else ")")
 
 
 def _edge(text, start):
@@ -149,12 +158,13 @@ def _compile(phrase, kind):
 def parse(text, kind=None):
 	"""The rules of a file of words. kind: the kind of every line, for the user's own file; else each section's
 	heading says it. A line that cannot be read is left out and written to the log."""
-	rules, current = [], kind
+	rules, current, scope = [], kind, None
 	for line in (text or "").splitlines():
 		heading = re.match(r"^\s*##\s+(.*)$", line)
 		if heading and kind is None:
 			name = heading.group(1).strip().lower()
 			current = next((value for begins, value in _SECTIONS if name.startswith(begins)), None)
+			scope = next((value for ends, value in _SCOPES if name.rstrip(" .").endswith(ends)), None)
 			continue
 		found = _LINE.match(line)
 		if not found or current is None:
@@ -166,7 +176,7 @@ def parse(text, kind=None):
 		if not phrases or (current not in NOTHING and not means):
 			continue
 		try:
-			rules.append(Rule(phrases, meant, current))
+			rules.append(Rule(phrases, meant, current, scope))
 		except (ValueError, re.error) as e:
 			debuglog.error("understand", f"A line of words could not be read: {line!r}", e)
 	return rules
@@ -189,8 +199,9 @@ class Reading:
 		return bool(self.changes)
 
 
-def _keep(text):
-	"""The spans that are never changed, each put aside as a mark. Returns (text with marks, the spans)."""
+def _keep(text, where=None):
+	"""The spans that are never changed, each put aside as a mark. Returns (text with marks, the spans). In an add-on,
+	"that says" is what the add-on does, not a name: there only quotes, addresses, file names and keys are kept."""
 	spans = []
 
 	def mark(value, keys=False):
@@ -200,7 +211,7 @@ def _keep(text):
 	text = _QUOTED.sub(lambda m: mark(m.group(0)), text)
 	# What follows a word that begins text to be typed, a name, or a search runs to the end of what is said.
 	out, at = [], 0
-	for found in _KEEP_AFTER.finditer(text):
+	for found in (_KEEP_AFTER.finditer(text) if where != ADDON else ()):
 		if found.start() < at:
 			continue
 		rest = re.match(r"[^.,;!?]*", text[found.end():]).group(0)
@@ -310,24 +321,26 @@ class Grammar:
 		"""Every rule, the user's own first."""
 		return self._rules(self.ownPath, OWN) + self._rules(self.builtIn)
 
-	def read(self, request):
-		"""The request as it is understood (a Reading). Never raises: a fault leaves the request as it was said."""
+	def read(self, request, where=None):
+		"""The request as it is understood (a Reading). where: ADDON or PICTURE where the add-on writer or a question
+		about a picture is read; then that section's lines apply too. Never raises: a fault leaves the request as it was
+		said."""
 		try:
-			return self._understand(request)
+			return self._understand(request, where)
 		except Exception as e:
 			debuglog.error("understand", f"{request!r} could not be read for its words", e)
 			return Reading(" ".join(str(request or "").split()), [])
 
-	def _understand(self, request):
+	def _understand(self, request, where=None):
 		said = _SPACE.sub(" ", str(request or "").translate(_QUOTES)).strip()
-		rules = self.rules()
+		rules = [rule for rule in self.rules() if rule.scope is None or rule.scope == where]
 		changes = []
 		nothing = [rule for rule in rules if rule.kind in NOTHING]
 		if _OWN_WORDS.search(said):
 			# What is remembered, a skill and a word taught keep the user's own words; only a greeting is taken away.
 			text = _trim(nothing, said, changes)
 			return Reading(text if text.strip() else said, changes)
-		text, spans = _keep(said)
+		text, spans = _keep(said, where)
 		for rule in rules:
 			if rule.kind == OWN:
 				text = _apply(rule, text, changes, spans)
@@ -342,6 +355,17 @@ class Grammar:
 		if text == said:
 			changes = []
 		return Reading(text, changes)
+
+	def trimmed(self, text):
+		"""Text without the words said for nothing at its start and end (a greeting, please, thanks), and nothing else
+		changed: the user's own way of saying a thing, as it is kept from a correction (claw/corrections.py)."""
+		try:
+			said = _SPACE.sub(" ", str(text or "").translate(_QUOTES)).strip()
+			trimmed = _trim([rule for rule in self.rules() if rule.kind in NOTHING], said, [])
+			return trimmed.strip(" .!?,;:") or said
+		except Exception as e:
+			debuglog.error("understand", f"{text!r} could not be trimmed", e)
+			return " ".join(str(text or "").split())
 
 	# --- The user's own words ---
 
@@ -385,6 +409,22 @@ class Grammar:
 			f.write(_OWN_HEAD + lines)
 		os.replace(temporary, self.ownPath)
 		self._read.pop(self.ownPath, None)
+
+
+_CURRENT = [None]
+
+
+def use(grammar):
+	"""The grammar every part of VisionClaw reads words with: VisionClaw's own lines and the user's own words. Set by
+	the add-on when it starts."""
+	_CURRENT[0] = grammar
+
+
+def current():
+	"""The grammar set by the add-on, or VisionClaw's own lines alone when none was set (in tests, and before start)."""
+	if _CURRENT[0] is None:
+		_CURRENT[0] = Grammar(None)
+	return _CURRENT[0]
 
 
 def cleanSaid(text):

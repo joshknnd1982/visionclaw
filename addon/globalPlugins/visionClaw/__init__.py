@@ -37,6 +37,7 @@ from speech import extensions as speechExtensions
 from . import autodescribe, clawui, controlkeys, curtain, dialogs, explorer, followup, hardware, helpers, imaging, labels, localmedia, mousetools, nvdatools, ocr, sounds, updater, viewers, winzapp
 from . import asktools, memorytools, ownvoice, padtools, touchinput, voiceui
 from .claw import busy, catalog, direct, drivers, guides, learn, offers, planning, policy, portable, prompts, training, understand, worksheet
+from .claw import modelpick
 from .claw.changes import ChangeLog
 from .claw import debuglog
 from .claw import task as clawTask
@@ -147,8 +148,15 @@ confspec = {
 	"backend": 'option("auto", "dedicated", "vulkan", "cpu", default="auto")',
 	"visionModel": 'string(default="")',
 	"coderModel": 'string(default="")',
+	# Who picks the model for each job: the user, in the models window, or VisionClaw, from the models on this
+	# computer, for each request and without asking (claw/modelpick.py). The user's own choice is the default.
+	"modelPick": 'option("mine", "auto", default="mine")',
 	"reasoning": 'option("auto", "off", "low", "medium", "high", default="auto")',
 	"oneAtATime": 'option("auto", "always", "never", default="auto")',
+	# The model for hard cases (claw/hardcase.py): "" any on the disk, "none" never, or a catalog id; and whether the user
+	# is asked before it is used. Both are chosen in the models window.
+	"hardModel": 'string(default="")',
+	"hardCases": 'option("ask", "always", default="ask")',
 	# When to look for a newer version of VisionClaw: only when asked, or also when NVDA starts.
 	"updateCheck": 'option("manual", "auto", default="manual")',
 	"updateLastCheck": 'string(default="")',
@@ -217,9 +225,18 @@ def _addonVersion():
 		return "of an unknown version"
 
 
+# The models VisionClaw picked, when the user lets it pick the model for each job (claw/modelpick.py): catalog ids by
+# role. Set before every request and put back to the everyday pick after it; empty until something was picked.
+_PICKED = {}
+
+
 def _runtimeSettings():
 	c = conf()
-	return {key: c[key] for key in ("backend", "visionModel", "coderModel", "sideBySide")}
+	found = {key: c[key] for key in ("backend", "visionModel", "coderModel", "sideBySide")}
+	if c["modelPick"] == modelpick.AUTO and _PICKED.get(VISION):
+		found["visionModel"] = _PICKED[VISION]
+		found["coderModel"] = _PICKED.get(CODER) or found["coderModel"]
+	return found
 
 
 def _languageName():
@@ -541,6 +558,9 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		# The words VisionClaw understands: its own lines, and the user's own words in understanding.md
 		# (claw/understand.py).
 		self.understanding = understand.Grammar(DATA_DIR)
+		# The same grammar for every orchestrator: the add-on writer and the questions about a picture read with it too,
+		# with lines of their own (understand.current).
+		understand.use(self.understanding)
 		# The work sheets of requests, deleted when each request ends; any left over from a request that NVDA closed
 		# in the middle of are deleted now (claw/worksheet.py).
 		self.workDir = os.path.join(DATA_DIR, worksheet.FOLDER)
@@ -584,6 +604,11 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		self.offers = offers.Offers(os.path.join(DATA_DIR, "offered.json"))
 		self.orchestrator.offer = lambda request, recipes: self.offers.next(request, recipes, self.downloadState())
 		wx.CallLater(2000, self.helpers.loadEnabled)
+		# When the user lets VisionClaw pick the model for each job, the everyday pick, made off NVDA's main thread:
+		# finding the graphics cards runs the engine once (claw/modelpick.py).
+		self.lastPick = None
+		wx.CallLater(2500, lambda: threading.Thread(
+			target=self._pickModels, args=(None,), name="visionClaw-pick", daemon=True).start())
 		self._autoCache = collections.OrderedDict()
 		self._autoGeneration = 0
 		self._repeats = autodescribe.RepeatTracker()
@@ -838,7 +863,8 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 				"uses the same keys, so please disable VisionMate in the Add-on Store."
 			))
 		self._dataDialog = dialogs.ModelsDialog(
-			gui.mainFrame, self.models, conf(), suggested, self._onDataInstalled, notes, self._offerCleanup)
+			gui.mainFrame, self.models, conf(), suggested, self._onDataInstalled, notes, self._offerCleanup,
+			machine=lambda: (dedicated, memory))
 		dialogs.show(self._dataDialog)
 
 	# --- The models on this computer ---
@@ -1127,6 +1153,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			time.sleep(0.6)
 			self._cancel.set()
 			self._backgroundCancel.set()
+			self._pickModels(task)
 			with self._inUse():
 				self.orchestrator.run(task)
 		except Exception:
@@ -1134,6 +1161,64 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		finally:
 			self.board.end(task.statusJob)
 			self._lastRequest = time.monotonic()
+			# Between requests, descriptions use the everyday pick, not one made for the request that ended.
+			self._pickModels(None)
+
+	def _pickModels(self, task):
+		"""When the user lets VisionClaw pick (claw/modelpick.py): the models for this request, or with task None the
+		everyday pick, without a question and without a word. Said with the progress and written to the log. A fault
+		here leaves the models as they were and never stops the request."""
+		if conf()["modelPick"] != modelpick.AUTO:
+			return
+		try:
+			understanding = getattr(self, "understanding", None)
+			request = "" if task is None else (
+				understanding.read(task.request).text if understanding is not None else task.request)
+			picked = self._pickFor(request)
+		except Exception as e:
+			debuglog.error("modelpick", "The models for this request could not be picked; the ones before are used", e)
+			return
+		if not picked:
+			return
+		# Both roles are written in one update, never cleared first: a description started on NVDA's main thread at this
+		# moment then sees the old pick or the new one, never none.
+		_PICKED.update(picked.ids())
+		said = modelpick.pickedText(picked)
+		if task is not None:
+			self.lastPick = picked
+			task.emit(clawTask.DETAIL, said)
+		debuglog.log("modelpick", ("For the request: " if task is not None else "Everyday pick: ") + said)
+
+	def _pickFor(self, request):
+		"""The models VisionClaw picks for a request ("" for the everyday pick), from this computer (claw/modelpick.py).
+		Changes nothing by itself. May run the engine once to find the graphics cards: never on NVDA's main thread."""
+		runtime = self.runtime
+		devices = runtime.devices() or []
+		dedicated = max((device.totalMb for device in devices if device.dedicated), default=0)
+		entries = list(self.models.entries())
+		installed = {entry["id"] for entry in entries if self.models.isInstalled(entry)}
+		running = {engine.modelPath for engine in runtime.engines.values() if engine.running}
+		loaded = {entry["id"] for entry in entries if entry["id"] in installed and self.models.paths(entry)[0] in running}
+		outcomes = self.orchestrator.outcomes.counts() if self.orchestrator.outcomes is not None else {}
+		remembered = [entry.text() for entry in self.memories.all()]
+		from .claw import planner as clawPlanner
+		return modelpick.pick(
+			request, entries, installed, dedicated, hardware.memoryGb(), clawPlanner.quickTriage(request) if request else {},
+			loaded, (conf()["visionModel"], conf()["coderModel"]), outcomes, remembered)
+
+	def modelPickText(self):
+		"""For the answer about VisionClaw's models (a tool, so never on NVDA's main thread): when VisionClaw picks, that
+		it does and what it picked last time; when the user chose, which models on this computer VisionClaw would pick
+		where they differ from the user's choice, or "". Never a fault."""
+		try:
+			if conf()["modelPick"] == modelpick.AUTO:
+				last = modelpick.pickedText(getattr(self, "lastPick", None))
+				return " ".join(part for part in (modelpick.settingText(modelpick.AUTO), last and f"Last time: {last}") if part)
+			chosen = {role: (self.runtime.entry(role) or {}).get("id", "") for role in (VISION, CODER)}
+			return modelpick.suggestionText(self._pickFor(""), self._pickFor("write an add-on"), chosen)
+		except Exception as e:
+			debuglog.error("modelpick", "Which models VisionClaw would pick could not be said", e)
+			return ""
 
 	@script(
 		# Translators: Description of a command in the Input Gestures dialog.
@@ -1150,12 +1235,9 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			if listenNow:
 				self._askDialog.speak()
 			return
-		# The names of the program in front may be said in the request; the speech model is told them.
-		try:
-			where = asktools.programNow()
-			names = [name for name in (where.get("product"), where.get("app")) if name and name != "unknown"]
-		except Exception:
-			names = []
+		# The names of where the user is may be said in the request: the program, the window's title, the focused control,
+		# a few controls and the words the user taught VisionClaw. The speech model is told them (voice.namesHere).
+		names = voiceui.namesHere(self)
 		self._askDialog = clawui.AskDialog(
 			gui.mainFrame, self.startClawTask, self.clawTask, conf()["reasoning"], voice=self.voice, listenNow=listenNow,
 			names=names)

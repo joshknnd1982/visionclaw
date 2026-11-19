@@ -63,6 +63,29 @@ def stepwise(choice, entry):
 		return False
 	return bool(entry) and entry.get("suggest") is False
 
+# A small model's choice among a few answers is asked of it more than once, and the answer most of them gave is
+# taken (llm.LLM.json): one greedy answer, the rest written with a little chance in them. Only forms with one field
+# whose answers are fixed (a choice of recipe, an id, on or off) are voted on. VOTING turns it off for measuring
+# (tests/eval_votes.py). Measured on 2026-11-19 on the AMD Radeon 780M, choosing the job with Qwen2.5 Coder 1.5B as
+# the second model: Qwen3.5 2B, set 1, 130 of 137 right with or without, request for request, 33 percent slower; set 3,
+# 59 of 65 right and 1 question to the user instead of 58 and 2, 40 percent slower; Qwen3.5 0.8B with five answers,
+# set 3, 56 of 65 either way, 75 percent slower. So the smallest models give three answers too, as the fourth and
+# fifth changed nothing. Choosing the job is mostly decided by plain code; forms filled in by a small model were not
+# measured.
+VOTING = True
+VOTES_SMALL = 3     # a small model that is suggested (catalog "small")
+VOTES_TINY = 3      # a model that is never suggested (catalog "suggest": False)
+
+
+def votes(entry):
+	"""How many answers a model gives to one choice: 1 for a model that is not small."""
+	if not VOTING or not entry:
+		return 1
+	if entry.get("suggest") is False:
+		return VOTES_TINY
+	return VOTES_SMALL if entry.get("small") else 1
+
+
 _AUTO_LEVEL = {SIMPLE: OFF, MODERATE: LOW, COMPLEX: MEDIUM}
 _BY_LEVEL = {
 	#        plan form answer code retries replans repairs reviews verify
@@ -93,5 +116,5 @@ def select(triage, userReasoning=AUTO):
 	)
 
 
-__all__ = ["AUTO", "REASONING_CHOICES", "STEPWISE_CHOICES", "stepwise", "LEAD", "OTHER", "ROLE_NAMES", "roleName", "isOneModel", "Params", "level", "select",
+__all__ = ["AUTO", "REASONING_CHOICES", "STEPWISE_CHOICES", "stepwise", "votes", "VOTING", "LEAD", "OTHER", "ROLE_NAMES", "roleName", "isOneModel", "Params", "level", "select",
 	"SIMPLE", "MODERATE", "COMPLEX", "OFF", "LOW", "MEDIUM", "HIGH"]

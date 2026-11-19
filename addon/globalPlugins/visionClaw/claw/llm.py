@@ -7,6 +7,7 @@
 # the model may think first. No NVDA dependencies.
 
 import base64
+import collections
 import copy
 import json
 import re
@@ -24,6 +25,9 @@ _THOUGHT_CHARS = {LOW: 160, MEDIUM: 400, HIGH: 900}
 _THINK_TOKENS = {MEDIUM: 700, HIGH: 1800}
 _IMAGE_TOKENS = 1300
 THOUGHT = "reasoning"
+# How much chance is in the answers after the first, when a small model's choice is voted on, and the first seed.
+VOTE_TEMPERATURE = 0.7
+VOTE_SEED = 1000
 
 
 class LLMError(EngineError):
@@ -70,8 +74,24 @@ def withThought(schema, chars):
 	return schema
 
 
+def votedField(schema):
+	"""The one field of a form that is voted on: a form with one field whose answers are fixed, or None."""
+	properties = (schema or {}).get("properties") or {}
+	if "anyOf" in (schema or {}) or len(properties) != 1:
+		return None
+	name, field = next(iter(properties.items()))
+	return name if len(field.get("enum") or ()) >= 2 or field.get("type") == "boolean" else None
+
+
+def _hashable(value):
+	return json.dumps(value, sort_keys=True) if isinstance(value, (dict, list)) else value
+
+
 class LLM:
-	"""Talks to the models of a runtime for one task."""
+	"""Talks to the models of a runtime for one task. votes: how often a choice is asked of a model; None decides
+	by the model's size (policy.votes)."""
+
+	votes = None
 
 	def __init__(self, runtime, task):
 		self.runtime = runtime
@@ -131,7 +151,54 @@ class LLM:
 		return answer, info
 
 	def json(self, role, system, user, schema, maxTokens=300, reasoning=OFF, image=None):
-		"""Ask for a JSON object matching schema. The engine only lets the model write JSON that fits it."""
+		"""Ask for a JSON object matching schema. The engine only lets the model write JSON that fits it. A small
+		model is asked a choice among fixed answers more than once, and most of its answers decide (_vote)."""
+		field = votedField(schema)
+		found = self._json(role, system, user, schema, maxTokens, reasoning, image)
+		count = self._votes(role) if field and image is None else 1
+		if count > 1 and found.get(field) is not None:
+			found = self._vote(role, system, user, schema, maxTokens, reasoning, found, field, count)
+		return found
+
+	def _votes(self, role):
+		if self.votes is not None:
+			return max(1, int(self.votes))
+		try:
+			from . import policy
+			return policy.votes(self.runtime.entry(role))
+		except Exception:
+			return 1
+
+	def _vote(self, role, system, user, schema, maxTokens, reasoning, first, field, count):
+		"""The answer most of count answers gave: the first, greedy one, and the rest written with a little chance
+		in them (VOTE_TEMPERATURE, each with a seed of its own). Asking stops as soon as one answer has more than half.
+		Among answers given equally often, the first one wins. A fault in a later answer only ends the voting."""
+		answers = [first]
+		tally = collections.Counter([_hashable(first[field])])
+		for number in range(1, count):
+			if tally.most_common(1)[0][1] * 2 > count:
+				break
+			try:
+				found = self._json(role, system, user, schema, maxTokens, reasoning, None,
+					temperature=VOTE_TEMPERATURE, seed=VOTE_SEED + number, quiet=True)
+			except LLMError:
+				break
+			if found.get(field) is None:
+				continue
+			answers.append(found)
+			tally[_hashable(found[field])] += 1
+		best = max(tally.values())
+		winner = next(answer for answer in answers if tally[_hashable(answer[field])] == best)
+		debuglog.log("model", (
+			f"The {role} model answered {len(answers)} times for {field!r}: "
+			+ ", ".join(f"{value!r} {times} times" for value, times in tally.most_common())
+			+ f". Taken: {winner[field]!r}."))
+		if winner is not first:
+			self.task.emit(taskModule.THINK, f"{role}: most of its answers chose {winner[field]!r}, not its first answer.")
+		return winner
+
+	def _json(self, role, system, user, schema, maxTokens=300, reasoning=OFF, image=None, temperature=0, seed=None,
+			quiet=False):
 		if reasoning in _THOUGHT_CHARS:
 			chars = _THOUGHT_CHARS[reasoning]
 			schema = withThought(schema, chars)
@@ -139,8 +206,10 @@ class LLM:
 		for attempt in range(2):
 			options = {
 				"response_format": {"type": "json_schema", "json_schema": {"name": "form", "strict": True, "schema": schema}},
-				"temperature": 0,
+				"temperature": temperature,
 			}
+			if seed is not None:
+				options["seed"] = seed
 			messages = self._messages(system, user + "\nAnswer with the JSON form only.", image)
 			answer, info = self._ask(
 				role, messages, maxTokens, options, self._context(system, user, image, maxTokens),
@@ -158,7 +227,7 @@ class LLM:
 					continue
 				raise LLMError(f"The {role} model did not give a complete answer.")
 			thought = found.pop(THOUGHT, None)
-			if thought:
+			if thought and not quiet:
 				self.task.emit(taskModule.THINK, f"{role}: {thought}")
 			return found
 

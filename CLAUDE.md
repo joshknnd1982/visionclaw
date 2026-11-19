@@ -29,6 +29,7 @@ keyboard and speech alone.
 5. **Always give the user a choice.** Never hide a model or an option because of the computer it runs on.
    Every model in the catalog, including the 7B and 9B ones, is offered with every graphics option (they are
    still fast through Vulkan on modest PCs). Hardware only decides what is suggested first.
+   The everyday models stay at 9B or smaller; one 14B model is kept for hard cases (see the rule on it below).
    The owner said on 2026-11-18: "user should be able to choose between q4_k_m and q6_k for everything.
    **user choice** visionclaw suggests, user can take the suggestion or make his own model and quant choices."
    Every model is offered as Q4_K_M and as Q6_K (`catalog.QUANTS`). Each quant is an entry of its own in the
@@ -893,6 +894,122 @@ keyboard and speech alone.
   went with each model here (`planning.Outcomes`, `models-went.json`) and memories about a model. No model is asked;
   nothing goes online (reviews from the internet would need the owner's yes for a source); nothing is changed, and
   the answer ends with NVDA+Alt+M. Add to `MEASURED` when a model is measured, never from memory or from the web.
+- **The everyday models are 9B or smaller; one 14B model is kept for hard cases.** The owner said on 2026-11-19: "all
+  offered qwen AI models from the smallest to the largest, capped at 9b parameter models, with edge cases using a 14b
+  parameter model. and ensure q4_k_m and q6_k are offered as model quant choices." What follows from it:
+  - **Which.** Qwen3 14B from Qwen's own page (`Qwen/Qwen3-14B-GGUF`, Apache 2.0), Q4_K_M and Q6_K, read from Hugging
+    Face's API on 2026-11-19; a catalog entry with `"edge": True` (`catalog.isEdge`), for the coder's job. No Qwen model
+    of 10 to 16 billion parameters sees pictures (Qwen3.5, 3.6 and 3.8 go from 9B to 27B, Qwen3-VL from 8B to 32B), so
+    it reads and writes text only. Before adding another, read Hugging Face's listing again.
+  - **Offered, never pushed.** It is in the coder list and in its own list of the models window, "Model for hard cases",
+    where None is chosen until the user chooses otherwise, so nothing of 9 GB is downloaded unasked. It is never
+    suggested for an everyday job (`catalog.recommend`, `advice._models`; the other session's `modelpick` skips it).
+  - **A case is hard by plain code** (`claw/hardcase.py`): an add-on that does not pass the checks, does not start, or
+    fails again after it was corrected; a control whose picture and facts disagree, or say nothing while the facts tell
+    something. Then `hardtools.attempt` asks (setting `hardCases`, the check box in the models window; the user's own
+    words asking for it, `hardcase.asked`, are a yes), and `runtime.hardCase` uses it for that one piece of work, in
+    that thread only, for both jobs, with the everyday models unloaded and loaded again with the next request. Its work
+    goes through every check as before. Not on the disk: the answer says where to get it; nothing is downloaded.
+  - **Measured on 2026-11-19** in Q4_K_M, shared between the owner's 8 GB card and the processor
+    (`VC_HARD=qwen3-14b python -u tests/live_codeplan.py FOLDER`, `python -u tests/live_hard.py ...`): nine add-ons
+    piece by piece, 9 did what was asked where the 9B's did 8, in about the same time; as one piece 6 where 4; twelve
+    controls a program draws itself, 6 right as the 9B, with one wrong guess where the 9B made three, about 17 s each.
+    Its made-up `@eventHandler.registerEvent` is taken off by `microaddons._dropEventDecorators`. In `advice.MEASURED`.
+  - **A model larger than the graphics card is split** between the card and the processor (`backend.splits`,
+    `-ngl auto --fit on`, read from the bundled engine's help on 2026-11-19). A model that should fit and does not start
+    whole is tried split before the card is given up, and a failed split never marks the card as broken.
+- **Suggested by the computer and by what the user wants to do** (`claw/advice.py`, the button "Suggest models for what I
+  want to do" in the models window). The owner said on 2026-11-19: "ensure visionclaw can suggest model type based on
+  hardware and the task the user wishes to perform". Besides the model for each job: stubborn programs (the largest
+  model that sees and fits), hard cases (whether the 14B runs here: on the card, shared with the processor, or not at
+  all), asking by voice (the measured speech model; only Q8_0 exists), and whether the card has room for the Q6_K of
+  what is suggested. The button only puts the models into the lists; the user still presses Download. The sentence that
+  ends a suggestion, where the user chooses, is never the part that is cut.
+- **Which model does each job is the user's choice, and VisionClaw picks only when the user lets it**
+  (`claw/modelpick.py`, the setting `modelPick`, "Which model does each job"). The owner said on 2026-11-19: "clever
+  model suggestions for the user to choose depending on job, or let visionclaw pick with silent autosuggestions." What
+  follows from it:
+  - **The user's own choice is the default** ("mine"). Then nothing is picked; asked which models VisionClaw uses, it
+    also says which models on this computer it would pick, only where they differ (`modelpick.suggestionText`, through
+    `plugin.modelPickText` in `nvdatools.modelInfo`), and never says it by itself.
+  - **"VisionClaw picks" ("auto")**: before every request the plugin picks among the downloaded models
+    (`plugin._pickModels`, `_pickFor`), and `_runtimeSettings` hands the picked ids to the runtime (`_PICKED`, written in
+    one update, never cleared); after the request the everyday pick is back. No question and no speech: the pick is
+    said with the progress (NVDA+Alt+P), written to the log, and said when the user asks which model is used.
+  - **Plain code picks, never a model.** Accuracy first: the largest model that fits the dedicated graphics card with
+    room to spare, else the largest that fits the memory. A faster model only where a memory says the user wants speed
+    (`modelpick.wantsSpeed`) and the request is not hard (`planner.complexity`), has no picture and no code. Code: the
+    largest model for code that fits beside the model that plans, or that model's own twin (one file, nothing more
+    loaded). The second job otherwise: the twin, else a coder already loaded, else the smallest suggested. A model whose
+    requests went badly here (`planning.Outcomes`, Laplace's rule below `POOR` after `LEAST_SEEN`) is passed over while
+    another can do the job. Of two quants of one model: the one loaded, the one the user chose, else Q4_K_M.
+  - **Never** a model that is not on the disk, never a download, never an entry marked `edge` (the model for hard
+    cases), and never "the vision model" or "the coder model" in what the user hears.
+  - Tests: `tests/test_modelpick.py` on made-up computers, `tests/test_nvda_stub.py` for the setting. Not run in NVDA.
+- **How fast answers should come is kept without being asked** (`memories._LIKES`, `_COMPUTER`): "the 9B is too slow for
+  me", "I like quick answers", "accuracy matters most to me". Model picking and `advice` read it.
+- **Memories are found by meaning** (`memories.recallWords`): with their own words, the concepts of `claw/concepts.py`
+  that name a place, a thing, speech, braille or how fast or loud (`_RECALLED_CONCEPTS`); never those that only say
+  what is wanted or name things in general, which would find every memory.
+- **A small model's choice is asked three times** (`llm.LLM.json`, `_vote`, `policy.votes`). A form with one field whose
+  answers are fixed (an enum, or on or off) is asked of a small model (catalog `small`, or `suggest` False) three times:
+  the first answer greedy, the others at `llm.VOTE_TEMPERATURE` with a seed each; asking stops when two agree, and
+  among three different answers the first wins. Never a form with free text, two fields, or a picture. `policy.VOTING`
+  turns it off for measuring (`tests/eval_votes.py`, `VC_VOTES=0`; `VC_CHIP` keeps it on one graphics chip). Measured on
+  2026-11-19 (docs/STATUS.md): choosing the job changed little, one request better of 202 with Qwen3.5 2B, none with
+  0.8B, for a third to three quarters more time in choosing; the fourth and fifth answers the 0.8B had at first changed
+  nothing and were dropped. A test that counts a small model's questions counts the different ones. Forms filled in by
+  a small model were not measured: measure them before giving a small model more answers.
+- **Confidence from the engine's token probabilities does not work here.** The bundled engine's `logprobs` are the
+  probabilities before a form's rules are applied (measured on 2026-11-19: Qwen3.5 9B's chosen "change_setting" had a
+  raw log-probability of -4.2, while it would rather have written "Configure"). Do not use them to say how sure a model is.
+- **Every orchestrator reads the user's words through one grammar, with lines of its own where it needs them**
+  (`understand.use`, `current`, `Grammar.read(text, where=...)`). The owner said on 2026-11-19: "all visionclaw
+  orchestrators must follow suit and also be flexible and adaptable and understand the meaning of the various ways a
+  user may make various requests." What follows from it:
+  - **The main orchestrator** understands the whole request first, as before. Working through a task, follow-ups, a
+    spoken request and every tool's `asked` get the understood request.
+  - **The add-on writer** (`codeplan.read`) and **the questions about a picture** (`pictures.pieces`) read their text
+    again with the sections of `understanding.md` whose headings end ", in add-ons" and ", in questions about a picture"
+    (`understand.ADDON`, `PICTURE`). In an add-on, "that says" is what the add-on does, so there only quotes, addresses,
+    file names and keys are kept (`_keep(where=ADDON)`). A question about a picture is still asked in the user's own
+    words, part for part; its kind is told from the plain words, and only where the plain words split into other parts
+    are they asked. A scoped line never reaches the routing of a request.
+  - **The description window** (`followup.py`) is left as it was measured (the rule above about keys in it).
+  - **Measure with `python tests/eval_words.py`** on `tests/eval/words-*.json`: a development set to write lines from,
+    and a held-out set written at the same time, before anything was run on either. Never write a line from a held-out
+    set's misses; lines written after a held-out set was run need a new held-out set. Measured on 2026-11-19: add-on
+    requests 5 to 24 of 24 (development), 3 to 11 of 20 (held out); picture questions 16 to 22 of 22, held out 12 to 12.
+- **A correction is learned only with a yes** (`claw/corrections.py`, `orchestrator._corrected`, `_keepCorrection`).
+  "No, I meant X", "not that, X", "that's not what I asked, I wanted X" are read by plain code; X is done instead and the
+  user is told which request it corrects (within `corrections.SOON_SECONDS`). When it went well (`planning.outcome`) and
+  "Remember things" is on its automatic choice, the user is asked once whether the words of the request before, without
+  greetings (`Grammar.trimmed`), should be understood as X from then on; with a yes they are kept as the user's own words
+  (`Grammar.teach`, checked by `understand.refusal`). Nothing is kept without a yes, and no model writes any of it.
+- **What VisionClaw found about a stubborn program or website is a Markdown file the user owns**
+  (`claw/accessnotes.py`, the folder `access` of the data). The owner asked on 2026-11-19 for "memory markdown file
+  usage" when fixing stubborn controls. Plain code writes it: how a control is worked (agreed, settled by the model for
+  hard cases, or one model's answer), names read from pictures, what drew the window. A control agreed on before is not
+  put to the models again (`known`). The writer of an add-on gets only lines that share a telling word with the request
+  (`forModels(strict=True)`), because it copies what it is given; the judge of another control gets none, for the same
+  reason. Lines are only added; the user's changes and deletions are read as they are; never more than `MAX_LINES`.
+- **A control without a name is named from its picture and where it is** (`working.NAME_SYSTEM`, `aroundText`,
+  `nameQuestion`, `NAME_SCHEMA`): the program, the window's title and the named controls just before and after it, a
+  form of one short field, no example; the instructions say the controls around it do something else, so their names are
+  not copied; plain code still drops a name that copies them (`working.named`, `copies`), and only a model that is
+  not small is told the surroundings at all (`tellAround`): told them, Qwen3.5 0.8B copied them nearly every time.
+  Measured on 2026-11-19 over two sets of 17 drawn buttons: 9B 29 to 33 of 34, 2B 29 to 31, 0.8B 24 to 23. Measure
+  with `python -u tests/live_naming.py MODELS ID [--second]`.
+- **Every model judges how a control is worked in one question.** Two small questions for the smallest models (the
+  kind, then the way) were tried on 2026-11-19 and made them worse: Qwen3.5 0.8B 5 of 16 drawn controls to 3, 2B 13 to
+  9 (`tests/live_working.py`). Do not bring it back without measuring on a new set.
+- **A state that may be missing is said by plain code** (`audit._stateless`): tabs of which none says it is selected,
+  buttons whose names say they open or show something and that report no state. Kept narrow: "Close", "Open" and
+  "Order details" are no finding. What the state is, is then read from the picture and said to be read from it.
+- **The speech model is told the names of where the user is** (`voice.namesHere`, `voiceui.namesHere`): the program,
+  the words the user taught, the focused control, the window's title and a few controls, read in at most
+  `voiceui.NAMES_SECONDS`; and a told name it heard split ("wave table") is joined again (`voice.fitted`), only where
+  the letters are the very same. Measure with `python -u tests/live_voice_names.py SPEECHFOLDER [--second]`.
 - **An NVDA setting for one program only is NVDA's own configuration profile, and is changed only while that
   program is in front.** Built on 2026-11-18 against what JAWS's Companion does ("only for the application in
   use"); `claw/profiles.py`, `profiletools.py`. What follows from it:
@@ -1208,6 +1325,7 @@ addon/
     dialogs.py               models window, description window
     clawui.py                Ask VisionClaw window, choice prompts, progress speech
     nvdatools.py             the tools the models can call, written against the NVDA API
+    hardtools.py             the model for hard cases on NVDA's side: which one is here, asking first, one piece of work
     webtools.py              the web through NVDA's browse mode: a page's links, buttons, fields and text
     pagetools.py             a web page as a whole with the NVDA keys that fit it, and what stops a form: the
                              page read a stretch at a time, the reading position put on the first field in trouble
@@ -1311,7 +1429,12 @@ addon/
                              there, sorted and said in words
       concepts.py            words that mean the same thing, so that what was learned in one wording is used for another
       advice.py              which model fits what the user wants to do, from the computer, what was measured and how
-                             requests went here; only a suggestion
+                             requests went here; stubborn programs, hard cases, asking by voice; only a suggestion
+      modelpick.py           which downloaded model does each job, when the user lets VisionClaw pick; what it would
+                             pick when the user chose, said only when asked
+      corrections.py         "no, I meant ..." read by plain code; what may be offered to keep as the user's own words
+      hardcase.py            the model for hard cases: what a hard case is, which model, the question, what settles it
+      accessnotes.py         what was found about a stubborn program or website, as a Markdown file the user owns
       controls.py            what the user's words ask of a named control, and which control a name means
       profiles.py            "only in this program" read from the user's words, which program is meant, the name
                              of its profile, and every sentence the user is told about it
@@ -1634,10 +1757,19 @@ A session is done only when its "Done when" line is true.
 - [x] **3.59 Understanding, work sheets, and bite-size writing.** Casual words and the user's own words understood
   by plain code; a work sheet for every request that feeds each step and is deleted; add-ons written piece by
   piece; questions about a picture asked in their parts. Measured with the real Qwen3.5 9B; not run inside NVDA.
+- [x] **3.60 Stubborn controls, the model for hard cases, and models suggested by task.** Qwen3 14B for hard cases in
+  both quants, split between card and processor; notes on each stubborn program as Markdown; names from pictures with
+  where the control is; missing states; the speech model told the names where the user is; suggestions by hardware and
+  task, also in the models window. Naming and the speech model measured with the real models; the 14B not run; not
+  run inside NVDA.
 - [x] **3.61 Status updates while VisionClaw takes long.** Requests, descriptions, answers about a picture, the words
   spoken, the overlay's icons and add-on repairs say how far they are after a stretch of quiet; the user chooses how
   long or turns it off; NVDA+Alt+P and NVDA+Alt+X cover all of them. Tested with plain Python and stand-ins; not run
   inside NVDA or with a real model.
+- [x] **3.62 Small models stretched.** VisionClaw picks the model for each job when the user lets it, and otherwise
+  says what it would pick when asked; a small model's choice asked three times; memories found by meaning and wishes
+  for speed kept; "no, I meant" done and kept with a yes; the add-on writer and picture questions with lines of their
+  own. Votes measured with the real Qwen3.5 2B and 0.8B, the words by plain code; not run inside NVDA.
 - [x] **3.63 Ten things that used to need sighted help.** A picture in a chat, a form that is only a picture, an
   installer page after page, a Word document formatted and its layout checked, a check that asks whether you are a
   person, a product's options, a seat map, a drawn knob set to a number, a form's fields outlined in red, and a
@@ -1704,6 +1836,15 @@ python tests/test_planning.py            the parts of Windows itself from the wo
                                          where the user is, planning notes by BM25, plans by Laplace's rule and ageing
 python tests/test_eval_patterns.py       the planner's patterns against the known requests and the evaluation sets
 python tests/test_advice.py              which model fits what the user wants to do; how requests went with each model
+python tests/test_stubborn.py            the access notes as a file, hard cases, missing states, the naming question and
+                                         rule, the knowledge note, the names told to the speech model
+python -u tests/live_naming.py MODELS ID [--second]   a real vision model names drawn buttons as before, with the form,
+                                         with the surroundings, and as VisionClaw now asks
+python -u tests/live_voice_names.py SPEECH [--second] the real speech model hears requests that name things where the
+                                         user is, told only VisionClaw's names and told the window's names too
+python -u tests/live_hard.py FOLDER9 coderId FOLDER14 hardId   an everyday model and the model for hard cases judge
+                                         twelve controls a program draws itself, each as VisionClaw asks it
+VC_HARD=qwen3-14b python -u tests/live_codeplan.py FOLDER   the model for hard cases writes and reviews the nine add-ons
 python tests/test_codeplan.py            an add-on read into pieces, its frame, run against stand-ins for NVDA; pieces
                                          written, corrected and reviewed one at a time; the work sheet; one method fixed
 python tests/test_ten.py                 colours and places measured in drawn pictures, a form that is only a picture, a
@@ -1715,6 +1856,14 @@ python tests/test_shopping.py            what buys, what is never typed, options
 python tests/test_humancheck.py          checks that ask whether you are a person; fails when a function could choose squares
 python tests/test_understand.py          casual words understood, what is never changed, the user's own words, a question
                                          about a picture in its parts, whole requests with their work sheet
+python tests/test_modelpick.py           which model VisionClaw picks for each job, on made-up computers; what it says
+python tests/test_votes.py               a small model's choice asked three times, with a scripted model
+python tests/test_corrections.py         "no, I meant" read by plain code; whole requests: the offer, yes, no, nothing kept
+python tests/test_words_everywhere.py    the lines for add-ons and for questions about a picture, and one grammar for all
+python tests/eval_words.py               plain code reads add-on requests and picture questions in casual words, with and
+                                         without their own lines; --misses for the development sets only
+VC_VOTES=0 python -u tests/eval_votes.py MODELS ...   eval_routing.py with a small model's votes off (or on); VC_CHIP
+                                         keeps the engine on one graphics chip
 python -u tests/live_codeplan.py MODELS  the real model writes nine add-ons as one piece and piece by piece; each is run
                                          against stand-ins for NVDA to see whether it does what was asked
 python -u tests/eval_routing.py MODELS auto VISIONID CODERID always LABEL

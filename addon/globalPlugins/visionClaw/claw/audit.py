@@ -219,10 +219,17 @@ def cleanName(answer):
 	line = str(answer or "").strip().splitlines()[0] if str(answer or "").strip() else ""
 	line = re.sub(r"^(name|answer|it is|this is|the|a|an)\b[:\s]*", "", line.strip(" \"'.,:;!*`"), flags=re.IGNORECASE)
 	words = [word for word in re.split(r"[^\w+&-]+", line) if word]
+	# NVDA says the kind of control itself, so "Play button" is Play (seen with Qwen3.5 2B on 2026-11-19).
+	while len(words) > 1 and words[-1].lower() in _KIND_ENDINGS:
+		words.pop()
 	text = " ".join(words)
 	if not 1 <= len(words) <= 4 or len(text) > 40 or plainText(text) in _GENERIC | {"unknown", "none", "unclear", "picture", "n a"}:
 		return ""
 	return text[0].upper() + text[1:]
+
+
+# The kind of a control at the end of a name, which NVDA says itself.
+_KIND_ENDINGS = frozenset(("button", "icon", "link", "graphic", "image", "control", "tab", "toggle"))
 
 
 def isUnnamed(node):
@@ -426,6 +433,42 @@ def _generic(nodes):
 		advice="Read the text before one to learn what it is for.")
 
 
+# A button or link whose name says that it opens or shows something, and so has a state: open or closed.
+# Kept narrow: "Close", "Open" and "Order details" have no state of their own.
+_OPENS = re.compile(r"^(show|hide|expand|collapse)\b|^(more|less)$|\b(menu|more options|drop ?down|submenu)$")
+# The states NVDA has for what is open, chosen or pressed (controlTypes.State).
+_OPEN_STATES = frozenset(("EXPANDED", "COLLAPSED", "HASPOPUP", "PRESSED", "CHECKED"))
+
+
+def _stateless(nodes):
+	"""Controls whose state NVDA cannot say because the program or page does not report it, as a finding, or None:
+	tabs of which none says it is the one selected, and buttons whose name says they open or show something but which
+	say nothing about being open. Plain code, from what NVDA reports; it can only say what may be missing."""
+	tabs = [node for node in nodes if node.get("role") == "TAB" and not node.get("hidden")]
+	opens = [node for node in nodes if node.get("role") in ("BUTTON", "LINK") and not node.get("hidden")
+		and _OPENS.search(plainText(labelOf(node))) and not set(node.get("states") or ()) & _OPEN_STATES]
+	parts = []
+	if len(tabs) >= 2 and not any("SELECTED" in (node.get("states") or ()) for node in tabs):
+		parts.append(f"{_plural(len(tabs), 'tab')} here, and none of them says that it is the one selected")
+	if opens:
+		names = ", ".join(clipName(labelOf(node)) for node in opens[:4]) + (f", and {len(opens) - 4} more" if len(opens) > 4 else "")
+		parts.append(
+			f"{_plural(len(opens), 'button')} that open or show something "
+			f"{'does' if len(opens) == 1 else 'do'} not say whether what they open is open: {names}")
+	if not parts:
+		return None
+	return Finding("state",
+		"A state may be missing: " + "; ".join(parts) + ".",
+		"state states selected expanded collapsed open closed checked pressed toggle",
+		advice="Ask VisionClaw which tab is selected, or what is open here: the model that sees reads it from the picture, "
+		"and says that it was read from the picture.")
+
+
+def clipName(text, chars=30):
+	text = " ".join(str(text or "").split())
+	return text if len(text) <= chars else text[:chars - 1].rstrip() + "..."
+
+
 def auditPage(nodes, title="", site="", later=None, drawn=None, browser="", ways="", more=()):
 	"""The report for a web page. nodes: its controls in reading order. later: the same a few seconds on, to
 	see what changes by itself. drawn: lines of text read from the page's picture."""
@@ -492,6 +535,9 @@ def auditPage(nodes, title="", site="", later=None, drawn=None, browser="", ways
 			"The page has no headings and no landmarks, so the H and D keys find nothing to jump to.", "heading headings landmark",
 			advice="Ask VisionClaw to go to the part you want, or to read the page."))
 	found = _generic(nodes)
+	if found is not None:
+		findings.append(found)
+	found = _stateless(nodes)
 	if found is not None:
 		findings.append(found)
 	frames = [node for node in nodes if node.get("role") in ("INTERNALFRAME", "FRAME") and not plainText(labelOf(node))]
@@ -594,6 +640,9 @@ def auditWindow(nodes, title="", app="", later=None, drawn=None, bars=(), seen="
 	if found is not None and not any(finding.id == "picture" for finding in findings):
 		findings.append(found)
 	found = _generic(nodes)
+	if found is not None:
+		findings.append(found)
+	found = _stateless(nodes)
 	if found is not None:
 		findings.append(found)
 	summary = (

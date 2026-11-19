@@ -1,0 +1,25 @@
+{
+ "about": "Held out: requests for an add-on in casual words, written on 2026-11-19 at the same time as words-addons.json and before anything was run on either, to measure the lines of understanding.md for the add-on writer. Never write a line from these, and never take one of them into a test. Same form as words-addons.json.",
+ "requests": [
+  {"request": "make an add-on that goes ding the moment I hop onto a link", "expect": [{"kind": "event", "event": "gainFocus", "role": "LINK", "state": null, "body": "beep"}]},
+  {"request": "addon please: when a check box gets ticked off, chirp", "expect": [{"kind": "event", "event": "stateChange", "role": "CHECKBOX", "state": "CHECKED", "body": "beep"}]},
+  {"request": "build an add-on that blurts 'warning' whenever an alert comes up", "expect": [{"kind": "event", "event": "alert", "role": null, "state": null, "body": "say:warning"}]},
+  {"request": "I want an addon that beeps when I wind up on a button", "expect": [{"kind": "event", "event": "gainFocus", "role": "BUTTON", "state": null, "body": "beep"}]},
+  {"request": "make an add-on that sounds a tone when a dialog shows up", "expect": [{"kind": "event", "event": "foreground", "role": "DIALOG", "state": null, "body": "beep"}]},
+  {"request": "write an add-on that squeaks whenever a progress bar's value changes", "expect": [{"kind": "event", "event": "valueChange", "role": "PROGRESSBAR", "state": null, "body": "beep"}]},
+  {"request": "make an add-on that calls out 'heading' every time I get onto a heading", "expect": [{"kind": "event", "event": "gainFocus", "role": "HEADING", "state": null, "body": "say:heading"}]},
+  {"request": "an add-on that pings when a list item is picked", "expect": [{"kind": "event", "event": "stateChange", "role": "LISTITEM", "state": "SELECTED", "body": "beep"}]},
+  {"request": "code an add-on that dings whenever a combo box drops open", "expect": [{"kind": "event", "event": "stateChange", "role": "COMBOBOX", "state": "EXPANDED", "body": "beep"}]},
+  {"request": "make an addon where nvda+alt+w spits out the window title", "expect": [{"kind": "key", "gesture": "NVDA+alt+w", "body": "model"}]},
+  {"request": "make an addon that bellows 'open' when a window pops up", "expect": [{"kind": "event", "event": "foreground", "role": "WINDOW", "state": null, "body": "say:open"}]},
+  {"request": "write me an add-on that chimes whenever focus lands on a text box", "expect": [{"kind": "event", "event": "gainFocus", "role": "EDITABLETEXT", "state": null, "body": "beep"}]},
+  {"request": "add-on: a little beep when a button is greyed out", "expect": [{"kind": "event", "event": "stateChange", "role": "BUTTON", "state": "UNAVAILABLE", "body": "beep"}]},
+  {"request": "make an add-on that tells me 'menu' whenever I arrow to a menu item", "expect": [{"kind": "event", "event": "gainFocus", "role": "MENUITEM", "state": null, "body": "say:menu"}]},
+  {"request": "build an addon that bleeps when a slider gets nudged", "expect": [{"kind": "event", "event": "valueChange", "role": "SLIDER", "state": null, "body": "beep"}]},
+  {"request": "I need an add-on that dings when any notification pops in", "expect": [{"kind": "event", "event": "UIA_notification", "role": null, "state": null, "body": "beep"}]},
+  {"request": "make an add-on that goes boop when a toggle button gets pressed", "expect": [{"kind": "event", "event": "stateChange", "role": "TOGGLEBUTTON", "state": "PRESSED", "body": "beep"}]},
+  {"request": "an add-on that whispers 'radio' each time I land on a radio button", "expect": [{"kind": "event", "event": "gainFocus", "role": "RADIOBUTTON", "state": null, "body": "say:radio"}]},
+  {"request": "make an addon where control+shift+d rattles off today's date", "expect": [{"kind": "key", "gesture": "control+shift+d", "body": "model"}]},
+  {"request": "create an add-on that makes a noise when a tree item is expanded", "expect": [{"kind": "event", "event": "stateChange", "role": "TREEVIEWITEM", "state": "EXPANDED", "body": "beep"}]}
+ ]
+}

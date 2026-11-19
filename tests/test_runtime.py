@@ -28,11 +28,13 @@ class FakeEngine:
 		self.context = 0
 		self.device = None
 		self.starts = []
+		self.args = []
 
 	def ensure(self, modelPath, mmprojPath, backendArgs, context=4096):
 		self.stop()
 		device = backendArgs[backendArgs.index("--device") + 1]
 		self.starts.append(device)
+		self.args.append(list(backendArgs))
 		if device in self._world.broken:
 			raise EngineError(f"could not start on {device}")
 		self.running, self.modelPath, self.context, self.device = True, modelPath, context, device
@@ -46,12 +48,16 @@ class FakeEngine:
 class World:
 	"""A computer: its graphics chips, its free memory, and what is loaded where."""
 
-	def __init__(self, devices, vision, coder, ramGb=32.0, sideBySide=True, choice="auto", broken=()):
+	def __init__(self, devices, vision, coder, ramGb=32.0, sideBySide=True, choice="auto", broken=(), hard=None):
 		self.devices, self.ramGb, self.broken = devices, ramGb, set(broken)
 		self.loaded = {}
 		self.sizes = {"vision.gguf": vision["memoryGb"], "coder.gguf": coder["memoryGb"]}
 		entries = {VISION: vision, CODER: coder}
 		paths = {vision["id"]: ("vision.gguf", "mmproj.gguf"), coder["id"]: ("coder.gguf", None)}
+		if hard is not None:
+			# The model for hard cases: text only, no projector.
+			paths[hard["id"]] = ("hard.gguf", None)
+			self.sizes["hard.gguf"] = hard["memoryGb"]
 		catalog = type("Catalog", (), {
 			"selected": lambda self, role, preferred=None: entries[role],
 			"paths": lambda self, entry: paths[entry["id"]],
@@ -172,4 +178,55 @@ world = World([DEDICATED, BUILT_IN], SMALL_VISION, SMALL_CODER, choice="cpu")
 world.runtime.ensure(VISION)
 world.runtime.ensure(CODER)
 assert world.where() == {VISION: "none", CODER: "none"}
+
+# 10. A model larger than the card is split between the card and the processor by the engine itself ("-ngl auto",
+#     "--fit on"), where before it was put on the card whole and failed. A model that fits is put on the card whole.
+assert backend.splits(10.4, backend.Backend(backend.DEDICATED, DEDICATED))
+assert not backend.splits(7.0, backend.Backend(backend.DEDICATED, DEDICATED))
+assert not backend.splits(99, backend.Backend(backend.CPU, None))
+assert backend.engineArgs(backend.Backend(backend.DEDICATED, DEDICATED), False, True) == [
+	"-ngl", "auto", "--fit", "on", "--device", "Vulkan0"]
+assert backend.engineArgs(backend.Backend(backend.DEDICATED, DEDICATED), True) == ["-ngl", "99", "--device", "Vulkan0"]
+HARD = {"id": "h", "name": "Hard 14B", "memoryGb": 10.4, "maxContext": 32768, "edge": True}
+NINE = dict(LARGE_VISION, id="v")
+
+# 11. A hard case: the model for hard cases does both jobs for this thread only, gets the card to itself, split, and is
+#     unloaded again afterwards; the everyday model comes back with the next request.
+import threading  # noqa: E402
+world = World([DEDICATED], NINE, NINE, hard=HARD)
+rt = world.runtime
+rt.ensure(VISION)
+assert world.where() == {VISION: "Vulkan0", CODER: None} and not rt.inHardCase()
+elsewhere = {}
+with rt.hardCase(HARD):
+	assert world.where() == {VISION: None, CODER: None}  # the everyday model made room
+	assert rt.inHardCase() and rt.entry(VISION) is HARD and rt.entry(CODER) is HARD and rt.oneModel()
+	rt.ensure(CODER)
+	assert world.where()[VISION] == "Vulkan0" and rt.engines[VISION].modelPath == "hard.gguf"
+	assert rt.engines[VISION].args[-1][:2] == ["-ngl", "auto"]
+	# Another thread, such as a description asked for meanwhile, still has the everyday model.
+	other = threading.Thread(target=lambda: elsewhere.update(entry=rt.entry(VISION), hard=rt.inHardCase()))
+	other.start()
+	other.join()
+assert elsewhere == {"entry": NINE, "hard": False}
+assert world.where() == {VISION: None, CODER: None} and rt.entry(CODER) is NINE and not rt.inHardCase()
+rt.ensure(VISION)
+assert rt.engines[VISION].modelPath != "hard.gguf" and rt.engines[VISION].args[-1][:2] == ["-ngl", "99"]
+# An error inside the hard case still ends it.
+try:
+	with rt.hardCase(HARD):
+		rt.ensure(CODER)
+		raise EngineError("lost")
+except EngineError:
+	pass
+assert not rt.inHardCase() and rt.engines[VISION].modelPath != "hard.gguf" or not rt.engines[VISION].running
+
+# 12. A split model that does not start on the card goes to the processor, and the card is not marked as broken: the
+#     everyday models still use it.
+world = World([DEDICATED], NINE, NINE, hard=HARD, broken=["Vulkan0"])
+world.broken = {"Vulkan0"}
+with world.runtime.hardCase(HARD):
+	world.runtime.ensure(CODER)
+	assert world.where()[VISION] == "none"
+assert [backend.key(b) for b in world.runtime.chain()] == ["dedicated:Vulkan0", "cpu"]
 print("OK")

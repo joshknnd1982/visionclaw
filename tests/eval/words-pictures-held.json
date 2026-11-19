@@ -1,0 +1,21 @@
+{
+ "about": "Held out: questions about a picture in casual words, written on 2026-11-19 at the same time as words-pictures.json and before anything was run on either. Never write a line from these, and never take one of them into a test. Same form as words-pictures.json.",
+ "requests": [
+  {"request": "how many dudes are standing there", "expect": ["count"]},
+  {"request": "what's the label on that jar say", "expect": ["text"]},
+  {"request": "give me the rundown on this picture", "expect": ["describe"]},
+  {"request": "is anyone in the frame", "expect": ["people"]},
+  {"request": "can you spot a dog anywhere in it", "expect": ["find"]},
+  {"request": "where'd the submit button go", "expect": ["where"]},
+  {"request": "what's the bar graph telling me", "expect": ["chart"]},
+  {"request": "what tint is the sky", "expect": ["colour"]},
+  {"request": "what's printed on the receipt", "expect": ["text"]},
+  {"request": "how many little icons are up top", "expect": ["count"]},
+  {"request": "which tab is picked right now", "expect": ["focus"]},
+  {"request": "sum up what's going on in this screenshot", "expect": ["describe"]},
+  {"request": "what's that heading say, and how many links are there", "expect": ["text", "count"]},
+  {"request": "is there a cancel button anywhere", "expect": ["find"]},
+  {"request": "what colour's the warning banner", "expect": ["colour"]},
+  {"request": "who's that bloke on the left", "expect": ["people"]}
+ ]
+}

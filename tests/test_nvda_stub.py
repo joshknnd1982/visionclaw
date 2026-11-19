@@ -995,6 +995,30 @@ try:
 	summary = instance.modelsSummary()
 	assert "Qwen3.5 4B, 0.0 GB, in use for vision" in summary and "Qwen3.5 9B, 0.0 GB, in use for coding" in summary, summary
 	assert "Qwen2.5 Coder 1.5B, 0.0 GB, not in use" in summary and "3 models," in summary
+	# Who picks the model for each job (claw/modelpick.py): the user, by default; with "VisionClaw picks", the models on
+	# the disk for each request, handed to the runtime by _runtimeSettings, said with the progress and when asked. A
+	# stand-in graphics card, so that the engine is never started to list the real ones.
+	from visionClaw.claw import backend as pickBackend  # noqa: E402
+	realPickDevices = instance.runtime.devices
+	instance.runtime.devices = lambda refresh=False: [pickBackend.Device("0", "Test card", 8151, 8000, True)]
+	assert conf["visionClaw"]["modelPick"] == "mine" and plugin._runtimeSettings()["coderModel"] == "nine-coder"
+	instance._pickModels(taskModule.Task("write an add-on"))  # the user's own choice: nothing is picked
+	assert not plugin._PICKED and plugin._runtimeSettings()["coderModel"] == "nine-coder"
+	said = instance.modelPickText()
+	assert said.startswith("Of the models on this computer, VisionClaw would choose differently. For writing code it would "
+		"pick Qwen2.5 Coder 1.5B"), said
+	conf["visionClaw"]["modelPick"] = "auto"
+	pickTask = taskModule.Task("write an add-on that beeps when a link gets the focus")
+	instance._pickModels(pickTask)
+	assert plugin._runtimeSettings()["visionModel"] == "four" and plugin._runtimeSettings()["coderModel"] == "coder", plugin._PICKED
+	assert instance.runtime.entry(CODER)["id"] == "coder"
+	assert any("For writing code, Qwen2.5 Coder 1.5B" in str(entry) for entry in pickTask.log), pickTask.log
+	said = instance.modelPickText()
+	assert said.startswith("VisionClaw picks the model for each job itself") and "Last time: For planning what to do" in said, said
+	conf["visionClaw"]["modelPick"] = "mine"
+	assert plugin._runtimeSettings()["coderModel"] == "nine-coder" and instance.runtime.entry(CODER)["id"] == "nine-coder"
+	plugin._PICKED.clear()
+	instance.runtime.devices = realPickDevices
 	assert dialogs.modelsSummary([], {}) == "No models are on this computer yet."
 	# The window for managing models can be built and filled.
 	manage = dialogs.ManageModelsDialog(None, instance)
@@ -1579,8 +1603,11 @@ registry.call(laterTask, "fix_access", {"which": "fix number 3"})
 assert "moves to the next post" in questions[0] and "Play or pause" not in questions[0], questions
 instance.clawAsk = lambda question, choices: 0
 
-# A nameless button the code cannot name is named from its picture, and the user is told it is a guess.
-instance.runtime = types.SimpleNamespace(describe=lambda image, prompt, maxTokens, cancel=None: "Settings", unloadIdle=lambda *args: None)
+# A nameless button the code cannot name is named from its picture, and the user is told it is a guess. The model
+# that sees answers in a form of one short field (working.NAME_SCHEMA).
+instance.runtime = types.SimpleNamespace(
+	describe=lambda image, prompt, maxTokens, cancel=None: "Settings", unloadIdle=lambda *args: None,
+	chat=lambda *args, **kwargs: '{"name": "Settings"}', oneModel=lambda: True)
 lonely = documentClass(sys.modules["virtualBuffers"].VirtualBuffer)(
 	__import__("pagestandin").El("DOCUMENT", __import__("pagestandin").El("BUTTON", ident="btn-primary")), "https://lonely.example/", "Lonely")
 focus.treeInterceptor = lonely

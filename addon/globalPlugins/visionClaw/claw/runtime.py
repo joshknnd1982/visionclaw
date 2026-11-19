@@ -63,8 +63,11 @@ class ModelRuntime:
 		self._lastUse = {VISION: time.monotonic(), CODER: time.monotonic()}
 		self._failed = set()
 		self._devices = None
-		# The backend each engine is running on.
+		# The model a hard case uses for this thread's request alone (hardCase), or None.
+		self._local = threading.local()
+		# The backend each engine is running on, and whether its model is split between a chip and the processor.
 		self.backends = {VISION: None, CODER: None}
+		self.split = {VISION: False, CODER: False}
 
 	# --- What is available ---
 
@@ -80,8 +83,38 @@ class ModelRuntime:
 		return chain or [backend.Backend(backend.CPU, None)]
 
 	def entry(self, role):
+		over = getattr(self._local, "over", None)
+		if over is not None:
+			return over
 		preferred = self._settings().get("visionModel" if role == VISION else "coderModel")
 		return self.catalog.selected(role, preferred)
+
+	@contextlib.contextmanager
+	def hardCase(self, entry):
+		"""Use the model for hard cases (claw/hardcase.py) for both jobs, for what this thread asks inside the with
+		block, and for nothing else: one model writes and reviews, and the everyday models are unloaded so that it
+		gets the graphics card. It reads and writes text only. Afterwards it is unloaded again, so that the everyday
+		models come back with the next request."""
+		path = self.catalog.paths(entry)[0]
+		self._local.over = entry
+		try:
+			with self._idle:
+				for slot in (VISION, CODER):
+					engine = self.engines[slot]
+					if engine.running and engine.modelPath != path and not self._busy[slot]:
+						debuglog.log("runtime", f"Unloading the {slot} model to make room for the model for hard cases.")
+						self.stop(slot)
+			yield
+		finally:
+			self._local.over = None
+			with self._idle:
+				for slot in (VISION, CODER):
+					if self.engines[slot].running and self.engines[slot].modelPath == path and not self._busy[slot]:
+						self.stop(slot)
+
+	def inHardCase(self):
+		"""Whether this thread is in a hard case: then the model for hard cases does every job."""
+		return getattr(self._local, "over", None) is not None
 
 	def hasModel(self, role):
 		return self.entry(role) is not None
@@ -159,21 +192,32 @@ class ModelRuntime:
 			for choice in chain:
 				if cancel is not None and cancel.is_set():
 					raise EngineError("Cancelled.")
-				try:
-					engine.ensure(model, mmproj, backend.engineArgs(choice, bool(mmproj)), want)
-				except EngineError as e:
-					log.warning(f"VisionClaw: the {slot} model did not start on {backend.key(choice)}: {e}")
-					debuglog.error("runtime", f"The {slot} model did not start on {backend.key(choice)}; trying the next choice", e)
-					if choice.kind != backend.CPU:
-						self._failed.add(backend.key(choice))
-					last = e
-					continue
-				self.backends[slot] = choice
-				return engine
+				split = backend.splits(entry["memoryGb"], choice)
+				# A model larger than the chip is split at once. One that should fit is put on the chip whole, as
+				# before; where that fails, it is split between the chip and the processor before the chip is given up.
+				ways = (split,) if split or choice.kind == backend.CPU else (False, True)
+				for way in ways:
+					try:
+						engine.ensure(model, mmproj, backend.engineArgs(choice, bool(mmproj), way), want)
+					except EngineError as e:
+						log.warning(f"VisionClaw: the {slot} model did not start on {backend.key(choice)}: {e}")
+						debuglog.error("runtime", f"The {slot} model did not start on {backend.key(choice)}"
+							+ (", split with the processor" if way else "") + "; trying the next choice", e)
+						last = e
+						continue
+					self.backends[slot] = choice
+					self.split[slot] = way
+					return engine
+				# A model too large for the chip says nothing about the chip: the everyday models still use it.
+				if choice.kind != backend.CPU and not split:
+					self._failed.add(backend.key(choice))
 			raise last or EngineError("The engine could not be started.")
 
 	def _hasRoom(self, choice, entry, devices):
-		"""Whether a model fits on a backend right now, next to whatever is already loaded there."""
+		"""Whether a model fits on a backend right now, next to whatever is already loaded there. A model split
+		between a chip and the processor needs the chip to itself."""
+		if backend.splits(entry["memoryGb"], choice):
+			return False
 		if choice.device is None:
 			free = self._freeMemoryGb()
 			return free is None or free >= entry["memoryGb"] + SPARE_GB
@@ -194,13 +238,14 @@ class ModelRuntime:
 			if backend.key(choice) != current and not self._hasRoom(choice, entry, devices):
 				continue
 			try:
-				engine.ensure(model, mmproj, backend.engineArgs(choice, bool(mmproj)), want)
+				engine.ensure(model, mmproj, backend.engineArgs(choice, bool(mmproj), backend.splits(entry["memoryGb"], choice)), want)
 			except EngineError as e:
 				# Most likely it did not fit after all. The backend itself is not marked as broken.
 				log.warning(f"VisionClaw: the {slot} model did not start beside the other on {backend.key(choice)}: {e}")
 				debuglog.error("runtime", f"The {slot} model did not start beside the other on {backend.key(choice)}", e)
 				continue
 			self.backends[slot] = choice
+			self.split[slot] = backend.splits(entry["memoryGb"], choice)
 			return True
 		return False
 
@@ -210,7 +255,8 @@ class ModelRuntime:
 		for slot in (VISION, CODER):
 			choice = self.backends[slot]
 			if self.engines[slot].running and choice is not None:
-				found.append(f"The {slot} model runs on {backend.describe(choice)}.")
+				shared = ", shared with the processor because it is larger than the chip" if self.split.get(slot) else ""
+				found.append(f"The {slot} model runs on {backend.describe(choice)}{shared}.")
 		if self.oneModel() and found:
 			found = [found[0].replace("The vision model runs", "One model does both jobs and runs")]
 		return " ".join(found)

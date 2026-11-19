@@ -100,6 +100,22 @@ assert kept.recall("which braille display do I have") == ["Your braille display 
 assert kept.recall("open the map", program="spacetrader")[0] == "In spacetrader: In this game the map key is M."
 assert kept.recall("what time is it") == []
 assert kept.recall("what time is it", program="notepad") == []
+# Words that mean the same thing find a memory too; words that only say what is wanted do not.
+other = memories.Memories(tempfile.mkdtemp(prefix="vc-recall-"))
+other.add("I keep Dropbox and NVDA in the system tray")
+other.add("I like my voice to talk fast")
+assert other.recall("what is in the notification area") == ["You keep Dropbox and NVDA in the system tray."]
+assert other.recall("make the speech quicker") == ["You like your voice to talk fast."]
+assert other.recall("tell me what is open") == []
+assert other.recall("open the start menu") == []
+# How fast answers should come is kept without being asked, so that the model picked or suggested follows it
+# (claw/modelpick.py); a remark about the voice that changed a setting is kept by NVDA instead.
+for said, kept_ in (("the 9B is too slow for me", "the 9B is too slow for me"), ("I like quick answers", "I like quick answers"),
+		("speed matters more to me than accuracy", "speed matters more to me than accuracy"),
+		("accuracy matters most to me", "accuracy matters most to me")):
+	assert memories.worthKeeping(said, memories.AUTO, [], lambda tool: False) == kept_, said
+assert memories.worthKeeping("the voice is too fast for me", memories.AUTO, [("set_setting", True)], lambda tool: True) == ""
+assert memories.yours("the 9B is too slow for me") == "The 9B is too slow for you."
 
 # --- Forgetting: by the words, the last one, or all ---
 

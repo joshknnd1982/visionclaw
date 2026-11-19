@@ -32,7 +32,7 @@ import ast
 import re
 import textwrap
 
-from . import debuglog, fixes, microaddons, prompts
+from . import debuglog, fixes, microaddons, prompts, understand
 from .llm import LLMError, clip
 from .tools import ToolError
 
@@ -412,6 +412,13 @@ def read(purpose, facts=""):
 	"""A request read into pieces: (pieces, why). pieces is empty when plain code cannot read it into pieces for
 	certain; then why says so in a sentence."""
 	text = " ".join(str(purpose or "").replace("’", "'").replace("“", '"').replace("”", '"').split())
+	# The request in the plain words its pieces are read from, by the lines of understanding.md "in add-ons" and the
+	# user's own words (claw/understand.py): "chimes whenever focus hits a link" is "beeps whenever focus lands on a
+	# link". Words in quotes and keys stay as they are.
+	reading = understand.current().read(text, where=understand.ADDON)
+	if reading.changed and reading.text:
+		debuglog.log("codeplan", f"The add-on request is read as: {reading.text!r}")
+		text = reading.text
 	text = _ADDON_HEAD.sub("", text, count=1).strip()
 	if not text:
 		return [], "the request says nothing the add-on is to do"

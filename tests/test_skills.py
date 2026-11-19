@@ -62,6 +62,12 @@ CHOSEN = {
 	"get my bearings": "bearings",
 	"How do I right-click here without a mouse?": "mouse-from-keyboard",
 	"Write an add-on that beeps whenever a link gets the focus": "addon-for-blind-user",
+	# Stubborn controls (2026-11-19): states, controls built from plain parts, windows, the wrong kind, hard cases.
+	"The mute button doesn't say pressed or not": "control-states",
+	"This custom dropdown does not open with enter": "custom-web-control",
+	"The save dialog opened behind another window": "window-states",
+	"NVDA reads this button as pane": "wrong-kind-of-control",
+	"Fix my add-on with the model for hard cases": "model-for-hard-cases",
 }
 for request, slug in CHOSEN.items():
 	chosen = lib.choose(request)

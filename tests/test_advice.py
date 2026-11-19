@@ -75,6 +75,51 @@ for purpose in (advice.PLAN, advice.SEE, advice.CODE, advice.FAST):
 		assert entry is not None and catalog.quantOf(entry) == catalog.DEFAULT_QUANT, (purpose, card)
 		assert entry.get("suggest", True) is not False or purpose == advice.FAST, entry["id"]
 
+# By hardware and task (the owner, 2026-11-19): stubborn programs, hard cases, asking by voice, and the quant the card
+# has room for. The model for hard cases is never suggested for an everyday job.
+assert advice.purposesOf("which model is best for fixing stubborn inaccessible programs") == [advice.ACCESS, advice.HARD]
+assert advice.purposesOf("should I get the 14b for hard cases") == [advice.HARD]
+assert advice.purposesOf("which speech model should I use for dictation") == [advice.VOICE]
+assert advice.purposesOf("suggest a bigger model") == [advice.PLAN, advice.SEE, advice.CODE]
+said = advice.advise("which model is best for fixing stubborn inaccessible programs", catalog.CATALOG, OWNER, STORED, CARD, RAM, {}, (), True)
+assert "For making stubborn programs, controls and web pages usable: keep Qwen3.5 9B" in said, said
+assert "For hard cases, such as an add-on the everyday models could not write or a control they could not tell: Qwen3 14B" in said
+assert "shared between the card and the processor" in said and "only after you say yes" in said and "not on your disk yet" in said
+assert "The Q6_K of Qwen3.5 9B does not fit your graphics card whole" in said, said
+# A computer that cannot hold it is told so, and the everyday models do every case.
+said = advice.advise("should I get the 14b for hard cases", catalog.CATALOG, OWNER, STORED, 4096, 8)
+assert "For hard cases: no larger model is suggested, as it needs about 10 GB" in said, said
+# With no graphics card it runs on the processor alone, said to be slow; with a large card, whole.
+assert "processor alone" in advice.advise("hard cases", catalog.CATALOG, OWNER, STORED, 0, 32)
+assert "fits your graphics card whole" in advice.advise("hard cases", catalog.CATALOG, OWNER, STORED, 16384, 32)
+# A small card has room for the Q6_K of what is suggested, and is told so without suggesting it.
+said = advice.advise("suggest a model", catalog.CATALOG, OWNER, STORED, 4096, 8)
+assert "Your graphics card also has room for the Q6_K of Qwen3.5 2B" in said and "so Q4_K_M is suggested" in said, said
+# Asking by voice: the measured speech model, on the processor, and only in Q8_0.
+said = advice.advise("which speech model should I use for dictation", catalog.CATALOG, OWNER, STORED, CARD, RAM)
+assert "For asking by voice: Qwen3-ASR 0.6B" in said and "24 of 24" in said and "only as Q8_0" in said, said
+assert "Each model comes as Q4_K_M" not in said
+# Larger: the everyday models, and the model for hard cases named; however long, the last sentence is kept.
+said = advice.advise("suggest a bigger model", catalog.CATALOG, OWNER, STORED, 0, 16)
+assert "For hard cases" in said and said.endswith("to choose, press NVDA+Alt+M, the models window."), said
+assert len(said) <= 1400
+for words in ("which model for stubborn controls", "hard cases", "speech model", "bigger model", "suggest a model"):
+	for card, ram in ((CARD, RAM), (0, 8), (24000, 64), (4096, 16), (0, 64)):
+		said = advice.advise(words, catalog.CATALOG, OWNER, STORED, card, ram, {}, (), True)
+		assert len(said) <= 1400 and said.endswith("press NVDA+Alt+M, the models window."), said
+		for claim in re.findall(r"Measured: (.*?)\.", said):
+			assert any(claim == sentence for _ident, _purpose, sentence in advice.MEASURED), claim
+		for purpose in advice.purposesOf(words):
+			entry, _why = advice.pick(purpose, catalog.CATALOG, card, ram, OWNER, True)
+			assert purpose == advice.HARD or not catalog.isEdge(entry), (words, purpose, card)
+# What the models window would choose for what the user wants to do: the everyday models and, for stubborn programs,
+# the model for hard cases where the computer can hold it.
+found = advice.choices("fix stubborn controls", catalog.CATALOG, CARD, RAM, OWNER, True)
+assert found[VISION]["id"] == "qwen3.5-9b" and found[advice.HARD]["id"] == "qwen3-14b", found
+assert advice.choices("fix stubborn controls", catalog.CATALOG, 4096, 8, OWNER, True)[advice.HARD] is None
+found = advice.choices("writing add-ons", catalog.CATALOG, 4096, 8, {VISION: "qwen3.5-2b", CODER: "qwen2.5-coder-1.5b"})
+assert found[CODER]["id"] == "qwen2.5-coder-1.5b" and found[advice.HARD] is None, found
+
 # How requests went with each model on this computer: counted, kept in a file, read back.
 folder = tempfile.mkdtemp()
 path = os.path.join(folder, "models-went.json")

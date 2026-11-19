@@ -1,0 +1,27 @@
+{
+ "about": "Questions about a picture or the screen in casual words, to write the lines of understanding.md for questions about a picture from (claw/pictures.py: kindOf and pieces). Written on 2026-11-19 before anything was run on them. expect: the kind of each separate question, in order.",
+ "requests": [
+  {"request": "how many folks are in this pic", "expect": ["count"]},
+  {"request": "whats it say on the sign", "expect": ["text"]},
+  {"request": "gimme the gist of this photo", "expect": ["describe"]},
+  {"request": "who's in the shot", "expect": ["people"]},
+  {"request": "is there a cat anywhere", "expect": ["find"]},
+  {"request": "where's the search box", "expect": ["where"]},
+  {"request": "what's this chart going on about", "expect": ["chart"]},
+  {"request": "spell out the error code for me", "expect": ["text"]},
+  {"request": "can you make out the lettering on the button", "expect": ["text"]},
+  {"request": "what hue is the background", "expect": ["colour"]},
+  {"request": "tally up the icons", "expect": ["count"]},
+  {"request": "what's the vibe of this photo", "expect": ["describe"]},
+  {"request": "which option is ticked", "expect": ["focus"]},
+  {"request": "anybody smiling in this photo", "expect": ["people"]},
+  {"request": "how many peeps are in the meeting window", "expect": ["count"]},
+  {"request": "what's scribbled on the whiteboard", "expect": ["text"]},
+  {"request": "what's the trendline doing", "expect": ["chart"]},
+  {"request": "what shade of blue is the logo", "expect": ["colour"]},
+  {"request": "what's in this photo, and what's the fine print say", "expect": ["describe", "text"]},
+  {"request": "is there a close button, and where's it at", "expect": ["find", "where"]},
+  {"request": "what's lit up on the screen right now", "expect": ["focus"]},
+  {"request": "break down this pie chart for me", "expect": ["chart"]}
+ ]
+}
