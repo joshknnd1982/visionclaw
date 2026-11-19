@@ -23,26 +23,22 @@ chat apps, and names for unlabelled buttons.
 > [docs/STATUS.md](docs/STATUS.md) for exactly what was tested.
 
 <!-- news: written by tools/write_help.py from manifest.ini; do not change it by hand -->
-This README is for VisionClaw 1.15.0.
+This README is for VisionClaw 1.15.1.
 
-## What is new in 1.15.0
+## What is new in 1.15.1
+
+- Ask which version of something is installed, and VisionClaw says that version and nothing more. Press NVDA+Alt+C and say "which version of VisionClaw do I have", "what version of NVDA am I running", "what version of Access8Math is installed" with any add-on's name, or "what version of this program is it". Before, "tell me the version of visionclaw I have installed" read out the whole list of add-ons.
+- Ask about several at once, "what versions of NVDA and VisionClaw do I have", and you hear one line for each. An add-on that is turned off is said to be, and one you name that is not installed is said not to be.
+- Only when you say you are new to this, as in "I'm a beginner screen reader user, what version of NVDA do I have", or asked VisionClaw to remember that you are new to NVDA, does one sentence follow on where to find the version yourself next time, such as NVDA+N, then H for Help, then About.
+- The version is read from NVDA itself, the add-on's own manifest and the program, by plain code: no model is asked and nothing goes online. To look for a newer VisionClaw, press NVDA+Alt+U or say "check for a new version of visionclaw", as before. Tested with plain Python and stand-ins for NVDA; not yet run inside NVDA.
+
+## What was new in 1.15.0
 
 - Ask about the control you are on in your own words, and VisionClaw answers at once from what NVDA knows, without asking you what you meant. Press NVDA+Alt+C and say "what is the focused control", "what does this button do", "what happens if I press Enter here", "is this checkbox checked", "is this button greyed out", "does this have a shortcut key", "what is the navigator object on" or "what's under my mouse". In browse mode it is the link, button or field at your reading position.
 - The answer starts with what you asked: yes or no for a state, then the control's kind and name, the window and program, its state, its value or selected text, its place in its list, what it is inside of, its description and shortcut key, how to use it from the keyboard, and NVDA's own key for next time, such as NVDA+Tab for the focus. A control without a name gets the name you saved for it, or one read from its picture, said with probably where it is not sure. Asked what a button does where nothing says it, the model guesses from its name and picture, and the answer says it is a guess. Nothing is pressed or changed.
 - VisionClaw no longer asks you to choose between two ways that only look and change nothing, such as looking at the screen and looking it up in NVDA. It tries one, what NVDA says before a picture, then the other if the first finds nothing, and tells you so. It still asks first when one of the ways would change something. A step that only looks and fails is followed by the other way instead of a question.
 - A question VisionClaw finds no job for, such as "tell me a joke" or "what's 15 times 12", is looked up in NVDA, the program, the window and Windows, and you are told plainly when nothing is found, instead of being asked to choose a plan. "Switch to focus mode" and "go into focus mode" run NVDA's own command, and "is the remember me box ticked" is no longer taken as something to remember.
 - Measured with the real Qwen3.5 4B for both jobs on two new sets of requests in casual words: on the set written to tune it, 34 of 64 right with 4 questions to you before, 61 of 64 with none after; on the held-out set, 35 of 60 with 2 questions before, 55 of 60 when first run, and 59 of 60 with none after three small rules made from its misses. Not yet run inside NVDA.
-
-## What was new in 1.14.0
-
-- Object names, NVDA+Alt+B, now name only objects that are truly unlabelled. Whatever Windows, the browser or the program gives NVDA is left as it is, however short or odd: a page number or a letter such as X, a sign such as +, a file name in a list of files, a password field labelled Password, a menu button called Menu, a name from the program's code such as btnClose. A description or tooltip, the hint written in an empty field, the words inside a button and a label the program links to a field count as a label too. Empty table cells, empty lists, panes that hold other objects and pictures inside a button or link are no longer named. A name the model gave such an object in 1.13.0 is no longer said.
-- Where a program links a label to a field, or puts a button's words in an object inside it, and NVDA does not say them, VisionClaw now says them as they are, without the model.
-- New key NVDA+Shift+Alt+B: asks the model to name the object where you are, in browse mode the control or picture at the cursor, where object names left it alone or could not name it, and also while object names are off. You hear the soft beep, then the name, or that the model could not tell. The name is saved and said there from then on, over the program's own label; forget it in the window of saved names, NVDA+Alt+N pressed twice.
-- Your own name, given with NVDA+Alt+N, is now said also where the object has a label of its own. Before, it was saved, but NVDA kept saying the program's label.
-- A name the model gives no longer ends with the kind NVDA says itself, so a field is "probably Search", not "probably Search field".
-- Fixed: a name the model gives that says nothing, such as "Edit field" for a field with nothing around it, is no longer said; NVDA's own word stays.
-- Object names show the model the label beside a narrow field too, such as a quantity box; before, the label could be cut off.
-- Object names were measured with the real Qwen3.5 4B: icon buttons 17 of 17 and 16 of 17, buttons with text 8 of 8, fields 11 of 11, about half a second a name.
 
 How to use each of these is explained in its own part of this README, further down.
 <!-- /news -->
@@ -1404,6 +1400,23 @@ only a hint", "always explain things step by step"); it remembers that and keeps
 
 NVDA's own list of what is new in its newest three versions, which comes with NVDA, is asked when you ask
 what is new, what changed or what was fixed.
+
+## Which version is installed
+
+Ask **"which version of VisionClaw do I have"**, "what version of NVDA am I running", "what version of Access8Math is
+installed" with any add-on's name, or "what version of this program is it". VisionClaw says that version and nothing
+more: "VisionClaw is version 1.15.1." Ask about several at once, "what versions of NVDA and VisionClaw do I have", and
+you hear one line for each. An add-on that is turned off is said to be; an add-on you name that is not installed is
+said not to be, with the name of the program in front.
+
+Only when you say you are new to this ("I'm a beginner screen reader user, ...", "I'm new to NVDA"), or asked
+VisionClaw to remember that you are, does the answer add where to find the version yourself next time: for NVDA,
+NVDA+N, then H for Help, and About; for an add-on, NVDA+N, then T for Tools, then A for the Add-on Store, whose
+Installed add-ons tab lists every add-on with its version; for VisionClaw, NVDA+Alt+U to look for a newer one.
+
+The version is read from NVDA itself, from the add-on's own manifest and from what the program tells NVDA, by plain
+code: no model is asked and nothing goes online. "Is there a newer version of VisionClaw" still looks on GitHub, after
+a question (see "Getting a newer version of VisionClaw").
 
 ## Free training material, and everything as Markdown files
 

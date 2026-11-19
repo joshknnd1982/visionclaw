@@ -431,7 +431,7 @@ assert instance.dataDir == DATA and instance.portableSettings()["searchEngine"] 
 instance.controller._stopped.set()
 instance.controller._thread.join(5)
 registry = instance.orchestrator.registry
-assert len(registry.names()) == 114, registry.names()
+assert len(registry.names()) == 115, registry.names()
 # Lessons from searches that happened to find something misled; they are dropped when VisionClaw starts.
 assert instance.memory.all() == ["Tool set_setting: this form failed: {} (x). This form worked: {}."], instance.memory.all()
 assert set(planner.available(registry)) == set(planner.RECIPES), set(planner.RECIPES) - set(planner.available(registry))
@@ -1674,6 +1674,37 @@ worked, result = registry.call(task, "addon_info", {"addon": "teleporter", "abou
 assert not worked and "No installed add-on is called \"teleporter\"" in result, result
 # The help texts of the add-ons that are on can be read up on like NVDA's own user guide.
 assert any("Alarms ring at the time you set." in body for _title, body, source in accesstools.addonSections() if source == "addons")
+
+# Which version is installed: that version alone, never the list of every add-on (versiontools.py, claw/versions.py).
+# Asked by the owner on 2026-11-19: "tell me the version of visionclaw I have installed?" read out all 25 add-ons.
+ownCopy = types.SimpleNamespace(name="visionClaw", path=addonDir, isDisabled=False, isRunning=True, isPendingInstall=False,
+	manifest={"summary": "VisionClaw", "version": "1.15.1"})
+offOne = types.SimpleNamespace(name="access8Math", path=addonDir, isDisabled=True, isRunning=False,
+	manifest={"summary": "Access8Math", "version": "5.0"})
+sys.modules["addonHandler"].getAvailableAddons = lambda: [clock, ownCopy, offOne]
+sys.modules["buildVersion"].version = "2026.3.1"
+sys.modules["api"].getForegroundObject = lambda: types.SimpleNamespace(
+	name="Untitled - Notepad", appModule=types.SimpleNamespace(appName="notepad", productName="Microsoft Notepad", productVersion="11.2510.14.0"))
+assert registry.get("version_info").tell == "verbatim" and registry.get("version_info").looks
+for asked, expected in (
+		("tell me the version of visionclaw I have installed?", "VisionClaw is version 1.15.1."),
+		("What visionclaw addon version is installed?", "VisionClaw is version 1.15.1."),
+		("which version of nvda am I running", "NVDA is version 2026.3.1."),
+		("what version of the clock add-on do I have", "Clock and calendar is version 2.1."),
+		("Which version of Access8Math is installed?", "Access8Math is version 5.0. It is turned off."),
+		("what version of this program is it", "Microsoft Notepad is version 11.2510.14.0."),
+		("what version of notepad is this", "Microsoft Notepad is version 11.2510.14.0."),
+		("what versions of NVDA and VisionClaw do I have", "NVDA is version 2026.3.1.\nVisionClaw is version 1.15.1.")):
+	worked, result = registry.call(task, "version_info", {"asked": asked})
+	assert worked and result == expected, (asked, result)
+worked, result = registry.call(task, "version_info", {"asked": "what version of teleporter do I have"})
+assert worked and result.startswith("No add-on called \"teleporter\" is installed in NVDA, and the program in front is Microsoft Notepad."), result
+# Only where the user says they are new to this does more follow: where to find it themselves next time.
+worked, result = registry.call(task, "version_info", {"asked": "I'm a beginner screen reader user. What version of VisionClaw do I have?"})
+assert worked and result.startswith("VisionClaw is version 1.15.1.\n") and "NVDA+Alt+U" in result, result
+worked, result = registry.call(task, "version_info", {"asked": "I am new to NVDA, which version of it is this?"})
+assert worked and result.startswith("NVDA is version 2026.3.1.\n") and "then H for Help, and choose About" in result, result
+sys.modules["addonHandler"].getAvailableAddons = lambda: [clock]
 
 # --- Scrolling with the mouse wheel ---
 

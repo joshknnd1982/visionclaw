@@ -1,6 +1,6 @@
 # VisionClaw status
 
-Updated 2026-11-19, version 1.14.0.
+Updated 2026-11-19, version 1.15.1.
 
 ## What exists
 
@@ -2738,6 +2738,38 @@ What was not tested: nothing of it has run inside NVDA; the walk is "The control
 `docs/TESTPLAN.md`. Browse mode's reading position, the selected text, the user's gestures for next time and the
 picture-based name and guess were tested only against stand-ins. The guess of what a button does was not measured
 with a real model. `tests/live_orchestrator.py` was run only for the ten requests named above, not in full.
+
+## Which version is installed, and nothing more (1.15.1, 2026-11-19)
+
+The owner asked "tell me the version of visionclaw I have installed?" and was read the list of all 25 add-ons. In
+VisionClaw's log of 15:52 that day, "What visionclaw addon version is installed?" went this way: the words "tell me ...
+version" set off the pattern for `nvda_info`, Qwen3.5 4B chose it, its form read the topic "addons", and the tool gave
+every add-on with its version; the answer step picked the first line of that list. The owner said what must happen
+instead: "find the addon in question. get the version as I requested. give me what I asked for and no more, no
+assuming I want more unless I say I am a beginner screen reader user or some variation of that."
+
+What was done: `claw/versions.py` reads from the words what the version is asked of (VisionClaw, "you", NVDA, an
+add-on by its name, the program in front, several at once) and whether the user says they are new to this;
+`versiontools.py` reads the version from `buildVersion`, the add-on's manifest (the add-on chosen by the user's words,
+`accesstools._addonOf`), VisionClaw's manifest by its name, and the app module's `productVersion`; the new job
+`version_info` is sure (no model is asked) and its answer is said word for word: one sentence for each thing, "It is
+turned off." for an add-on that is off, and one sentence on where to find it next time only for a beginner, in the
+request or in a memory.
+
+How it was tested: `tests/test_versions.py` (plain Python): 22 wordings, the owner's two among them, go to
+`version_info` with the right things, also after the words are understood by the grammar; 19 that ask something else
+(a newer version, what is new, what something needs, Windows, Python, a model, a guide, version control, an add-on to
+be written, nothing named) do not, and "check for a new version of visionclaw" still goes to `update_visionclaw`; the
+answer's sentences; beginner words in a request and in a memory, and words that only look like them ("You are learning
+Spanish", "I'm new to this job at work"). `tests/test_nvda_stub.py` runs the tool against stand-ins for NVDA: the
+owner's two questions give "VisionClaw is version 1.15.1." and nothing more, NVDA's version, a named add-on, one that
+is turned off, the program in front by "this program" and by its name, two things at once, a name that is no add-on,
+and a beginner's answer for VisionClaw and for NVDA. The first evaluation set's "which version of nvda do I have",
+written for `nvda_info`, now goes to `version_info`, which gives the same version without the rest
+(`tests/test_eval_patterns.py`, `LATER`). All plain-Python tests pass (`tests/run_all.py`).
+
+What was not tested: nothing of it has run inside NVDA; the walk is "Which version is installed" in
+`docs/TESTPLAN.md`. No model is asked by the job, so `tests/live_orchestrator.py` was not run for it.
 
 ## Next session
 

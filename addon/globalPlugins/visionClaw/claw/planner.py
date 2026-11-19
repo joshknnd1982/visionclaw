@@ -12,7 +12,7 @@
 import re
 
 from . import computer, controls, dates, debuglog, direct, gamepad, guide, memories, partners, places, pointer, policy, profiles, router, touch, understand
-from . import docformat, focus, humancheck, images, paper, seats, shopping, wizard
+from . import docformat, focus, humancheck, images, paper, seats, shopping, versions, wizard
 from .llm import LLMError, clip
 from .task import Step
 from .tools import ANSWER
@@ -140,6 +140,13 @@ RECIPES = {
 		"say which speech synthesizer, voice, braille display, braille table, driver or version NVDA has or "
 		"uses and how they are set, or which add-ons are installed in NVDA",
 		("nvda_info",)),
+	# Which version of VisionClaw, NVDA, one add-on or the program in front is installed, read by plain code from the
+	# words (claw/versions.py) and answered with that version alone.
+	"version_info": (
+		"tell you which version of something is installed",
+		"say which version of VisionClaw itself, of NVDA, of one add-on installed in NVDA or of the program in front is "
+		"installed here; only the version that was asked for",
+		("version_info",)),
 	"visionclaw_models": (
 		"tell you which AI models VisionClaw uses",
 		"say which AI model or models VisionClaw itself, the assistant, has installed, downloaded or stored and "
@@ -620,6 +627,9 @@ _HINTS = (
 	# A question about the control the user is on: what it is, what it does, its state, its keys (claw/focus.py).
 	# Asked on 2026-11-19 after "tell me about the focused control" set off the pattern for NVDA's commands below.
 	("about_focus", lambda part: focus.wish(part) is not None and not re.search(_OBJECT_FACTS, part.lower())),
+	# Which version of something is installed: the version alone (claw/versions.py). Asked on 2026-11-19 after "tell me
+	# the version of visionclaw I have installed?" set off the pattern for what NVDA has, which reads out every add-on.
+	("version_info", lambda part: versions.wish(part) is not None),
 	# A field of a form that is marked only by a red border: what is stopping the form is found, and the reading
 	# position is put there (pagetools measures the picture where the page tells NVDA nothing).
 	("form_trouble", r"\b(fields?|box(es)?|forms?)\b.{0,60}\b(red (border|outline|box|line|frame)|(outlined|highlighted|marked|circled) in red)\b"
@@ -1553,13 +1563,13 @@ _NEEDS = {
 	"step_through": wizard.wish, "fill_blank": paper.wish, "format_document": docformat.wish,
 	"check_layout": docformat.layoutWish, "human_check": lambda part: humancheck.about(part) or None, "pick_seat": seats.seatWish,
 	"pick_option": lambda part: None if guide.asks(part) else shopping.optionWish(part), "look_picture": images.meant,
-	"about_focus": focus.wish}
+	"about_focus": focus.wish, "version_info": versions.wish}
 # Recipes the words point to that can hardly mean anything else: locking and shutting down, the Recycle Bin, the
 # computer's own volume. Where the words point to one of them, it is taken, whatever a model chose. Each of
 # their tools asks the user before it changes anything.
 _SURE = ("power", "windows_part", "read_place", "empty_bin", "recycle_bin", "system_volume", "file_task", "pick_date", "work_through",
 	"teach_words", "step_through", "fill_blank", "format_document", "check_layout", "human_check", "pick_seat", "pick_option",
-	"look_picture", "about_focus")
+	"look_picture", "about_focus", "version_info")
 
 
 # Words that only ask something, at the start: a question, or "tell me". Asked of nothing on the screen and fitting no

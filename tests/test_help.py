@@ -54,6 +54,7 @@ HELP = {
 	"form_trouble": "why won't this form submit",
 	"nvda_info": "which speech synthesizer am i using",
 	"visionclaw_models": "what model is installed",
+	"version_info": "which version of visionclaw do i have",
 	"switch_driver": "switch my speech synthesizer to espeak",
 	"fix_addon": "fix the add-on",
 	"undo_change": "undo that",

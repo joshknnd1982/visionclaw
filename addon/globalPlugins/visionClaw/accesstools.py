@@ -1294,3 +1294,8 @@ def register(plugin, add, text, registry=None):
 			"addon": text("the name of the add-on, or all for the list of add-ons", maxLength=60),
 			"about": text("what the user wants to know about it", maxLength=200, auto=True),
 		}, looks=True, title="Looking at the add-on", tell=VERBATIM)
+
+	# Which version of VisionClaw, NVDA, one add-on or the program in front is installed: that version alone
+	# (versiontools.py, claw/versions.py).
+	from . import versiontools
+	versiontools.register(plugin, add, text, onMain)

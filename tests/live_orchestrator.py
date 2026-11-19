@@ -539,6 +539,11 @@ def makeRegistry(rt, state):
 		"VisionClaw uses one model, Qwen3.5 9B, for both jobs: looking at the screen and planning, and checking and "
 		"writing code. One model is stored on this computer: Qwen3.5 9B, 6.1 GB.", "Checking VisionClaw's models",
 		looks=True, tell=V)
+	simple("version_info",
+		"say which version of VisionClaw, of NVDA, of one add-on installed in NVDA or of the program in front is "
+		"installed here; only the version that was asked for",
+		"VisionClaw is version 1.15.1. The user said: {asked}", "Finding the version",
+		{"asked": text("what the user asked for, in their own words", maxLength=300, auto=True)}, looks=True, tell=V)
 	simple("pointer_mode",
 		"turn on pointer mode, so the user can work any control with the keyboard: the arrow keys move the mouse "
 		"pointer, and keys click, right-click, double-click and drag",

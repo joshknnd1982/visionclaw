@@ -29,7 +29,9 @@ grammar = understand.Grammar(None)
 # Jobs added after a set was written, and the jobs of that time whose answer they give and more. about_focus (1.15.0)
 # says the program, the window and the control the user is on, as where_am_i did, and every fact object_facts gave in
 # plain words: "what control am I on", written for where_am_i, is answered by it.
-LATER = {"about_focus": ("where_am_i", "object_facts")}
+LATER = {"about_focus": ("where_am_i", "object_facts"),
+	# version_info (1.15.1) says the version of NVDA that nvda_info said among its other facts, and nothing more.
+	"version_info": ("nvda_info", "addon_question")}
 
 
 def fits(job, allowed):

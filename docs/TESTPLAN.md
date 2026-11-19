@@ -912,5 +912,18 @@ None of these has run inside NVDA. Each is one real run; say what you hear.
 - [ ] "tell me a joke" and "what's 15 times 12": no question about a plan; the answer says plainly what was asked
       and that nothing was found about it.
 
+## Which version is installed (1.15.1)
+- [ ] NVDA+Alt+C, "tell me the version of visionclaw I have installed?": the answer is "VisionClaw is version 1.15.1."
+      and nothing else. No list of add-ons, no question.
+- [ ] "What visionclaw addon version is installed?" and "what version are you": the same.
+- [ ] "which version of NVDA am I running": "NVDA is version ...", the version that NVDA+N, Help, About shows.
+- [ ] "what version of" an installed add-on's name "do I have": that add-on's version, as the Add-on Store's Installed
+      add-ons tab shows it. For an add-on that is turned off, "It is turned off." follows.
+- [ ] In Notepad: "what version of this program is it": Notepad's version, or that it does not tell NVDA.
+- [ ] "what versions of NVDA and VisionClaw do I have": two lines, one for each.
+- [ ] "I'm a beginner screen reader user, what version of NVDA do I have": the version, then one sentence on where to
+      find it next time. Without "beginner", that sentence is not said.
+- [ ] "Is there a newer version of VisionClaw?": still the check on GitHub, with its question first.
+
 ## Stopping NVDA
 - [ ] NVDA exits without an error, and no `vcengine.exe` is left running (Task Manager).

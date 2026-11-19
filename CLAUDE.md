@@ -902,6 +902,23 @@ keyboard and speech alone.
     names asks (`naming.question`, `naming.decide`: "probably"), after the name the user or VisionClaw saved; and what a
     thing that is pressed does where neither its description nor its kind says it (`focus.DOES_SYSTEM`), said as "a
     guess from its name and picture, which may be wrong". Nothing is pressed or changed.
+- **Which version is installed is said by plain code, and only that version** (`claw/versions.py`, `versiontools.py`,
+  the job `version_info`). The owner asked on 2026-11-19 "tell me the version of visionclaw I have installed?" and was
+  read all 25 add-ons ("tell me ... version" had set off the pattern for `nvda_info`), then said: "find the addon in
+  question. get the version as I requested. give me what I asked for and no more, no assuming I want more unless I say
+  I am a beginner screen reader user or some variation of that." What follows from it:
+  - **Plain code reads what the version is asked of** (`versions.wish`): VisionClaw ("you", "your version" where nothing
+    else is named), NVDA, an add-on by its name, the program in front, several joined by "and" or commas. The job is
+    sure (`planner._SURE`) and stands at the top of `_HINTS`. Kept narrow (`versions._NOT`): a newer version, what is
+    new in one, what something needs or supports, an add-on to be written, a key, a model, Windows, Python, the guides,
+    a version of a file, and nothing named are None. Add every wording the owner finds answered wrongly to
+    `tests/test_versions.py`.
+  - **The version is read, never guessed**: `buildVersion.version`, the add-on's own manifest (the user's words choose
+    the add-on, `accesstools._addonOf`), VisionClaw's manifest by its name, the app module's `productVersion`.
+  - **The answer is one sentence for each thing asked about** (`versions.answer`), and an add-on that is off says so.
+    Only where the request or a memory says the user is new to this (`versions.beginner`) is one sentence added on where
+    to find it next time, with keys every keyboard has. Never answer a question about one thing with a list of all of
+    them.
 - **Between two ways that only look, the user is not asked** (`consensus._bothLook`, `planner.onlyLooks`, `firstWay`,
   `orchestrator._nextWays`, `_hasOtherWay`). Where the model and the words, or two models, still differ after looking
   again and every tool of both ways only finds out (`looks`, never `changes`), one is planned and the other is kept as
@@ -1459,6 +1476,8 @@ addon/
     nametools.py             object names: the class that gives an object its saved name, the page in browse mode
                              given its names, naming where the user is in the background, what the interfaces say of
                              an object besides its name, NVDA+Alt+N, and a name asked for with NVDA+Shift+Alt+B
+    versiontools.py          which version of VisionClaw, NVDA, an add-on or the program in front is installed, read
+                             from the running NVDA; that version alone
     namesui.py               the window of saved object names: change, forget, share, add shared names
     profiletools.py          an NVDA setting for the program in front only: NVDA's configuration profile for it
                              made, turned on, written to only while it is the one NVDA writes to, listed, deleted
@@ -1564,6 +1583,8 @@ addon/
                              names, what tells an object apart, how sure a name is, the names kept and shared
       focus.py               the control the user is on: what the words ask about it, and NVDA's facts about it in
                              plain words, with how it is worked and NVDA's own key for next time
+      versions.py            which version the user's words ask about, and the answer: that version alone, and where
+                             to find it next time only for someone who says they are new to this
       busy.py                what VisionClaw is busy with for the user, and a status update when it has been quiet
                              too long: when one is due, what it says, when nothing is said
       router.py              which kinds of request and which tools a model is offered: by where the user is,
@@ -1881,6 +1902,8 @@ A session is done only when its "Done when" line is true.
 - [x] **3.65 More confident.** The control the user is on answered from NVDA's facts without a question; between two
   ways that only look, one is tried and then the other, without a question; a question no job fits is looked up.
   Measured with the real Qwen3.5 4B on two new sets, one held out; not run inside NVDA.
+- [x] **3.66 Which version is installed.** VisionClaw, NVDA, an add-on or the program in front, that version alone,
+  and where to find it next time only for someone new to this. Tested with plain Python and stand-ins; not run in NVDA.
 - [ ] **3.5 Test inside NVDA.** Install the build in NVDA (ask the user first) and walk through
   `docs/TESTPLAN.md`. Fix what breaks. *Done when:* every item in the test plan is ticked by a real run.
 
@@ -1959,6 +1982,8 @@ python -u tests/live_object_names.py MODELS ID   a real vision model names drawn
                                          object names ask; with tests/live_naming.py for icon buttons
 python tests/test_focus.py               the control the user is on: what the words ask, the answer from NVDA's facts;
                                          two ways that only look tried one after the other without a question
+python tests/test_versions.py            which version the words ask about, the job, the answer; the tool against
+                                         stand-ins for NVDA is in tests/test_nvda_stub.py
 python tools/write_nvda_objects.py SRC VERSION   writes docs/NVDA-OBJECTS.md and tests/nvda_objects.json from NVDA's
                                          source
 python tests/test_ten.py                 colours and places measured in drawn pictures, a form that is only a picture, a
