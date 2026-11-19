@@ -1,4 +1,4 @@
-<!-- NVDA Developer Guide, by NV Access and contributors. GNU General Public License, version 2 or later. From https://download.nvaccess.org/documentation/developerGuide.html on 2026-11-18, turned into Markdown by VisionClaw. -->
+<!-- NVDA Developer Guide, by NV Access and contributors. GNU General Public License, version 2 or later. From https://download.nvaccess.org/documentation/developerGuide.html on 2026-11-19, turned into Markdown by VisionClaw. -->
 
 # NVDA 2026.3.1 Developer Guide
 

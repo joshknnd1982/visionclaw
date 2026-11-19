@@ -1,6 +1,7 @@
 <!-- Written on 2026-11-18 from VisionClaw's own code: claw/profiles.py and profiletools.py (an NVDA setting for
 one program only), claw/followups.py (a request that follows the one before it), claw/dates.py and datetools.py
-(a date chosen in a calendar), claw/voice.py, voiceinput.py and voiceui.py (asking by voice). When the code
+(a date chosen in a calendar), claw/voice.py, voiceinput.py and voiceui.py (asking by voice), claw/advice.py (which
+model fits what you want to do). When the code
 changes, read it again and bring these up to date; do not write them from memory. Each section is short on
 purpose: one section is one answer, and it is given to the user word for word by the smallest models.
 Nothing may stand between this comment and the first heading but the title, or it becomes a section. -->
@@ -51,6 +52,11 @@ the box and read to you. Press Enter to send it, or correct it first. Nothing is
 The first time you ask by voice, VisionClaw asks whether to download the speech model Qwen3-ASR, about 1 GB.
 Your words are then turned into text on this computer and are sent nowhere; nothing of them is kept. A larger
 model can be chosen in VisionClaw's settings. To delete it, say: delete the speech model.
+
+## Which model to use for what, and whether to switch to a smaller, larger or different model
+Ask: which model should I use for describing pictures, should I switch to a smaller model, which model is best for
+writing add-ons. VisionClaw suggests one from your graphics card and memory, what was measured and how requests went
+with each model on this computer. It changes nothing: you choose in the models window, NVDA+Alt+M.
 
 ## The JAWS Migration Assistant: what a JAWS keystroke or JAWS command is in NVDA
 With the add-on JAWS Migration Assistant running, ask: what is JAWS's Insert+F7 in NVDA. VisionClaw looks the

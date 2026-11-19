@@ -23,23 +23,24 @@ chat apps, and names for unlabelled buttons.
 > [docs/STATUS.md](docs/STATUS.md) for exactly what was tested.
 
 <!-- news: written by tools/write_help.py from manifest.ini; do not change it by hand -->
-This README is for VisionClaw 1.9.1.
+This README is for VisionClaw 1.10.0.
 
-## What is new in 1.9.1
+## What is new in 1.10.0
+
+- VisionClaw understands more ways of saying things, and asks you less. Measured on requests in words it had never seen: the right job went from 55 to 58 of 65, and the times it had to ask you which you meant from 5 to 1.
+- A question about how to do something is answered with the keys, and nothing is done. "How can I jump between headings on a web page" and "what's the shortcut to get to the address bar" no longer list headings or make a hotkey. A question that begins with why, such as "why does NVDA say clickable all the time", is answered too.
+- When the model's choice also fits your words, VisionClaw goes with it instead of asking you. Before, it asked you nine times on the first test set, and the model had been right in six of them.
+- More requests are understood by plain code: "press alt f4" and "send control s to this program" press those keys in the program; "the whole computer is too loud" turns the computer's volume down; "what did I download today" looks in Downloads; "open the NVDA menu" and "what's on the clipboard" run NVDA's own command; "click the attack button every second" clicks in a rhythm; "go back to Chrome" switches to Chrome; "what does this dialog say" reads it; "I want to hear line numbers" and "every letter I type" are NVDA settings.
+- A complaint and what to do about it is one request: "NVDA keeps saying every word I type, make it stop". And "I'm lost, how do I print this" answers how to print, instead of only saying where you are.
+- Which model for what you want to do. Say "which model should I use for describing pictures", "should I switch to a smaller model", "which model is best for writing add-ons" or "suggest a model". VisionClaw suggests one from your graphics card and memory, what was measured with each model and on which day, and how your requests went with it on this computer. It changes nothing: you choose in the models window, NVDA+Alt+M.
+- Your own review of a model counts. VisionClaw keeps how requests went with each model on this computer in the file models-went.json in its data folder, and what you ask it to remember about a model, such as "remember that the 9B is too slow for me", brings the faster choice into the suggestion.
+- A new skill, Choosing a model, and a note VisionClaw looks things up in about which model fits what.
+- Stated plainly: measured with the real Qwen3.5 9B on three sets of requests written for this, none of them used to tune VisionClaw when it was written; tested with stand-ins for NVDA. Not run inside NVDA yet.
+
+## What was new in 1.9.1
 
 - Reading the system tray no longer leaves you on the taskbar. To read the hidden icons, VisionClaw shows them for a moment and hides them again; on Windows 11 that moved the focus to the taskbar. Now the window you were in comes back to the front, so after "what is in my system tray" you are where you were before.
 - Stated plainly: tried on the owner's real Windows 11 taskbar outside NVDA: the four hidden icons were read, hidden again, and the window in front came back. Not run inside NVDA yet.
-
-## What was new in 1.9.0
-
-- What is in the system tray is read for you. Say "what is in my system tray" or "tell me all objects that are currently in the system tray". Before, this was answered from a picture of the desktop, which said "I cannot see the system tray in this image". Now VisionClaw reads every icon from what Windows tells screen readers, word for word, with no model and no picture: the icons shown on the taskbar, the hidden ones behind Show hidden icons, and the clock. It ends with the key that goes there, Windows+B.
-- The same for the taskbar, the desktop and more. Say "which programs are on my taskbar", "what icons are on my desktop", "read my notifications" or "what is in quick settings". The notifications, quick settings, the Start menu and clipboard history exist only while they are open, so VisionClaw opens them with their own key, reads them, and leaves them open; Escape closes them.
-- Ask whether something is there: "is NVDA running in the system tray?", "does my taskbar have Firefox?". Or how many: "how many icons are in the system tray?".
-- Click something inside the system tray or on the taskbar: "right-click the volume icon in the system tray", "click the Firefox button on the taskbar". And "click Dropbox" from any window finds Dropbox's icon in the notification area and asks before it uses it there.
-- VisionClaw checks what it found. When a way of looking did not find what you asked, as a picture that "cannot see" it, VisionClaw tries the next way that only looks, once, tells you "That did not answer it, so VisionClaw tried another way", and says what that way found.
-- VisionClaw learns from it: the way that found nothing is counted as not working, and the way that answered as working, on this computer. Before, the "I cannot see it" answer was counted as a success.
-- Words that mean the same thing count as one: "system tray" and "notification area", "objects" and "icons", "tell me" and "which". So what VisionClaw learned for one wording is used for another.
-- Stated plainly: tested with stand-ins for NVDA and Windows made from what Windows 11 reported about the taskbar on the owner's computer, and with the real Qwen3.5 9B model. Not run inside NVDA yet: reading the system tray in NVDA is the first thing to try.
 
 How to use each of these is explained in its own part of this README, further down.
 <!-- /news -->
@@ -218,6 +219,18 @@ The models come from Hugging Face. Each file is pinned to one version and checke
 the download. You can also use VisionClaw with a vision model only; then it describes images and runs the
 overlay like VisionMate, and Ask VisionClaw waits until you add a coder model.
 
+### Which model for what you want to do
+
+Ask: *which model should I use for describing pictures*, *should I switch to a smaller model*, *which model is best
+for writing add-ons*, *suggest a model*. VisionClaw suggests one model for each thing you want to do: planning and
+carrying out what you ask, describing pictures and the screen, writing and fixing add-ons, or answering faster. The
+suggestion stands on your graphics card and memory, the models on your disk, what was measured with each model in
+VisionClaw's own tests and on which day (a model that was not measured is said to be not measured), and your own
+review: how your requests went with each model on this computer, counted in models-went.json in VisionClaw's data
+folder, and anything you asked VisionClaw to remember about a model, such as *remember that the 9B is too slow for
+me*. No model is asked, and nothing goes online. Nothing is changed either: you choose in the models window,
+NVDA+Alt+M.
+
 ### The very smallest models: one small question at a time
 
 The two smallest models, Qwen3.5 0.8B and Qwen2.5 Coder 0.5B, are for computers that can run nothing larger.
@@ -390,6 +403,11 @@ says what that way found. The way that found nothing is counted as not working f
 answered as working, in plans.json on this computer. Words that mean the same thing count as one, so what was
 learned for one wording is used for another: "tell me all objects in the system tray" and "which icons are in my
 notification area" are the same request to VisionClaw. A model still chooses, and plain code still checks.
+
+A question about how to do something is answered with the keys, and nothing is done; a question that begins with why
+is answered. When the model's choice also fits your words, VisionClaw goes with it instead of asking you; it asks you
+only when your words clearly point elsewhere. How well VisionClaw chooses is measured on sets of requests in words it
+was never tuned on, with the real model, and a change is kept only when it measures better.
 
 ## Working through a task when the usual path isn't clear
 

@@ -73,6 +73,7 @@ GATES = {
 	"visionclaw_log": (None, r"\blogs?\b"),
 	"update_visionclaw": (None, r"\b(updates?|upgrade|versions?|up to date|newer|latest)\b"),
 	"visionclaw_models": (None, r"\b(models?|qwen|llms?|ai|a\.i\.)\b"),
+	"model_advice": (None, r"\b(models?|qwen|llms?|ai|a\.i\.|quants?)\b"),
 	"inside_nvda": (None, _DEVELOPER), "audit_nvda": (None, _DEVELOPER), "object_facts": (None, _DEVELOPER),
 	"list_made": (None, _MADE), "remove_made": (None, _MADE), "fix_addon": (None, _MADE), "save_addon": (None, _MADE),
 	"addon_question": (None, r"\badd-?ons?\b"),

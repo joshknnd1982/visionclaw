@@ -431,7 +431,7 @@ assert instance.dataDir == DATA and instance.portableSettings()["searchEngine"] 
 instance.controller._stopped.set()
 instance.controller._thread.join(5)
 registry = instance.orchestrator.registry
-assert len(registry.names()) == 103, registry.names()
+assert len(registry.names()) == 104, registry.names()
 # Lessons from searches that happened to find something misled; they are dropped when VisionClaw starts.
 assert instance.memory.all() == ["Tool set_setting: this form failed: {} (x). This form worked: {}."], instance.memory.all()
 assert set(planner.available(registry)) == set(planner.RECIPES), set(planner.RECIPES) - set(planner.available(registry))
@@ -1273,6 +1273,16 @@ worked, result = registry.call(task, "read_place", {"asked": "tell me what is in
 assert worked and result.startswith("Quick settings did not open, so it could not be read."), result
 worked, result = registry.call(task, "read_place", {"asked": "make nvda speak faster"})
 assert not worked and "does not name a part of Windows that can be read" in result, result
+# Which model fits what the user wants to do: suggested by plain code, with a stand-in graphics card so that the
+# engine is never started to list the real ones; nothing is changed.
+from visionClaw.claw import backend as backendForTest  # noqa: E402
+realDevices = instance.runtime.devices
+instance.runtime.devices = lambda refresh=False: [backendForTest.Device("0", "Test card", 8151, 8000, True)]
+worked, result = registry.call(task, "model_advice", {"asked": "which model should I use for describing pictures"})
+assert worked and result.startswith("This computer has 8 GB of graphics memory") and result.endswith(
+	"VisionClaw only suggests and has changed nothing: to choose, press NVDA+Alt+M, the models window."), result
+assert "For describing pictures and the screen" in result, result
+instance.runtime.devices = realDevices
 # A thing inside the system tray is clicked there: listed from the tray, clicked with the mouse in its middle.
 fresh()
 worked, result = registry.call(task, "list_items", {"about": "right-click the volume icon in the system tray"})

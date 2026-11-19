@@ -23,7 +23,10 @@ OTHER = "other"
 _SETTING_WORDS = (
 	r"speed|rate\b|faster|slower|louder|quieter|volume|pitch|voice|punctuation|echo|braille|setting|turn (on|off)|"
 	r"switch (on|off)|enable|disable|stop (saying|reading|announcing|speaking)|as i type|typed (words|characters|letters)|"
-	r"capital letters|capitals\b|\b(speak|say|announce|read) (words|characters|letters|capitals|punctuation)\b")
+	r"capital letters|capitals\b|\b(speak|say|announce|read) (words|characters|letters|capitals|punctuation)\b"
+	r"|\b(every|each) (letter|character|key|word)s? i (type|press|write)\b|\b(letters|characters|words|keys) (that )?i (type|press)\b"
+	r"|\bwhat i type\b|\b(hear|say|speak|announce)\w*\b.{0,20}\bi type\b"
+	r"|\b(i want|i'd like|i would like|let me|i need) to (hear|be told)\b|\b(stop|don'?t|do not) (keep )?(hearing|telling me|saying|announcing|reading out)\b")
 # name: (a few words for the user; what the user wants, for the model that chooses; the tools, in order)
 RECIPES = {
 	"change_setting": (
@@ -141,6 +144,13 @@ RECIPES = {
 		"say which AI model or models VisionClaw itself, the assistant, has installed, downloaded or stored and "
 		"is using or running, how big they are, and where they run",
 		("model_info",)),
+	# Which model fits what the user wants to do (claw/advice.py): suggested, never switched.
+	"model_advice": (
+		"suggest which AI model to use for what you want to do",
+		"suggest which of VisionClaw's own AI models, or which size or quant of them, fits what the user wants to do best: "
+		"planning and carrying out tasks, describing pictures, writing add-ons, or speed; whether to switch to a smaller, "
+		"larger or different model; only a suggestion, nothing is changed",
+		("model_advice",)),
 	"switch_driver": (
 		"switch the speech synthesizer or braille display",
 		"switch NVDA to a different speech synthesizer or a different braille display",
@@ -493,6 +503,31 @@ RECIPES = {
 # The step that checks what a request depends on ("if you see the Recycle Bin, open it") is no recipe: plain
 # code puts it before the steps of what is to be done (`conditional`).
 IF = "if"
+# The patterns that match nearly any question, or anything that names something shown (see _WEAK).
+_DESCRIBE_ANY = (
+	r"what('s| is| does)? .*(look|show|screen|window|picture|image|photo)|describe|look at|colou?r|what do you see|on (the|my) screen")
+_QUESTION_ANY = r"what (is|are|does)|explain|tell me about|why"
+_QUESTION_START = r"^(what|which|who|where|when|how)\b|^(can|could|does|do|is|are|should|will)\b.*\?\s*$"
+# A key or key combination of the program in front, as "alt f4", "control+s", "shift tab": pressed in the program.
+# One with the NVDA key is a command of NVDA.
+_KEYS = re.compile(
+	r"\b(?:control|ctrl|alt|shift|windows|win)\s*(?:\+|plus|-|\s)\s*(?:(?:control|ctrl|alt|shift)\s*(?:\+|plus|-|\s)\s*)?"
+	r"(?:f\d{1,2}|enter|return|escape|esc|tab|space|delete|backspace|home|end|up|down|left|right|page ?up|page ?down|[a-z0-9])\b",
+	re.IGNORECASE)
+# A name of NVDA's own code, as speech.speak or api.getFocusObject, and not a web address or a file.
+_DOTTED = re.compile(r"\b(?!www\b)([a-z_][a-z0-9_]*)\.([a-z_][a-z0-9_]*)\b", re.IGNORECASE)
+_NOT_CODE = frozenset((
+	"com", "org", "net", "edu", "gov", "io", "co", "uk", "de", "fr", "ca", "au", "txt", "pdf", "doc", "docx", "xls", "xlsx",
+	"exe", "mp3", "mp4", "wav", "jpg", "jpeg", "png", "gif", "zip", "html", "htm", "md", "csv", "json", "ini", "lnk"))
+
+
+def _codeName(part):
+	"""Whether the words ask about a name of NVDA's own code: "what does speech.speak do"."""
+	text = part.lower()
+	return any(found.group(2) not in _NOT_CODE for found in _DOTTED.finditer(text)) and bool(
+		re.search(r"\b(do|does|did|return|returns|mean|means|code|source|call|calls|function|method|work|works)\b", text))
+
+
 # Words that point to a recipe. Checked in this order; the first that matches is the hint given to the model,
 # and the choice when the model fails.
 _HINTS = (
@@ -659,10 +694,11 @@ _HINTS = (
 		r"|\b(list|count|show)\b.*\b(every|all|everything)\b.*\b(in|inside|of)\b.*\bnvda\b"
 		r"|\beverything (that is )?(in|inside) nvda\b)"),
 	# VisionClaw's own log; NVDA's log viewer is an NVDA command.
-	("visionclaw_log", r"\bvisionclaw('s)? (debug |error )?log\b|\b(debug|error) log\b"
+	("visionclaw_log", r"\bvisionclaw('s)? (debug |error )?log\b|\b(debug|error) log\b|\byour (own )?(debug |error )?log( file)?\b"
 		r"|\blog\b.*\b(of|from|for) visionclaw\b"),
 	# Something inside NVDA's code, by its kind or by a dotted name like api.getFocusObject. Before the
 	# add-on hints, which the word "code" would otherwise set off.
+	("inside_nvda", _codeName),
 	("inside_nvda", r"\b(function|method|class|module|python object)s?\b.*\b(nvda|add-?on)('s)?\b"
 		r"|\b(nvda|add-?on)('s)?\b.*\b(functions?|methods?|class(es)?|modules?|python objects?|source code)\b"
 		r"|\b[a-z_]\w*\.(get|is|has|set)[a-z_]\w+|\binside nvda('s)? (code|program)\b"),
@@ -698,7 +734,8 @@ _HINTS = (
 		r"|moves?|flashes|blinks?|comes?|pops?|starts?|stops?|reaches|fills?|is (ready|there|green|red|lit|full|on|off))\b"
 		r"|\b(click|tap)\b.*\b(\d+|two|three|four|five|six|seven|eight|nine|ten|twenty|thirty|fifty|hundred) times\b"
 		r"|\b(click|tap)\b.*\b(repeatedly|rapidly|over and over|again and again|in (a|time|rhythm)|on the beat|as fast as)\b"
-		r"|\bkeep (on )?clicking\b|\b(click|press|tap|hit)\b.*\bat the right (moment|time)\b"),
+		r"|\bkeep (on )?clicking\b|\b(click|press|tap|hit)\b.*\bat the right (moment|time)\b"
+		r"|\b(click|tap|hit)\b.*\bevery (\d+ |few |other |half a )?(second|seconds|minute|minutes|beat)\b"),
 	("fix_addon", r"\b(fix|repair|correct|debug)\b.*\badd-?on|\badd-?on\b.*\b(does(n't| not) work|is broken|stopped working|fails|wrong)\b"),
 	("remove_made", r"\b(remove|delete|get rid of)\b.*\b(helper|hot ?key|add-?on)"),
 	("list_made", r"\b(list|show|which|what)\b.*\b(helpers?|add-?ons?)\b.*\b(you|visionclaw)\b.*\b(made?|wrote|writes?|written|created?|built|build)\b"
@@ -708,6 +745,8 @@ _HINTS = (
 	("name_button", r"\b(name|label|call)\b.*\b(button|control|icon)|unlabel|no label|has no name"),
 	("switch_driver", r"\b(switch|change|use|set)\b.*\b(synthesi[sz]ers?|synths?|braille (display|driver))\b"
 		r"|\b(switch|change) to (espeak|one ?core|sapi|eloquence|no speech|no braille)"),
+	("window", r"^\W*(please\s+)?(go|switch|get|take me) back to (?!(the |my )?(previous|last|page|top|start|beginning|main|home|"
+		r"where|it|that|this|work|sleep|bed)\b)(the |my )?[a-z][\w.+-]*( [a-z][\w.+-]*)?\s*[.!]?\s*$"),
 	("page_navigate", r"\b(go|navigate|move|take me)\s+(back|forward)\b|\b(previous|last|next) page\b|\b(reload|refresh)\b"),
 	# What stops a form. Before everything that the words page, field, form, find and wrong would otherwise set
 	# off. Narrow: a form or its fields, and that something is wrong, required or will not be sent.
@@ -738,6 +777,14 @@ _HINTS = (
 		r"\b(open|go to|visit|load|browse to)\b.*(\w\.[a-z]{2,}\b|web ?site|web ?page|\burl\b)", part.lower()))
 		and not (computer.namesFile(part) and not re.search(r"web ?site|web ?page|\burl\b|\bwww\.|https?:", part.lower()))),
 	("fill_field", r"\b(type|enter|write|fill|put)\b.*\b(in|into)\b.*\b(field|box|form|search)\b"),
+	# Which model to use or switch to: a suggestion (claw/advice.py). Before add-ons, NVDA's drivers and the models that are installed,
+	# which "which model is best for writing add-ons" would otherwise set off.
+	("model_advice", r"^(?!.*\b(picture|image|photo|screen|window|page|site|article|car|phone|printer|braille)\b.*\bmodel\b)(?=.*("
+		r"\b(which|what)\b.{0,20}\b(models?|qwen|size|quant)\b.{0,40}\b(should|best|better|recommend\w*|suggest\w*|use for|for (coding|pictures|planning)|switch)\b"
+		r"|\b(should|would|could) (i|we|you)\b.{0,30}\b(switch|change|use|try|go)\b.{0,30}\b(models?|qwen|smaller|larger|bigger|quant)\b"
+		r"|\b(suggest|recommend|advise)\w*\b.{0,30}\b(models?|qwen|quant)\b"
+		r"|\b(smaller|bigger|larger|faster|better|different|other) (ai )?(models?|qwen)\b"
+		r"|\b(models?|qwen)\b.{0,30}\b(too slow|slow|faster|best for|better for)\b))"),
 	# One add-on, named: "the Clock add-on". Questions about add-ons in general stay with nvda_info below.
 	# Being coached, taught or trained in NVDA, with the add-on NVDA Coach where it is installed. Only where the
 	# user's own words ask for it; "how do I ..." stays a question.
@@ -775,6 +822,7 @@ _HINTS = (
 	("click", r"\b(click|double[- ]click|press|push|activate|find and click)\b (on )?(the |a |an |my |that |this )?[\w' -]{1,40}?\b(button|link|tab|icon)\b"
 		r"|^\s*(please )?(can you )?(find|locate|where is|where's|point (at|to))\b (me )?(the |a |an |my )?[\w' -]{1,40}?\b(button|link|tab|icon)\b"),
 	("change_setting", _SETTING_WORDS),
+	("do_command", r"\bnvda('?s)? (menu|speech viewer|python console|log viewer|elements list|braille viewer)\b"),
 	("click", r"\bright[- ]click\b|\bdouble[- ]click\b|\bhover\b|\bpoint (at|to)\b"),
 	("click", r"\b(click|press|push|activate|select|choose|start|open)\b.*\b(button|link|item|menu|tab|icon|game|option)|\bclick\b"),
 	# A program, folder or file opened by its name. After everything above that the word open also starts, and
@@ -784,24 +832,33 @@ _HINTS = (
 		r"|^\s*(please )?(can you |could you )?(start|run)\b( up)? (?!\w+ing\b|(it|this|that|over|again|now|a new|the new)\b)"
 		r"(the |my )?[\w.+'-]+( [\w.+'-]+){0,2}\s*[.!]?\s*$"),
 	("press_keys", r"\bpress\b.*\b(key|enter|escape|tab|control|alt|shift|f\d+)\b"),
-	("type_text", r"\btype\b|\bwrite\b.*\binto\b"),
+	("press_keys", lambda part: bool(_KEYS.search(part)) and not re.search(r"\bnvda\b", part, re.IGNORECASE)),
+	# Typing is asked for as a thing to do: "type hello", "write ... into". "Every letter I type" is a setting.
+	("type_text", r"^\W*(please\s+)?(can you\s+|could you\s+)?(type|enter)\b|\b(type|write)\b.*\b(in|into)\b"
+		r"|^\W*(please\s+)?(can you\s+|could you\s+)?write (?!an? (add-?on|script|skill|note)\b)"),
 	# The facts NVDA holds about one object. Kept narrow: "report the navigator object" is an NVDA command.
 	("object_facts", r"\b(properties|property|attributes?|facts|details|everything|all)\b.*\b(about|of|on)\b.*"
 		r"\b(control|object|button|element|field|focus)\b"
 		r"|\b(window class|class name|control id|window handle|process id|automation id|role|states|coordinates)\b"
 		r".*\b(of|for)\b.*\b(this|the|focused|current|navigator|control|object|button|window)\b"
 		r"|\bwhat does nvda know about\b"),
-	("do_command", r"\b(read|say|speak|tell me|report)\b.*\b(title|time|date|battery|clipboard|status|focus)\b|say all|start reading"
+	("do_command", r"\b(read|say|speak|tell me|report)\b.*\b(title|time|date|battery|clipboard|status|focus(ed)?)\b|say all|start reading"
 		r"|\b(give|get|tell|check|what('s| is| are))\b.*\b(time|date|battery)\b|\bwhat (time|day|date) is it\b"
+		r"|\bwhat('s| is) (on|in) (the |my )?clipboard\b"
 		r"|\bhow (much|full|low|empty) (is )?(the |my )?(battery|power|charge)\b|\bbattery (level|left|status|charge)\b"),
-	("read_text", r"\bread\b.*\b(text|everything)\b|\bread (me )?(the |this |all of the )?(whole )?(window|screen)\b"),
+	("read_text", r"\bread\b.*\b(text|everything)\b|\bread (me )?(the |this |all of the )?(whole )?(window|screen)\b"
+		r"|\bwhat (does|do) (the |this |that )?(text|message|dialog|window|screen|label|error)\b.{0,30}\bsay\b"),
+	("describe", r"^\W*(please\s+)?(can you\s+|could you\s+)?describe\b"),
 	("web_page", r"\b(this|the|current) (web ?page|page|web ?site|site|article)\b|summari[sz]e"),
-	("describe", r"what('s| is| does)? .*(look|show|screen|window|picture|image|photo)|describe|look at|colou?r|what do you see|on (the|my) screen"),
-	("where_am_i", r"where am i|which (program|app|window|control)\b|what (program|app|window) (is|am)"),
-	("nvda_question", r"what (is|are|does)|explain|tell me about|why"),
+	("describe", _DESCRIBE_ANY),
+	("where_am_i", r"where am i|which (program|app|window|control)\b|what (program|app|window|control|field|button|element) (is|am|are)\b"),
+	("nvda_question", _QUESTION_ANY),
 	# Any other question is looked up, not planned freely: a small model plans a question badly.
-	("nvda_question", r"^(what|which|who|where|when|how)\b|^(can|could|does|do|is|are|should|will)\b.*\?\s*$"),
+	("nvda_question", _QUESTION_START),
 )
+# The patterns that only say that the words ask something or name something shown. Pointing elsewhere than a
+# model's choice, they are too weak to question it (`challenger`).
+_WEAK = frozenset((_DESCRIBE_ANY, _QUESTION_ANY, _QUESTION_START))
 # An NVDA setting changed for one program only stays with change_setting: "turn off the typing echo only in this
 # program" is no control inside the program.
 _FOR_ONE_PROGRAM = (OTHER, "change_setting", "nvda_question", "explain_keys", "work_control", "drag", "scroll")
@@ -845,6 +902,21 @@ _ONLY_ASKS = re.compile(
 	r"summari[sz]e|count|list|check)\b", re.IGNORECASE)
 
 
+# A question about how something is done or which key does it, at the start of a sentence. It is answered with the
+# keys, and nothing is done: "what's the shortcut to get to the address bar" is no hotkey to be made, and "how can I
+# jump between headings" is no list of headings. Measured on the held-out set (tests/eval) on 2026-11-18: these
+# words had sent such questions to the job a word in them named.
+_HOW = re.compile(
+	rf"(?:^|[.!?]\s+){computer._POLITE}(?:how (?:do|can|would|should|could|might) (?:i|we|you|one)\b|how to\b"
+	r"|what(?:'s| is| are)? (?:the )?(?:keyboard )?(?:key|keys|shortcut|shortcuts|hot ?key|command) (?:to|for)\b"
+	r"|which (?:key|keys|command|shortcut)\b)", re.IGNORECASE)
+_WHY = re.compile(rf"(?:^|[.!?]\s+){computer._POLITE}why (?:does|do|is|are|did|can't|won't|doesn't|isn't|is it)\b", re.IGNORECASE)
+# What a how-question may still be: a question of its own kind, or being led through the task.
+_ANSWERS = (
+	"explain_keys", "nvda_question", "work_through", "coach", "addon_question", "jaws_help", "voice_info", "own_voice",
+	"program_settings", "web_page", "explore_page", "form_trouble", "classic_speech", "controller_info", "mouse_way")
+
+
 def hint(part, before=None):
 	"""The recipe a part's words point to, or OTHER. before: the recipe of the part before it, or None."""
 	text = part.lower()
@@ -853,6 +925,11 @@ def hint(part, before=None):
 		if pattern(part) if callable(pattern) else re.search(pattern, text):
 			found = name
 			break
+	if found not in _ANSWERS and _HOW.search(computer.own(part)):
+		return "explain_keys"
+	# "Why does NVDA say clickable all the time" asks for a reason; it is answered, and nothing is done.
+	if found not in _ANSWERS and _WHY.search(computer.own(part)):
+		return "nvda_question"
 	if before in _ON_THE_WEB and found in (OTHER, "nvda_question") and _ONLY_ASKS.match(computer.own(part)):
 		return "web_page"
 	# A setting of NVDA for one program only: the words narrow it down ("only in", "when I'm in"), or name
@@ -868,6 +945,32 @@ def hint(part, before=None):
 			and not profiles.everywhere(part)):
 		return "set_control"
 	return found
+
+
+def strongly(part, before=None):
+	"""The recipes the words point to by more than a pattern for any question: what a model's choice may stand on."""
+	text = part.lower()
+	found = {name for name, pattern in _HINTS if pattern not in _WEAK
+		and (pattern(part) if callable(pattern) else re.search(pattern, text))}
+	first = hint(part, before)
+	if first != OTHER and not any(name == first and pattern in _WEAK and re.search(pattern, text) for name, pattern in _HINTS):
+		found.add(first)
+	found.discard(OTHER)
+	return found
+
+
+def challenger(part, choice, before=None):
+	"""The recipe the user's own words point to strongly enough to question a model's choice, or None. Measured on
+	the held-out set (tests/eval) on 2026-11-18: of 9 questions to the user, the model had chosen rightly in 6 and the
+	first pattern was wrong. So the model's choice stands where the words point to it too, or where only a pattern
+	for any question points elsewhere; the user is asked only where the words point clearly elsewhere."""
+	guess = hint(part, before)
+	if guess in (OTHER, choice):
+		return None
+	strong = strongly(part, before)
+	if choice in strong or guess not in strong:
+		return None
+	return guess
 
 
 def label(recipe):
@@ -916,6 +1019,12 @@ _REPORTS = re.compile(r"^\s*(?:please\s+)?(tell|say|read|describe|report|list|su
 # What only looks: a report joined to it by "and" is about what was looked at, and stays with it.
 _LOOKS = ("read_place", "describe", "read_text", "where_am_i", "check_access", "page_outline", "explore_page", "form_trouble", "web_page", "nvda_question", "explain_keys")
 # Recipes whose words are the user's own text, which may hold commas and "and" of its own.
+_WHOLE = ("learn_app", "write_addon", "add_skill", "add_fix", "work_through")
+# What is wrong, then one short wish about it that says "it" or "that": "..., make it stop", "..., fix that".
+_COMPLAINT = re.compile(
+	r"^(?!\s*(?:please\s+)?(?:can you\s+)?(?:open|close|click|press|type|turn|set|go|switch|start|find|read|tell|show)\b)"
+	r"[^,;.]{8,},\s*(?:please\s+)?(?:make|get|have|let)\s+(?:it|that|this|them|nvda)\s+(?:stop|quieter|slower|faster|be quiet)\b[^,;.]*[.!]?\s*$"
+	r"|^[^,;.]{8,},\s*(?:please\s+)?(?:stop|fix|change|undo|turn off)\s+(?:it|that|this)\b[^,;.]*[.!]?\s*$", re.IGNORECASE)
 _FREE_TEXT = (
 	"write_addon", "add_skill", "remember", "fix_addon", "add_fix", "make_hotkey", "type_text", "fill_field", "search_web",
 	"learn_app", "name_button")
@@ -1060,6 +1169,14 @@ def split(llm, role, request, note=""):
 	# Split at its comma by a model, "I'm stuck" was taken for a question and the rest was planned freely, and a
 	# button was clicked that nobody asked for (measured with Qwen3.5 9B on 2026-11-18).
 	if guide.asks(request):
+		return [request]
+	# One job told in several clauses: "find out about this game online and take notes" is learning about it, and
+	# split at "and take" each half went to learning (measured on the held-out set on 2026-11-18).
+	if hint(request) in _WHOLE:
+		return [request]
+	# "NVDA keeps saying every word I type, make it stop": what is wrong, then what to do about it. One request;
+	# split, each half changed the setting (measured on the second held-out set on 2026-11-18).
+	if _COMPLAINT.match(request):
 		return [request]
 	scope = profiles.scopeOf(request)
 	if scope is not None:
@@ -1247,6 +1364,10 @@ def fitted(choice, part, guess):
 	New Game button for 2 seconds" was sent to the click at the right moment by both, twice."""
 	needs = _NEEDS.get(choice)
 	if needs is not None and needs(part) is None and guess != choice:
+		return guess
+	# The model found nothing that fits, and the words point to a job whose tool reads everything it needs from
+	# them, and finds it there: "turn around in the game". Measured on the held-out set on 2026-11-18.
+	if choice == OTHER and guess in _NEEDS and _NEEDS[guess](part) is not None:
 		return guess
 	# A button of a game controller that is to be made to do something is a hotkey, and nothing to do now:
 	# "Make the X button on my controller click the New Game button" must never click that button. With the

@@ -88,6 +88,8 @@ class Orchestrator:
 		self.clock = time.monotonic
 		# How requests were done well on this computer (claw/planning.py), or None; set by the add-on.
 		self.plans = None
+		# How requests went with each model on this computer (planning.Outcomes), or None; set by the add-on.
+		self.outcomes = None
 
 	def _oneByOne(self):
 		try:
@@ -219,6 +221,7 @@ class Orchestrator:
 			answer = f"{followups.taken(task.said, request)} {answer}"
 		self._learn(task)
 		self._keepPlan(task, request, recipes, how)
+		self._keepModel(task)
 		kept = self._keep(task)
 		if kept:
 			answer = f"{answer.rstrip()}\n{kept}" if answer else kept
@@ -717,6 +720,19 @@ class Orchestrator:
 			return bool(self.registry.get(tool).changes)
 		except Exception:
 			return False
+
+	def _keepModel(self, task):
+		"""Count how the request went with the model that chose and planned it, as the user's own review of that
+		model (claw/advice.py). A request the user said no to says nothing about the model. Never a fault."""
+		if self.outcomes is None:
+			return
+		try:
+			went = planning.outcome(task)
+			model = (self.runtime.entry(self.lead) or {}).get("id", "")
+			if went is not None and model:
+				self.outcomes.keep(model.replace("-coder", ""), went)
+		except Exception as e:
+			debuglog.error("planning", "How the request went with the model could not be kept", e)
 
 	def _keepPlan(self, task, request, recipes, how):
 		"""Keep how a request of one part was done, when it went well (claw/planning.py). Never a plan a model

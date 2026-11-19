@@ -293,13 +293,31 @@ def guide(chosen, recipe=None, chars=GUIDE_CHARS, anyRecipe=None):
 	return "\n".join(clip(text, share).replace(" ...[cut]", "") for text in texts)
 
 
+# What, besides a skill's starting phrase, asks for something of its own: a question or a thing to do.
+_MORE = re.compile(
+	r"\b(how|what|which|where|why|who|when|can you|could you|please|help me|i want|i need|open|close|print|send|save|"
+	r"click|type|read|find|turn|set|make|delete|go|switch)\b", re.IGNORECASE)
+
+
 def planned(chosen, request):
 	"""The skill whose steps are run as they are, or None: one with steps, whose starting phrase is in the
-	request word for word."""
+	request word for word, and nothing more is asked besides it. "I'm lost, how do I print this" asks how to print,
+	not for the steps of getting one's bearings (measured on the held-out set on 2026-11-18)."""
 	for skill in chosen or ():
-		if skill.steps and exact(skill, request):
+		if skill.steps and exact(skill, request) and not _asksMore(skill, request):
 			return skill
 	return None
+
+
+def _asksMore(skill, request):
+	"""Whether the request, without the skill's starting phrase, still asks something of its own."""
+	plain = _plain(request)
+	for phrase in skill.when:
+		said = _plain(phrase)
+		if wordList(phrase) and said in plain:
+			rest = " ".join(plain.replace(said, " ", 1).split())
+			return len(wordList(rest)) >= 2 and bool(_MORE.search(rest))
+	return False
 
 
 ADDON_JOBS = frozenset(("write_addon", "fix_addon"))

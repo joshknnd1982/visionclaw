@@ -325,6 +325,53 @@ class Plans:
 			return len(self._load())
 
 
+class Outcomes:
+	"""How requests went with each model on this computer, counted as they went well or not: the user's own review
+	of a model, for the suggestion of which model fits what (claw/advice.py). Kept as data in models-went.json in
+	VisionClaw's data folder; nothing leaves the computer. path None: kept only while NVDA runs."""
+
+	def __init__(self, path=None):
+		self._path = path
+		self._lock = threading.Lock()
+		self._counts = None
+
+	def _load(self):
+		if self._counts is None:
+			self._counts = {}
+			if self._path and os.path.isfile(self._path):
+				try:
+					with open(self._path, encoding="utf-8") as f:
+						data = json.load(f)
+					self._counts = {str(key): [int(value[0]), int(value[1])] for key, value in data.items()
+						if isinstance(value, list) and len(value) == 2}
+				except (OSError, ValueError, TypeError) as e:
+					debuglog.error("planning", "How requests went with each model could not be read", e)
+		return self._counts
+
+	def keep(self, model, good):
+		"""Count one request with a model: well (good) or not."""
+		if not model:
+			return
+		with self._lock:
+			counts = self._load()
+			pair = counts.setdefault(str(model), [0, 0])
+			pair[0 if good else 1] += 1
+			if self._path:
+				try:
+					os.makedirs(os.path.dirname(self._path), exist_ok=True)
+					temporary = self._path + ".tmp"
+					with open(temporary, "w", encoding="utf-8") as f:
+						json.dump(counts, f, indent=1)
+					os.replace(temporary, self._path)
+				except OSError as e:
+					debuglog.error("planning", "How requests went with each model could not be saved", e)
+
+	def counts(self):
+		"""{model id: (good, bad)}."""
+		with self._lock:
+			return {key: (value[0], value[1]) for key, value in self._load().items()}
+
+
 # What a step's result begins with when nothing was done, though the step ended.
 _NOTHING_DONE = ("You said no", "VisionClaw did not do this", "Nothing was")
 

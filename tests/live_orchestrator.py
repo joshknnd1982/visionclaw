@@ -878,6 +878,40 @@ def makeRegistry(rt, state):
 		"with the add-on JAWS Migration Assistant: say what a JAWS keystroke or a JAWS command is in NVDA, what was "
 		"brought over from JAWS, or which commands that add-on has", jawsHelp, dict(askedField), looks=True,
 		title="Asking the JAWS Migration Assistant", tell=V))
+	# The jobs that had no stand-in until 2026-11-18, so that a model could not choose them here and its choice of
+	# another looked like its mistake (tests/eval_routing.py found eleven). Each takes what the real tool takes.
+	simple("read_text", "read the exact text shown in the window, on the screen or in the focused control",
+		"Text in the window: Space Trader - Main Menu. New Game. Load Game. Options. Quit.", "Reading the text",
+		{"target": text("where to read", enum=["window", "screen", "control"], auto=lambda part: "window")}, looks=True, tell=V)
+	simple("type_text", "type text into the program in front", "Typed: {text}", "Typing the text",
+		{"text": text("the text to type", maxLength=400)}, changes=True, tell=V)
+	simple("press_keys", "press keyboard keys in the program in front", "Pressed {keys}.", "Pressing keys",
+		{"keys": text("the keys, like control+s or alt+f4", maxLength=80)}, changes=True, tell=V)
+	simple("name_control", "give the focused button, which has no useful name, a name", "The focused button is now called {name}.",
+		"Naming the button", {"name": text("the name to give it", maxLength=60)}, changes=True, tell=V)
+	simple("create_addon", "write a small NVDA add-on for what the user asked, check it, and turn it on after asking",
+		"Wrote the add-on and turned it on after you said yes.", "Writing the add-on", dict(askedField), changes=True, tell=V)
+	simple("remove_helper", "remove a helper or add-on VisionClaw made", "Removed {name}.", "Removing it",
+		{"name": text("the name, from list_helpers", maxLength=80)}, changes=True, before="list_helpers", tell=V)
+	simple("export_addon", "save an add-on VisionClaw wrote as a file", "Saved {name} as a file on your desktop.", "Saving the add-on",
+		{"name": text("the name, from list_helpers", maxLength=80)}, before="list_helpers", tell=V)
+	simple("learn_app", "go online after a question and learn about the program in front or one named, and keep notes",
+		"Learned about Space Trader and kept notes.", "Learning about the program", dict(askedField), changes=True, tell=V)
+	simple("note_page", "add what the web page in the browser says to the notes on a program", "Added the page to the notes.",
+		"Adding the page to the notes", dict(askedField), changes=True, tell=V)
+	simple("app_notes", "say which programs VisionClaw has notes on, or open them", "VisionClaw has notes on: Space Trader.",
+		"Listing the notes", dict(askedField), looks=True, tell=V)
+	simple("forget_notes", "delete notes on a program after a question", "Deleted the notes on Space Trader.",
+		"Deleting the notes", dict(askedField), changes=True, tell=V)
+
+	def modelAdvice(task, asked):
+		from visionClaw.claw import advice
+		state["model_advice"] = asked
+		return advice.advise(asked or task.request, catalog.CATALOG, {VISION: "qwen3.5-9b", CODER: "qwen3.5-9b-coder"},
+			{"qwen3.5-9b", "qwen3.5-9b-coder"}, 8151, 31, {"qwen3.5-9b": (31, 4)}, (), True)
+
+	reg.add(tools.Tool("model_advice", "suggest which of VisionClaw's models fits what the user wants to do; changes nothing",
+		modelAdvice, dict(askedField), looks=True, title="Suggesting a model", tell=V))
 	reg.add(tools.Tool(tools.ANSWER, "tell the user the result in plain words; always the last step", lambda task: ""))
 	return reg
 
@@ -1109,6 +1143,9 @@ REQUESTS = (
 	"Do a deep query of this control and tell me how a sighted person works it.",
 	"What model is installed?",
 	"Which AI model are you using?",
+	# Which model fits what the user wants to do (2026-11-19): suggested by plain code, nothing changed.
+	"Which model should I use for describing pictures?",
+	"Should I switch to a smaller model? The 9B feels slow.",
 	"Which add-ons do I have?",
 	"List the add-ons you have made.",
 	# Skills (claw/skills.py): one with steps runs them as they are; one without gives its sentences to the

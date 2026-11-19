@@ -841,6 +841,39 @@ keyboard and speech alone.
   thing about working the computer by keyboard, speech and braille; a word with two meanings ("start") is joined
   only in a phrase that says which. Add to a group when the real model or the owner shows a new wording; never a
   colour or anything only sight tells.
+- **Smarter is measured, on words VisionClaw was never tuned on.** The owner said on 2026-11-19: "find a way to make it
+  a lot smarter across the board, too." `tests/eval/` holds three evaluation sets of requests in a blind person's
+  casual words, each written before anything was run on it (`requests.json`, `requests2.json`, `requests3.json`), and
+  `known.json`, 312 requests whose job is known. `python tests/eval_routing.py MODELS ...` scores which job the real
+  model and plain code choose, without carrying anything out; `VC_SET` picks a set, `VC_PLUGIN` scores the last
+  release unpacked from git, `--compare` shows what changed. What follows from it:
+  - **A change to choosing is kept only when it scores better on a set it was not made from.** Making a change while
+    reading a set's misses spends that set: write a new one, before running anything on it, to measure the change.
+    Never take a request of an evaluation set into `known.json`, a pattern's test or a note.
+  - **The live test's stand-ins must offer every job** (`tests/live_orchestrator.py`); eleven were missing, and
+    their requests looked like the model's mistakes. `eval_routing.py` uses the same stand-ins.
+  - `tests/test_eval_patterns.py` (in `run_all.py`) fails when the planner's first pattern names the right job for
+    fewer known or evaluation requests than on 2026-11-19; raise its numbers when a change helps.
+  - Measured on 2026-11-19 with Qwen3.5 9B for both jobs, one question at a time: on the third set, written blind,
+    1.9.1 chose the right job for 55 of 65 and asked the user 5 times; 1.10.0 58 of 65 and once.
+- **The model's choice is questioned only where the words point clearly elsewhere** (`planner.challenger`,
+  `strongly`, `_WEAK`). Of nine questions to the user on the first set, the model had been right in six: one word
+  ("shortcut", "headings", "menu") had set off a pattern for an action. So the model's choice stands where a pattern
+  that is not only about questions points to it too, or where only such a weak pattern points elsewhere.
+- **A how-question is answered with keys, a why-question is answered, and nothing is done** (`planner._HOW`, `_WHY`,
+  `_ANSWERS`), whatever job a word in it names, unless the job itself answers questions.
+- **A model that finds nothing that fits, where the words fully name a job whose tool reads them** (`planner._NEEDS`),
+  gets that job (`planner.fitted`): "turn around in the game".
+- **A skill's own steps run only when the request asks nothing more** (`skills.planned`, `_asksMore`): "I'm lost, how
+  do I print this" asks how to print. **One job told in clauses is not split** (`planner._WHOLE`, `_COMPLAINT`).
+- **Which model fits what the user wants to do is suggested by plain code, and the user decides** (`claw/advice.py`,
+  the job `model_advice`). The owner said on 2026-11-19: "visionclaw should suggest what kind of switch I should make,
+  then let the final decision up to me", "according to user reviews". A suggestion stands on the purpose read from the
+  words, the catalog, the graphics card and memory, `advice.MEASURED` (only what was run, with its day, word for word
+  from docs/STATUS.md; a model with nothing there is said to be not measured), and the user's own review: how requests
+  went with each model here (`planning.Outcomes`, `models-went.json`) and memories about a model. No model is asked;
+  nothing goes online (reviews from the internet would need the owner's yes for a source); nothing is changed, and
+  the answer ends with NVDA+Alt+M. Add to `MEASURED` when a model is measured, never from memory or from the web.
 - **An NVDA setting for one program only is NVDA's own configuration profile, and is changed only while that
   program is in front.** Built on 2026-11-18 against what JAWS's Companion does ("only for the application in
   use"); `claw/profiles.py`, `profiletools.py`. What follows from it:
@@ -1124,6 +1157,8 @@ addon/
       places.py              which place of Windows a request means and what is wanted there; what Windows reports
                              there, sorted and said in words
       concepts.py            words that mean the same thing, so that what was learned in one wording is used for another
+      advice.py              which model fits what the user wants to do, from the computer, what was measured and how
+                             requests went here; only a suggestion
       controls.py            what the user's words ask of a named control, and which control a name means
       profiles.py            "only in this program" read from the user's words, which program is meant, the name
                              of its profile, and every sentence the user is told about it
@@ -1429,16 +1464,17 @@ A session is done only when its "Done when" line is true.
   examples; add a `learn` command that studies a topic and stores notes. *Done when:* a question about an NVDA
   feature is answered with a quote from the user guide.
 - [x] **4.3 Skills.** SmallClaw-style `SKILL.md` files (starting words, the jobs they are for, plain sentences,
-  and optional fixed steps), 56 built in for what blind people do at a computer, seven of them for the add-ons
+  and optional fixed steps), 58 built in for what blind people do at a computer, seven of them for the add-ons
   the models write (`claw/skills/`), chosen by
   plain code from the request's words, their sentences given to the forms, the vision model, the coder and the
   answer of their jobs; a skill with steps runs them as its plan. The user makes, changes, turns off, deletes and
   imports skills in the skills window (NVDA+Alt+I) or in words, and opens the skills folder with a button.
 
 ### Phase 5 — Quality with real models
-- [ ] **5.1 Evaluation set.** 40 requests with expected outcomes (settings, vision, add-ons, multi-step) in
-  `tests/eval/`; a runner that scores them against the real models. *Done when:* the score is recorded in
-  `docs/STATUS.md`.
+- [x] **5.1 Evaluation set.** Three sets (137, 88 and 65 requests) in `tests/eval/`, each written before it was run,
+  and `tests/eval_routing.py`, which scores the job chosen with the real models. The scores are in `docs/STATUS.md`.
+  Not yet scored: what the steps then do and say, for which the stand-ins of the live test would need expected
+  answers.
 - [ ] **5.2 Prompt tuning** against the evaluation set for Qwen3.5-2B and Qwen2.5-Coder-1.5B, then the larger
   pair. Do not tune on fewer than the whole set.
 - [ ] **5.3 Add-on templates.** Deterministic templates the coder fills in, for the request kinds where free
@@ -1474,6 +1510,10 @@ python tests/test_computer.py            working the computer itself, requests t
                                          stand-in tools and a scripted model
 python tests/test_planning.py            the parts of Windows itself from the words, the click that must fit the words,
                                          where the user is, planning notes by BM25, plans by Laplace's rule and ageing
+python tests/test_eval_patterns.py       the planner's patterns against the known requests and the evaluation sets
+python tests/test_advice.py              which model fits what the user wants to do; how requests went with each model
+python -u tests/eval_routing.py MODELS auto VISIONID CODERID always LABEL
+                                         the real model chooses the job for an evaluation set; nothing is carried out
 python tests/test_places.py              which place of Windows and what is wanted there, what the owner's real taskbar
                                          reported said in words, concepts, what is no answer and the next way, and
                                          whole requests where the next way is tried and learned

@@ -106,6 +106,7 @@ HELP = {
 	"open_thing": "open notepad",
 	"windows_part": "open the start menu",
 	"read_place": "what is in my system tray",
+	"model_advice": "which model should i use for describing pictures",
 	"recycle_bin": "check and see if my recycle bin needs to be emptied",
 	"empty_bin": "empty the recycle bin",
 	"system_volume": "turn down my system volume",

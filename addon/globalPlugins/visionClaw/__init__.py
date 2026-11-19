@@ -551,6 +551,8 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		self.orchestrator.skills = self.skills
 		# How requests were done well on this computer, as data, for planning the next ones (claw/planning.py).
 		self.orchestrator.plans = planning.Plans(os.path.join(DATA_DIR, "plans.json"))
+		# How requests went with each model on this computer: the user's own review of a model (claw/advice.py).
+		self.orchestrator.outcomes = planning.Outcomes(os.path.join(DATA_DIR, "models-went.json"))
 		self.orchestrator.facts = self._clawFacts
 		# Telling the user, once, what can be downloaded for them (claw/offers.py).
 		self.offers = offers.Offers(os.path.join(DATA_DIR, "offered.json"))

@@ -72,7 +72,8 @@ _ASKING_NOTES = re.compile(
 	r"speak (my|a|the) requests?|talk to (you|visionclaw)|stuck|step by step|work(ing)? through|usual way|"
 	r"(your|visionclaw'?s?) (own )?voice|voice of (your|its) own|every (application|program|app)|everywhere|"
 	r"jaws migrat\w+|migration assistant|jaws\b.{0,30}\b(keys?|keystrokes?|commands?|hot ?keys?|shortcuts?)|"
-	r"classic ?speech|verbosity|(speech|sound) schemes?|voice profiles?)\b"
+	r"classic ?speech|verbosity|(speech|sound) schemes?|voice profiles?|"
+	r"(which|what|best|smaller|larger|bigger|faster|different|switch\w*|suggest\w*|recommend\w*) (ai )?models?|quants?)\b"
 	# JAWS with a written-out key, as in "JAWS's Insert+F7". JAWS alone is not enough: "what is the JAWS cursor
 	# called in NVDA" was answered with the note on the JAWS Migration Assistant (measured on 2026-11-18).
 	r"|\bjaws\b.{0,20}\w\+\w", re.IGNORECASE)
@@ -104,7 +105,8 @@ NOTES = {
 	"visionclaw-inputs": (NVDA, "VisionClaw's notes on game controllers, touch, pressure and games", _INPUTS),
 	"visionclaw-computer": (NVDA, "VisionClaw's notes on what it does on the computer for you", _COMPUTER),
 	"visionclaw-asking": (
-		NVDA, "VisionClaw's notes on settings for one program, follow-up requests, calendars and asking by voice", _ASKING_NOTES),
+		NVDA, "VisionClaw's notes on settings for one program, follow-up requests, calendars, asking by voice and models",
+		_ASKING_NOTES),
 }
 # Written for people who write add-ons. Left out unless the question is about that.
 DEVELOPER_NOTES = frozenset(("addon-development", "objects-and-events", "nvda-inside", "guides"))

@@ -497,7 +497,8 @@ _SYSTEM = r"(?:system|computer'?s?|pc'?s?|laptop'?s?|windows|master|main|overall
 _VOLUME = re.compile(
 	rf"\b{_SYSTEM}\b.{{0,24}}\b(volume|sound|audio|loudness)\b|\b(volume|sound|audio)\b.{{0,24}}\bof (my |the |this )?{_SYSTEM}\b"
 	rf"|\b(mute|unmute|silence)\b.{{0,20}}\b{_SYSTEM}\b|\b(mute|unmute) (my |the |all )?(sound|audio|volume)\b"
-	r"|\bvolume of (my |the |this )?(computer|pc|laptop|machine)\b", re.IGNORECASE)
+	r"|\bvolume of (my |the |this )?(computer|pc|laptop|machine)\b"
+	rf"|\b{_SYSTEM}\b.{{0,24}}\b(too|so|very|really|way too|much too) (loud|quiet|soft|noisy|low)\b", re.IGNORECASE)
 _NVDA = re.compile(r"\b(nvda|speech|voice|synthesi[sz]er|screen ?reader|speaking|talking)\b", re.IGNORECASE)
 UP, DOWN, SET, MUTE, UNMUTE, SAY = "up", "down", "set", "mute", "unmute", "say"
 # Below this the screen reader cannot be heard on most speakers. A request to turn the volume down stops here.
@@ -523,8 +524,8 @@ def volumeOf(part):
 		return (SET, 100)
 	if re.search(r"\b(half|halfway|medium|middle)\b", text):
 		return (SET, 50)
-	up = bool(re.search(r"\b(up|louder|raise|increase|higher|more)\b", text))
-	down = bool(re.search(r"\b(down|quieter|lower|decrease|reduce|softer|less)\b", text))
+	up = bool(re.search(r"\b(up|louder|raise|increase|higher|more)\b|\btoo (quiet|soft|low)\b", text))
+	down = bool(re.search(r"\b(down|quieter|lower|decrease|reduce|softer|less)\b|\b(too|so|very|really) (loud|noisy)\b", text))
 	if up == down:
 		return (SAY, 0)
 	by = re.search(r"\bby\s+(\d{1,3})\b", text)
@@ -765,7 +766,8 @@ _FILE_PLACE = re.compile(
 	r"|\b(my|the) (desktop|documents|downloads|pictures|music|videos) folder\b"
 	r"|\b(find|search for|look for|where is|where are|where did)\b.*\b(files?|folders?|documents?|pdfs?|spreadsheets?|pictures?|photos?|songs?|videos?)\b"
 	r"|\b(newest|latest|biggest|largest|recent|recently|last) (downloaded |saved )?(files?|downloads?|documents?)\b"
-	r"|\b(files?|folders?) (named|called)\b", re.IGNORECASE)
+	r"|\b(files?|folders?) (named|called)\b"
+	r"|\bwhat (did|have) i (just |recently |last )?(download(ed)?|save[d]?)\b", re.IGNORECASE)
 _NOT_FILES = re.compile(r"\b(web|internet|online|google|page|site|library|notes?|click|press|icon|see|window|screen)\b", re.IGNORECASE)
 
 

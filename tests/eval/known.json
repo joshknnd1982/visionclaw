@@ -1,0 +1,505 @@
+{
+ "about": "Requests whose job is known: the parts of tests/live_orchestrator.py's requests as the real Qwen3.5 9B model and plain code rightly handled them on 2026-11-18 (reviewed by hand; the wrong ones left out or corrected), and the words of tests/test_help.py for every job. tests/test_eval_patterns.py checks that the planner's patterns keep naming their jobs. Never take a request from the evaluation sets: they measure words VisionClaw was never tuned on.",
+ "jobs": {
+  "add_fix": [
+   "Give this site keys to move between posts.",
+   "Make NVDA+alt+P press the Play button on this page.",
+   "Tell me when the inbox count changes.",
+   "give this site keys to move between posts"
+  ],
+  "add_skill": [
+   "Make a new skill: when I ask about recipes, read the ingredients first, with their amounts exactly.",
+   "make a new skill"
+  ],
+  "addon_question": [
+   "What does the Clock add-on do?",
+   "Which keys does the Clock add-on have?",
+   "Is there an add-on that tells me the date?",
+   "what does the clock add-on do"
+  ],
+  "app_notes": [
+   "which notes do you have"
+  ],
+  "audit_nvda": [
+   "Do a full audit of NVDA.",
+   "do a full audit of nvda"
+  ],
+  "change_setting": [
+   "Make NVDA speak a little faster, only in this program.",
+   "Turn off the typing echo just in this app.",
+   "When I'm in Space Trader, set punctuation to all.",
+   "Turn off the typing echo in this program.",
+   "Make NVDA speak a little faster.",
+   "Make NVDA speak a little slower.",
+   "Turn off the typing echo.",
+   "Turn off the typing echo",
+   "Speak words as I type in every application.",
+   "Stop announcing capital letters in Space Trader.",
+   "Make NVDA speak a little faster everywhere.",
+   "Set punctuation to all",
+   "speak a little faster"
+  ],
+  "check_access": [
+   "Do a deep inspection of this website.",
+   "Inspect this window for accessibility problems",
+   "do a deep inspection of this website"
+  ],
+  "classic_speech": [
+   "Set ClassicSpeech to advanced.",
+   "Which speech schemes do I have?",
+   "Switch to the scheme Classic.",
+   "Open voice profiles.",
+   "set classicspeech to advanced"
+  ],
+  "click": [
+   "Find and click the settings button in this inaccessible app",
+   "Find and click the settings button",
+   "Right-click the volume icon in the system tray.",
+   "Click the New Game button.",
+   "Click Options",
+   "Right-click the Options button.",
+   "Press and hold the New Game button for 2 seconds.",
+   "Hover over the Options button.",
+   "Middle-click the Options button.",
+   "press the play button in this window"
+  ],
+  "coach": [
+   "Give me a hint about browse mode.",
+   "Coach me on reading the current line.",
+   "Open NVDA Coach.",
+   "give me a hint about browse mode"
+  ],
+  "computer_info": [
+   "How much disk space do I have left?",
+   "Which programs are running?",
+   "how much disk space do i have left"
+  ],
+  "controller_info": [
+   "Is a game controller connected?",
+   "What do the buttons on my controller do?",
+   "is a controller connected"
+  ],
+  "controller_mode": [
+   "Turn on controller mode.",
+   "controller mode"
+  ],
+  "describe": [
+   "Look at my screen",
+   "Look at the current screen",
+   "What is on my screen?",
+   "Tell me what the window shows",
+   "Describe this picture for me.",
+   "what is on my screen"
+  ],
+  "do_command": [
+   "ask nvda to give me the current time",
+   "ask nvda to give me the date",
+   "What time is it?",
+   "What is the date today?",
+   "Tell me the time",
+   "Tell me the date",
+   "How much battery is left?",
+   "Copy the window title to the clipboard.",
+   "Read the window title.",
+   "what time is it"
+  ],
+  "downloads_info": [
+   "What can you download for me?",
+   "what can you download for me"
+  ],
+  "drag": [
+   "Drag the New Game button onto the Quit button.",
+   "drag the file onto the trash"
+  ],
+  "empty_bin": [
+   "Empty the recycle bin.",
+   "Empty the recycle bin",
+   "Can you empty my recycle bin?"
+  ],
+  "explain_keys": [
+   "How do I read the title of this window?",
+   "How do I read the status bar of this window?",
+   "I'm new to NVDA. How do I read the title of this window?",
+   "How do I open the market in Space Trader?",
+   "How do I reopen a closed tab in Chrome?",
+   "How do I turn on Sticky Keys?",
+   "How can I use the keyboard to navigate my desktop?",
+   "How do I switch between open windows?",
+   "How do I copy text?",
+   "How do I close this program?",
+   "Which key starts a new game?",
+   "How do I rename a file?",
+   "How do I bake a cake?",
+   "How do I get to the system tray?",
+   "I am using my real mouse. How do I hear what is under the pointer?",
+   "how do i read the title of this window"
+  ],
+  "explore_page": [
+   "Explore this page for me.",
+   "What is the best way to get around this page?",
+   "How is this page laid out?",
+   "explore this page"
+  ],
+  "file_task": [
+   "Create a folder called Taxes in my documents.",
+   "Rename the file budget to Budget 2026.",
+   "Move the file report.pdf from my downloads to my documents.",
+   "Copy the file budget to my desktop.",
+   "Delete the file old notes.",
+   "Delete notes.txt.",
+   "Create a folder called Receipts on my desktop",
+   "Move the file report.pdf to my desktop",
+   "create a folder called taxes in my documents"
+  ],
+  "files": [
+   "Look through my downloads folder.",
+   "What is in my downloads folder?",
+   "what is in my downloads folder"
+  ],
+  "fill_field": [
+   "Type garden gloves into the search box and search",
+   "type into a field"
+  ],
+  "fix_access": [
+   "Fix the accessibility problems on this page.",
+   "Make this website accessible.",
+   "Fix number 2",
+   "Fix number 2.",
+   "fix all of it"
+  ],
+  "fix_addon": [
+   "The add-on hello key does not work, it says nothing and fix it",
+   "fix the add-on"
+  ],
+  "forget_memory": [
+   "Forget that.",
+   "forget that"
+  ],
+  "forget_notes": [
+   "delete the notes on this program"
+  ],
+  "form_trouble": [
+   "Why won't this form submit?",
+   "Which fields did I miss in this form?",
+   "why won't this form submit"
+  ],
+  "gesture": [
+   "Swipe left on the Options button.",
+   "Draw a circle in this window.",
+   "draw a circle"
+  ],
+  "get_voice": [
+   "Download the speech model.",
+   "download the speech model"
+  ],
+  "go_to": [
+   "Take me to the heading Refund policy.",
+   "read on from there"
+  ],
+  "guides_info": [
+   "Which developer guides do I have?",
+   "which developer guides do i have"
+  ],
+  "inside_nvda": [
+   "What does the function api.getFocusObject do?",
+   "what does the function api.getfocusobject do"
+  ],
+  "jaws_help": [
+   "What is JAWS's Insert+F7 in NVDA?",
+   "What is the JAWS say line command in NVDA?",
+   "what is jaws's insert+f7 in nvda"
+  ],
+  "keyboard_mouse": [
+   "Make this control keyboard navigable.",
+   "make this control keyboard navigable"
+  ],
+  "learn_app": [
+   "learn about this program"
+  ],
+  "library": [
+   "What is in my library?",
+   "what is in my library"
+  ],
+  "list_changes": [
+   "What did you change?",
+   "what did you change"
+  ],
+  "list_made": [
+   "List the add-ons you have made.",
+   "list what you have made"
+  ],
+  "list_skills": [
+   "Which skills do you have?",
+   "which skills do you have"
+  ],
+  "make_hotkey": [
+   "Make the X button on my controller click the New Game button.",
+   "Give this program a hotkey, NVDA+alt+1, that clicks the Options button",
+   "give this program a hotkey that clicks send"
+  ],
+  "manage_skill": [
+   "Turn off the game skill.",
+   "turn off the game skill"
+  ],
+  "memories": [
+   "What do you remember about me?",
+   "what do you remember"
+  ],
+  "mouse_way": [
+   "This game has its own mouse pointer.",
+   "The mouse turns the view in this game.",
+   "this game has its own mouse pointer"
+  ],
+  "name_button": [
+   "call this button play"
+  ],
+  "note_page": [
+   "add this page to the notes on"
+  ],
+  "nvda_info": [
+   "Which braille display do I have?",
+   "Which speech synthesizer am I using?",
+   "What braille display do I have",
+   "How many cells does it have",
+   "Which add-ons do I have?",
+   "which speech synthesizer am i using"
+  ],
+  "nvda_question": [
+   "What is the system tray?",
+   "What is UI Automation?",
+   "What does aria-label do?",
+   "What is browse mode?",
+   "What does NVDA+T do?",
+   "What can I do here?",
+   "Which windows are open?",
+   "I'm coming from JAWS. What is the JAWS cursor called in NVDA?",
+   "what does nvda+t do"
+  ],
+  "object_facts": [
+   "What is the window class of the focused control?",
+   "Tell me everything NVDA knows about this control.",
+   "tell me everything nvda knows about this control"
+  ],
+  "open_thing": [
+   "Open recycle bin",
+   "Go into my windows settings",
+   "Open Notepad.",
+   "Launch Steam.",
+   "Open my downloads folder.",
+   "Open the Recycle Bin.",
+   "Start Space Trader.",
+   "open notepad"
+  ],
+  "open_website": [
+   "Go to gmail.com in my google chrome",
+   "Open bbc.co.uk"
+  ],
+  "own_voice": [
+   "Customise your voice.",
+   "Turn off your own voice.",
+   "customise visionclaw's voice"
+  ],
+  "page_navigate": [
+   "Go back to the previous page.",
+   "go back, forward or reload"
+  ],
+  "page_outline": [
+   "What are the headings on this page?",
+   "the headings of the page"
+  ],
+  "pick_date": [
+   "Pick the fourteenth of March twenty twenty-seven in this calendar.",
+   "Choose next Friday in the date picker.",
+   "pick 14 march 2027 in this calendar"
+  ],
+  "power": [
+   "Restart my computer.",
+   "shut down the computer"
+  ],
+  "press_keys": [
+   "press control+s"
+  ],
+  "pressure": [
+   "Press hard on the New Game button for 2 seconds.",
+   "Draw a line to the right with the pressure rising.",
+   "press hard on the drum pad"
+  ],
+  "program_settings": [
+   "Which programs have their own settings?",
+   "only in this program"
+  ],
+  "read_place": [
+   "tell me all objects that are currently in the system tray.",
+   "What icons are in my notification area?",
+   "Is NVDA running in the system tray?",
+   "How many icons are in the system tray?",
+   "Which programs are on my taskbar?",
+   "What icons are on my desktop?",
+   "Read my notifications.",
+   "Describe the system tray for me.",
+   "Tell me what is in the system tray",
+   "what is in my system tray"
+  ],
+  "read_text": [
+   "read the text in this window"
+  ],
+  "recycle_bin": [
+   "check and see if my recycle bin needs to be emptied or not.",
+   "Is my recycle bin full?",
+   "check and see if my recycle bin needs to be emptied"
+  ],
+  "remember": [
+   "Remember that my braille display is a Focus 40.",
+   "remember that i use a braille display with 40 cells"
+  ],
+  "remove_guides": [
+   "Delete the developer guides.",
+   "delete the developer guides"
+  ],
+  "remove_made": [
+   "remove the add-on"
+  ],
+  "remove_program_settings": [
+   "Remove the settings for this program.",
+   "remove the settings for this program"
+  ],
+  "remove_training": [
+   "Delete the training material.",
+   "delete the training material"
+  ],
+  "remove_voice": [
+   "Delete the speech model.",
+   "delete the speech model"
+  ],
+  "save_addon": [
+   "as a file"
+  ],
+  "scroll": [
+   "Scroll down a page.",
+   "Scroll this window to the bottom.",
+   "Scroll up a little",
+   "Zoom in.",
+   "scroll down a page"
+  ],
+  "search_web": [
+   "Search the web for the weather in Boston.",
+   "search the web for the weather in boston"
+  ],
+  "set_control": [
+   "Turn the volume up a bit",
+   "Turn the equalizer down",
+   "In this multipage dialog, turn on my nvidia gpu",
+   "Turn off the media keys on my keyboard for this program",
+   "Turn on dark mode in this program.",
+   "in this dialog, turn on my nvidia gpu for this program"
+  ],
+  "show_skill": [
+   "what does the email skill say"
+  ],
+  "switch_driver": [
+   "Switch my speech synthesizer to the Windows OneCore voices.",
+   "switch my speech synthesizer to espeak"
+  ],
+  "system_volume": [
+   "Turn the computer's volume up a bit.",
+   "Turn the computer's volume down a bit.",
+   "Turn down my system volume",
+   "Turn the computer's volume up a lot."
+  ],
+  "timed_click": [
+   "Click the Quit button as soon as it changes.",
+   "Click the New Game button 5 times.",
+   "click the go button as soon as it changes"
+  ],
+  "touch": [
+   "Pinch the Options button with two fingers.",
+   "Swipe left with three fingers.",
+   "pinch the map"
+  ],
+  "training_info": [
+   "Which training material do I have?",
+   "which training material do i have"
+  ],
+  "turn_view": [
+   "Turn left.",
+   "Look up a little.",
+   "look up a little"
+  ],
+  "type_text": [
+   "type garden gloves into the search box"
+  ],
+  "undo_change": [
+   "Restore the voice pitch to what it was before you changed it.",
+   "Undo that.",
+   "undo that"
+  ],
+  "update_guides": [
+   "Get the latest NVDA developer guides.",
+   "get the latest nvda developer guides"
+  ],
+  "update_training": [
+   "Get the free NVDA training material.",
+   "get the free nvda training material"
+  ],
+  "update_visionclaw": [
+   "Check for a new version of VisionClaw.",
+   "Is VisionClaw up to date?",
+   "check for a new version of visionclaw"
+  ],
+  "visionclaw_log": [
+   "Open the VisionClaw log.",
+   "open the visionclaw log"
+  ],
+  "visionclaw_models": [
+   "What model is installed?",
+   "Which AI model are you using?",
+   "what model is installed"
+  ],
+  "voice_info": [
+   "Can I ask you by voice?",
+   "can i ask you by voice"
+  ],
+  "web_page": [
+   "Tell me how many emails I have",
+   "What does this page say about refunds?",
+   "Summarize this page.",
+   "what does this page say about refunds"
+  ],
+  "where_am_i": [
+   "what can i do here"
+  ],
+  "window": [
+   "Close windows settings",
+   "Close settings",
+   "Switch to Firefox.",
+   "Close this window.",
+   "Minimize all windows.",
+   "Close notepad",
+   "switch to firefox"
+  ],
+  "windows_part": [
+   "click the windows start button using the mouse.",
+   "Click the windows start button with the mouse",
+   "open the windows start menu.",
+   "Go to the system tray.",
+   "Open quick settings.",
+   "open the start menu"
+  ],
+  "work_control": [
+   "Let the arrow keys work the volume dial.",
+   "This program has a dial that is only used by clicking and dragging",
+   "Make it work with the keyboard",
+   "Give me a hotkey for the gain knob.",
+   "let the arrow keys work the volume dial"
+  ],
+  "work_through": [
+   "I'm stuck, I want to attach a file to this email.",
+   "Walk me through exporting this as a PDF.",
+   "I can't find how to change the font here.",
+   "i'm stuck, i want to attach a file to this email"
+  ],
+  "write_addon": [
+   "write an add-on that beeps when a link gets the focus"
+  ]
+ }
+}

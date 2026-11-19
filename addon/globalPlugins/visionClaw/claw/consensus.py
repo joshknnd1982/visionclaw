@@ -100,8 +100,8 @@ def _onRecipe(llm, task, part, context, registry, askUser, lead, other, single=F
 		# again; if it still chooses differently, the user decides, as when two models differ. With the real
 		# 9B model this happened in 2 of 55 parts, and both times the words were right and the model was not.
 		task.emit(taskModule.TALK, f"\"{part}\": the model chose to {planner.label(mine)}.")
-		guess = planner.hint(part, before)
-		if guess == mine or guess not in planner.available(registry):
+		guess = planner.challenger(part, mine, before)
+		if guess is None or guess not in planner.available(registry):
 			return mine, AGREED
 		task.check()
 		note = (

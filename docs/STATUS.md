@@ -1,6 +1,6 @@
 # VisionClaw status
 
-Updated 2026-11-18, version 1.9.1.
+Updated 2026-11-19, version 1.10.0.
 
 ## What exists
 
@@ -2034,6 +2034,81 @@ What was tested, and how:
   From NVDA's own process, bringing the window back is still to be tried.
 - **Not run inside NVDA.** First to try: the owner's request from the desktop, then from Notepad, and whether the
   hidden icons are read and the focus comes back to where it was (the new section of `docs/TESTPLAN.md`).
+
+## Smarter across the board, measured; which model for what (1.10.0, 2026-11-19)
+
+The owner: "find a way to make it a lot smarter across the board, too", and while it was being done: "if I should
+switch to smaller or different qwen variants according to user reviews and my available listed visionclaw qwen model
+choices ... visionclaw should suggest what kind of switch I should make, then let the final decision up to me", and
+"if we need more clever skills, more clever system prompts, memory and rag, claude must implement this".
+
+**Measuring first (phase 5.1).** The full live test cannot show this: its 213 requests were tuned against for weeks,
+and it counts what was carried out, not whether the job was the right one. So:
+- `tests/eval/requests.json`, 137 requests in a blind person's casual words, each with the jobs that count as right,
+  none of them in the live test; `requests2.json` (88) and `requests3.json` (65), each written after the changes
+  before it and before anything was run on it. `tests/eval/known.json`: the 312 requests whose job is known (the
+  live test's parts as handled rightly, reviewed by hand, and the help files' words).
+- `tests/eval_routing.py` runs a set through VisionClaw's real planning with the real model and carries nothing
+  out: right, wrong, or the user had to be asked. `VC_PLUGIN` scores another copy of the add-on, so the last release,
+  unpacked from git, was scored on the same sets.
+- **Found first, a fault of the test itself**: eleven jobs had no stand-in in `tests/live_orchestrator.py` (pressing
+  keys, typing, reading text, writing an add-on, naming a button, the notes and three about what VisionClaw made), so
+  the model could not choose them and its choice of another looked like its mistake. With them added, the first set
+  went from 113 to 121 of 137 with no change to VisionClaw.
+
+**What the misses showed, and what was changed**, each a rule, none for one sentence:
+- Of the 9 questions to the user on the first set, the model had chosen rightly in 6: a word had set off a pattern for
+  an action ("shortcut", "headings", "menu"). Now the user is asked only where the words point clearly elsewhere
+  (`planner.challenger`): the model's choice stands where a pattern that is not only about questions points to it too,
+  or where only such a weak pattern points elsewhere.
+- A how-question is answered with keys and a why-question is answered, whatever job a word in it names (`_HOW`, `_WHY`).
+- A model that finds nothing that fits gets the job the words fully name (`planner.fitted`).
+- Plain code reads more: a key combination of the program ("send control s"), the computer's volume said as "too
+  loud", "what did I download", NVDA's own menu and windows, "what's on the clipboard", "focused", a rhythm said as
+  "every second", "go back to" a program, "what does this dialog say", "I want to hear", "every letter I type", "your
+  log", "what control am I on", "describe" as its first word.
+- A skill's own steps run only when nothing more is asked; one job told in clauses, or a complaint and "make it stop",
+  is not split.
+- Tried and dropped: a nearest-neighbour vote over the known requests by BM25 and the concepts (`claw/intents.py`,
+  written and removed the same day). Left out of one by one, it named the right job for 81 percent of the known
+  requests it was sure of, but was sure of only a third; on the first set it was sure of 34 and wrong in 11 ("look up
+  the price online" was taken for looking around in a game), while the patterns alone were right for 107 of 133. A
+  hint that wrong would have misled the model, so it was not used.
+
+**Scores**, Qwen3.5 9B for both jobs, one question at a time, the owner's settings:
+
+| Set | 1.9.1 | 1.10.0 |
+|---|---|---|
+| First (137; the changes were made while reading its misses) | 121 right, 9 asked, 7 wrong | 135 right, 0 asked, 2 wrong |
+| Second (88; written after the first round, before running; the second round was made from it) | 77 right, 4 asked, 7 wrong | 81 right, 2 asked, 5 wrong (after the first round) |
+| Third (65; written blind after both rounds) | **55 right (85%), 5 asked, 5 wrong** | **58 right (89%), 1 asked, 6 wrong** |
+
+The third set is the honest measure. One request there went from a question to the user to a wrong job: "open nvda
+settings" is now taken as opening a thing by its name, since that pattern supports the model's choice. Left open, with
+the six other misses of the third set, for a fourth set to measure any change made from them.
+
+**Which model for what (`claw/advice.py`, the job `model_advice`).** See CLAUDE.md. Its suggestions were checked in
+`tests/test_advice.py` against the owner's computer (8 GB graphics card, 31 GB of memory, Qwen3.5 9B for both jobs):
+keep the 9B for planning, pictures and add-ons; Qwen3.5 4B when the user wants speed, said to be less exact and not
+measured; with no graphics card, the largest that fits the memory, said to be slower. Every "Measured:" sentence is
+checked to be one of `advice.MEASURED`. "According to user reviews" was taken as the user's own reviews on this
+computer: how requests went with each model (`planning.Outcomes`, `models-went.json`, counted from now on) and what
+the user asked VisionClaw to remember about a model. Reviews from the internet were not added: VisionClaw's own code
+goes online only for the sources the owner said yes to.
+
+**Skills, prompts, memory and retrieval**: what the measurements called for. A skill, Choosing a model; a section in
+`visionclaw-asking.md`, looked up when a question names models or quants; the memory of how each model did. The
+gains in choosing came from plain-code rules, not from longer prompts: the model was right where plain code let it be.
+
+What was tested, and how: `python tests/run_all.py` (with `test_eval_patterns.py` and `test_advice.py`, new) passes;
+`tests/test_nvda_stub.py` runs the real `model_advice` against a stand-in graphics card. **The real model**: the full
+`tests/live_orchestrator.py`, now 215 requests with the eleven new stand-ins and two requests for a model suggestion:
+all 215 carried out, in at most 9.4 seconds. Compared part by part with the run of 1.9.0, two choices changed and
+nothing else: "Name the focused button Share on this website" now names the button (its stand-in was one of the
+eleven missing), where before the user was asked; "Give me a hotkey for the gain knob" now goes to the arrow keys for
+the dial, which is what the user had chosen when asked. Questions to the user: 3, where there were 5 ("click the start
+button." with the game in front, the second half of the deep query, and the "report pdf" session, which asks the same
+on the code of 1.8.0). Both requests for a model suggestion went to `model_advice`. **Not run inside NVDA.**
 
 ## Next session
 

@@ -2377,6 +2377,30 @@ def build(plugin):
 		# Translators: Added to the answer about VisionClaw's models. The key is the default one.
 		return plugin.runtime.aboutText() + " " + _("To see, remove or choose other models, press NVDA+Alt+M.")
 
+	# Which model fits what the user wants to do, suggested by plain code from what was measured, this computer and
+	# how requests went here (claw/advice.py). Nothing is changed: the user chooses in the models window.
+	def modelAdvice(task, asked):
+		from . import hardware
+		from .claw import advice, catalog
+		runtime = plugin.runtime
+		devices = _safe(lambda: runtime.devices(), []) or []
+		dedicated = max((device.totalMb for device in devices if device.dedicated), default=0)
+		ram = _safe(hardware.memoryGb, 0) or 0
+		chosen = {role: (_safe(lambda: runtime.entry(role), {}) or {}).get("id", "") for role in (VISION, CODER)}
+		stored = {ident for model in (_safe(lambda: runtime.catalog.stored(), []) or []) if not model["partial"]
+			for ident in model["ids"]}
+		outcomes = _safe(lambda: plugin.orchestrator.outcomes.counts(), {}) or {}
+		remembered = advice.remembers(_safe(lambda: [entry.text() for entry in plugin.memories.all()], []) or [])
+		one = bool(_safe(lambda: policy.isOneModel(runtime), False))
+		return advice.advise(asked or task.request, catalog.CATALOG, chosen, stored, dedicated, ram, outcomes, remembered, one)
+
+	add("model_advice",
+		"suggest which of VisionClaw's models fits what the user wants to do: planning and carrying out tasks, describing "
+		"pictures, writing add-ons, or speed; from this computer, what was measured and how requests went here; changes "
+		"nothing",
+		modelAdvice, {"asked": text("what the user asked for, in their own words", maxLength=300, auto=True)},
+		looks=True, title="Suggesting a model", tell=VERBATIM)
+
 	add("model_info",
 		"say which AI models VisionClaw itself has stored on this computer and uses, how big they are, and where "
 		"they run",
