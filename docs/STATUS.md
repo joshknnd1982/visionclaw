@@ -2801,7 +2801,57 @@ the answer holds the whole result, and nothing in the request's record is cut. `
 `python tests/run_all.py`: every test passed. Not run inside NVDA and not with a real model: a very long answer is now
 spoken whole by NVDA, which can be stopped with Control as always.
 
+## The words of the final answer, measured (1.15.3, 2026-11-19)
+
+Another session said on 2026-11-19 that the evaluation sets checked only which job was chosen, never the words of the
+final answer; the owner said: "add it now." So:
+
+- `tests/eval_answers.py` (new) carries every step of a request out with the stand-ins of `tests/live_orchestrator.py`
+  and the real model, and judges the answer the user would hear by plain code, with `tests/answercheck.py` (new).
+- **Rules for every answer**: not empty; nothing cut; no Markdown; nothing only a sighted person can follow; no key that
+  exists nowhere (not in the request, what a tool found, NVDA's commands, the notes on Windows' keys, VisionClaw's own
+  keys or NVDA's user guide); keys written as NVDA writes them, not spelled out with "plus"; with one model, nothing
+  about two models; nothing of the question the model was given; no opening words before the answer. A phrase the
+  user's words or a tool's own result has is not held against the answer; the vision model's description is checked
+  like the answer.
+- **What one answer must say**: `tests/eval/answers.json` (32 requests, the development set) and `answers-held.json`
+  (30, held out), written together before anything was run on either, in casual words; "says" and "never" are facts of
+  the stand-ins (speech rate 50, NVDA says 4:05 PM, the focus on New Game, the page Example Shop with 30 days for
+  refunds). Two requests that were already in `requests6.json` were reworded before any run.
+- `tests/test_answers.py` (new, in `run_all.py`) checks every rule on made-up answers, that VisionClaw's own plain-code
+  sentences break none of them, the sets' form and that they share no request with what VisionClaw was tuned on, and
+  runs five requests that plain code decides from their words to a judged answer with no model at all.
+
+Measured with the real Qwen3.5 4B for both jobs (the owner's own choice since VisionClaw picks it), on the GeForce RTX
+5060, about 50 seconds a set; the runs repeat exactly:
+- Development set, 1.15.2: 25 of 32 answers right; the job right for 25 of 30. Two keys spelled out ("The key is NVDA
+  plus t", "NVDA plus control plus escape"), one "I could not find the refund policy in the information provided".
+- From those, two corrections by plain code to the one part of an answer a model words (`orchestrator._answer`):
+  `llm.nvdaKeys` writes a key spelled out as NVDA writes it ("NVDA+t"; "Shift plus a click" is left), and
+  `llm.unframed` leaves out "Based on the information found," and says "the information provided" as "what was looked
+  up". Development set after: 27 of 32.
+- **Held-out set, first run, on both**: 1.15.2 23 of 30 (3 keys spelled out, 1 "information provided"); 1.15.3 26 of 30,
+  with no answer worse. It is spent for these two corrections.
+
+What is left, all on the job chosen, not the wording; for a later change, measured with `eval_routing.py` on every set:
+- "how many cells has my braille display got" was put to the user and then taken as a setting; "tell me the date and
+  how many braille cells I have" was right.
+- On a web page, "whats the refund policy here" and "when is this shop open" were looked up in NVDA instead of read from
+  the page, and "do they take returns" was answered from a picture of the screen.
+- "what happens when I press nvda f12" was put to the user, and its first choice pressed F12; "what time have we got"
+  was answered with the key instead of the time.
+- "any new downloads" was taken as what VisionClaw can download, not the Downloads folder.
+- "stop reading out every letter I type" changed the symbol level: the stand-in for `set_setting` has no
+  `nvdatools.related` check, so this may not happen in NVDA; not tried there.
+- "how do I jump to the main part of this page" was answered "Press the Jump key": a made-up key that is no key
+  combination, which the rule for keys cannot see.
+
+Not run inside NVDA. `python tests/run_all.py`: every test passed.
+
 ## Next session
+
+1.15.3: the routing misses listed in the section above, measured on every evaluation set with `eval_routing.py` and on
+the answer sets with `eval_answers.py`; then write a new held-out answer set, since `answers-held.json` is spent.
 
 1.12.0's part for small models (the section above): with the owner's yes, walk through "Small models stretched" in
 `docs/TESTPLAN.md` inside NVDA, first "Which model does each job" set to "VisionClaw picks" with two models on the disk.

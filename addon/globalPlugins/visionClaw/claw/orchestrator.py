@@ -16,7 +16,7 @@ from . import memories as memoriesModule
 from . import skills as skillsModule
 from . import task as taskModule
 from .catalog import CODER, VISION
-from .llm import LLM, LLMError, clip, plainSpeech, uncut
+from .llm import LLM, LLMError, clip, nvdaKeys, plainSpeech, uncut, unframed
 from .runtime import ModelMissing
 from .tools import ANSWER, SUMMARIZE, VERBATIM
 from ..engine import EngineError
@@ -721,7 +721,10 @@ class Orchestrator:
 				summary = llm.text(self.lead, prompts.speaking(_ANSWER_TASK, found=user), user, maxTokens=params.answerTokens, reasoning=params.reasoning)
 			except LLMError:
 				summary = ""
-			pieces.append(" ".join((summary or "").split()) or " ".join(result for _part, result in info))
+			# What plain code can correct in the model's words, it corrects: keys as NVDA writes them, and nothing of
+			# the question the model was given.
+			summary = unframed(nvdaKeys(" ".join((summary or "").split())))
+			pieces.append(summary or " ".join(result for _part, result in info))
 		if failed:
 			pieces.append("This could not be done: " + "; ".join(uncut(f) for f in failed) + ".")
 		answer = " ".join(plainSpeech(p) for p in pieces if p) or "Nothing was done."

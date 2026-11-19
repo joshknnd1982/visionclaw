@@ -894,6 +894,28 @@ keyboard and speech alone.
     fewer known or evaluation requests than on 2026-11-19; raise its numbers when a change helps.
   - Measured on 2026-11-19 with Qwen3.5 9B for both jobs, one question at a time: on the third set, written blind,
     1.9.1 chose the right job for 55 of 65 and asked the user 5 times; 1.10.0 58 of 65 and once.
+- **The words of the final answer are measured too** (`tests/eval_answers.py`, `tests/answercheck.py`). Another session
+  said on 2026-11-19 that the sets checked only the job chosen, never the words of the answer, and the owner said: "add
+  it now." What follows from it:
+  - **Every step is carried out** with the live test's stand-ins, which change nothing, and the answer the user would
+    hear is judged by plain code, never by a model.
+  - **Rules for every answer** (`answercheck.problems`): not empty; nothing cut; no Markdown; nothing only a sighted
+    person can follow; no key that exists nowhere (in the request, what a tool found, NVDA's commands, the notes on
+    Windows' keys, VisionClaw's own keys, NVDA's user guide); with one model, nothing about two models; nothing of the
+    question the model was given ("the information found", "line 2 says", "the user asked"); no opening words before
+    the answer. A phrase the user's own words or a tool's own result has is not held against the answer; a result a
+    model wrote (`eval_answers.BY_MODEL`) is checked like the answer. A new rule gets a case in `tests/test_answers.py`,
+    which also checks that VisionClaw's own plain-code sentences break none of them.
+  - **What one answer must say** comes from the facts of the stand-ins, never from what a model once said: `says`,
+    groups of words of which the answer must have one each, and `never`, words it must not have ("Paris" where nothing
+    that was looked up names it). `tests/eval/answers.json` is the development set and `answers-held.json` the
+    held-out one, written together before anything was run on either; never write a rule from the held-out set's
+    misses. A stand-in whose facts change needs the sets' words checked again.
+  - **What plain code can correct in a model's answer, it corrects** (`orchestrator._answer`): a key spelled out is
+    written as NVDA writes it (`llm.nvdaKeys`: "NVDA plus t" is "NVDA+t"), and words of the model's question are left
+    out or said as "what was looked up" (`llm.unframed`). Measured on 2026-11-19 with Qwen3.5 4B for both jobs: the
+    development set 25 to 27 of 32, the held-out set 23 to 26 of 30 on its first run, none worse; that held-out set
+    is spent for these two.
 - **The model's choice is questioned only where the words point clearly elsewhere** (`planner.challenger`,
   `strongly`, `_WEAK`). Of nine questions to the user on the first set, the model had been right in six: one word
   ("shortcut", "headings", "menu") had set off a pattern for an action. So the model's choice stands where a pattern
@@ -1941,8 +1963,8 @@ A session is done only when its "Done when" line is true.
 ### Phase 5 — Quality with real models
 - [x] **5.1 Evaluation set.** Three sets (137, 88 and 65 requests) in `tests/eval/`, each written before it was run,
   and `tests/eval_routing.py`, which scores the job chosen with the real models. The scores are in `docs/STATUS.md`.
-  Not yet scored: what the steps then do and say, for which the stand-ins of the live test would need expected
-  answers.
+  The words of the final answer are scored by `tests/eval_answers.py` on two sets of their own (`answers.json`,
+  `answers-held.json`), with every step carried out by the live test's stand-ins.
 - [ ] **5.2 Prompt tuning** against the evaluation set for Qwen3.5-2B and Qwen2.5-Coder-1.5B, then the larger
   pair. Do not tune on fewer than the whole set.
 - [ ] **5.3 Add-on templates.** Deterministic templates the coder fills in, for the request kinds where free
@@ -2025,6 +2047,12 @@ python -u tests/live_codeplan.py MODELS  the real model writes nine add-ons as o
                                          against stand-ins for NVDA to see whether it does what was asked
 python -u tests/eval_routing.py MODELS auto VISIONID CODERID always LABEL
                                          the real model chooses the job for an evaluation set; nothing is carried out
+python -u tests/eval_answers.py MODELS auto VISIONID CODERID auto LABEL
+                                         the real model carries out each request of an answer set with the live test's
+                                         stand-ins, and plain code judges the words of the final answer; VC_SET picks
+                                         answers (development) or answers-held; --compare LABEL1 LABEL2
+python tests/test_answers.py             the rules for every answer and the words one answer must say, the answer sets'
+                                         form, and whole requests that plain code decides judged without a model
 python tests/test_places.py              which place of Windows and what is wanted there, what the owner's real taskbar
                                          reported said in words, concepts, what is no answer and the next way, and
                                          whole requests where the next way is tried and learned

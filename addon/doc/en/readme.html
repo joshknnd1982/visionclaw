@@ -12,21 +12,20 @@ If VisionMate is installed, disable it in the Add-on Store: VisionClaw uses the 
 next. The first parts say what is new. Every feature of VisionClaw, old and new, is explained after them.</p>
 
 <!-- news: written by tools/write_help.py from manifest.ini; do not change it by hand -->
-<p>This help is for VisionClaw 1.15.2.</p>
-<h2>What is new in 1.15.2</h2>
+<p>This help is for VisionClaw 1.15.3.</p>
+<h2>What is new in 1.15.3</h2>
+<ul>
+<li>Keys in VisionClaw's answers are written the way NVDA writes them. Press NVDA+Alt+C and ask "how do I hear the window title" or "which key turns on the screen curtain": you hear and read NVDA+t and NVDA+control+escape, where the model had written "NVDA plus t". On a braille display the key now looks as it does in NVDA's own lists.</li>
+<li>An answer no longer speaks of "the information provided" or "the information found", words from VisionClaw's question to the model that meant nothing to you. When nothing that was looked up answers your question, you hear that it could not be found in what was looked up.</li>
+<li>VisionClaw's answers are now measured, not only which job it chooses. Two new sets of requests in casual words are carried out from start to finish with stand-ins for NVDA, and plain code checks what you would hear: nothing cut, no Markdown, nothing only a sighted person can follow, no key that does not exist, keys written as NVDA writes them, and the facts the answer must give. With Qwen3.5 4B for both jobs: 25 of 32 answers right before and 27 after on the set the corrections were made from, and 23 of 30 before and 26 after on the set held out. Nothing about how you ask changes. Not yet run inside NVDA.</li>
+</ul>
+<h2>What was new in 1.15.2</h2>
 <ul>
 <li>Fixed: long answers were cut off with "...[cut]". Everything VisionClaw says and shows is now whole, however long: the answer to your request, every question it asks you, every "You asked" before a change, and what each step found when you read back the last request in the Ask window (NVDA+Alt+C). Ask "which add-ons are installed" and every add-on is named.</li>
 <li>Your own request is never shortened. A long request, typed or spoken with NVDA+Alt+C or NVDA+Alt+V, reaches every model and every tool whole; before, the tools read only its first 200 to 300 characters. What you ask VisionClaw to remember is kept whole too.</li>
 <li>Lists you ask for are said whole, with no "and more": say "tell me all objects in the system tray" or "what icons are on my desktop" and every one is named; the same for the control you are on, the squares of a check that asks whether you are a person, and what is new in a newer version.</li>
 <li>VisionClaw's log keeps every entry whole, with every question to a model as it was sent. Open it with the button "Open VisionClaw's log" in VisionClaw's settings.</li>
 <li>What stays short is only what a small model reads of looked-up pages, notes and results, so that it is not swamped; you never hear that part shortened.</li>
-</ul>
-<h2>What was new in 1.15.1</h2>
-<ul>
-<li>Ask which version of something is installed, and VisionClaw says that version and nothing more. Press NVDA+Alt+C and say "which version of VisionClaw do I have", "what version of NVDA am I running", "what version of Access8Math is installed" with any add-on's name, or "what version of this program is it". Before, "tell me the version of visionclaw I have installed" read out the whole list of add-ons.</li>
-<li>Ask about several at once, "what versions of NVDA and VisionClaw do I have", and you hear one line for each. An add-on that is turned off is said to be, and one you name that is not installed is said not to be.</li>
-<li>Only when you say you are new to this, as in "I'm a beginner screen reader user, what version of NVDA do I have", or asked VisionClaw to remember that you are new to NVDA, does one sentence follow on where to find the version yourself next time, such as NVDA+N, then H for Help, then About.</li>
-<li>The version is read from NVDA itself, the add-on's own manifest and the program, by plain code: no model is asked and nothing goes online. To look for a newer VisionClaw, press NVDA+Alt+U or say "check for a new version of visionclaw", as before. Tested with plain Python and stand-ins for NVDA; not yet run inside NVDA.</li>
 </ul>
 <p>How to use each of these is explained in its own part of this page, further down.</p>
 <!-- /news -->
@@ -829,6 +828,12 @@ asked" before a change, a list you asked for, and what each step found when you 
 Ask window. Your own request reaches every model and every tool whole, and so does what you ask VisionClaw to
 remember. VisionClaw's log keeps every entry whole. Only what a small model reads of looked-up pages, notes and
 results is kept short for it, so that it is not swamped; you never hear that part shortened.</p>
+
+<p>Where a model words an answer, plain code still checks two things before you hear it. A key it spelled out,
+"NVDA plus t", is written as NVDA writes it, NVDA+t, so that a braille display shows it as NVDA's own
+lists do. Words from VisionClaw's question to the model, such as "the information provided", are taken
+out or said as what they are: what was looked up. Ask "how do I hear the window title" with
+NVDA+Alt+C to hear it.</p>
 
 <h2>The developer guides</h2>
 <p>The NVDA Developer Guide from NV Access comes with VisionClaw as Markdown text, as it was when your version

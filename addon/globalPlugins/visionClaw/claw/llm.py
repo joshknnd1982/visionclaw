@@ -67,6 +67,68 @@ def plainSpeech(text):
 	return spoken[:-1] + "." if spoken.endswith(",") else spoken
 
 
+# A key a model spelled out: a modifier, then "plus" and a key, once or more. NVDA writes keys of more than one word
+# as one ("upArrow").
+_KEY_MODIFIER = r"(?:NVDA|Control|Ctrl|Alt|Shift|Windows|Insert|Caps ?Lock)"
+_KEY_NAME = (
+	r"(?:(?:up|down|left|right) arrow|page (?:up|down)|caps ?lock|escape|esc|tab|enter|space|backspace|delete|home|"
+	r"end|applications|f1[0-9]|f2[0-4]|f[1-9]|numpad ?[a-z0-9]+|[a-z0-9])")
+_SPELLED_KEY = re.compile(
+	rf"(?<![\w+]){_KEY_MODIFIER}(?:\s+plus\s+(?:{_KEY_MODIFIER}|{_KEY_NAME}))+(?![\w+])", re.IGNORECASE)
+_KEY_WORDS = {"up arrow": "upArrow", "down arrow": "downArrow", "left arrow": "leftArrow", "right arrow": "rightArrow",
+	"page up": "pageUp", "page down": "pageDown", "caps lock": "capsLock"}
+# "Shift plus a click" holds Shift during a click: the "a" is a word there, and no key.
+_WORD_AFTER = re.compile(
+	r"\s+(click|mouse|key|letter|number|word|button|command|shortcut|combination|second|few|single|double)\b",
+	re.IGNORECASE)
+
+
+def nvdaKeys(text):
+	"""Keys a model spelled out, "NVDA plus control plus escape", written as NVDA writes them, "NVDA+control+escape".
+	Measured with Qwen3.5 4B on 2026-11-19 (tests/eval_answers.py): told to copy keys exactly, it answered "The key is
+	NVDA plus t". Keys are written exactly as NVDA names them, and a braille display shows the words as they are."""
+	text = str(text or "")
+
+	def joined(match):
+		parts = re.split(r"\s+plus\s+", match.group(0), flags=re.IGNORECASE)
+		if parts[-1].lower() in ("a", "i") and _WORD_AFTER.match(text, match.end()):
+			return match.group(0)
+		return "+".join(_KEY_WORDS.get(" ".join(part.lower().split()), part) for part in parts)
+	return _SPELLED_KEY.sub(joined, text)
+
+
+# What a model writes about the question it was given, which means nothing to the user: "the information provided".
+_FRAME_LEAD = re.compile(
+	r"\b(?:based on|according to) the (?:information|passages?|lines?|text|context)(?: (?:found|given|provided|above))?"
+	r",?\s*", re.IGNORECASE)
+# Only words that take a verb as "what was looked up" does: "the passages given do not say" stays as it is.
+_FRAME = re.compile(r"\bthe (?:information|context) (?:found|given|provided|above)\b", re.IGNORECASE)
+
+
+def _sentenceStart(text, at):
+	before = text[:at].rstrip()
+	return not before or before[-1] in ".!?:"
+
+
+def unframed(text):
+	"""A model's answer without the words of the question it was given, which mean nothing to the user. Measured with
+	Qwen3.5 4B on 2026-11-19 (tests/eval_answers.py): "I could not find the refund policy in the information
+	provided." What is meant is said as what it is: what was looked up. "Based on the information found," is left
+	out."""
+	text = str(text or "")
+	kept, last = [], 0
+	for match in _FRAME_LEAD.finditer(text):
+		kept.append(text[last:match.start()])
+		last = match.end()
+		if _sentenceStart("".join(kept), len("".join(kept))) and last < len(text) and text[last].islower():
+			kept.append(text[last].upper())
+			last += 1
+	kept.append(text[last:])
+	text = "".join(kept)
+	return _FRAME.sub(
+		lambda match: "What was looked up" if _sentenceStart(text, match.start()) else "what was looked up", text)
+
+
 def tokens(text):
 	"""A safe guess of how many tokens a text is."""
 	return len(text) // 3 + 8
