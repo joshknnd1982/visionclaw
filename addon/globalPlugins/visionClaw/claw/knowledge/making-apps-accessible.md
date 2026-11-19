@@ -18,7 +18,7 @@ the user to move through with the arrow keys and press Enter on.
 scroll_view turns the mouse wheel in the window in front: up, down, left or right, a little, a page, or to
 the end. It compares the window's picture before and after, so it says truthfully whether anything moved,
 and where the window shows a scrollbar it says how far along the view stands. To scroll what is under a
-certain place, use pointer mode (NVDA+Alt+K): Page Down and Page Up turn the wheel at the pointer, and S puts
+certain place, use pointer mode (NVDA+Alt+K): I and K turn the wheel up and down at the pointer, and S puts
 the pointer on a scrollbar so that it can be dragged with G and the arrow keys. NVDA also has its own
 commands for the mouse wheel, without keys assigned; find_command finds them by the words mouse scroll.
 

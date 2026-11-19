@@ -610,8 +610,8 @@ def auditWindow(nodes, title="", app="", later=None, drawn=None, bars=(), seen="
 			visual.insert(0, f"NVDA knows {_plural(known, 'scrollbar or slider')} in it.")
 		# How to work them is the same on every screen, so it is said once, here.
 		visual.append(
-			"Ask VisionClaw to scroll down, up or to the end; or press NVDA+Alt+K for pointer mode, where Page Down "
-			"and Page Up turn the mouse wheel and S puts the pointer on a scrollbar.")
+			"Ask VisionClaw to scroll down, up or to the end; or press NVDA+Alt+K for pointer mode, where I and K "
+			"turn the mouse wheel up and down and S puts the pointer on a scrollbar.")
 		summary += " " + " ".join(visual)
 	if ways:
 		summary += " " + ways

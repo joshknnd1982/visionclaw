@@ -43,6 +43,12 @@ _AMOUNTS = (
 )
 DEFAULT_SHARE = 0.15
 # The keys of pointer mode, as NVDA spells them, and what each does.
+# Everything can be done with keys that every keyboard has: letters, the arrow keys, Enter, Space, Escape, Shift
+# and Control. Small and laptop keyboards often have no Applications key, no Page Up and Page Down, no Home and
+# End and no function keys; such a key is only ever a second way (EXTRA_KEYS), and the help never names it.
+EXTRA_KEYS = (
+	"kb:applications", "kb:shift+f10", "kb:home", "kb:pagedown", "kb:pageup", "kb:shift+pagedown", "kb:shift+pageup",
+	"kb:control+pagedown", "kb:control+pageup")
 KEYS = {
 	"kb:leftarrow": ("move", "left", STEP), "kb:rightarrow": ("move", "right", STEP),
 	"kb:uparrow": ("move", "up", STEP), "kb:downarrow": ("move", "down", STEP),
@@ -51,9 +57,16 @@ KEYS = {
 	"kb:control+leftarrow": ("move", "left", FAR), "kb:control+rightarrow": ("move", "right", FAR),
 	"kb:control+uparrow": ("move", "up", FAR), "kb:control+downarrow": ("move", "down", FAR),
 	"kb:enter": ("click",), "kb:numpadenter": ("click",), "kb:space": ("click",),
-	"kb:shift+enter": ("double",), "kb:applications": ("right",), "kb:shift+f10": ("right",),
+	# A right-clicks, as the Applications key does.
+	"kb:shift+enter": ("double",), "kb:a": ("right",), "kb:applications": ("right",), "kb:shift+f10": ("right",),
 	"kb:g": ("grab",), "kb:w": ("look",), "kb:r": ("read",), "kb:p": ("where",), "kb:h": ("help",),
-	"kb:home": ("centre",), "kb:escape": ("exit",),
+	# B brings the pointer back to the middle of the window.
+	"kb:b": ("centre",), "kb:home": ("centre",), "kb:escape": ("exit",),
+	# I, K, J and L lie like the arrow keys and turn the mouse wheel up, down, left and right; with Shift one notch.
+	"kb:i": ("scroll", "up", PAGE), "kb:k": ("scroll", "down", PAGE),
+	"kb:j": ("scroll", "left", PAGE), "kb:l": ("scroll", "right", PAGE),
+	"kb:shift+i": ("scroll", "up", NOTCH), "kb:shift+k": ("scroll", "down", NOTCH),
+	"kb:shift+j": ("scroll", "left", NOTCH), "kb:shift+l": ("scroll", "right", NOTCH),
 	"kb:pagedown": ("scroll", "down", PAGE), "kb:pageup": ("scroll", "up", PAGE),
 	"kb:shift+pagedown": ("scroll", "down", NOTCH), "kb:shift+pageup": ("scroll", "up", NOTCH),
 	"kb:control+pagedown": ("scroll", "right", PAGE), "kb:control+pageup": ("scroll", "left", PAGE),

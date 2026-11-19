@@ -272,7 +272,7 @@ class ControlKeys:
 			count += 1
 		if not count:
 			tones.beep(180, 40)
-			# Translators: Spoken when Home or End did not move a dial or slider.
+			# Translators: Spoken when T or B, which go to an end, did not move a dial or slider.
 			self._say(_("Nothing moved. It is at that end already, or it is not worked this way."))
 			return
 		shown = self._shown(box)

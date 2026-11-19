@@ -245,6 +245,9 @@ mousetools._WHEEL_STEP = mousetools._SCROLL_SETTLE = 0
 # No key of the keyboard is really pressed either, and the pointer does not really rest anywhere.
 keysPressed = []
 mousetools._key = lambda code, up: keysPressed.append((code, up))
+# Whether Shift, Control or Alt is down is not read from the real keyboard: these are the keys held down.
+keysHeld = set()
+mousetools._keyDown = lambda code: code in keysHeld
 mousetools._REST = 0
 nvdatools.typeUnicode = typed.append  # nothing is really typed into the computer during the tests
 # Nothing on the real computer is opened, emptied, closed, made louder or quieter, locked or shut down during the
@@ -1166,10 +1169,66 @@ press("uparrow")
 press("g")
 assert buttons == [LEFT_DOWN, LEFT_UP] and not instance.pointerMode.holding
 # Other keys are left to NVDA; Escape leaves the mode, and lets go of the button if it was held.
-assert instance.getScript(key("a")) is None and instance.getScript(key("tab")) is None
+assert instance.getScript(key("z")) is None and instance.getScript(key("tab")) is None
 press("g")
 press("escape")
 assert not instance.pointerMode.active and buttons[-1] == LEFT_UP and instance.getScript(key("uparrow")) is None
+# Every job of pointer mode has a key that every keyboard has: the owner said on 2026-11-18 that some keyboards
+# have no Applications key, and no Page Up, Page Down, Home or End either. A right-clicks, as the Applications
+# key does where there is one; B brings the pointer back to the middle, as Home does.
+instance.pointerMode.start()
+
+
+def clicksDone(count):
+	for _ in range(200):
+		if len(buttons) >= count:
+			return
+		time.sleep(0.01)
+	raise AssertionError(buttons)
+
+
+for rightKey in ("a", "applications", "shift+f10"):
+	del buttons[:]
+	press(rightKey)
+	clicksDone(2)
+	assert buttons == [mousetools._RIGHTDOWN, mousetools._RIGHTUP], (rightKey, buttons)
+for middleKey in ("b", "home"):
+	press("control+rightarrow")
+	assert (instance.pointerMode.x, instance.pointerMode.y) != (cx, cy)
+	press(middleKey)
+	assert (instance.pointerMode.x, instance.pointerMode.y) == (cx, cy) == moves[-1], middleKey
+# Shift+Enter leaves Shift down for a moment. With Shift down a double click would select everything in between,
+# so the click waits until the user has let go, and is not done at all when the key stays down.
+del buttons[:]
+keysHeld.add(0x10)
+press("shift+enter")
+time.sleep(0.15)
+assert buttons == [], buttons
+keysHeld.clear()
+clicksDone(4)
+assert buttons == [LEFT_DOWN, LEFT_UP, LEFT_DOWN, LEFT_UP], buttons
+del buttons[:]
+heard = []
+keptSaid, sys.modules["ui"].message = sys.modules["ui"].message, heard.append
+keysHeld.add(0x10)
+realWait, mousetools._KEYS_UP = mousetools._KEYS_UP, 0.1
+press("shift+enter")
+for _ in range(200):
+	if len(heard) >= 2:
+		break
+	time.sleep(0.01)
+assert heard == ["double click", "Let go of Shift, Control and Alt first: held down, they change what the mouse does. Nothing was done."], heard
+assert buttons == [], buttons
+keysHeld.clear()
+mousetools._KEYS_UP = realWait
+sys.modules["ui"].message = keptSaid
+# The help that is spoken names only keys that every keyboard has.
+spoken = instance.pointerMode.help()
+for missing in ("Applications", "Page Down", "Page Up", "Home", "End ", "F10", "Insert", "Delete"):
+	assert missing not in spoken, missing
+assert "A right-clicks" in spoken and "I turns the mouse wheel up and K down, J left and L right" in spoken, spoken
+assert "B brings it back to the middle" in spoken
+instance.pointerMode.stop()
 # Asked for in words, pointer mode is turned on and its keys are told.
 worked, result = registry.call(task, "pointer_mode", {})
 assert worked and instance.pointerMode.active and "The arrow keys move the mouse pointer" in result, result
@@ -1477,8 +1536,8 @@ assert not worked and "whose value the wheel changes" in result and wheels == []
 under.role.name = "PANE"
 conf["visionClaw"]["confirmChanges"] = False
 
-# In pointer mode Page Down turns the wheel where the pointer is and says where the view then stands; at the
-# end it says so; S puts the pointer on the scrollbar.
+# In pointer mode K turns the wheel down where the pointer is and says where the view then stands; at the
+# end it says so; S puts the pointer on the scrollbar. Page Down does the same on a keyboard that has it.
 said = []
 sys.modules["ui"].message = said.append
 
@@ -1501,6 +1560,54 @@ pictures = [shot(600, 1.0), shot(600, 1.0)]
 press("shift+pagedown")
 settle(2)
 assert said[-1] == "Nothing moved. This is the end, or nothing scrolls under the pointer." and len(wheels) == 9
+
+
+def wheelFree():
+	# The wheel is turned on a thread of its own; the next key counts only when that has finished.
+	for _ in range(200):
+		if not instance.pointerMode._wheeling.locked():
+			return
+		time.sleep(0.01)
+	raise AssertionError("the wheel is still being turned")
+
+
+# The letters every keyboard has: I up and K down, J left and L right, about a page; with Shift one notch.
+HWHEEL = mousetools._HWHEEL
+for letter, turned in (
+		("k", [(WHEEL, -120)] * 8), ("i", [(WHEEL, 120)] * 8), ("l", [(HWHEEL, 120)] * 8), ("j", [(HWHEEL, -120)] * 8),
+		("shift+k", [(WHEEL, -120)]), ("shift+i", [(WHEEL, 120)]), ("shift+l", [(HWHEEL, 120)]), ("shift+j", [(HWHEEL, -120)])):
+	wheelFree()
+	del said[:], wheels[:]
+	pictures = [shot(0, 0.0), shot(240, 0.5)]
+	press(letter)
+	settle(1)
+	assert wheels == turned, (letter, wheels)
+# Shift+K leaves Shift down for a moment, and with Shift down most programs scroll sideways. So the wheel waits
+# until the user has let go; a key that repeats meanwhile is left out; and it is not turned at all when Shift stays down.
+wheelFree()
+del said[:], wheels[:]
+pictures = [shot(0, 0.0), shot(240, 0.5)]
+keysHeld.add(0x10)
+press("shift+k")
+press("shift+k")
+time.sleep(0.15)
+assert wheels == [] and said == [], (wheels, said)
+keysHeld.clear()
+settle(1)
+wheelFree()
+assert wheels == [(WHEEL, -120)] and said == ["50 percent down"], (wheels, said)
+del said[:], wheels[:]
+keysHeld.add(0x11)
+realWait, mousetools._KEYS_UP = mousetools._KEYS_UP, 0.1
+press("k")
+settle(1)
+wheelFree()
+assert wheels == [] and said == [
+	"Let go of Shift, Control and Alt first: held down, they change what the mouse does. Nothing was done."], (wheels, said)
+keysHeld.clear()
+mousetools._KEYS_UP = realWait
+del said[:]
+said.extend(["", ""])  # as many things said as before these keys were tried
 pictures = [shot(0, 0.5)]
 press("s")
 settle(3)
@@ -1563,7 +1670,7 @@ realRuntime, instance.runtime = instance.runtime, types.SimpleNamespace(
 worked, result = registry.call(taskModule.Task("test"), "check_access", {"target": "window", "depth": "deep"})
 assert worked and "Its picture shows a scrollbar at the right, 50 percent down" in result, result
 assert "The vision model, which can be wrong, sees these things that are worked with the mouse: A volume slider at the top right." in result
-assert "Page Down and Page Up turn the mouse wheel" in result, result
+assert "where I and K turn the mouse wheel up and down" in result and "Page Down" not in result, result
 instance.runtime = realRuntime
 
 # --- Fingers and pressure, a game that reads the mouse directly, and a game controller ---
@@ -2446,7 +2553,14 @@ assert world.level == 58 and said[-1] == "58 dB", (world.level, said[-3:])
 press("shift+downarrow")
 idle()
 assert world.level == 56 and said[-1] == "56 dB", (world.level, said[-3:])
-# End goes on until nothing moves any more, and then the next press says that nothing moved.
+# T goes to the top end: on until nothing moves any more, and then the next press says that nothing moved.
+# B goes to the bottom end. End and Home do the same on a keyboard that has them.
+press("t")
+idle()
+assert world.level == 100 and said[-1] == "At the end. 100 dB", (world.level, said[-3:])
+press("b")
+idle()
+assert world.level == 0 and said[-1].startswith("At the end."), (world.level, said[-3:])
 press("end")
 idle()
 assert world.level == 100 and said[-1] == "At the end. 100 dB", (world.level, said[-3:])

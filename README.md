@@ -703,8 +703,14 @@ on to. VisionClaw lets you do all of that without a mouse, in three ways.
 You are asked first, except for pointing, which changes nothing. The wheel is never turned over a slider, a
 combo box or a similar control, where it would change a value instead of scrolling.
 
-**In the overlay** (NVDA+Alt+O), on any item: Enter or Space clicks, Shift+Enter double-clicks, the Applications
-key right-clicks, and **G picks the item up; G on another item drops it there.**
+**In the overlay** (NVDA+Alt+O), on any item: Enter or Space clicks, Shift+Enter double-clicks, **A
+right-clicks**, and **G picks the item up; G on another item drops it there.**
+
+**Every key of pointer mode and of the overlay is one that every keyboard has**: letters, the arrow keys,
+Enter, Space, Escape, Shift and Control. Small and laptop keyboards often have no Applications key, no Page Up
+and Page Down, no Home and End and no function keys, so nothing depends on those. Where your keyboard has
+them they still work as before: the Applications key or Shift+F10 right-clicks, Page Down and Page Up turn the
+wheel, Home goes to the middle.
 
 **Pointer mode** (NVDA+Alt+K, or ask "make this control keyboard navigable") is for a control, canvas or game
 where nothing can be listed at all. The arrow keys move the mouse pointer inside the window:
@@ -713,17 +719,20 @@ where nothing can be listed at all. The arrow keys move the mouse pointer inside
   the same to the eye on a small laptop screen and on a large 4K one, and in a small window they are made
   smaller so the pointer does not leap across it. A short tone tells you how high the pointer is, and a low
   tone that it has reached the edge.
-- **Page Down and Page Up turn the mouse wheel about a page** where the pointer is; with Shift one notch; with
-  Control sideways. You hear how far along the view stands, or that nothing moved.
+- **I, K, J and L turn the mouse wheel about a page** where the pointer is: I up, K down, J left, L right.
+  They lie under the right hand like the arrow keys. With Shift one notch. You hear how far along the view
+  stands, or that nothing moved.
 - **S finds the scrollbars** in the window's picture, tells you where one is and how far along it stands, and
   puts the pointer on it. G then holds it, the arrow keys move it, and G lets go.
-- Enter or Space clicks, Shift+Enter double-clicks, the Applications key right-clicks.
+- Enter or Space clicks, Shift+Enter double-clicks, **A right-clicks**. A click or a turn of the wheel waits
+  until you have let go of Shift, Control and Alt, because held down they change what the mouse does in most
+  programs; if they stay down, nothing is done and you are told.
 - **G holds the mouse button down; move; G again lets go.** That is a drag done by hand.
 - **T rests the pointer where it is and says what appears**: a tip, a menu that opens by itself, a preview.
 - **C clicks the moment what is under the pointer changes.** Shift+C only sounds a tone then, so that you press
   Enter yourself. Any key stops the watch.
 - W has the vision model say what is at the pointer. R reads the text there. P says where the pointer is in the
-  window. Home goes to the middle. H repeats the keys. Escape turns pointer mode off.
+  window. B brings it back to the middle. H repeats the keys. Escape turns pointer mode off.
 All other keys keep working as usual.
 
 **App helpers** can right-click or double-click their item as well as click it: "give this program a hotkey
@@ -922,7 +931,7 @@ and puts it back, and compares the control's picture before and after to see wha
 From then on, until you press Escape:
 
 - Up and Right turn it up, Down and Left turn it down; with Shift a small step, with Control a large one.
-- Home and End go to its ends.
+- T goes to its top end and B to its bottom end. (Home and End do the same, on a keyboard that has them.)
 - After every press you hear what changed: the text at the control that is new, such as "58 percent", or "Up",
   or that nothing moved.
 - R reads the text at it, W asks the vision model what it shows (a guess), M tries another way of working it.

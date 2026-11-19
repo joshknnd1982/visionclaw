@@ -151,6 +151,40 @@ assert pointer.KEYS["kb:t"] == ("rest",) and pointer.KEYS["kb:c"] == ("when", Tr
 assert pointer.KEYS["kb:pagedown"] == ("scroll", "down", pointer.PAGE) and pointer.KEYS["kb:shift+pageup"] == ("scroll", "up", pointer.NOTCH)
 assert pointer.KEYS["kb:control+pagedown"] == ("scroll", "right", pointer.PAGE) and pointer.KEYS["kb:s"] == ("bars",)
 assert pointer.notchesFor(pointer.PAGE) == 8 and pointer.notchesFor(pointer.NOTCH) == 1
+# Every job has a key that every keyboard has. The owner said on 2026-11-18: "some keyboards don't have an
+# application key ... assume some don't have pageup, pagedown, home, end, either." So a key that may be missing
+# is only ever a second way to something that letters, the arrow keys, Enter, Space, Escape, Shift and Control do.
+EVERYWHERE = set("abcdefghijklmnopqrstuvwxyz") | {"enter", "space", "escape", "leftarrow", "rightarrow", "uparrow", "downarrow"}
+
+
+def onEveryKeyboard(key):
+	*held, main = key[len("kb:"):].split("+")
+	return main in EVERYWHERE and set(held) <= {"shift", "control"}
+
+
+def checkKeys(keys, extra):
+	plain = {key: command for key, command in keys.items() if onEveryKeyboard(key)}
+	for key, command in keys.items():
+		if key in plain:
+			continue
+		# Enter on the number block is the one key left that is neither: it is Enter.
+		assert key in extra or key == "kb:numpadenter", key
+		assert command in plain.values(), (key, command)
+	assert set(extra) <= set(keys) and not any(onEveryKeyboard(key) for key in extra)
+
+
+checkKeys(pointer.KEYS, pointer.EXTRA_KEYS)
+assert pointer.KEYS["kb:a"] == ("right",) == pointer.KEYS["kb:applications"]
+assert pointer.KEYS["kb:b"] == ("centre",) == pointer.KEYS["kb:home"]
+assert pointer.KEYS["kb:i"] == ("scroll", "up", pointer.PAGE) and pointer.KEYS["kb:k"] == ("scroll", "down", pointer.PAGE)
+assert pointer.KEYS["kb:j"] == ("scroll", "left", pointer.PAGE) and pointer.KEYS["kb:l"] == ("scroll", "right", pointer.PAGE)
+assert pointer.KEYS["kb:shift+k"] == ("scroll", "down", pointer.NOTCH) and pointer.KEYS["kb:shift+j"] == ("scroll", "left", pointer.NOTCH)
+# The same holds while a dial or slider is held: T and B go to its ends.
+from visionClaw.claw import dragcontrol  # noqa: E402
+checkKeys(dragcontrol.KEYS, dragcontrol.EXTRA_KEYS)
+assert dragcontrol.KEYS["kb:t"] == ("end", 1) == dragcontrol.KEYS["kb:end"] and dragcontrol.KEYS["kb:b"] == ("end", -1) == dragcontrol.KEYS["kb:home"]
+said = dragcontrol.helpText("Volume", "dial", dragcontrol.UPDOWN)
+assert "T goes to its top end and B to its bottom end." in said and "Home" not in said and "Page" not in said, said
 # A step is the same to the eye on every screen: twice the pixels at twice the scaling, and smaller in a
 # small window so that the pointer does not leap across it.
 assert [pointer.stepFor(size, (0, 0, 1366, 768), 1.0) for size in (pointer.STEP, pointer.FINE, pointer.FAR)] == [20, 4, 100]

@@ -32,7 +32,10 @@ CHANGED = 0.004
 MAX_END_STROKES = 40
 ACTION = "work"
 
-# The keys while a control is held, as NVDA spells them.
+# The keys while a control is held, as NVDA spells them. Everything can be done with keys that every keyboard
+# has: T and B go to its top and bottom end. Page Up, Page Down, Home and End, which small and laptop keyboards
+# often lack, are only a second way (EXTRA_KEYS), and the help never names them.
+EXTRA_KEYS = ("kb:pageup", "kb:pagedown", "kb:home", "kb:end")
 KEYS = {
 	"kb:uparrow": ("turn", 1, STEP), "kb:rightarrow": ("turn", 1, STEP),
 	"kb:downarrow": ("turn", -1, STEP), "kb:leftarrow": ("turn", -1, STEP),
@@ -41,7 +44,7 @@ KEYS = {
 	"kb:control+uparrow": ("turn", 1, FAR), "kb:control+rightarrow": ("turn", 1, FAR),
 	"kb:control+downarrow": ("turn", -1, FAR), "kb:control+leftarrow": ("turn", -1, FAR),
 	"kb:pageup": ("turn", 1, FAR), "kb:pagedown": ("turn", -1, FAR),
-	"kb:home": ("end", -1), "kb:end": ("end", 1),
+	"kb:b": ("end", -1), "kb:t": ("end", 1), "kb:home": ("end", -1), "kb:end": ("end", 1),
 	"kb:r": ("read",), "kb:w": ("look",), "kb:m": ("method",), "kb:k": ("keep",), "kb:h": ("help",),
 	"kb:escape": ("exit",),
 }
@@ -212,7 +215,7 @@ def helpText(name, kind, method):
 	what = f"{name}, a {kind}" if name and kind != "control" and kind not in name.lower() else (name or f"this {kind}")
 	return (
 		f"The arrow keys now work {what}, {methodText(method)}. Up and Right turn it up, Down and Left turn it "
-		"down; with Shift a small step, with Control a large one. Home and End go to its ends. R reads what is "
+		"down; with Shift a small step, with Control a large one. T goes to its top end and B to its bottom end. R reads what is "
 		"shown at it, W asks the vision model what it shows, M tries another way of working it, K keeps it under "
 		"a hotkey for this program, H repeats this. Escape gives the arrow keys back."
 	)

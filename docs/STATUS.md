@@ -1,6 +1,6 @@
 # VisionClaw status
 
-Updated 2026-11-18, version 1.7.0.
+Updated 2026-11-18, version 1.7.1.
 
 ## What exists
 
@@ -1841,6 +1841,35 @@ What measuring with the real model changed, the same day:
   the window, or one that shows no text, is not read.
 - A control's own name is understood in English only ("Hold to record"); in another language the models are
   asked instead.
+
+## Keys that every keyboard has (1.7.1, 2026-11-18)
+
+The owner, with pointer mode on: "it says the applications key right-clicks. some keyboards don't have an
+application key. this must be changed to a more standard keyboard key. assume some don't have pageup, pagedown,
+home, end, either."
+
+What was changed:
+- Pointer mode (`pointer.KEYS`): A right-clicks; I, K, J and L turn the wheel up, down, left and right about a
+  page, with Shift one notch; B brings the pointer back to the middle. The overlay: A right-clicks. A dial or
+  slider that is held (`dragcontrol.KEYS`): T and B go to its top and bottom end.
+- The keys that may be missing still work, as a second way only (`pointer.EXTRA_KEYS`, `dragcontrol.EXTRA_KEYS`).
+  No spoken help, command description or note names them any more.
+- Found while doing this, in the code as it was: Shift+Page Down turned the wheel while the user's Shift was
+  still down, and with Shift most programs scroll sideways; Shift+Enter double-clicked with Shift down, which
+  selects a range in a list. A click or a turn of the wheel in pointer mode now waits up to 1.5 seconds for
+  Shift, Control and Alt to come up (`mousetools.keysUp`), and does nothing and says so when they stay down. One
+  turn of the wheel at a time: a key that repeats meanwhile is left out.
+
+What was tested, and how: `tests/test_pointer.py` fails when a job of pointer mode or of a held control has no
+key made of letters, arrow keys, Enter, Space, Escape, Shift and Control. `tests/test_nvda_stub.py` presses every
+new key and every old one against stand-ins for the mouse, the wheel and the keyboard, holds Shift and Control
+down as a person would, and checks that the spoken help names no key that may be missing. `python
+tests/run_all.py` passes. **Not run inside NVDA**: whether Windows reports the user's Shift as up as soon as it
+is let go, and whether Shift+K then scrolls down and not sideways in a browser, are in `docs/TESTPLAN.md`.
+
+Not changed: the keys of the arrow keys' own held dial that work with the wheel or a drag while Shift or
+Control is down (a small or a large step). There a wait would make a held key lag. Whether Control held down
+makes a wheel-worked dial zoom instead is to be tried inside NVDA.
 
 ## Next session
 

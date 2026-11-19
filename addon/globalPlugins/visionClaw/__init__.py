@@ -1149,7 +1149,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		# Translators: Description of a command in the Input Gestures dialog.
 		description=_(
 			"Turns pointer mode on or off: the arrow keys move the mouse pointer in the current window, Enter clicks, "
-			"the Applications key right-clicks, and G holds and lets go for dragging."
+			"A right-clicks, and G holds and lets go for dragging."
 		),
 		gesture="kb:NVDA+alt+k",
 	)

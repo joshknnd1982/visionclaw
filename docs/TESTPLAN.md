@@ -241,8 +241,10 @@ Settings, Display, Scale).
       nothing moved.
 - [ ] "Scroll up a little" moves less than "scroll up a page".
 - [ ] With the focus on a slider or a combo box: "scroll down" does not change its value.
-- [ ] Pointer mode (NVDA+Alt+K): Page Down and Page Up scroll what is under the pointer; Shift+Page Down
-      scrolls one notch; at the end "Nothing moved" is spoken.
+- [ ] Pointer mode (NVDA+Alt+K): K and I scroll what is under the pointer down and up, L and J right and left;
+      Shift+K scrolls one notch down, and not sideways (try it in a browser); at the end "Nothing moved" is
+      spoken. On a keyboard that has them, Page Down and Page Up still scroll.
+- [ ] Pointer mode: Shift+K with Shift kept down for two seconds scrolls nothing and says to let go.
 - [ ] Pointer mode: S says where a scrollbar is and how far along it stands, and the pointer is on its thumb:
       G, Down arrow a few times, G moves the view.
 - [ ] Pointer mode: an arrow key moves the pointer about the same distance on the screen at 100 percent and
@@ -259,7 +261,9 @@ Settings, Display, Scale).
       program shows the result (try moving a file onto a folder).
 - [x] (Owner, 0.4.0, 2026-11-17, in Notepad.) NVDA+Alt+K turns pointer mode on and says the keys. The arrow keys move the pointer with a tone; at the
       edge the tone is low.
-- [ ] In pointer mode: Enter clicks what is under the pointer; the Applications key opens a context menu.
+- [ ] In pointer mode: Enter clicks what is under the pointer; A opens a context menu; B brings the pointer
+      back to the middle. In the overlay (NVDA+Alt+O), A on an item opens its context menu.
+- [ ] In pointer mode: Shift+Enter on a file in a list opens that one file, and does not select a range.
 - [ ] In pointer mode: G, arrow keys, G drags (try a slider or a window's title bar).
 - [ ] In pointer mode: W says what is at the pointer; R reads the text there; P says the position.
 - [x] (Owner, 0.4.0, 2026-11-17.) Escape turns pointer mode off, and the arrow keys work as usual again. Letters other than G, W, R, P, H
@@ -296,7 +300,7 @@ Settings, Display, Scale).
       the arrow keys work the ... dial" asks first, then says how it is worked. The control is where it was.
       (Owner's report, 0.8.0, 2026-11-17, without detail.)
 - [ ] Up, Down, Shift+Up and Control+Up change it, and what is said matches what the program shows.
-- [ ] End runs to the end and says so; another Up says that nothing moved.
+- [ ] T runs to the top end and says so; another Up says that nothing moved. B runs to the bottom end.
 - [ ] R reads the text at the control; W gives the vision model's guess; M changes the way and says it.
 - [ ] K keeps it and says the hotkey; Escape gives the arrow keys back and the mouse pointer goes back.
       (Not ticked: on 2026-11-17 no kept hotkey was in the data folder after the owner's run.)

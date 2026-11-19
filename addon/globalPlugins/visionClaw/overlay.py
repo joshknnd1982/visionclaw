@@ -460,7 +460,8 @@ class OverlayDocument(recogUi.RefreshableRecogResultNVDAObject):
 	"""The overlay as NVDA shows it. Besides NVDA's arrow keys: Tab and Shift+Tab move by item, H, B, E, X, K and D
 	move to the next heading, button, edit field, checkbox, link and area (with Shift, the previous one),
 	Enter activates (a double click on list items like desktop shortcuts, otherwise a click), Space clicks,
-	Shift+Enter double-clicks, the Applications key right-clicks. The overlay stays open after a
+	Shift+Enter double-clicks, A right-clicks (so do the Applications key and Shift+F10, on keyboards that have
+	them). The overlay stays open after a
 	click or when the real window changes, until Escape."""
 
 	# Translators: Name of the overlay document.
@@ -710,6 +711,8 @@ class OverlayDocument(recogUi.RefreshableRecogResultNVDAObject):
 		"kb:tab": "nextItem",
 		"kb:shift+tab": "previousItem",
 		"kb:shift+enter": "doubleClick",
+		# A right-clicks, as in pointer mode: many keyboards have no Applications key and no function keys.
+		"kb:a": "rightClick",
 		"kb:applications": "rightClick",
 		"kb:shift+f10": "rightClick",
 		"kb:g": "grab",

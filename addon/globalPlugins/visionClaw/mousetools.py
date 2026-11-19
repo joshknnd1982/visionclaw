@@ -42,6 +42,8 @@ _WHEEL, _HWHEEL = 0x0800, 0x1000
 _SETTLE, _DRAG_STEP, _HOLD = 0.04, 0.012, 0.08
 # Between the notches of the wheel, and before looking at what a scroll did.
 _WHEEL_STEP, _SCROLL_SETTLE = 0.012, 0.35
+# How long a click or a turn of the wheel in pointer mode waits for the user to let go of Shift, Control and Alt.
+_KEYS_UP = 1.5
 # The size of the area around the pointer that is read or described, on a plain screen at 100 percent.
 _READ_AREA, _LOOK_AREA = (320, 70), (420, 260)
 # The tools that point at a place: while one of them works, the mouse is moved the way the program in front
@@ -196,6 +198,28 @@ def _wheel(flag, amount):
 def _key(code, up):
 	"""Press or let go of one key of the keyboard, through Windows itself."""
 	ctypes.windll.user32.keybd_event(code, 0, 2 if up else 0, 0)
+
+
+def _keyDown(code):
+	"""Whether a key of the keyboard is down right now, as Windows says. Only read."""
+	return bool(ctypes.windll.user32.GetAsyncKeyState(code) & 0x8000)
+
+
+def keysUp(wait=None):
+	"""Wait until the user has let go of Shift, Control and Alt, and say whether they are up. A key of pointer
+	mode that is pressed with Shift leaves Shift down for a moment, and held down these keys change what the
+	mouse does in most programs: Shift makes the wheel scroll sideways and a click select everything in
+	between, Control makes the wheel zoom."""
+	until = time.monotonic() + (_KEYS_UP if wait is None else wait)
+	while True:
+		try:
+			if not any(_keyDown(code) for code in _KEY_CODES.values()):
+				return True
+		except Exception:
+			return True  # Windows did not say: go on, as before this check existed
+		if time.monotonic() >= until:
+			return False
+		time.sleep(0.01)
 
 
 @contextlib.contextmanager
@@ -502,6 +526,8 @@ class PointerMode:
 		self.kept = None
 		self._keptOld = self._keptTimer = None
 		self._watching = None
+		# One turn of the wheel at a time: the picture before and after it is compared.
+		self._wheeling = threading.Lock()
 		# How the mouse is moved here: Windows' pointer, the program's own pointer, or the view (claw/direct.py).
 		self.direct = direct.PLAIN
 		# Called with a short word when the pointer comes to the window's edge; controller mode buzzes then.
@@ -638,14 +664,14 @@ class PointerMode:
 		# Translators: Spoken when pointer mode is turned on.
 		text = _(
 			"Pointer mode is on. The arrow keys move the mouse pointer in this window; with Shift in small steps, "
-			"with Control in large ones. Enter clicks, Shift+Enter double-clicks, the Applications key right-clicks. "
-			"G holds the mouse button down, and G again lets go, for dragging. Page Down and Page Up turn the mouse "
-			"wheel about a page; with Shift one notch, with Control sideways. S finds the scrollbars and puts the "
+			"with Control in large ones. Enter clicks, Shift+Enter double-clicks, A right-clicks. "
+			"G holds the mouse button down, and G again lets go, for dragging. I turns the mouse wheel up and K "
+			"down, J left and L right, about a page; with Shift one notch. S finds the scrollbars and puts the "
 			"pointer on one. D tries what is under the pointer as a dial or slider: it turns the wheel on it and drags "
 			"it a little, and then the arrow keys work it. T rests the pointer here and says what appears, as for a "
 			"tip or a menu that opens by itself. C clicks here the moment what is here changes, and Shift+C only "
-			"sounds a tone then. W says what is at the pointer, R reads the text there, "
-			"P says where the pointer is, H repeats this help. M changes how the mouse is moved, for a game that reads "
+			"sounds a tone then. W says what is at the pointer, R reads the text there, P says where the pointer "
+			"is, B brings it back to the middle, H repeats this help. M changes how the mouse is moved, for a game that reads "
 			"the mouse directly: Windows' pointer, the game's own pointer, or the view that the mouse turns. "
 			"Escape turns pointer mode off."
 		)
@@ -736,7 +762,7 @@ class PointerMode:
 				release()
 				self.holding = False
 			action = {"click": pointer.CLICK, "double": pointer.DOUBLE, "right": pointer.RIGHT, "middle": pointer.MIDDLE}[name]
-			threading.Thread(target=click, args=(self.x, self.y, action, not view), daemon=True).start()
+			threading.Thread(target=self._click, args=(action, not view), daemon=True).start()
 			# Translators: Spoken in pointer mode after a mouse action. One of: click, double click, right click, middle click.
 			ui.message({"click": _("click"), "double": _("double click"), "right": _("right click"), "middle": _("middle click")}[name])
 		elif name == "grab":
@@ -759,8 +785,10 @@ class PointerMode:
 		elif name == "look":
 			threading.Thread(target=self._look, args=(box,), daemon=True).start()
 		elif name == "scroll":
-			threading.Thread(
-				target=self._scroll, args=(box, command[1], pointer.notchesFor(command[2])), daemon=True).start()
+			# A key that repeats while the wheel is still being turned is left out, so that what is said is true.
+			if self._wheeling.acquire(False):
+				threading.Thread(
+					target=self._scroll, args=(box, command[1], pointer.notchesFor(command[2])), daemon=True).start()
 		elif name == "rest":
 			threading.Thread(target=self._restHere, args=(box,), daemon=True).start()
 		elif name == "when":
@@ -824,22 +852,39 @@ class PointerMode:
 			# Translators: Spoken in pointer mode when what was watched did not change in time.
 			wx.CallAfter(ui.message, _("Nothing changed here in half a minute."))
 
+	def _letGo(self):
+		# Translators: Spoken in pointer mode when Shift, Control or Alt was kept down after a key of pointer mode.
+		return _("Let go of Shift, Control and Alt first: held down, they change what the mouse does. Nothing was done.")
+
+	def _click(self, action, move):
+		"""Click where the pointer is, once the user's own Shift, Control and Alt are up: Shift+Enter leaves Shift
+		down for a moment, and with it a double click would select everything in between."""
+		if not keysUp():
+			wx.CallAfter(ui.message, self._letGo())
+			return
+		click(self.x, self.y, action, move)
+
 	def _scroll(self, box, direction, notches):
-		"""Turn the wheel at the pointer, and say where the view now stands, or that it did not move."""
+		"""Turn the wheel at the pointer, once the user's own Shift, Control and Alt are up, and say where the
+		view now stands, or that it did not move."""
 		try:
-			moved, _done, picture = scrollView(self._plugin._grab, box, (self.x, self.y), direction, notches)
+			text = self._scrolled(box, direction, notches) if keysUp() else self._letGo()
 		except Exception:
 			log.debugWarning("VisionClaw: could not scroll at the pointer", exc_info=True)
 			# Translators: Spoken in pointer mode when scrolling was not possible.
-			wx.CallAfter(ui.message, _("Scrolling did not work here."))
-			return
+			text = _("Scrolling did not work here.")
+		finally:
+			self._wheeling.release()
+		wx.CallAfter(ui.message, text)
+
+	def _scrolled(self, box, direction, notches):
+		moved, _done, picture = scrollView(self._plugin._grab, box, (self.x, self.y), direction, notches)
 		if not moved:
 			# Translators: Spoken in pointer mode when turning the wheel moved nothing.
-			wx.CallAfter(ui.message, _("Nothing moved. This is the end, or nothing scrolls under the pointer."))
-			return
+			return _("Nothing moved. This is the end, or nothing scrolls under the pointer.")
 		bar = _barFor(picture, self.scale, direction)
 		# Translators: Spoken in pointer mode after scrolling when no scrollbar shows how far. {direction} is up, down, left or right.
-		wx.CallAfter(ui.message, scrolling.positionText(bar) if bar else _("Scrolled {direction}.").format(direction=direction))
+		return scrolling.positionText(bar) if bar else _("Scrolled {direction}.").format(direction=direction)
 
 	def _bars(self, box):
 		"""Find the scrollbars in the window's picture and put the pointer on the next one's thumb."""
@@ -851,7 +896,7 @@ class PointerMode:
 		if not found:
 			# Translators: Spoken in pointer mode when no scrollbar was found in the window's picture.
 			wx.CallAfter(ui.message, _(
-				"No scrollbar was found in this window's picture. Page Down and Page Up still turn the wheel."))
+				"No scrollbar was found in this window's picture. I and K still turn the wheel up and down."))
 			return
 		self._bar = (self._bar + 1) % len(found)
 		bar = found[self._bar]

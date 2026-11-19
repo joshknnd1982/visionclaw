@@ -225,6 +225,18 @@ keyboard and speech alone.
   says ("Hold to record") is decided by plain code (`working.bySaid`), kept narrow. A mouse button or a key
   that VisionClaw presses down always comes up again: in a `finally`, when the request is stopped, and after
   `pointer.HOLD_LIMIT` for a hotkey; never add a way to leave one down.
+- **Every key VisionClaw gives a job is one that every keyboard has.** The owner said on 2026-11-18, of pointer
+  mode: "it says the applications key right-clicks. some keyboards don't have an application key. this must be
+  changed to a more standard keyboard key. assume some don't have pageup, pagedown, home, end, either." So a
+  mode of VisionClaw's own (pointer mode, the overlay, a held dial or slider, anything added later) does every
+  job with letters, the arrow keys, Enter, Space, Escape, Shift and Control. The Applications key, Page Up, Page
+  Down, Home, End, Insert, Delete, the function keys and the number block may be missing: such a key is only
+  ever a second way (`pointer.EXTRA_KEYS`, `dragcontrol.EXTRA_KEYS`), and no spoken help, description or note
+  of VisionClaw names it. In pointer mode A right-clicks, I, K, J and L turn the wheel, B goes to the middle;
+  for a held control T and B go to its ends; in the overlay A right-clicks. `tests/test_pointer.py` fails when
+  a job has no such key. Keys of Windows and of NVDA itself are said as they are. A click or a turn of the wheel
+  that a key of pointer mode starts waits until the user's Shift, Control and Alt are up (`mousetools.keysUp`):
+  held down they change what the mouse does, so nothing is done and that is said when they stay down.
 - **Fingers, pressure, a game that reads the mouse directly, and a game controller.** The owner said on
   2026-11-18, of what 1.1.0 had named as not covered: "visionclaw must be able to make these controls
   accessible as well. Find a way or multiple ways to do this, using visionclaw and its offline local models,
