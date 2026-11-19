@@ -89,7 +89,7 @@ def makeRegistry(rt, state):
 		scored = sorted(((score(words, f"{v[0]} {aliases[k]}"), k, v) for k, v in settings.items()), key=lambda x: -x[0])
 		found = [f"{k}: {v[0]}. Now: {v[1]}. Allowed: {v[2]}." for s, k, v in scored if s >= 0.25]
 		if not found:
-			raise tools.ToolError("No setting matches those words. Try other words, like speech rate.")
+			raise tools.ToolError("No setting matches those words. Use the words of the request that say what the setting does.")
 		return "\n".join(found)
 
 	def setSetting(task, setting, value, asked):

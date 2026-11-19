@@ -25,6 +25,8 @@ _THOUGHT_CHARS = {LOW: 160, MEDIUM: 400, HIGH: 900}
 _THINK_TOKENS = {MEDIUM: 700, HIGH: 1800}
 _IMAGE_TOKENS = 1300
 THOUGHT = "reasoning"
+# For an answer that copies what was looked up: the engine's setting against repeating is off (LLM.text, exact).
+EXACT = {"dry_multiplier": 0}
 # How much chance is in the answers after the first, when a small model's choice is voted on, and the first seed.
 VOTE_TEMPERATURE = 0.7
 VOTE_SEED = 1000
@@ -95,6 +97,51 @@ def nvdaKeys(text):
 			return match.group(0)
 		return "+".join(_KEY_WORDS.get(" ".join(part.lower().split()), part) for part in parts)
 	return _SPELLED_KEY.sub(joined, text)
+
+
+# A key as NVDA and Windows write it, with a modifier: "NVDA+t", "Control+Shift+Escape".
+_KEY_COMBO = re.compile(
+	rf"(?<![\w+]){_KEY_MODIFIER}(?:\s?\+\s?(?:(?:up|down|left|right) ?arrow|page ?(?:up|down)|caps ?lock|[a-z0-9]+))+",
+	re.IGNORECASE)
+# A key named alone: "the Jump key". What follows "the" must be a key every keyboard or NVDA has, or be named so in what
+# was looked up.
+_NAMED_KEY = re.compile(r"\bthe ([A-Za-z][\w-]*) key\b")
+KEY_NAMES = frozenset((
+	"nvda", "insert", "control", "ctrl", "alt", "shift", "windows", "win", "applications", "menu", "context", "escape",
+	"esc", "tab", "enter", "return", "space", "spacebar", "backspace", "delete", "del", "home", "end", "caps", "capslock",
+	"numlock", "scroll", "pause", "break", "fn", "function", "arrow", "up", "down", "left", "right", "pageup", "pagedown",
+	"period", "comma", "slash", "backslash", "semicolon", "apostrophe", "grave", "minus", "plus", "equals", "numpad"))
+_KEY_ALIASES = {"ctrl": "control", "win": "windows", "esc": "escape", "del": "delete", "ins": "insert", "return": "enter",
+	"up": "uparrow", "down": "downarrow", "left": "leftarrow", "right": "rightarrow", "up arrow": "uparrow",
+	"down arrow": "downarrow", "left arrow": "leftarrow", "right arrow": "rightarrow", "page up": "pageup",
+	"page down": "pagedown", "caps lock": "capslock"}
+
+
+def _keyOf(written):
+	parts = [" ".join(part.lower().split()) for part in written.split("+")]
+	return frozenset(_KEY_ALIASES.get(part, part) for part in parts if part)
+
+
+def keysNotFound(text, sources):
+	"""The keys a model's answer names that none of the sources has, as written: a key with a modifier that is in no
+	source, and "the ... key" with a name that is no key and is in no source. Measured with Qwen3.5 4B on 2026-11-19
+	(tests/eval_answers.py): asked how to jump to the main part of a page, it answered "Press the Jump key", a key no
+	keyboard has. sources: the user's words and what was looked up."""
+	text = str(text or "")
+	together = " \n ".join(str(source or "") for source in sources)
+	found = {_keyOf(match.group(0)) for match in _KEY_COMBO.finditer(together)}
+	low = " ".join(together.lower().split())
+	missing = []
+	for match in _KEY_COMBO.finditer(text):
+		if _keyOf(match.group(0)) not in found:
+			missing.append(match.group(0))
+	for match in _NAMED_KEY.finditer(text):
+		name = match.group(1).lower()
+		if len(name) == 1 or name in KEY_NAMES or re.fullmatch(r"f([1-9]|1[0-9]|2[0-4])", name):
+			continue
+		if f"{name} key" not in low:
+			missing.append(match.group(0))
+	return missing
 
 
 # What a model writes about the question it was given, which means nothing to the user: "the information provided".
@@ -306,9 +353,16 @@ class LLM:
 			return found
 
 	def text(self, role, system, user, maxTokens=300, reasoning=OFF, image=None, temperature=0.2, onText=None,
-			code=False):
-		"""Ask for plain text. code is for program code: nothing is filtered out of it."""
+			code=False, exact=False):
+		"""Ask for plain text. code is for program code: nothing is filtered out of it. exact is for an answer that
+		copies what was looked up: the engine's setting against repeating (DRY, engine.ANTI_LOOP) is off for it,
+		because it counts the words of the question too. Measured with Qwen3.5 4B on 2026-11-19
+		(tests/eval_answers.py): copying "within 30 days for a full refund" and "from nine to five" from a web page, it
+		was pushed off the next word and answered "within 30 for a full refund" and "from nine to". A sentence said
+		twice is still left out, and a model saying it again and again still stopped (engine.RepeatGuard)."""
 		options = {"temperature": temperature}
+		if exact:
+			options.update(EXACT)
 		entry = self.runtime.entry(role)
 		thinks = reasoning in _THINK_TOKENS and entry is not None and entry.get("thinking")
 		limit = maxTokens
@@ -325,7 +379,7 @@ class LLM:
 			debuglog.log("model", (
 				f"The {role} model thought until it had no tokens left (it stopped because: {info.get('finish')}) "
 				"and gave no answer; asking again without thinking."))
-			options = {"temperature": temperature}
+			options = dict({"temperature": temperature}, **(EXACT if exact else {}))
 			answer, _info = self._ask(
 				role, messages, maxTokens, options, self._context(system, user, image, maxTokens), onText,
 				raw="code" if code else False)

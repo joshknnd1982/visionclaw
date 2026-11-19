@@ -138,14 +138,26 @@ plain, saidOff, answersOff, _heard, _rt = run(streaming=False)
 assert saidOff == [] and plain.streamed is False and answersOff == [plain.answer]
 assert plain.answer == task.answer, (plain.answer, task.answer)
 
-# Whatever pieces the engine writes in, the same answer is said, and nothing of it is lost.
+# Whatever pieces the engine writes in, the same answer is said, and nothing of it is lost. Its key is the one that was
+# looked up: a key nothing looked up has is never said (the test below).
 LONG = " ".join(
-	f"Item {n} of the list: press NVDA plus {chr(97 + n % 26)} for the {n}th thing, which is said in full." for n in range(60))
+	f"Item {n} of the list: press NVDA plus t for the {n}th thing, which is said in full." for n in range(60))
 for size in (1, 7, 64, 5000):
 	whole, saidLong, _answers, _heard, _rt = run(written=LONG, size=size)
 	assert whole.streamed and words(" ".join(saidLong)) == words(whole.answer), size
 	assert len(whole.answer) > 4000 and "[cut]" not in whole.answer and not any("[cut]" in piece for piece in saidLong)
 	assert len(saidLong) >= 60 if size < 5000 else len(saidLong) >= 2, (size, len(saidLong))
+
+# A key that nothing looked up has (llm.keysNotFound) is never said, not even while the answer is written: neither that
+# sentence nor any after it. What was found is said instead, and the whole answer has no made-up key either.
+for size in (1, 5, 5000):
+	madeUp, saidMadeUp, _answers, _heard, _rt = run(
+		written="The key for the title is NVDA plus t, as NVDA's commands say. Then press the Jump key to go on to the "
+			"next part, and NVDA plus shift plus j to come back again.", size=size)
+	assert madeUp.state == taskModule.DONE, madeUp.state
+	assert not any("Jump" in piece or "shift" in piece.lower() for piece in saidMadeUp), (size, saidMadeUp)
+	assert "Jump" not in madeUp.answer and "NVDA+t" in madeUp.answer, (size, madeUp.answer)
+	assert any("NVDA+t" in piece for piece in saidMadeUp), (size, saidMadeUp)
 
 # What the request was taken as is said first, and what is added after the answer is said after it.
 def told(orch):

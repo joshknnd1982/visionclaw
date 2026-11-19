@@ -1,0 +1,19 @@
+{
+ "about": "VisionClaw's third held-out evaluation set for the words of the final answer: written on 2026-11-19, after the second held-out set's run showed a model's answer dropping a word it copied from what was looked up (\"within 30 for a full refund\", \"from nine to\"), and before anything was done about it, and before anything was run on it. Every request asks for a fact of several words that the answer must give exactly as it was looked up: from the web page Example Shop, from the window, from NVDA, from Windows and from the library, in a blind person's casual words. Never write a rule from its misses. Same form and the same facts of the stand-ins as answers.json. Never take a request of it into known.json, a pattern's test or a note.",
+ "requests": [
+  {"request": "how long have I got to send something back", "facts": {"web": true}, "expect": [["web_page"]], "says": [["30 days"]]},
+  {"request": "do they give you all your money back or just some of it", "facts": {"web": true}, "expect": [["web_page"]], "says": [["full refund"]]},
+  {"request": "which days of the week are they open", "facts": {"web": true}, "expect": [["web_page"]], "says": [["Monday to Friday"]]},
+  {"request": "what hours does this shop keep", "facts": {"web": true}, "expect": [["web_page"]], "says": [["nine to five", "9 to 5"]]},
+  {"request": "what sort of stuff do they sell here", "facts": {"web": true}, "expect": [["web_page"]], "says": [["garden tools"]]},
+  {"request": "what build of windows have I got", "expect": [["explain_keys", "nvda_question", "computer_info"]], "says": [["26100"]]},
+  {"request": "which windows release am I running", "expect": [["explain_keys", "nvda_question", "computer_info"]], "says": [["24H2"]]},
+  {"request": "what's the key for the options button in this game", "expect": [["explain_keys", "nvda_question"]], "says": [["Alt+O"]]},
+  {"request": "how do I get out of this game from the keyboard", "expect": [["explain_keys", "nvda_question"]], "says": [["Alt+Q", "Alt+F4"]]},
+  {"request": "how does buying and selling work in space trader", "expect": [["explain_keys", "nvda_question"]], "says": [["buy low"], ["sell high"]]},
+  {"request": "which braille table is set right now", "expect": [["nvda_info"]], "says": [["8 dot computer braille", "8-dot computer braille"]]},
+  {"request": "which speech synthesizers have I got installed", "expect": [["nvda_info"]], "says": [["Speech API version 5", "SAPI 5"], ["OneCore"]]},
+  {"request": "which of my addons are switched off", "expect": [["nvda_info", "addon_question"]], "says": [["NVDA Remote"]]},
+  {"request": "what reads out the line I'm on", "expect": [["explain_keys", "nvda_question"]], "says": [["NVDA+upArrow", "NVDA+l"]]}
+ ]
+}

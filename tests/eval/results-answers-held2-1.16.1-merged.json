@@ -1,0 +1,446 @@
+{
+ "label": "held2-1.16.1-merged",
+ "set": "answers-held2",
+ "models": {
+  "backend": "auto",
+  "visionModel": "qwen3.5-4b",
+  "coderModel": "qwen3.5-4b-coder"
+ },
+ "stepwise": "auto",
+ "rows": [
+  {
+   "request": "how big is my braille display, how many cells",
+   "answer": "Your braille display is the Freedom Scientific Focus with 40 cells. The table uses English (U.S.) 8 dot computer braille.",
+   "state": "done",
+   "jobs": [
+    "nvda_info",
+    "nvda_question"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "wrong",
+   "seconds": 6.6,
+   "changed": "{'info': 'braille', 'asked': 'how many cells'}"
+  },
+  {
+   "request": "what braille table am I using",
+   "answer": "You are using a Freedom Scientific Focus braille display with the English (U.S.) 8 dot computer braille table.",
+   "state": "done",
+   "jobs": [
+    "nvda_info"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 1.1,
+   "changed": "{'info': 'braille'}"
+  },
+  {
+   "request": "what are their opening hours",
+   "answer": "They are open Monday to Friday from nine to five.",
+   "state": "done",
+   "jobs": [
+    "web_page"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 0.4,
+   "changed": "{'read': 'what are their opening hours'}"
+  },
+  {
+   "request": "can I get my money back if I return something",
+   "answer": "The picture shows a game menu for \"Space Trader\". It has four buttons: \"New Game\", \"Load Game\", \"Options\", and \"Quit\". There is no information about returning items or getting money back.",
+   "state": "done",
+   "jobs": [
+    "describe"
+   ],
+   "asked": [],
+   "problems": [
+    [
+     "missing",
+     "30 days"
+    ]
+   ],
+   "verdict": "wrong",
+   "job": "wrong",
+   "seconds": 6.4,
+   "changed": "{}"
+  },
+  {
+   "request": "what does this store sell",
+   "answer": "This store sells garden tools.",
+   "state": "done",
+   "jobs": [
+    "web_page"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 0.5,
+   "changed": "{'read': 'what does this store sell'}"
+  },
+  {
+   "request": "is there anything here about refunds",
+   "answer": "Yes. You can return any product within 30 days for a full refund.",
+   "state": "done",
+   "jobs": [
+    "web_page"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 0.5,
+   "changed": "{'read': 'is there anything here about refunds'}"
+  },
+  {
+   "request": "what time does the shop close",
+   "answer": "The shop closes at five in the afternoon on Monday to Friday.",
+   "state": "done",
+   "jobs": [
+    "web_page"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 0.5,
+   "changed": "{'read': 'what time does the shop close'}"
+  },
+  {
+   "request": "whats the time at the moment",
+   "answer": "NVDA said: 4:05 PM. Next time you can press NVDA+f12 for this.",
+   "state": "done",
+   "jobs": [
+    "do_command"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 1.8,
+   "changed": "{'ran': [('dateTime', [1])]}"
+  },
+  {
+   "request": "which synthesizer is talking",
+   "answer": "The synthesizer in use is eSpeak NG.",
+   "state": "done",
+   "jobs": [
+    "nvda_info"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 1.1,
+   "changed": "{'info': 'speech'}"
+  },
+  {
+   "request": "what will happen if I hit nvda t",
+   "answer": "I could not find information about what happens if you hit NVDA T.",
+   "state": "done",
+   "jobs": [
+    "nvda_question"
+   ],
+   "asked": [],
+   "problems": [
+    [
+     "missing",
+     "title"
+    ]
+   ],
+   "verdict": "wrong",
+   "job": "right",
+   "seconds": 0.5,
+   "changed": "{'asked': 'what will happen if I hit nvda t'}"
+  },
+  {
+   "request": "what does pressing nvda plus f12 do",
+   "answer": "Pressing NVDA+F12 reports the current date and time. Pressing it once reports the time, and pressing it twice reports the date.",
+   "state": "done",
+   "jobs": [
+    "nvda_question"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 1.8,
+   "changed": "{'asked': 'what does pressing nvda plus f12 do'}"
+  },
+  {
+   "request": "hit control s for me",
+   "answer": "Understood as: press control s. Pressed control+s.",
+   "state": "done",
+   "jobs": [
+    "press_keys"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 0.9,
+   "changed": "{'press_keys': {'keys': 'control+s'}}"
+  },
+  {
+   "request": "what happens if I press space on this",
+   "answer": "The focus is on the button \"New Game\" in the window \"Space Trader\" of the program spacetrader. It is 1 of 4. Press Space or Enter to press it. The user said: what happens if I press space on this.",
+   "state": "done",
+   "jobs": [
+    "about_focus"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 0.1,
+   "changed": "{'about_focus': {'asked': 'what happens if I press space on this'}}"
+  },
+  {
+   "request": "got the time",
+   "answer": "NVDA said: 4:05 PM. Next time you can press NVDA+f12 for this.",
+   "state": "done",
+   "jobs": [
+    "do_command"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 1.6,
+   "changed": "{'ran': [('dateTime', [1])]}"
+  },
+  {
+   "request": "what time do you make it",
+   "answer": "Press NVDA+f12 once to hear the current time.",
+   "state": "done",
+   "jobs": [
+    "nvda_question"
+   ],
+   "asked": [],
+   "problems": [
+    [
+     "missing",
+     "4:05"
+    ]
+   ],
+   "verdict": "wrong",
+   "job": "wrong",
+   "seconds": 0.9,
+   "changed": "{'asked': 'what time do you make it'}"
+  },
+  {
+   "request": "what did I download recently",
+   "answer": "2 items in Downloads. The newest first: 1. setup.exe, 5 MB, in Downloads, changed November 18, 2026, 2. report.pdf, 120 KB, in Downloads, changed November 2, 2026.",
+   "state": "done",
+   "jobs": [
+    "files"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 0.7,
+   "changed": "{'find_files': {'asked': 'what did I download recently'}}"
+  },
+  {
+   "request": "show me my latest downloads",
+   "answer": "2 items in Downloads. The newest first: 1. setup.exe, 5 MB, in Downloads, changed November 18, 2026, 2. report.pdf, 120 KB, in Downloads, changed November 2, 2026.",
+   "state": "done",
+   "jobs": [
+    "files"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 0.8,
+   "changed": "{'find_files': {'asked': 'show me my latest downloads'}}"
+  },
+  {
+   "request": "what extra stuff can visionclaw download",
+   "answer": "VisionClaw can get these for you from the internet. Each is downloaded only when you ask for it.",
+   "state": "done",
+   "jobs": [
+    "downloads_info"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 0.5,
+   "changed": "{'downloads_info': True}"
+  },
+  {
+   "request": "whats the shortcut for the nvda menu",
+   "answer": "The shortcut for the NVDA menu is NVDA+n.",
+   "state": "done",
+   "jobs": [
+    "explain_keys"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 1.1,
+   "changed": "{'asked': \"what's the shortcut for the nvda menu\"}"
+  },
+  {
+   "request": "whats the key to read the status bar",
+   "answer": "The keys to read the status bar are NVDA+end or NVDA+shift+end.",
+   "state": "done",
+   "jobs": [
+    "explain_keys"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 1.2,
+   "changed": "{'asked': \"what's the key to read the status bar\"}"
+  },
+  {
+   "request": "turn the speech rate down to 30",
+   "answer": "speech: rate was 50 and is now 30.",
+   "state": "done",
+   "jobs": [
+    "change_setting"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 2.0,
+   "changed": "{'speech.rate': 30}"
+  },
+  {
+   "request": "make it say all the punctuation",
+   "answer": "speech: symbol level was some and is now all.",
+   "state": "done",
+   "jobs": [
+    "change_setting"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 1.8,
+   "changed": "{'speech.symbolLevel': 'all'}"
+  },
+  {
+   "request": "what's in the notification area right now",
+   "answer": "The notification area has 3 icons shown on the taskbar. They are: Network JoshKennedy, Internet access; Volume Speakers (Realtek(R) Audio): 20%; Power Battery status: fully charged 100%. Hidden behind Show hidden icons, 2 more icons: NVDA; Dropbox, Up to date. The clock says: 10:29 PM, 11/18/2026. To go to the notification area yourself, press Windows+B. The arrow keys move between its icons, Enter opens one, and Shift+F10 opens its menu.",
+   "state": "done",
+   "jobs": [
+    "read_place"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 0.1,
+   "changed": "{'read_place': {'places': ['tray'], 'how': 'list', 'thing': ''}}"
+  },
+  {
+   "request": "is my bin worth emptying",
+   "answer": "Understood as: is my recycle bin worth emptying. The Recycle Bin holds 12 items, 5 MB in all. It does not need emptying for room: that would free only 5 MB. The drive has 200 GB free, so room is not short. To empty it anyway, say: empty the Recycle Bin.",
+   "state": "done",
+   "jobs": [
+    "recycle_bin"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 0.1,
+   "changed": "{'recycle_bin': True}"
+  },
+  {
+   "request": "what's on screen, briefly",
+   "answer": "The screen shows the main menu of a game called Space Trader. There are four buttons: New Game, Load Game, Options, and Quit.",
+   "state": "done",
+   "jobs": [
+    "describe"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 1.7,
+   "changed": "{}"
+  },
+  {
+   "request": "what's that button I'm on",
+   "answer": "The focus is on the button \"New Game\" in the window \"Space Trader\" of the program spacetrader. It is 1 of 4. Press Space or Enter to press it. The user said: what's that button I'm on.",
+   "state": "done",
+   "jobs": [
+    "about_focus"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 0.1,
+   "changed": "{'about_focus': {'asked': \"what's that button I'm on\"}}"
+  },
+  {
+   "request": "which version of visionclaw is installed here",
+   "answer": "VisionClaw is version 1.15.1. The user said: which version of visionclaw is installed here.",
+   "state": "done",
+   "jobs": [
+    "version_info"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 0.1,
+   "changed": "{'version_info': {'asked': 'which version of visionclaw is installed here'}}"
+  },
+  {
+   "request": "whats the capital of spain",
+   "answer": "I could not find the answer to your question in what was looked up.",
+   "state": "done",
+   "jobs": [
+    "nvda_question"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "seconds": 0.9,
+   "changed": "{'asked': \"what's the capital of spain\"}"
+  },
+  {
+   "request": "tell me about the clock addon",
+   "answer": "The add-on Clock and calendar, version 2.1, by Someone, is on. It says about itself: Speaks the time and date in many ways, and has alarms. Its commands where you are now: Say the time (NVDA+F12); Open the alarm settings (no key assigned). From its help: Press NVDA+F12 twice to hear the date.",
+   "state": "done",
+   "jobs": [
+    "addon_question"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 1.1,
+   "changed": "{'addon_info': {'addon': 'Clock', 'about': 'tell me about the clock addon'}}"
+  },
+  {
+   "request": "how do I skip to the main content on this page",
+   "answer": "Nothing that was found answers that. The nearest thing found, which may not be what you want: From VisionClaw's notes: Web pages that load more as you scroll: feeds, timelines, endless lists. Sites like Facebook add posts while the user moves down, so the page has no end and NVDA's place can jump.",
+   "state": "done",
+   "jobs": [
+    "explain_keys"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "seconds": 1.7,
+   "changed": "{'asked': 'how do I skip to the main content on this page'}"
+  }
+ ]
+}

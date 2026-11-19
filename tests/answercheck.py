@@ -81,6 +81,7 @@ KEY = re.compile(
 	rf"(?<![\w+])(?:{_MODIFIERS})(?:{_JOIN}(?:(?:up|down|left|right) arrow|page (?:up|down)|caps lock|[a-z0-9]+(?:arrow)?))+",
 	re.IGNORECASE)
 _SPELLED = re.compile(r"\s+plus\s+", re.IGNORECASE)
+_NAMED_KEY = re.compile(r"\bthe ([A-Za-z][\w-]*) key\b")
 _ALIASES = {
 	"ctrl": "control", "win": "windows", "esc": "escape", "del": "delete", "ins": "insert", "caps lock": "capslock",
 	"pgup": "pageup", "pgdn": "pagedown", "page up": "pageup", "page down": "pagedown", "return": "enter",
@@ -169,6 +170,12 @@ def problems(answer, sources=(), oneModel=False, known=None):
 			found.append((MADE_UP_KEY, match.group(0)))
 		if _SPELLED.search(match.group(0)) and _plain(match.group(0)) not in plainSources:
 			found.append((SPELLED, match.group(0)))
+	# A key named alone, "the Jump key": a key every keyboard or NVDA has, or one a source names so.
+	for match in _NAMED_KEY.finditer(answer):
+		name = match.group(1).lower()
+		if not (len(name) == 1 or name in llm.KEY_NAMES or re.fullmatch(r"f([1-9]|1[0-9]|2[0-4])", name)
+				or f"{name} key" in plainSources):
+			found.append((MADE_UP_KEY, match.group(0)))
 	return found
 
 

@@ -1,0 +1,956 @@
+{
+ "label": "route-requests4-1.16.1",
+ "models": {
+  "backend": "auto",
+  "visionModel": "qwen3.5-4b",
+  "coderModel": "qwen3.5-4b-coder"
+ },
+ "stepwise": "auto",
+ "rows": [
+  {
+   "request": "hey visionclaw, could you please make nvda talk a tad quicker for me",
+   "expect": [
+    [
+     "change_setting"
+    ]
+   ],
+   "got": [
+    "change_setting"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 4.8,
+   "state": "done"
+  },
+  {
+   "request": "ugh the voice is way too squeaky",
+   "expect": [
+    [
+     "change_setting"
+    ]
+   ],
+   "got": [
+    "change_setting"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.7,
+   "state": "done"
+  },
+  {
+   "request": "nvda is mumbling, crank up the voice volume",
+   "expect": [
+    [
+     "change_setting"
+    ]
+   ],
+   "got": [
+    "change_setting"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 1.1,
+   "state": "done"
+  },
+  {
+   "request": "kill the typing echo",
+   "expect": [
+    [
+     "change_setting"
+    ]
+   ],
+   "got": [
+    "change_setting"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  },
+  {
+   "request": "I don't need capitals announced anymore",
+   "expect": [
+    [
+     "change_setting"
+    ]
+   ],
+   "got": [
+    "change_setting"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.4,
+   "state": "done"
+  },
+  {
+   "request": "make it shut up about the punctuation",
+   "expect": [
+    [
+     "change_setting"
+    ]
+   ],
+   "got": [
+    "change_setting"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.4,
+   "state": "done"
+  },
+  {
+   "request": "gimme the time",
+   "expect": [
+    [
+     "do_command"
+    ]
+   ],
+   "got": [
+    "do_command"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.4,
+   "state": "done"
+  },
+  {
+   "request": "how's my battery doing",
+   "expect": [
+    [
+     "do_command",
+     "computer_info"
+    ]
+   ],
+   "got": [
+    "nvda_question"
+   ],
+   "verdict": "wrong",
+   "asked": [],
+   "seconds": 0.4,
+   "state": "done"
+  },
+  {
+   "request": "say the title of this window for me",
+   "expect": [
+    [
+     "do_command"
+    ]
+   ],
+   "got": [
+    "do_command"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.5,
+   "state": "done"
+  },
+  {
+   "request": "read everything from here down",
+   "expect": [
+    [
+     "do_command"
+    ]
+   ],
+   "got": [
+    "read_text"
+   ],
+   "verdict": "wrong",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  },
+  {
+   "request": "what's the trick for getting to the address bar in chrome",
+   "expect": [
+    [
+     "explain_keys"
+    ]
+   ],
+   "got": [
+    "explain_keys"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.7,
+   "state": "done"
+  },
+  {
+   "request": "any idea how I jump to the next heading",
+   "expect": [
+    [
+     "explain_keys"
+    ]
+   ],
+   "got": [
+    "explain_keys"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  },
+  {
+   "request": "remind me what nvda+t does",
+   "expect": [
+    [
+     "explain_keys",
+     "nvda_question"
+    ]
+   ],
+   "got": [
+    "nvda_question"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.5,
+   "state": "done"
+  },
+  {
+   "request": "what on earth is the review cursor for",
+   "expect": [
+    [
+     "nvda_question",
+     "explain_keys"
+    ]
+   ],
+   "got": [
+    "nvda_question"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  },
+  {
+   "request": "take a peek at the screen and tell me what's there",
+   "expect": [
+    [
+     "describe"
+    ]
+   ],
+   "got": [
+    "describe"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 1.0,
+   "state": "done"
+  },
+  {
+   "request": "what's in the pic",
+   "expect": [
+    [
+     "describe"
+    ]
+   ],
+   "got": [
+    "describe"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.4,
+   "state": "done"
+  },
+  {
+   "request": "have a look at this photo and tell me who's in it",
+   "expect": [
+    [
+     "describe"
+    ]
+   ],
+   "got": [
+    "describe"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.9,
+   "state": "done"
+  },
+  {
+   "request": "eyeball this window for me",
+   "expect": [
+    [
+     "describe"
+    ]
+   ],
+   "got": [
+    "describe"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.5,
+   "state": "done"
+  },
+  {
+   "request": "is there a cat anywhere in this picture",
+   "expect": [
+    [
+     "describe"
+    ]
+   ],
+   "got": [
+    "describe"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.5,
+   "state": "done"
+  },
+  {
+   "request": "how many people are in this photo",
+   "expect": [
+    [
+     "describe"
+    ]
+   ],
+   "got": [
+    "nvda_question"
+   ],
+   "verdict": "wrong",
+   "asked": [],
+   "seconds": 0.4,
+   "state": "done"
+  },
+  {
+   "request": "what colour is the dress in the image",
+   "expect": [
+    [
+     "describe"
+    ]
+   ],
+   "got": [
+    "describe"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.4,
+   "state": "done"
+  },
+  {
+   "request": "what's written on the sign in this photo",
+   "expect": [
+    [
+     "read_text",
+     "describe"
+    ]
+   ],
+   "got": [
+    "describe"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.5,
+   "state": "done"
+  },
+  {
+   "request": "check out this chart and give me the gist",
+   "expect": [
+    [
+     "describe"
+    ]
+   ],
+   "got": [
+    "describe",
+    "read_text"
+   ],
+   "verdict": "wrong",
+   "asked": [],
+   "seconds": 0.8,
+   "state": "done"
+  },
+  {
+   "request": "smack the OK button",
+   "expect": [
+    [
+     "click"
+    ]
+   ],
+   "got": [
+    "click"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.5,
+   "state": "done"
+  },
+  {
+   "request": "hit the button that says next",
+   "expect": [
+    [
+     "click"
+    ]
+   ],
+   "got": [
+    "click"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.4,
+   "state": "done"
+  },
+  {
+   "request": "give the save button a click",
+   "expect": [
+    [
+     "click"
+    ]
+   ],
+   "got": [
+    "click"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.4,
+   "state": "done"
+  },
+  {
+   "request": "punch in control c",
+   "expect": [
+    [
+     "press_keys"
+    ]
+   ],
+   "got": [
+    "press_keys"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  },
+  {
+   "request": "do a ctrl shift escape",
+   "expect": [
+    [
+     "press_keys"
+    ]
+   ],
+   "got": [
+    "press_keys"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.4,
+   "state": "done"
+  },
+  {
+   "request": "write good morning everyone in here",
+   "expect": [
+    [
+     "type_text"
+    ]
+   ],
+   "got": [
+    "type_text"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.5,
+   "state": "done"
+  },
+  {
+   "request": "pull up gmail.com",
+   "expect": [
+    [
+     "open_website"
+    ]
+   ],
+   "got": [
+    "open_website"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.7,
+   "state": "done"
+  },
+  {
+   "request": "google how to bake bread",
+   "expect": [
+    [
+     "search_web"
+    ]
+   ],
+   "got": [
+    "explain_keys"
+   ],
+   "verdict": "wrong",
+   "asked": [],
+   "seconds": 0.5,
+   "state": "done"
+  },
+  {
+   "request": "what's this page going on about",
+   "expect": [
+    [
+     "web_page"
+    ]
+   ],
+   "got": [
+    "web_page"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.4,
+   "state": "done"
+  },
+  {
+   "request": "head back to the last page",
+   "expect": [
+    [
+     "page_navigate"
+    ]
+   ],
+   "got": [
+    "page_navigate"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  },
+  {
+   "request": "skip to where the main stuff starts",
+   "expect": [
+    [
+     "go_to"
+    ]
+   ],
+   "got": [
+    "go_to"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  },
+  {
+   "request": "fire up word for me",
+   "expect": [
+    [
+     "open_thing"
+    ]
+   ],
+   "got": [
+    "open_thing"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  },
+  {
+   "request": "pop open the start menu",
+   "expect": [
+    [
+     "windows_part"
+    ]
+   ],
+   "got": [
+    "windows_part"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  },
+  {
+   "request": "what's hiding in the tray down there",
+   "expect": [
+    [
+     "read_place"
+    ]
+   ],
+   "got": [
+    "read_place"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  },
+  {
+   "request": "how full is the bin",
+   "expect": [
+    [
+     "recycle_bin"
+    ]
+   ],
+   "got": [
+    "recycle_bin"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  },
+  {
+   "request": "dump the recycle bin",
+   "expect": [
+    [
+     "empty_bin"
+    ]
+   ],
+   "got": [
+    "empty_bin"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  },
+  {
+   "request": "the pc is blaring, turn it down",
+   "expect": [
+    [
+     "system_volume"
+    ]
+   ],
+   "got": [
+    "system_volume",
+    "change_setting"
+   ],
+   "verdict": "wrong",
+   "asked": [],
+   "seconds": 1.1,
+   "state": "done"
+  },
+  {
+   "request": "get rid of this window",
+   "expect": [
+    [
+     "window"
+    ]
+   ],
+   "got": [
+    "window"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.5,
+   "state": "done"
+  },
+  {
+   "request": "where'd my tax pdf go",
+   "expect": [
+    [
+     "files"
+    ]
+   ],
+   "got": [
+    "files"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.5,
+   "state": "done"
+  },
+  {
+   "request": "make me a new folder named recipes on the desktop",
+   "expect": [
+    [
+     "file_task"
+    ]
+   ],
+   "got": [
+    "file_task"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  },
+  {
+   "request": "what processor have I got",
+   "expect": [
+    [
+     "computer_info"
+    ]
+   ],
+   "got": [
+    "computer_info"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.5,
+   "state": "done"
+  },
+  {
+   "request": "lock up the pc",
+   "expect": [
+    [
+     "power"
+    ]
+   ],
+   "got": [
+    "power"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  },
+  {
+   "request": "keep in mind I'm left handed",
+   "expect": [
+    [
+     "remember"
+    ]
+   ],
+   "got": [
+    "remember"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.5,
+   "state": "done"
+  },
+  {
+   "request": "what have you got on me",
+   "expect": [
+    [
+     "memories"
+    ]
+   ],
+   "got": [
+    "memories"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.5,
+   "state": "done"
+  },
+  {
+   "request": "take back that last change",
+   "expect": [
+    [
+     "undo_change"
+    ]
+   ],
+   "got": [
+    "undo_change"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.5,
+   "state": "done"
+  },
+  {
+   "request": "anything new for visionclaw",
+   "expect": [
+    [
+     "update_visionclaw"
+    ]
+   ],
+   "got": [
+    "nvda_question"
+   ],
+   "verdict": "wrong",
+   "asked": [],
+   "seconds": 0.5,
+   "state": "done"
+  },
+  {
+   "request": "which brain are you running on",
+   "expect": [
+    [
+     "visionclaw_models"
+    ]
+   ],
+   "got": [
+    "visionclaw_models"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  },
+  {
+   "request": "code me an add-on that beeps whenever a button gets focus",
+   "expect": [
+    [
+     "write_addon"
+    ]
+   ],
+   "got": [
+    "write_addon"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.8,
+   "state": "done"
+  },
+  {
+   "request": "I want a plugin: when I press nvda+shift+b it reads the battery, and it beeps when a link gets focus",
+   "expect": [
+    [
+     "write_addon"
+    ]
+   ],
+   "got": [
+    "write_addon"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.8,
+   "state": "done"
+  },
+  {
+   "request": "make an addon that says heading whenever I land on a heading, says the time with nvda+alt+t, and only works in firefox",
+   "expect": [
+    [
+     "write_addon"
+    ]
+   ],
+   "got": [
+    "write_addon"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  },
+  {
+   "request": "my beeping add-on is broken, sort it out",
+   "expect": [
+    [
+     "fix_addon"
+    ]
+   ],
+   "got": [
+    "fix_addon"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 1.0,
+   "state": "done"
+  },
+  {
+   "request": "walk me through attaching a file",
+   "expect": [
+    [
+     "work_through"
+    ]
+   ],
+   "got": [
+    "work_through"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  },
+  {
+   "request": "where on earth am I",
+   "expect": [
+    [
+     "where_am_i"
+    ]
+   ],
+   "got": [
+    "where_am_i"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.5,
+   "state": "done"
+  },
+  {
+   "request": "what's this thing I'm sitting on",
+   "expect": [
+    [
+     "where_am_i",
+     "object_facts"
+    ]
+   ],
+   "got": [
+    "about_focus"
+   ],
+   "verdict": "wrong",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  },
+  {
+   "request": "let me steer the mouse with the arrows",
+   "expect": [
+    [
+     "keyboard_mouse"
+    ]
+   ],
+   "got": [
+    "keyboard_mouse"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  },
+  {
+   "request": "scroll down a smidge",
+   "expect": [
+    [
+     "scroll"
+    ]
+   ],
+   "got": [
+    "scroll"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  },
+  {
+   "request": "open notepad and then type shopping list",
+   "expect": [
+    [
+     "open_thing"
+    ],
+    [
+     "type_text"
+    ]
+   ],
+   "got": [
+    "open_thing",
+    "type_text"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  },
+  {
+   "request": "slow the voice down a bit and tell me the time",
+   "expect": [
+    [
+     "change_setting"
+    ],
+    [
+     "do_command"
+    ]
+   ],
+   "got": [
+    "change_setting",
+    "do_command"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 1.6,
+   "state": "done"
+  },
+  {
+   "request": "could ya check what's on screen",
+   "expect": [
+    [
+     "describe"
+    ]
+   ],
+   "got": [
+    "describe"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  }
+ ]
+}

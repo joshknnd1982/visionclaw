@@ -760,13 +760,13 @@ def fileWish(part):
 
 
 _FILE_ASK = re.compile(
-	r"^\s*(?:please\s+)?(?:can you\s+)?(what|what's|whats|which|list|show|how many|find|search|look|where|is there|are there|do i have|"
+	r"^\s*(?:please\s+)?(?:can you\s+)?(what|what's|whats|which|list|show|how many|find|search|look|where|is there|are there|do i have|any|"
 	r"tell me|read|check|count|give me)\b", re.IGNORECASE)
 _FILE_PLACE = re.compile(
 	r"\b(in|on|inside|from|of) (my |the )?(desktop|documents|downloads|pictures|photos|music|videos)( folder)?\b"
 	r"|\b(my|the) (desktop|documents|downloads|pictures|music|videos) folder\b"
 	r"|\b(find|search for|look for|where is|where are|where did)\b.*\b(files?|folders?|documents?|pdfs?|spreadsheets?|pictures?|photos?|songs?|videos?)\b"
-	r"|\b(newest|latest|biggest|largest|recent|recently|last) (downloaded |saved )?(files?|downloads?|documents?)\b"
+	r"|\b(new|newest|latest|biggest|largest|recent|recently|last) (downloaded |saved )?(files?|downloads?|documents?)\b"
 	r"|\b(files?|folders?) (named|called)\b"
 	r"|\bwhat (did|have) i (just |recently |last )?(download(ed)?|save[d]?)\b", re.IGNORECASE)
 _NOT_FILES = re.compile(r"\b(web|internet|online|google|page|site|library|notes?|click|press|icon|see|window|screen)\b", re.IGNORECASE)

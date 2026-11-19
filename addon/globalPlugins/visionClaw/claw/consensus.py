@@ -75,7 +75,7 @@ def _onRecipe(llm, task, part, context, registry, askUser, lead, other, single=F
 	leadName, otherName = policy.ROLE_NAMES[lead], policy.ROLE_NAMES[other]
 	facts = getattr(task, "facts", None)
 	# Where the words can hardly mean anything else, no model is asked.
-	sure = planner.decided(part, registry, before)
+	sure = planner.decided(part, registry, before, facts)
 	# Where Windows' own shell is in front, nothing there has a Start button or a taskbar of its own: words that
 	# name one mean that of Windows. Measured with Qwen3.5 9B on 2026-11-18: for "click the start button." the
 	# model chose the part of Windows and the words' plain hint said click, so the user had to choose.

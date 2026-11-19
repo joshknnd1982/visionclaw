@@ -1,0 +1,238 @@
+{
+ "label": "held3-1.16.1-merged",
+ "set": "answers-held3",
+ "models": {
+  "backend": "auto",
+  "visionModel": "qwen3.5-4b",
+  "coderModel": "qwen3.5-4b-coder"
+ },
+ "stepwise": "auto",
+ "rows": [
+  {
+   "request": "how long have I got to send something back",
+   "answer": "Understood as: how long do I have to send something back. Nothing was found about long or send or something or back. Asked were: NVDA's commands and user guide, the program spacetrader, its window Space Trader - Main Menu, what VisionClaw knows about Windows, and the documents in your library.",
+   "state": "done",
+   "jobs": [
+    "nvda_question"
+   ],
+   "asked": [],
+   "problems": [
+    [
+     "missing",
+     "30 days"
+    ]
+   ],
+   "verdict": "wrong",
+   "job": "wrong",
+   "seconds": 4.9,
+   "changed": "{'asked': 'how long do I have to send something back'}"
+  },
+  {
+   "request": "do they give you all your money back or just some of it",
+   "answer": "You get all your money back.",
+   "state": "done",
+   "jobs": [
+    "web_page"
+   ],
+   "asked": [],
+   "problems": [
+    [
+     "missing",
+     "full refund"
+    ]
+   ],
+   "verdict": "wrong",
+   "job": "right",
+   "seconds": 0.6,
+   "changed": "{'read': 'do they give you all your money back or just some of it'}"
+  },
+  {
+   "request": "which days of the week are they open",
+   "answer": "They are open Monday to Friday from nine to five.",
+   "state": "done",
+   "jobs": [
+    "web_page"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 0.4,
+   "changed": "{'read': 'which days of the week are they open'}"
+  },
+  {
+   "request": "what hours does this shop keep",
+   "answer": "The shop is open Monday to Friday from nine to five.",
+   "state": "done",
+   "jobs": [
+    "web_page"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 0.5,
+   "changed": "{'read': 'what hours does this shop keep'}"
+  },
+  {
+   "request": "what sort of stuff do they sell here",
+   "answer": "They sell garden tools.",
+   "state": "done",
+   "jobs": [
+    "web_page"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 0.4,
+   "changed": "{'read': 'what sort of stuff do they sell here'}"
+  },
+  {
+   "request": "what build of windows have I got",
+   "answer": "Understood as: what build of windows do I have. You have Windows 11 24H2, build 26100.",
+   "state": "done",
+   "jobs": [
+    "nvda_question"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 1.1,
+   "changed": "{'asked': 'what build of windows do I have'}"
+  },
+  {
+   "request": "which windows release am I running",
+   "answer": "I could not find the information about which Windows release you are running.",
+   "state": "done",
+   "jobs": [
+    "nvda_question"
+   ],
+   "asked": [],
+   "problems": [
+    [
+     "missing",
+     "24H2"
+    ]
+   ],
+   "verdict": "wrong",
+   "job": "right",
+   "seconds": 1.1,
+   "changed": "{'asked': 'which windows release am I running'}"
+  },
+  {
+   "request": "what's the key for the options button in this game",
+   "answer": "The key for the Options button is Alt+O.",
+   "state": "done",
+   "jobs": [
+    "explain_keys"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 1.2,
+   "changed": "{'asked': \"what's the key for the options button in this game\"}"
+  },
+  {
+   "request": "how do I get out of this game from the keyboard",
+   "answer": "Press Alt+N to select the New Game button.",
+   "state": "done",
+   "jobs": [
+    "explain_keys"
+   ],
+   "asked": [],
+   "problems": [
+    [
+     "missing",
+     "Alt+Q or Alt+F4"
+    ]
+   ],
+   "verdict": "wrong",
+   "job": "right",
+   "seconds": 1.2,
+   "changed": "{'asked': 'how do I get out of this game from the keyboard'}"
+  },
+  {
+   "request": "how does buying and selling work in space trader",
+   "answer": "To buy and sell in Space Trader, press T to open the market. Buy low and sell high.",
+   "state": "done",
+   "jobs": [
+    "nvda_question"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 1.6,
+   "changed": "{'asked': 'how does buying and selling work in space trader'}"
+  },
+  {
+   "request": "which braille table is set right now",
+   "answer": "NVDA is using a Freedom Scientific Focus braille display with 40 cells and the English (U.S.) 8 dot computer braille table.",
+   "state": "done",
+   "jobs": [
+    "nvda_info"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 1.3,
+   "changed": "{'info': 'braille'}"
+  },
+  {
+   "request": "which speech synthesizers have I got installed",
+   "answer": "Understood as: which speech synthesizers do I have installed. You have three speech synthesizers installed: eSpeak NG, Windows OneCore voices, and Microsoft Speech API version 5.",
+   "state": "done",
+   "jobs": [
+    "nvda_info"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 1.2,
+   "changed": "{'info': 'speech'}"
+  },
+  {
+   "request": "which of my addons are switched off",
+   "answer": "The add-on Clock and calendar, version 2.1, by Someone, is on. It says about itself: Speaks the time and date in many ways, and has alarms. Its commands where you are now: Say the time (NVDA+F12); Open the alarm settings (no key assigned). From its help: Press NVDA+F12 twice to hear the date.",
+   "state": "done",
+   "jobs": [
+    "addon_question"
+   ],
+   "asked": [],
+   "problems": [
+    [
+     "missing",
+     "NVDA Remote"
+    ]
+   ],
+   "verdict": "wrong",
+   "job": "right",
+   "seconds": 1.2,
+   "changed": "{'addon_info': {'addon': 'all', 'about': 'which of my add-ons are switched off'}}"
+  },
+  {
+   "request": "what reads out the line I'm on",
+   "answer": "Nothing reads out the line you are on automatically. To hear the line on request, you would need an app helper with the read action. To hear it automatically when it changes, you would need an add-on that can see the control, using event_valueChange or event_nameChange. If NVDA cannot see the control, an add-on would have to look at the picture repeatedly, which is slow.",
+   "state": "done",
+   "jobs": [
+    "nvda_question"
+   ],
+   "asked": [],
+   "problems": [
+    [
+     "missing",
+     "NVDA+upArrow or NVDA+l"
+    ]
+   ],
+   "verdict": "wrong",
+   "job": "right",
+   "seconds": 2.0,
+   "changed": "{'asked': \"what reads out the line I'm on\"}"
+  }
+ ]
+}

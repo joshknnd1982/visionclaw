@@ -295,7 +295,7 @@ assert plans.recall("which icons are in my notification area") == (OWNER, "read_
 sure = planner._SURE
 planner._SURE = tuple(name for name in sure if name != "read_place")
 realDecided = planner.decided
-planner.decided = lambda part, registry, before=None: None
+planner.decided = lambda part, registry, before=None, facts=None: None
 try:
 	plans = planning.Plans(None)
 	task, state, model, asked = run(OWNER, {OWNER: "describe"}, plans=plans)

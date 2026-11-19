@@ -23,21 +23,24 @@ chat apps, and names for unlabelled buttons.
 > [docs/STATUS.md](docs/STATUS.md) for exactly what was tested.
 
 <!-- news: written by tools/write_help.py from manifest.ini; do not change it by hand -->
-This README is for VisionClaw 1.16.0.
+This README is for VisionClaw 1.16.1.
 
-## What is new in 1.16.0
+## What is new in 1.16.1
+
+- On a web page, ask what it says in your own words. Press NVDA+Alt+C and say "what's the delivery charge here" or "do they ship abroad": a question about the shop, the company or "here" is read from the page in front, not looked up in NVDA's help.
+- Ask what a key does, as in "what happens if I press NVDA+F12", and VisionClaw looks it up and never presses the key. Before, it could ask you what you meant, and its first choice pressed the key.
+- Numbers, names and keys in an answer are copied whole. A setting of the engine against repetition counted the words that were looked up too, and made the model drop or split what it copied: "within 30 for a full refund", "build 26 100". It is now off for the answer worded from what was looked up.
+- When a model's answer names a key that nothing VisionClaw looked up has, such as a "Jump key" that no keyboard has, you hear the words that were found instead.
+- "How many cells does my braille display have" is answered from NVDA, "what time have you got" says the time, and "any new downloaded files" lists your Downloads folder.
+- Measured with Qwen3.5 4B for both jobs, on requests carried out from start to finish with stand-ins for NVDA: on a held-out set written before these changes, 22 of 30 answers right before and 27 after; on one written before the change to copying, 6 of 14 before it and 8 after; on the set the changes were made from, 26 of 32 before and 30 to 31 after. Of the 555 requests of the eight sets that measure which job is chosen, none changed its job. Not yet run inside NVDA.
+
+## What was new in 1.16.0
 
 - The answer to your request is spoken a sentence at a time while the model is still writing it, so you hear the first sentence sooner instead of waiting in silence. Press NVDA+Alt+C and ask "how do I read the title of this window": the first sentence comes as soon as the model has written it. Keys are written the way NVDA writes them, as before. Once the answer has begun, Control stops the rest.
 - The whole answer is still kept: once VisionClaw has finished, press NVDA+Alt+P to hear all of it again, or read it under Last task in the Ask VisionClaw window (NVDA+Alt+C).
 - A new setting in VisionClaw's settings, "Speak answers and descriptions a sentence at a time while the model writes them", is on by default. Turn it off if speech stutters or pauses on a slow computer: then the answer to a request, a description (NVDA+Alt+A, W, F or D) and an answer in the description window are each spoken whole once the model has finished, and the ticks and status updates go on until then.
 - Still spoken whole, as before: an answer made only of what the tools did, which is ready at once; an answer to a plan the model wrote itself, which is checked before you hear it; and the answer after "no, I meant", when a question may follow it.
 - Measured with the real Qwen3.5 4B: on the processor alone, as on a slow computer, the first sentence of a ten-sentence answer came 9 seconds before the whole answer was ready, and each next sentence about a second after the one before; on the graphics card, 1 to 2 seconds sooner. Tested with plain Python and stand-ins for NVDA; not yet run inside NVDA, so how it sounds there is not yet known.
-
-## What was new in 1.15.3
-
-- Keys in VisionClaw's answers are written the way NVDA writes them. Press NVDA+Alt+C and ask "how do I hear the window title" or "which key turns on the screen curtain": you hear and read NVDA+t and NVDA+control+escape, where the model had written "NVDA plus t". On a braille display the key now looks as it does in NVDA's own lists.
-- An answer no longer speaks of "the information provided" or "the information found", words from VisionClaw's question to the model that meant nothing to you. When nothing that was looked up answers your question, you hear that it could not be found in what was looked up.
-- VisionClaw's answers are now measured, not only which job it chooses. Two new sets of requests in casual words are carried out from start to finish with stand-ins for NVDA, and plain code checks what you would hear: nothing cut, no Markdown, nothing only a sighted person can follow, no key that does not exist, keys written as NVDA writes them, and the facts the answer must give. With Qwen3.5 4B for both jobs: 25 of 32 answers right before and 27 after on the set the corrections were made from, and 23 of 30 before and 26 after on the set held out. Nothing about how you ask changes. Not yet run inside NVDA.
 
 How to use each of these is explained in its own part of this README, further down.
 <!-- /news -->
@@ -726,6 +729,9 @@ buttons and form fields, so nothing has to be guessed from a picture.
   Google or Bing).
 - **Ask about the page** you are on. For a long page, VisionClaw picks the passages that match your question
   and has the model answer from those.
+- **Ask what the page says in your own words.** On a web page, a question about the shop, the company or "here",
+  such as "what's the delivery charge here" or "do they ship abroad", is read from the page, not looked up in
+  NVDA's help. A question about NVDA, a key or a control of the page is answered as before.
 - **Follow a link or press a button** by name. Following a link needs no question; pressing a button asks
   first, because a button can send or buy something.
 - **Type into a field**, and press Enter if you asked to search or send.
@@ -855,6 +861,10 @@ Where NVDA and Windows both have an answer, as for copying text, you get both, N
 puts the pieces into its own words; a model that is asked one small question at a time gives you the best
 piece word for word. When nothing is about your question, VisionClaw says so in one sentence and names what
 it asked. It does not give you the nearest thing.
+
+Asked what a key does, as in "what happens if I press NVDA+F12", VisionClaw looks it up and never presses the key.
+When a model's answer names a key that nothing VisionClaw looked up has, such as a "Jump key" that no keyboard
+has, you get the words that were found instead of the model's.
 
 In the Last task box you can read what was asked: three lines that begin "Asked NVDA", "Asked the program"
 and "Asked Windows".
@@ -1603,10 +1613,12 @@ Ask window. Your own request reaches every model and every tool whole, and so do
 remember. VisionClaw's log keeps every entry whole. Only what a small model reads of looked-up pages, notes and
 results is kept short for it, so that it is not swamped; you never hear that part shortened.
 
-Where a model words an answer, plain code still checks two things before you hear it. A key it spelled out, "NVDA
-plus t", is written as NVDA writes it, NVDA+t, so that a braille display shows it as NVDA's own lists do. Words
-from VisionClaw's question to the model, such as "the information provided", are taken out or said as what they
-are: what was looked up. Ask "how do I hear the window title" with NVDA+Alt+C to hear it.
+Where a model words an answer, plain code still checks it before you hear it. A key it spelled out, "NVDA plus t",
+is written as NVDA writes it, NVDA+t, so that a braille display shows it as NVDA's own lists do. Words from
+VisionClaw's question to the model, such as "the information provided", are taken out or said as what they are:
+what was looked up. And the engine's setting against repetition is off for that answer, so that numbers, names and
+keys copied from what was found come out whole, such as 30 days or build 26100. Ask "how do I hear the window
+title" with NVDA+Alt+C to hear it.
 
 ## Object names
 

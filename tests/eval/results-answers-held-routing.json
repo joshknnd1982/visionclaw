@@ -1,0 +1,435 @@
+{
+ "label": "held-routing",
+ "set": "answers-held",
+ "models": {
+  "backend": "auto",
+  "visionModel": "qwen3.5-4b",
+  "coderModel": "qwen3.5-4b-coder"
+ },
+ "stepwise": "auto",
+ "rows": [
+  {
+   "request": "slow the voice down a tad",
+   "answer": "Understood as: slow the voice down a bit. speech: rate was 50 and is now 40.",
+   "state": "done",
+   "jobs": [
+    "change_setting"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 6.1,
+   "changed": "{'speech.rate': 40}"
+  },
+  {
+   "request": "set symbols to most",
+   "answer": "speech: symbol level was some and is now most.",
+   "state": "done",
+   "jobs": [
+    "change_setting"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 1.7,
+   "changed": "{'speech.symbolLevel': 'most'}"
+  },
+  {
+   "request": "turn on speaking words as I type",
+   "answer": "keyboard: speak typed words was off and is now on.",
+   "state": "done",
+   "jobs": [
+    "change_setting"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 1.9,
+   "changed": "{'keyboard.speakTypedWords': 'on'}"
+  },
+  {
+   "request": "whats todays date",
+   "answer": "NVDA said: Tuesday, November 17, 2026. Next time you can press NVDA+f12 twice for this.",
+   "state": "done",
+   "jobs": [
+    "do_command"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 8.7,
+   "changed": "{'ran': [('dateTime', [2])]}"
+  },
+  {
+   "request": "what time have we got",
+   "answer": "NVDA said: 4:05 PM. Next time you can press NVDA+f12 for this.",
+   "state": "done",
+   "jobs": [
+    "do_command"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 1.8,
+   "changed": "{'ran': [('dateTime', [1])]}"
+  },
+  {
+   "request": "whats the hotkey for reading the current line",
+   "answer": "The hotkey is NVDA+upArrow.",
+   "state": "done",
+   "jobs": [
+    "explain_keys"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 1.5,
+   "changed": "{'asked': \"what's the hotkey for reading the current line\"}"
+  },
+  {
+   "request": "how do i load a saved game here",
+   "answer": "Press Alt+L to load the saved game.",
+   "state": "done",
+   "jobs": [
+    "explain_keys"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 1.3,
+   "changed": "{'asked': 'how do i load a saved game here'}"
+  },
+  {
+   "request": "how do I trade in space trader",
+   "answer": "Press T to open the market in Space Trader. Buy low and sell high to trade.",
+   "state": "done",
+   "jobs": [
+    "explain_keys"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 1.2,
+   "changed": "{'asked': 'how do I trade in space trader'}"
+  },
+  {
+   "request": "whats the capital of france",
+   "answer": "I could not find the answer to your question in what was looked up.",
+   "state": "done",
+   "jobs": [
+    "nvda_question"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "seconds": 1.1,
+   "changed": "{'asked': \"what's the capital of france\"}"
+  },
+  {
+   "request": "whats got the focus",
+   "answer": "The focus is on the button \"New Game\" in the window \"Space Trader\" of the program spacetrader. It is 1 of 4. Press Space or Enter to press it. The user said: what's got the focus.",
+   "state": "done",
+   "jobs": [
+    "about_focus"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 0.1,
+   "changed": "{'about_focus': {'asked': \"what's got the focus\"}}"
+  },
+  {
+   "request": "which braille display am I using",
+   "answer": "You are using a Freedom Scientific Focus braille display with 40 cells and the English (U.S.) 8-dot computer braille table.",
+   "state": "done",
+   "jobs": [
+    "nvda_info"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 1.3,
+   "changed": "{'info': 'braille'}"
+  },
+  {
+   "request": "what voice is nvda talking with",
+   "answer": "NVDA is currently using the English (America) voice from eSpeak NG.",
+   "state": "done",
+   "jobs": [
+    "nvda_info"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 1.3,
+   "changed": "{'info': 'speech'}"
+  },
+  {
+   "request": "how much free disk space have I got",
+   "answer": "Understood as: how much free disk space do I have. Drive C: (System) has 200 GB free of 500 GB, 40 percent. Asked about: disk.",
+   "state": "done",
+   "jobs": [
+    "computer_info"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 0.7,
+   "changed": "{'computer_info': {'topic': 'disk'}}"
+  },
+  {
+   "request": "how full is the recycle bin",
+   "answer": "The Recycle Bin holds 12 items, 5 MB in all. It does not need emptying for room: that would free only 5 MB. The drive has 200 GB free, so room is not short. To empty it anyway, say: empty the Recycle Bin.",
+   "state": "done",
+   "jobs": [
+    "recycle_bin"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 0.1,
+   "changed": "{'recycle_bin': True}"
+  },
+  {
+   "request": "how many icons are in the tray",
+   "answer": "The notification area has 3 icons shown and 2 hidden behind Show hidden icons. Shown: Network JoshKennedy, Internet access; Volume Speakers (Realtek(R) Audio): 20%; Power Battery status: fully charged 100%. Hidden behind Show hidden icons, 2 more icons: NVDA; Dropbox, Up to date. The clock says: 10:29 PM, 11/18/2026. To go to the notification area yourself, press Windows+B. The arrow keys move between its icons, Enter opens one, and Shift+F10 opens its menu.",
+   "state": "done",
+   "jobs": [
+    "read_place"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 0.1,
+   "changed": "{'read_place': {'places': ['tray'], 'how': 'count', 'thing': ''}}"
+  },
+  {
+   "request": "what programs are pinned to my taskbar",
+   "answer": "The taskbar has 2 programs: Microsoft Edge, pinned; Claude, 1 running window. Its own buttons: Start; Search. The notification area at its end has 3 icons; ask what is in the system tray to hear them. To go to the taskbar yourself, press Windows+T. Windows+T again goes to the next program, Windows+Shift+T to the one before, and Enter opens the one you are on.",
+   "state": "done",
+   "jobs": [
+    "read_place"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 0.1,
+   "changed": "{'read_place': {'places': ['taskbar'], 'how': 'list', 'thing': ''}}"
+  },
+  {
+   "request": "is the volume icon in my tray",
+   "answer": "Yes. In the notification area, shown on the taskbar: Volume Speakers (Realtek(R) Audio): 20%. To go to the notification area yourself, press Windows+B. The arrow keys move between its icons, Enter opens one, and Shift+F10 opens its menu.",
+   "state": "done",
+   "jobs": [
+    "read_place"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 0.1,
+   "changed": "{'read_place': {'places': ['tray'], 'how': 'has', 'thing': 'volume'}}"
+  },
+  {
+   "request": "describe what's in front of me",
+   "answer": "The window shows the main menu of a game called Space Trader. At the top left, the title reads: Space Trader - Main Menu. Below that, there are four buttons arranged vertically: New Game, Load Game, Options, Quit, Each button is a rectangle with text in the center. The buttons are evenly spaced and aligned in the middle of the screen.",
+   "state": "done",
+   "jobs": [
+    "describe"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 2.2,
+   "changed": "{}"
+  },
+  {
+   "request": "is there a load game button in this window",
+   "answer": "Yes, there is a Load Game button in this window. The window shows the title Space Trader - Main Menu at the top left. Below that, there are four buttons in order from top to bottom: New Game, Load Game, Options, Quit, The Load Game button is the second one from the top.",
+   "state": "done",
+   "jobs": [
+    "describe"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "seconds": 2.1,
+   "changed": "{}"
+  },
+  {
+   "request": "what keys does the clock and calendar addon have",
+   "answer": "The add-on Clock and calendar, version 2.1, by Someone, is on. It says about itself: Speaks the time and date in many ways, and has alarms. Its commands where you are now: Say the time (NVDA+F12); Open the alarm settings (no key assigned). From its help: Press NVDA+F12 twice to hear the date.",
+   "state": "done",
+   "jobs": [
+    "addon_question"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 1.8,
+   "changed": "{'addon_info': {'addon': 'Clock and Calendar', 'about': 'what keys does the clock and calendar addon have'}}"
+  },
+  {
+   "request": "I'm used to jaws, what does insert f7 do over here",
+   "answer": "In JAWS, Insert+F7 is: Displays a list of links on the page. In NVDA that is: Open the Elements List, with NVDA+f7.",
+   "state": "done",
+   "jobs": [
+    "jaws_help"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 1.1,
+   "changed": "{'jaws': {'what': 'key', 'key': 'insert+f7'}}"
+  },
+  {
+   "request": "how big is the model you use",
+   "answer": "VisionClaw uses one model, Qwen3.5 9B, for both jobs: looking at the screen and planning, and checking and writing code. One model is stored on this computer: Qwen3.5 9B, 6.1 GB.",
+   "state": "done",
+   "jobs": [
+    "visionclaw_models"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 0.7,
+   "changed": "{'model_info': True}"
+  },
+  {
+   "request": "do they take returns",
+   "answer": "Yes, you can return any product for a full refund within 30 days.",
+   "state": "done",
+   "jobs": [
+    "web_page"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 0.7,
+   "changed": "{'read': 'do they take returns'}"
+  },
+  {
+   "request": "which fields are wrong in this form",
+   "answer": "2 fields may be stopping this form. 1. Email, edit field, required: is marked as not valid. The page says: Enter an email address with an @ sign. 2. Password, password field, required: must be filled in and is empty. NVDA's reading position is now on the first of them, Email. Press Enter to go into it, and Escape to come back to reading.",
+   "state": "done",
+   "jobs": [
+    "form_trouble"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 0.7,
+   "changed": "{'form_trouble': True}"
+  },
+  {
+   "request": "how do I jump to the main part of this page",
+   "answer": "From VisionClaw's notes: The five kinds of fix. Every fix belongs to one website, in any browser, or to one program. Jump: two keys that move to the next and the previous item of a kind, such as the posts of a feed, search results, videos or clickable things. Press: one key that presses a control found by its name, wherever the user is on the page or in the window.",
+   "state": "done",
+   "jobs": [
+    "explain_keys"
+   ],
+   "asked": [],
+   "problems": [
+    [
+     "missing",
+     "re:\\b(press|key|letter) (1|d)\\b or re:\\b(1|d) (moves|jumps|goes|takes)\\b"
+    ]
+   ],
+   "verdict": "wrong",
+   "seconds": 1.8,
+   "changed": "{'asked': 'how do I jump to the main part of this page'}"
+  },
+  {
+   "request": "what are the buttons on my gamepad for",
+   "answer": "A game controller is connected: an Xbox controller, or one that Windows reads the same way. Controller mode is off. Hold the controller's View and Menu buttons together for a second, or press NVDA+Alt+J, to work the mouse pointer with it.",
+   "state": "done",
+   "jobs": [
+    "controller_info"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 0.7,
+   "changed": "{'controller_info': True}"
+  },
+  {
+   "request": "any new downloads",
+   "answer": "2 items in Downloads. The newest first: 1. setup.exe, 5 MB, in Downloads, changed November 18, 2026, 2. report.pdf, 120 KB, in Downloads, changed November 2, 2026.",
+   "state": "done",
+   "jobs": [
+    "files"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 0.7,
+   "changed": "{'find_files': {'asked': 'any new downloads'}}"
+  },
+  {
+   "request": "whats the key for the elements list",
+   "answer": "The key for the Elements List is NVDA+f7.",
+   "state": "done",
+   "jobs": [
+    "explain_keys"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 1.3,
+   "changed": "{'asked': \"what's the key for the elements list\"}"
+  },
+  {
+   "request": "where am i at the moment",
+   "answer": "Program: spacetrader. Window title: Space Trader. Focused control: pane, no name.",
+   "state": "done",
+   "jobs": [
+    "where_am_i"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 0.7,
+   "changed": "{}"
+  },
+  {
+   "request": "tell me the date and how many braille cells I have",
+   "answer": "NVDA said: Tuesday, November 17, 2026. Next time you can press NVDA+f12 twice for this. You have 40 braille cells.",
+   "state": "done",
+   "jobs": [
+    "do_command",
+    "nvda_info"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 3.1,
+   "changed": "{'ran': [('dateTime', [2])], 'info': 'braille'}"
+  }
+ ]
+}

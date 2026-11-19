@@ -1,0 +1,469 @@
+{
+ "label": "dev-1.16.1",
+ "set": "answers",
+ "models": {
+  "backend": "auto",
+  "visionModel": "qwen3.5-4b",
+  "coderModel": "qwen3.5-4b-coder"
+ },
+ "stepwise": "auto",
+ "rows": [
+  {
+   "request": "talk a bit quicker would ya",
+   "answer": "Understood as: talk a bit faster would you. speech: rate was 50 and is now 60.",
+   "state": "done",
+   "jobs": [
+    "change_setting"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 6.3,
+   "changed": "{'speech.rate': 60}"
+  },
+  {
+   "request": "turn the punctuation all the way up",
+   "answer": "speech: symbol level was some and is now all.",
+   "state": "done",
+   "jobs": [
+    "change_setting"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 1.9,
+   "changed": "{'speech.symbolLevel': 'all'}"
+  },
+  {
+   "request": "stop reading out every letter I type",
+   "answer": "speech: symbol level was some and is now none.",
+   "state": "done",
+   "jobs": [
+    "change_setting"
+   ],
+   "asked": [],
+   "problems": [
+    [
+     "missing",
+     "typed characters or typing"
+    ],
+    [
+     "missing",
+     "is now off or to off or turned off"
+    ]
+   ],
+   "verdict": "wrong",
+   "job": "right",
+   "seconds": 5.5,
+   "changed": "{'speech.symbolLevel': 'none'}"
+  },
+  {
+   "request": "whats the time",
+   "answer": "NVDA said: 4:05 PM. Next time you can press NVDA+f12 for this.",
+   "state": "done",
+   "jobs": [
+    "do_command"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 1.8,
+   "changed": "{'ran': [('dateTime', [1])]}"
+  },
+  {
+   "request": "what day is it",
+   "answer": "NVDA said: Tuesday, November 17, 2026. Next time you can press NVDA+f12 twice for this.",
+   "state": "done",
+   "jobs": [
+    "do_command"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 1.7,
+   "changed": "{'ran': [('dateTime', [2])]}"
+  },
+  {
+   "request": "read me the name of this window",
+   "answer": "Text in the window: Space Trader - Main Menu. New Game. Load Game. Options. Quit.",
+   "state": "done",
+   "jobs": [
+    "read_text"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 0.8,
+   "changed": "{'read_text': {'target': 'window'}}"
+  },
+  {
+   "request": "what key tells me the window title",
+   "answer": "The key NVDA+t tells you the window title.",
+   "state": "done",
+   "jobs": [
+    "explain_keys"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 1.3,
+   "changed": "{'asked': 'what key tells me the window title'}"
+  },
+  {
+   "request": "whats the shortcut to start a new game in here",
+   "answer": "The shortcut is Alt+N.",
+   "state": "done",
+   "jobs": [
+    "explain_keys"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 1.2,
+   "changed": "{'asked': \"what's the shortcut to start a new game in here\"}"
+  },
+  {
+   "request": "how do i save in space trader",
+   "answer": "To save in Space Trader, press Control+S.",
+   "state": "done",
+   "jobs": [
+    "explain_keys"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 1.1,
+   "changed": "{'asked': 'how do i save in space trader'}"
+  },
+  {
+   "request": "how do I bake bread",
+   "answer": "Nothing was found about bake or bread. Asked were: NVDA's commands and user guide, the program spacetrader, its window Space Trader - Main Menu, what VisionClaw knows about Windows, and the documents in your library.",
+   "state": "done",
+   "jobs": [
+    "explain_keys"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "seconds": 0.7,
+   "changed": "{'asked': 'how do I bake bread'}"
+  },
+  {
+   "request": "what control am I on right now",
+   "answer": "The focus is on the button \"New Game\" in the window \"Space Trader\" of the program spacetrader. It is 1 of 4. Press Space or Enter to press it. The user said: what control am I on right now.",
+   "state": "done",
+   "jobs": [
+    "about_focus"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 0.1,
+   "changed": "{'about_focus': {'asked': 'what control am I on right now'}}"
+  },
+  {
+   "request": "which version of visionclaw have I got",
+   "answer": "Understood as: which version of visionclaw do I have. VisionClaw is version 1.15.1. The user said: which version of visionclaw do I have.",
+   "state": "done",
+   "jobs": [
+    "version_info"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 0.1,
+   "changed": "{'version_info': {'asked': 'which version of visionclaw do I have'}}"
+  },
+  {
+   "request": "who's doing the talking, which synth is it",
+   "answer": "The talking is done by eSpeak NG. The voice in use is English (America). The rate is 60. The installed synthesizers are eSpeak NG, Windows OneCore voices, and Microsoft Speech API version 5.",
+   "state": "done",
+   "jobs": [
+    "nvda_question",
+    "nvda_info"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "wrong",
+   "seconds": 2.8,
+   "changed": "{'asked': \"who's doing the talking\", 'info': 'speech'}"
+  },
+  {
+   "request": "how many cells has my braille display got",
+   "answer": "Your braille display is a Freedom Scientific Focus with 40 cells. The table in use is English (U.S.) 8 dot computer braille.",
+   "state": "done",
+   "jobs": [
+    "nvda_info"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 1.3,
+   "changed": "{'info': 'braille'}"
+  },
+  {
+   "request": "how much room is left on my c drive",
+   "answer": "Drive C: (System) has 200 GB free of 500 GB, 40 percent. Asked about: disk.",
+   "state": "done",
+   "jobs": [
+    "computer_info"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 0.7,
+   "changed": "{'computer_info': {'topic': 'disk'}}"
+  },
+  {
+   "request": "does my recycle bin need emptying",
+   "answer": "The Recycle Bin holds 12 items, 5 MB in all. It does not need emptying for room: that would free only 5 MB. The drive has 200 GB free, so room is not short. To empty it anyway, say: empty the Recycle Bin.",
+   "state": "done",
+   "jobs": [
+    "recycle_bin"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 0.1,
+   "changed": "{'recycle_bin': True}"
+  },
+  {
+   "request": "whats sitting in my system tray",
+   "answer": "The notification area has 3 icons shown on the taskbar. They are: Network JoshKennedy, Internet access; Volume Speakers (Realtek(R) Audio): 20%; Power Battery status: fully charged 100%. Hidden behind Show hidden icons, 2 more icons: NVDA; Dropbox, Up to date. The clock says: 10:29 PM, 11/18/2026. To go to the notification area yourself, press Windows+B. The arrow keys move between its icons, Enter opens one, and Shift+F10 opens its menu.",
+   "state": "done",
+   "jobs": [
+    "read_place"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 0.1,
+   "changed": "{'read_place': {'places': ['tray'], 'how': 'list', 'thing': ''}}"
+  },
+  {
+   "request": "is dropbox in the tray",
+   "answer": "Yes. In the notification area, among the hidden icons: Dropbox, Up to date. To go to the notification area yourself, press Windows+B. The arrow keys move between its icons, Enter opens one, and Shift+F10 opens its menu.",
+   "state": "done",
+   "jobs": [
+    "read_place"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 0.1,
+   "changed": "{'read_place': {'places': ['tray'], 'how': 'has', 'thing': 'dropbox'}}"
+  },
+  {
+   "request": "whats on the screen",
+   "answer": "The screen shows the main menu of a game called Space Trader. At the top left, the title reads: Space Trader - Main Menu. Below that, there are four buttons arranged vertically: New Game, Load Game, Options, Quit, Each button is a rectangle with its text centered inside. The buttons are equally spaced and aligned in the center of the screen.",
+   "state": "done",
+   "jobs": [
+    "describe"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 6.7,
+   "changed": "{}"
+  },
+  {
+   "request": "which buttons are in this window",
+   "answer": "The buttons in this window are New Game, Load Game, Options, and Quit. The New Game button is controlled with Alt+N. The Load Game button is controlled with Alt+L. The Options button is controlled with Alt+O. The Quit button is controlled with Alt+Q.",
+   "state": "done",
+   "jobs": [
+    "nvda_question"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "seconds": 2.0,
+   "changed": "{'asked': 'which buttons are in this window'}"
+  },
+  {
+   "request": "tell me what the clock and calendar addon does",
+   "answer": "The add-on Clock and calendar, version 2.1, by Someone, is on. It says about itself: Speaks the time and date in many ways, and has alarms. Its commands where you are now: Say the time (NVDA+F12); Open the alarm settings (no key assigned). From its help: Press NVDA+F12 twice to hear the date.",
+   "state": "done",
+   "jobs": [
+    "addon_question"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 1.9,
+   "changed": "{'addon_info': {'addon': 'Clock and Calendar', 'about': 'Tell me what the clock and calendar addon does'}}"
+  },
+  {
+   "request": "whats jaws insert f7 in nvda",
+   "answer": "In JAWS, Insert+F7 is: Displays a list of links on the page. In NVDA that is: Open the Elements List, with NVDA+f7.",
+   "state": "done",
+   "jobs": [
+    "jaws_help"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 0.6,
+   "changed": "{'jaws': {'what': 'key', 'key': 'insert+f7'}}"
+  },
+  {
+   "request": "which ai model are you running on",
+   "answer": "VisionClaw uses one model, Qwen3.5 9B, for both jobs: looking at the screen and planning, and checking and writing code. One model is stored on this computer: Qwen3.5 9B, 6.1 GB.",
+   "state": "done",
+   "jobs": [
+    "visionclaw_models"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 0.6,
+   "changed": "{'model_info': True}"
+  },
+  {
+   "request": "whats the refund policy here",
+   "answer": "You can return any product within 30 days for a full refund.",
+   "state": "done",
+   "jobs": [
+    "web_page"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 0.6,
+   "changed": "{'read': \"what's the refund policy here\"}"
+  },
+  {
+   "request": "when is this shop open",
+   "answer": "The shop is open Monday to Friday from nine to five.",
+   "state": "done",
+   "jobs": [
+    "web_page"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 0.5,
+   "changed": "{'read': 'when is this shop open'}"
+  },
+  {
+   "request": "read out the headings on this page",
+   "answer": "The web page Example Shop has 2 headings, 3 links, 1 buttons and 1 form fields. Heading level 1: Example Shop, Heading level 2: Refund policy.",
+   "state": "done",
+   "jobs": [
+    "page_outline"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 0.8,
+   "changed": "{'page_outline': True}"
+  },
+  {
+   "request": "why can't I send this form",
+   "answer": "2 fields may be stopping this form. 1. Email, edit field, required: is marked as not valid. The page says: Enter an email address with an @ sign. 2. Password, password field, required: must be filled in and is empty. NVDA's reading position is now on the first of them, Email. Press Enter to go into it, and Escape to come back to reading.",
+   "state": "done",
+   "jobs": [
+    "form_trouble"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 0.5,
+   "changed": "{'form_trouble': True}"
+  },
+  {
+   "request": "is a gamepad plugged in",
+   "answer": "A game controller is connected: an Xbox controller, or one that Windows reads the same way. Controller mode is off. Hold the controller's View and Menu buttons together for a second, or press NVDA+Alt+J, to work the mouse pointer with it.",
+   "state": "done",
+   "jobs": [
+    "controller_info"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 0.6,
+   "changed": "{'controller_info': True}"
+  },
+  {
+   "request": "whats in my downloads",
+   "answer": "2 items in Downloads. The newest first: 1. setup.exe, 5 MB, in Downloads, changed November 18, 2026, 2. report.pdf, 120 KB, in Downloads, changed November 2, 2026.",
+   "state": "done",
+   "jobs": [
+    "files"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 0.7,
+   "changed": "{'find_files': {'asked': \"what's in my downloads\"}}"
+  },
+  {
+   "request": "how do i turn the screen curtain on",
+   "answer": "You can enable the screen curtain by pressing NVDA+control+escape. Alternatively, you can go to the Privacy and Security category in the NVDA Settings dialog to enable it.",
+   "state": "done",
+   "jobs": [
+    "explain_keys"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 1.4,
+   "changed": "{'asked': 'how do i turn the screen curtain on'}"
+  },
+  {
+   "request": "whats the time and which synth am I using",
+   "answer": "NVDA said: 4:05 PM. Next time you can press NVDA+f12 for this. You are using eSpeak NG.",
+   "state": "done",
+   "jobs": [
+    "do_command",
+    "nvda_info"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 3.1,
+   "changed": "{'ran': [('dateTime', [1])], 'info': 'speech'}"
+  },
+  {
+   "request": "what happens when I press nvda f12",
+   "answer": "Pressing NVDA+F12 reports the current time. Pressing it twice reports the date. The time and date are reported in the format specified in Windows settings for the system tray clock.",
+   "state": "done",
+   "jobs": [
+    "nvda_question"
+   ],
+   "asked": [],
+   "problems": [],
+   "verdict": "right",
+   "job": "right",
+   "seconds": 1.0,
+   "changed": "{'asked': 'what happens when I press nvda f12'}"
+  }
+ ]
+}

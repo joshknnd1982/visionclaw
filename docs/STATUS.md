@@ -2904,10 +2904,70 @@ Not tested: nothing of this has run inside NVDA; whether speech stutters while t
 how the pieces sound one after the other in NVDA's speech queue, are not known. Found in passing, not changed: asked
 "what pressing the key once, twice and three times does", the 4B answered that each press "does not change anything".
 
+## What the answer sets found, fixed, and words copied whole (1.16.1, 2026-11-19)
+
+The owner said "Yes, fix them" to the misses 1.15.3's answer sets found. Before anything was changed, a new held-out set
+was written (`tests/eval/answers-held2.json`, 30 requests): each kind of miss in other words, and requests the fixes
+must leave alone. What was done:
+- **Plain code decides two kinds before any model** (`planner.decided`, which now takes where the user is):
+  - a question about what a key does, "what happens when I press ..." (`planner._KEY_QUESTION`), is looked up; in
+    1.15.3 "what happens when I press nvda f12" was put to the user and the first way pressed F12;
+  - on a web page, a question about what the page says (`planner.asksPage`: a question, words that point at the page or
+    its owner, "here", "this shop", "they", and nothing about NVDA, keys or a control of the page) is read from the page.
+- **Words**: "how many" and "how big" join the question words for NVDA's own information, so the cells of a braille
+  display are no setting; "what time have we got" is the time; "new downloads" and a question that begins with "any"
+  ask about the user's folders (`computer._FILE_ASK`, `_FILE_PLACE`).
+- **A key nothing looked up has** (`llm.keysNotFound`): the answer is then given in the words that were found (as for
+  the very smallest models), and the log says why. "How do I jump to the main part of this page" was answered "Press
+  the Jump key"; now with a line of VisionClaw's notes, word for word, which is not the answer but invents nothing.
+  `tests/answercheck.py` now also finds "the Jump key". With 1.16.0's answers spoken while they are written, the check
+  runs on each sentence before it is said (`orchestrator._Spoken._piece`): the sentence with such a key and every one
+  after it are not said, and the words that were found are said instead (`tests/test_stream_answers.py`).
+- **Found while measuring: words dropped when copied.** "You can return any product within 30 for a full refund" and
+  "open Monday to Friday from nine to." came back although the page said "30 days" and "nine to five". The engine's DRY
+  setting against repeating (`engine.ANTI_LOOP`, since 0.1.0) counts the words of the question too, so it pushed the
+  model off every word it copied. A third held-out set (`answers-held3.json`, 14 requests for exact facts) was written
+  before anything was done about it; then the answer worded from what was looked up was asked for with DRY off
+  (`LLM.text(exact=True)`). Repeated sentences are still left out and a stuck model stopped (`engine.RepeatGuard`).
+- **The stand-in for find_setting** answered a failure with "Try other words, like speech rate", the example CLAUDE.md
+  forbids; it now says what the real tool says. That alone changed one answer of 1.15.3 on the development set (27 to
+  26), so "1.15.3" below was run again with the corrected stand-in.
+
+Measured with Qwen3.5 4B for both jobs on the GeForce RTX 5060, every set run on 1.15.3 (`VC_PLUGIN`) and on the new
+code, in two steps, before it was put on top of 1.16.0:
+
+| Set | 1.15.3 | the job fixes | and words copied whole |
+|---|---|---|---|
+| `answers.json`, development, 32 | 26 | 29 | 31 |
+| `answers-held.json`, spent in 1.15.3, 30 | 26 | 29 | 29 |
+| `answers-held2.json`, held out, 30 | 22 | 26 | 27 |
+| `answers-held3.json`, held out for copying, 14 | not run | 6 | 8 |
+
+No answer got worse at either step. On the code put on top of 1.16.0 (answers spoken while they are written; the
+scorer says the answer whole): 30, 29, 27 and 8. The one that differs, "how do i save in space trader", answered
+"press Control and S together" in the whole run and "press Control+S" when run alone, twice; run right after
+another request it said "Control and S together" again. So a run does not always repeat exactly: an answer the model
+words can change with what the engine ran just before it, where two wordings are nearly as likely. Read a change of
+one answer between two runs with that in mind. `tests/eval_routing.py` on all eight routing sets (`requests` to `requests6`,
+`requests-ten`, `requests-ten2`; 555 requests) before and after: not one request changed its job. Results are in
+`tests/eval/results-answers-*` and `results-route-*`. `answers-held2.json` and `answers-held3.json` are now spent.
+
+Still wrong on the held-out sets: "can I get my money back if I return something" on a web page names nothing of the
+page and was answered from a picture of the screen; "how long have I got to send something back" was looked up in NVDA;
+"what will happen if I hit nvda t" found nothing for the key written without a plus; "what time do you make it" was
+answered with the key; "which windows release am I running" found nothing; "how do I get out of this game from the
+keyboard" was answered with Alt+N, a wrong line of what was found; "which of my addons are switched off" was answered
+about one add-on; "what reads out the line I'm on" was answered that NVDA does it by itself; "do they give you all your
+money back" was answered "Yes, you get all your money back", true, but not the page's words "full refund". On the
+development set "stop reading out every letter I type" still changed the symbol level.
+
+`python tests/run_all.py`: every test passed. Not run inside NVDA.
+
 ## Next session
 
-1.15.3: the routing misses listed in the section above, measured on every evaluation set with `eval_routing.py` and on
-the answer sets with `eval_answers.py`; then write a new held-out answer set, since `answers-held.json` is spent.
+1.16.1: write a fourth held-out answer set before measuring the next change (the second and third are spent);
+then the misses listed in the section above, and "press Control and S together": a key said with "and", which plain
+code could write as NVDA writes it, as `llm.nvdaKeys` does for "plus".
 
 1.12.0's part for small models (the section above): with the owner's yes, walk through "Small models stretched" in
 `docs/TESTPLAN.md` inside NVDA, first "Which model does each job" set to "VisionClaw picks" with two models on the disk.

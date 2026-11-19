@@ -16,7 +16,7 @@ from . import memories as memoriesModule
 from . import skills as skillsModule
 from . import task as taskModule
 from .catalog import CODER, VISION
-from .llm import LLM, LLMError, clip, nvdaKeys, plainSpeech, uncut, unframed
+from .llm import LLM, LLMError, clip, keysNotFound, nvdaKeys, plainSpeech, uncut, unframed
 from .runtime import ModelMissing
 from .tools import ANSWER, SUMMARIZE, VERBATIM
 from ..engine import EngineError
@@ -71,6 +71,10 @@ class _Spoken:
 		# goes on in the next piece, which then begins the sentence.
 		self._upper = False
 		self._sentences = sentences.Sentences(self._piece)
+		# What the answer may name keys from (set by _answer), and the keys found in it that none of them has: from
+		# the first such sentence on, nothing more the model wrote is said.
+		self.sources = ()
+		self.madeUp = []
 
 	def say(self, text):
 		"""A piece plain code has ready, said as it is."""
@@ -95,6 +99,12 @@ class _Spoken:
 		spoken = unframed(nvdaKeys(spoken)).strip()
 		if not spoken:
 			self._upper = self._upper or bool(piece)
+			return False
+		# A key that nothing looked up names is never said (llm.keysNotFound): neither that sentence nor any after it.
+		# _answer then says the words that were found. Where nothing is known to check against, nothing is held back.
+		if not self.madeUp and self.sources:
+			self.madeUp = keysNotFound(spoken, self.sources)
+		if self.madeUp:
 			return False
 		if self._upper:
 			spoken = spoken[0].upper() + spoken[1:]
@@ -809,10 +819,14 @@ class Orchestrator:
 			wanted = self._helpWanted()
 			if wanted:
 				user += "\nThe user asked VisionClaw to remember this about answers:\n" + "\n".join(f"- {line}" for line in wanted)
+			# What the answer may name keys from: the user's words and what was looked up (llm.keysNotFound).
+			sources = [request, task.request] + [result for _part, result in info]
+			if spoken is not None:
+				spoken.sources = sources
 			try:
 				summary = llm.text(
 					self.lead, prompts.speaking(_ANSWER_TASK, found=user), user, maxTokens=params.answerTokens,
-					reasoning=params.reasoning, onText=spoken.feed if spoken is not None else None)
+					reasoning=params.reasoning, onText=spoken.feed if spoken is not None else None, exact=True)
 			except LLMError:
 				summary = ""
 			if spoken is not None:
@@ -820,10 +834,25 @@ class Orchestrator:
 			# What plain code can correct in the model's words, it corrects: keys as NVDA writes them, and nothing of
 			# the question the model was given.
 			summary = unframed(nvdaKeys(" ".join((summary or "").split())))
-			pieces.append(summary or " ".join(result for _part, result in info))
-			if spoken is not None and not spoken.fromModel:
-				# The model wrote nothing that could be said: what was found is said as it is, as in the whole answer.
-				spoken.say(pieces[-1])
+			# A key that nothing looked up names was made up: the answer is then given in the words that were found,
+			# chosen by plain code, as for the very smallest models. A blind user would press it. Where the answer is
+			# said while it is written, the sentence with that key and every one after it were not said (_Spoken).
+			madeUp = keysNotFound(summary, sources)
+			if summary and madeUp:
+				task.emit(taskModule.DETAIL, (
+					f"The model's answer named a key that nothing looked up has ({', '.join(madeUp)}), so the answer is "
+					"given in the words that were found."))
+				debuglog.log("answer", f"Made-up key in the model's answer: {', '.join(madeUp)}. Answer was: {summary}")
+				found = [self._quoted(llm, part, result, tool) for (part, result), tool in zip(info, task.infoTools)]
+				pieces += found
+				if spoken is not None:
+					for piece in found:
+						spoken.say(piece)
+			else:
+				pieces.append(summary or " ".join(result for _part, result in info))
+				if spoken is not None and not spoken.fromModel:
+					# The model wrote nothing that could be said: what was found is said as it is, as in the whole answer.
+					spoken.say(pieces[-1])
 		if failed:
 			pieces.append("This could not be done: " + "; ".join(uncut(f) for f in failed) + ".")
 			if spoken is not None:

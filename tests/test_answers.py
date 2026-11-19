@@ -21,7 +21,7 @@ import harness  # noqa: F401
 import answercheck as check
 import eval_answers
 import live_orchestrator as live
-from visionClaw.claw import computer, llm, lookup, planner, places, understand
+from visionClaw.claw import computer, llm, lookup, planner, places, router, understand
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 EVAL = os.path.join(HERE, "eval")
@@ -143,6 +143,8 @@ class Scripted(object):
 		if system.startswith("You choose how VisionClaw"):
 			return json.dumps({"choice": "explain_keys"})
 		if "Answer the user from the information given" in system:
+			# The answer copies what was looked up: the engine's setting against repeating is off for it.
+			assert (options.get("options") or {}).get("dry_multiplier") == 0, options
 			return self.answer
 		return None
 
@@ -152,6 +154,58 @@ task, asked, _state = eval_answers.runItem(
 	Scripted("Based on the information found, press NVDA plus control plus escape to turn the screen curtain on."), curtain)
 assert task.answer == "Press NVDA+control+escape to turn the screen curtain on.", task.answer
 assert eval_answers.score(task, curtain, asked, True)["verdict"] == eval_answers.RIGHT
+
+# --- A key nothing looked up names (llm.keysNotFound), and the answer then given in the words that were found ---
+
+found = ["From NVDA: dateTime: reports the time. Keys: NVDA+f12.", "Window: Load Game (button): Alt+L."]
+assert llm.keysNotFound("Press NVDA+F12, or Alt+L to load.", found) == []
+assert llm.keysNotFound("Press NVDA+Up Arrow.", ["Keys: NVDA+upArrow."]) == []
+assert llm.keysNotFound("Press Control+S to save.", found) == ["Control+S"]
+assert llm.keysNotFound("Press the Jump key to move on.", found) == ["the Jump key"]
+# Keys every keyboard or NVDA has, and a key the found words name, are no made-up keys.
+for fine in ("Press the Enter key.", "Hold the NVDA key.", "Press the H key.", "Press the F6 key.", "Press the Tab key."):
+	assert llm.keysNotFound(fine, found) == [], fine
+assert llm.keysNotFound("Press the Fire key.", ["In this game the Fire key shoots."]) == []
+assert check.MADE_UP_KEY in rules("Press the Jump key to move to the next item.")
+assert rules("Press the Enter key.") == [] and rules("Press the Fire key.", ["the Fire key shoots"]) == []
+
+
+class MakesUpAKey(Scripted):
+	def chat(self, role, messages, maxTokens, **options):
+		system = messages[0]["content"]
+		if "Which line answers what the user asked" in messages[1]["content"]:
+			return json.dumps({"line": 2})
+		return super().chat(role, messages, maxTokens, **options)
+
+
+task, asked, _state = eval_answers.runItem(
+	MakesUpAKey("Press the Jump key, or NVDA+Shift+J, to turn the screen curtain on."), curtain)
+assert "Jump key" not in task.answer and "NVDA+Shift+J" not in task.answer, task.answer
+assert "NVDA+control+escape" in task.answer, task.answer
+assert any("named a key that nothing looked up has" in text for _seconds, _kind, text in task.log), task.log
+
+# --- Jobs the answer sets showed were chosen wrongly, in words of the tests' own ---
+
+registry = live.makeRegistry(None, {})
+onPage = {router.WEB: True}
+for request, facts, job in (
+		("how many cells does the braille display have", None, None),
+		("whats the return policy here", onPage, "web_page"),
+		("what are this store's delivery times", onPage, "web_page"),
+		("do they ship abroad", onPage, "web_page"),
+		("what would happen if I pressed NVDA+t", None, None),
+		("what happens if you press alt f4", None, "nvda_question"),
+		# What they must leave alone: the time on a web page, a control of the page, NVDA, the same question elsewhere.
+		("what's the time here", onPage, None),
+		("is there a search field here", onPage, None),
+		("which voice is talking here", onPage, None),
+		("whats the return policy here", None, None),
+		("press alt f4", None, None)):
+	assert planner.decided(request, registry, None, facts) == job, (request, planner.decided(request, registry, None, facts))
+assert planner.hint("how many cells does the braille display have") == "nvda_info"
+assert planner.hint("what would happen if I pressed NVDA+t") != "press_keys"
+assert planner.hint("what time have you got") == "do_command" and planner.hint("what time do they open") != "do_command"
+assert planner.hint("any new downloaded files") == "files" and planner.hint("what can you download for me") == "downloads_info"
 
 # --- VisionClaw's own sentences break no rule ---
 
@@ -197,12 +251,13 @@ for name in os.listdir(EVAL):
 			routing |= {plainWords(item["request"]) for item in json.load(f)["requests"]}
 
 sets = {}
-for name in ("answers", "answers-held"):
+# The development set, and the held-out sets, each written before anything was run on it.
+for name in ("answers", "answers-held", "answers-held2", "answers-held3"):
 	with open(os.path.join(EVAL, name + ".json"), encoding="utf-8") as f:
 		data = json.load(f)
 	assert "before anything was run" in data["about"], name
 	sets[name] = data["requests"]
-	assert len(data["requests"]) >= 30, name
+	assert len(data["requests"]) >= 14, name
 	for entry in data["requests"]:
 		assert set(entry) <= {"request", "expect", "says", "never", "facts"}, entry
 		assert entry.get("says") or entry.get("never"), entry
@@ -217,7 +272,9 @@ for name in ("answers", "answers-held"):
 		assert words not in tuned, f"{name}: \"{entry['request']}\" is a request VisionClaw was tuned on"
 		assert words not in routing, f"{name}: \"{entry['request']}\" is in a set that measures choosing the job"
 	assert len({plainWords(e["request"]) for e in data["requests"]}) == len(data["requests"]), name
-assert not {plainWords(e["request"]) for e in sets["answers"]} & {plainWords(e["request"]) for e in sets["answers-held"]}
+# No request is in two of them.
+every = [plainWords(e["request"]) for entries in sets.values() for e in entries]
+assert len(every) == len(set(every))
 
 # --- Whole requests that plain code decides, without a model ---
 

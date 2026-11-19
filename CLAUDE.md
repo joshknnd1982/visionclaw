@@ -928,12 +928,36 @@ keyboard and speech alone.
     groups of words of which the answer must have one each, and `never`, words it must not have ("Paris" where nothing
     that was looked up names it). `tests/eval/answers.json` is the development set and `answers-held.json` the
     held-out one, written together before anything was run on either; never write a rule from the held-out set's
-    misses. A stand-in whose facts change needs the sets' words checked again.
+    misses. A stand-in whose facts change needs the sets' words checked again. `answers-held.json` is spent (1.15.3);
+    `answers-held2.json`, written before the fixes of 1.16.1 were made, measured them and is spent too, and so is
+    `answers-held3.json` (exact facts); write a new held-out set before measuring the next change.
   - **What plain code can correct in a model's answer, it corrects** (`orchestrator._answer`): a key spelled out is
     written as NVDA writes it (`llm.nvdaKeys`: "NVDA plus t" is "NVDA+t"), and words of the model's question are left
     out or said as "what was looked up" (`llm.unframed`). Measured on 2026-11-19 with Qwen3.5 4B for both jobs: the
     development set 25 to 27 of 32, the held-out set 23 to 26 of 30 on its first run, none worse; that held-out set
     is spent for these two.
+  - **A key that nothing looked up names is not said** (`llm.keysNotFound`): where the model's words name a key with
+    a modifier that is in neither the request nor what was looked up, or "the ... key" with a name no keyboard has
+    and nothing found has ("the Jump key"), the answer is given in the words that were found (`_quoted`), as for the
+    very smallest models, and the log says why. A blind user would press it. Where the answer is spoken while it is
+    written, the check runs on each sentence before it is said (`_Spoken._piece`): that sentence and every one after
+    it are not said, and the words that were found are.
+  - **An answer that copies what was looked up is asked for with the engine's setting against repeating off**
+    (`LLM.text(exact=True)`, `llm.EXACT`). DRY (`engine.ANTI_LOOP`) also counts the words of the question, so it pushed
+    the model off every word it copied: "within 30 for a full refund", "from nine to", "Windows 11 24 H2, build 26
+    100". Measured on 2026-11-19 with Qwen3.5 4B: a third held-out set of exact facts (`answers-held3.json`, written
+    before the change) 6 to 8 of 14, the development set 29 to 31 of 32, the second held-out set 26 to 27 of 30, none
+    worse. A sentence said twice is still left out, and a model stuck repeating still stopped (`engine.RepeatGuard`).
+    Give `exact=True` to any new call whose answer copies looked-up names, numbers or keys.
+- **A question about what a key does is looked up, and nothing is pressed** (`planner._KEY_QUESTION`, `decided`): "what
+  happens when I press ..." is decided by plain code before any model, and stands in `_HINTS` before every hint that
+  "press" sets off. In 1.15.3 "what happens when I press nvda f12" was put to the user, and the first way pressed F12.
+  "What would happen if I hit space on this" stays about_focus.
+- **On a web page, a question about what the page says is read from the page** (`planner.asksPage`,
+  `decided(facts=)`): the user is on a web page (`router.WEB`), the words are a question, point at the page or its
+  owner ("here", "this shop", "the site", "they"), name nothing of NVDA, keys or a control of the page, and fit no
+  other job. In 1.15.3 "whats the refund policy here" and "when is this shop open" were looked up in NVDA's help.
+  Keep it narrow: a question with no such word stays with the model.
 - **The model's choice is questioned only where the words point clearly elsewhere** (`planner.challenger`,
   `strongly`, `_WEAK`). Of nine questions to the user on the first set, the model had been right in six: one word
   ("shortcut", "headings", "menu") had set off a pattern for an action. So the model's choice stands where a pattern

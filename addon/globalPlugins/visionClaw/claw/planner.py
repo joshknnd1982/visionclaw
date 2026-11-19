@@ -903,7 +903,9 @@ _HINTS = (
 		r"|\bwhich of my add-?ons\b|\b(use|using|with) (an|my|one of my|any of my) add-?ons?\b"),
 	("addon_question", r"\b(what|how|which|tell me|explain|help|does|is)\b.*\b(the|my) [\w .-]{0,40}add-?on\b(?!s)"
 		r"|\b(about|use|using) (the|my) [\w .-]{0,40}add-?on\b(?!s)"),
-	("nvda_info", r"\b(which|what|list|show|tell me|do i have)\b.*\b(synthesi[sz]ers?|synths?|voices?|braille|drivers?|add-?ons?|version)\b"),
+	# "How many cells has my braille display got" asks NVDA what it has; before 1.16.1 it was taken as a setting
+	# (tests/eval_answers.py, 2026-11-19).
+	("nvda_info", r"\b(which|what|list|show|tell me|do i have|how many|how big)\b.*\b(synthesi[sz]ers?|synths?|voices?|braille|drivers?|add-?ons?|version)\b"),
 	# VisionClaw's own models. After nvda_info, so that the model of a braille display stays there; and not for
 	# a model that is shown in a picture or named on a page.
 	("visionclaw_models", r"^(?!.*\b(picture|image|photo|screen|window|page|site|article|car|phone|printer)\b)(?=.*("
@@ -917,6 +919,8 @@ _HINTS = (
 	("do_command", _MODE_SWITCH),
 	("window", computer.aboutWindow),
 	("explain_keys", r"how (do|can|would|to) |what (key|keys|command|shortcut)|which (key|keys|command)|shortcut for"),
+	# What a key does, asked: looked up, and never pressed or clicked (decided). Before every hint that press sets off.
+	("nvda_question", lambda part: bool(_KEY_QUESTION.match(computer.own(part)))),
 	("keyboard_mouse", r"\bpointer mode\b|\bmouse (mode|keys)\b|\b(keyboard|arrow keys?)\b.*\b(mouse|pointer)\b"
 		r"|\b(mouse|pointer)\b.*\b(keyboard|arrow keys?)\b|\bkeyboard[- ](navigable|accessible)\b"),
 	# A line or shape drawn with the button down. Before the drag and scroll hints.
@@ -952,6 +956,7 @@ _HINTS = (
 	("object_facts", _OBJECT_FACTS),
 	("do_command", r"\b(read|say|speak|tell me|report)\b.*\b(title|time|date|battery|clipboard|status|focus(ed)?)\b|say all|start reading"
 		r"|\b(give|get|tell|check|what('s| is| are))\b.*\b(time|date|battery)\b|\bwhat (time|day|date) is it\b"
+		r"|^\s*what (time|day|date) (have|has) (we|you|i)( got)?\s*[?.!]?\s*$"
 		r"|\bwhat('s| is) (on|in) (the |my )?clipboard\b"
 		r"|\bhow (much|full|low|empty) (is )?(the |my )?(battery|power|charge)\b|\bbattery (level|left|status|charge)\b"),
 	# What a game or a drawn window shows in a grid or a panel is looked at, and its text read with it.
@@ -1011,6 +1016,36 @@ _INSIDE = ("click", "set_control")
 _ONLY_ASKS = re.compile(
 	r"^\s*(please\s+)?(tell me|say|read|what|which|who|how many|how much|is there|are there|do i have|does it|"
 	r"summari[sz]e|count|list|check)\b", re.IGNORECASE)
+# A question about what the web page in front says: its shop or company, "here", "they". Where the user is on a web
+# page and the words fit no other job, it is read from the page. Measured with Qwen3.5 4B on 2026-11-19
+# (tests/eval_answers.py): "whats the refund policy here" and "when is this shop open" were looked up in NVDA's own
+# help, and "do they take returns" was answered from a picture of the screen. A question about NVDA, a key or a
+# control of the page is no question about what the page says.
+_PAGE_QUESTION = re.compile(
+	r"^\s*(?:please\s+)?(?:tell me|what|what's|whats|which|who|when|where|how (?:much|many|long|late|early|old)|is|are|do|does|"
+	r"did|can|could|will|would|any|have|has)\b", re.IGNORECASE)
+_THE_PAGE = re.compile(
+	r"\b(here|this (?:web ?page|page|web ?site|site|shop|store|company|business|article|post|product|restaurant|hotel)|"
+	r"the (?:web ?site|site|shop|store|company|business)|they|their|them)\b", re.IGNORECASE)
+_NOT_THE_PAGE = re.compile(
+	r"\b(nvda|visionclaw|keys?|keyboard|shortcuts?|hot ?keys?|press\w*|braille|synth\w*|voices?|speech|screen reader|"
+	r"focus\w*|cursor|buttons?|links?|fields?|boxe?s?|headings?|controls?|landmarks?|tabs?|windows?|mouse)\b", re.IGNORECASE)
+
+
+def asksPage(part):
+	"""Whether a part asks what the web page in front says, about its shop, company or "here". Only used where the user
+	is on a web page and the words fit no other job (decided)."""
+	own = computer.own(part)
+	return bool(_PAGE_QUESTION.match(own) and _THE_PAGE.search(own) and not _NOT_THE_PAGE.search(own))
+
+
+# A question about what a key does: answered from NVDA's help and the program, and nothing is pressed. Measured with
+# Qwen3.5 4B on 2026-11-19 (tests/eval_answers.py): "what happens when I press nvda f12" was put to the user, and
+# the first of the two ways pressed F12. "What would happen if I hit space on this" is about the control (about_focus,
+# before it in _HINTS).
+_KEY_QUESTION = re.compile(
+	r"^\s*(?:please\s+)?(?:tell me\s+)?(?:what|what's|whats)\s+(?:happens|will happen|would happen|is going to happen)\s+"
+	r"(?:when|if)\s+(?:i|you|we)\s+(?:press|hit|push|type)\b", re.IGNORECASE)
 
 
 # A question about how something is done or which key does it, at the start of a sentence. It is answered with the
@@ -1439,13 +1474,21 @@ def hinted(part, before=None):
 	return found
 
 
-def decided(part, registry, before=None):
-	"""The recipe for a part whose words can hardly mean anything else, or None: then no model is asked."""
+def decided(part, registry, before=None, facts=None):
+	"""The recipe for a part whose words can hardly mean anything else, or None: then no model is asked. facts: where
+	the user is, for the router; unknown decides nothing."""
 	guess = hint(part, before)
 	if guess in available(registry) and (guess in _SURE or (guess == "open_thing" and computer.opensPlace(part))):
 		return guess
 	if guess == "do_command" and guess in available(registry) and re.search(_MODE_SWITCH, part.lower()):
 		return guess
+	# A question about what a key does is looked up; a model's choice could press the key.
+	if guess == "nvda_question" and guess in available(registry) and _KEY_QUESTION.match(computer.own(part)):
+		return guess
+	# On a web page, a question about what the page says, which fits no other job, is read from the page.
+	if (guess in (OTHER, "nvda_question") and (facts or {}).get(router.WEB) and "web_page" in available(registry)
+			and asksPage(part)):
+		return "web_page"
 	# Right after a web page was opened, a part that only asks something asks it of that page. Measured with
 	# Qwen3.5 9B on 2026-11-18: asked to choose for "tell me how many emails I have" after "go to gmail.com", it
 	# chose to describe the screen, twice, and the user had to decide.
@@ -1522,7 +1565,7 @@ def classify(llm, role, part, context, registry, note="", before=None, facts=Non
 	guess = hint(part, before)
 	if guess not in recipes:
 		guess = OTHER
-	sure = decided(part, registry, before)
+	sure = decided(part, registry, before, facts)
 	if sure is not None:
 		return sure
 	names = offered(part, registry, facts, before, also)
