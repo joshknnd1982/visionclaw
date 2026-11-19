@@ -4,7 +4,8 @@ one program only), claw/followups.py (a request that follows the one before it),
 model fits what you want to do); and on 2026-11-19 from claw/understand.py, wordtools.py, claw/worksheet.py,
 claw/codeplan.py and claw/pictures.py (how words are understood, your own words, the work sheet, an add-on written
 piece by piece, questions about a picture) and claw/busy.py (status updates while VisionClaw takes long), and claw/modelpick.py,
-claw/corrections.py and claw/llm.py (picking the model for each job, a correction kept, votes). When the code
+claw/corrections.py and claw/llm.py (picking the model for each job, a correction kept, votes), and claw/focus.py and
+claw/consensus.py (the control you are on, and choosing without a question between ways that only look). When the code
 changes, read it again and bring these up to date; do not write them from memory. Each section is short on
 purpose: one section is one answer, and it is given to the user word for word by the smallest models.
 Nothing may stand between this comment and the first heading but the title, or it becomes a section. -->
@@ -114,3 +115,12 @@ own words. To undo it, say forget the word, and the words.
 ## Small models asked more than once, votes, why a small model answers the same question several times
 A small model that chooses among a few fixed answers is asked three times, and the answer most of them gave is
 taken. It makes small models a little steadier and costs a little time. Larger models are asked once.
+
+## Asking about the focused control, the control I am on, what this button does, whether it is checked
+Ask what is the focused control, what does this button do, is this checkbox checked, or what is the navigator object
+on. VisionClaw answers from what NVDA knows: its kind and name, its state, its value, its shortcut key and how it is
+used, and NVDA's own key for next time. A name or a purpose it reads from a picture is said to be a guess.
+
+## When VisionClaw is not sure what you mean, and why it does not ask you every time
+When two ways would both only look and change nothing, VisionClaw does not ask you which: it tries one, and the
+other if the first finds nothing, and says so. It still asks first when one of the ways would change something.

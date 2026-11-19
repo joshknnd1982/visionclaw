@@ -12,7 +12,7 @@
 import re
 
 from . import computer, controls, dates, debuglog, direct, gamepad, guide, memories, partners, places, pointer, policy, profiles, router, touch, understand
-from . import docformat, humancheck, images, paper, seats, shopping, wizard
+from . import docformat, focus, humancheck, images, paper, seats, shopping, wizard
 from .llm import LLMError, clip
 from .task import Step
 from .tools import ANSWER
@@ -314,6 +314,13 @@ RECIPES = {
 		"say where you are",
 		"say which program, window and control the user is in",
 		("focus_info",)),
+	# Questions about the control the user is on, read by plain code from the words (claw/focus.py) and answered from
+	# NVDA's own facts: "what is the focused control", "what does this button do", "is this checkbox checked".
+	"about_focus": (
+		"tell you about the control you are on",
+		"say what the focused control, the item the user is on, the navigator object or what is under the mouse is: "
+		"its kind and name, what it does, whether it is checked, pressed or expanded, its value and its keys",
+		("about_focus",)),
 	"object_facts": (
 		"say what NVDA knows about a control",
 		"give the technical facts of one control or window on the screen, for the focused control, the navigator "
@@ -580,6 +587,23 @@ def _codeName(part):
 		re.search(r"\b(do|does|did|return|returns|mean|means|code|source|call|calls|function|method|work|works)\b", text))
 
 
+# Every fact NVDA has about one object, or a technical one: object_facts, before a plain question about the control
+# the user is on (about_focus).
+_OBJECT_FACTS = (
+	r"\b(properties|property|attributes?|facts|details|everything|all)\b.*\b(about|of|on)\b.*"
+	r"\b(control|object|button|element|field|focus)\b"
+	r"|\b(window class|class name|control id|window handle|process id|automation id|role|states|coordinates)\b"
+	r".*\b(of|for)\b.*\b(this|the|focused|current|navigator|control|object|button|window)\b"
+	r"|\bwhat does nvda know about\b")
+
+
+# NVDA's focus mode and browse mode switched now, with NVDA's own command. A wish about how the switch sounds is a
+# setting. Sure (decided): asked to choose, Qwen3.5 4B sent "go into focus mode please" to the settings.
+_MODE_SWITCH = (
+	r"^\W*(?:please\s+)?(?:can you\s+|could you\s+)?(?:switch|go|change|toggle|flip|put me|get me)\b.{0,20}"
+	r"\b(?:focus|browse|forms?) mode\b(?!.*\b(?:say|saying|says|announc\w*|beep\w*|sound\w*|speak\w*|when|whenever|always)\b)")
+
+
 # Words that point to a recipe. Checked in this order; the first that matches is the hint given to the model,
 # and the choice when the model fails.
 _HINTS = (
@@ -593,6 +617,9 @@ _HINTS = (
 	("pick_seat", lambda part: seats.seatWish(part) is not None),
 	("pick_option", lambda part: shopping.optionWish(part) is not None and not guide.asks(part)),
 	("look_picture", lambda part: images.meant(part) is not None),
+	# A question about the control the user is on: what it is, what it does, its state, its keys (claw/focus.py).
+	# Asked on 2026-11-19 after "tell me about the focused control" set off the pattern for NVDA's commands below.
+	("about_focus", lambda part: focus.wish(part) is not None and not re.search(_OBJECT_FACTS, part.lower())),
 	# A field of a form that is marked only by a red border: what is stopping the form is found, and the reading
 	# position is put there (pagetools measures the picture where the page tells NVDA nothing).
 	("form_trouble", r"\b(fields?|box(es)?|forms?)\b.{0,60}\b(red (border|outline|box|line|frame)|(outlined|highlighted|marked|circled) in red)\b"
@@ -677,8 +704,9 @@ _HINTS = (
 		r"|\b(list|show|open|read|see)\b.{0,30}\bmemor(y|ies)\b"),
 	# "Forget everything you remember" forgets; "don't forget that ..." keeps.
 	("forget_memory", r"^(?!.*\b(don'?t|do not) forget\b).*\bforget\b|\b(delete|remove|erase|clear)\b.*\bmemor(y|ies)\b"),
-	("remember", r"\b(remember|memori[sz]e|don'?t forget|do not forget|keep in mind|bear in mind|"
-		r"(make|take) a note that|note that)\b"
+	# "Remember me" on a form is the name of a box, not something to keep.
+	("remember", r"\b(remember(?! me (box|check ?box|tick ?box|option|button|field|switch|toggle)\b)|memori[sz]e|"
+		r"don'?t forget|do not forget|keep in mind|bear in mind|(make|take) a note that|note that)\b"
 		# Only a statement and nothing more: "I'm new to NVDA. How do I ...?" is a question, and what it says
 		# about the user is kept after it is answered (orchestrator._keep).
 		r"|^\s*(please )?(call me|my name is|i am new to|i'm new to)\b[^?.!;]*[.!]?\s*$"),
@@ -874,6 +902,9 @@ _HINTS = (
 		r"|\bwhat (ai|a\.i\.) (is|are)\b|\bwhich (ai|a\.i\.)\b))"),
 	("files", computer.aboutFiles),
 	("computer_info", computer.aboutComputer),
+	# NVDA's focus mode and browse mode are switched with NVDA's own command: "switch to focus mode" is no window
+	# (tests/eval/requests5.json, 2026-11-19). A wish about how the switch sounds stays a setting.
+	("do_command", _MODE_SWITCH),
 	("window", computer.aboutWindow),
 	("explain_keys", r"how (do|can|would|to) |what (key|keys|command|shortcut)|which (key|keys|command)|shortcut for"),
 	("keyboard_mouse", r"\bpointer mode\b|\bmouse (mode|keys)\b|\b(keyboard|arrow keys?)\b.*\b(mouse|pointer)\b"
@@ -908,11 +939,7 @@ _HINTS = (
 	("type_text", r"^\W*(please\s+)?(can you\s+|could you\s+)?(type|enter)\b|\b(type|write)\b.*\b(in|into)\b"
 		r"|^\W*(please\s+)?(can you\s+|could you\s+)?write (?!an? (add-?on|script|skill|note)\b)"),
 	# The facts NVDA holds about one object. Kept narrow: "report the navigator object" is an NVDA command.
-	("object_facts", r"\b(properties|property|attributes?|facts|details|everything|all)\b.*\b(about|of|on)\b.*"
-		r"\b(control|object|button|element|field|focus)\b"
-		r"|\b(window class|class name|control id|window handle|process id|automation id|role|states|coordinates)\b"
-		r".*\b(of|for)\b.*\b(this|the|focused|current|navigator|control|object|button|window)\b"
-		r"|\bwhat does nvda know about\b"),
+	("object_facts", _OBJECT_FACTS),
 	("do_command", r"\b(read|say|speak|tell me|report)\b.*\b(title|time|date|battery|clipboard|status|focus(ed)?)\b|say all|start reading"
 		r"|\b(give|get|tell|check|what('s| is| are))\b.*\b(time|date|battery)\b|\bwhat (time|day|date) is it\b"
 		r"|\bwhat('s| is) (on|in) (the |my )?clipboard\b"
@@ -1074,6 +1101,32 @@ def challenger(part, choice, before=None):
 	return guess
 
 
+def onlyLooks(recipe, registry):
+	"""Whether every step of a recipe only finds something out and changes nothing. Between two such ways the user is
+	not asked to choose: one is tried, and the other where the first does not answer (consensus, orchestrator)."""
+	if recipe not in RECIPES:
+		return False
+	try:
+		tools = [registry.get(name) for name in RECIPES[recipe][2]]
+	except KeyError:
+		return False
+	return bool(tools) and all(tool.looks and not tool.changes for tool in tools)
+
+
+# Ways that answer from a picture, which a model reads; every other way that looks answers from what NVDA, the program
+# or Windows says, which is certain.
+_PICTURE_WAYS = ("describe", "look_picture")
+
+
+def firstWay(chosen, words):
+	"""Of two ways that only look, (the one tried first, the one tried when it does not answer): the model's choice
+	first, since where the user was asked the model had been right more often (2026-11-18, 6 of 9); but a picture comes
+	after a way that reads NVDA's or Windows' own facts, which are certain where a picture is a model's reading."""
+	if chosen in _PICTURE_WAYS and words not in _PICTURE_WAYS:
+		return words, chosen
+	return chosen, words
+
+
 def label(recipe):
 	"""A recipe in a few words, for telling the user."""
 	return RECIPES[recipe][0] if recipe in RECIPES else "work out the steps itself"
@@ -1118,11 +1171,15 @@ _SUBORDINATE = re.compile(
 _QUESTION = re.compile(r"^\s*(what|which|who|where|when|how|is|are|do|does|can|could|will|should)\b", re.IGNORECASE)
 _REPORTS = re.compile(r"^\s*(?:please\s+)?(tell|say|read|describe|report|list|summari[sz]e|count)\b", re.IGNORECASE)
 # What only looks: a report joined to it by "and" is about what was looked at, and stays with it.
-_LOOKS = ("read_place", "describe", "read_text", "where_am_i", "check_access", "page_outline", "explore_page", "form_trouble", "web_page", "nvda_question", "explain_keys",
+_LOOKS = ("read_place", "describe", "read_text", "where_am_i", "about_focus", "check_access", "page_outline", "explore_page", "form_trouble", "web_page", "nvda_question", "explain_keys",
 	"look_picture", "check_layout")
 # Recipes whose words are the user's own text, which may hold commas and "and" of its own.
 _WHOLE = ("learn_app", "write_addon", "add_skill", "add_fix", "work_through", "teach_words", "step_through", "format_document", "pick_seat",
-	"human_check", "look_picture")
+	"human_check", "look_picture",
+	# One question about the control the user is on, in several clauses: "what's the focused control and what does it
+	# do" was split by the model and "what does it do" looked up alone (tests/eval/requests5.json, 2026-11-19).
+	# claw/focus.py takes no request that also asks for something to be done.
+	"about_focus")
 # Recipes that are kept whole where plain rules find nothing to split: their tools read the whole of what was said.
 # Where plain rules do split ("click the Medium size swatch, select the dark blue colour option"), each part stands.
 _WHOLE_UNSPLIT = ("fill_blank", "pick_option", "check_layout", "form_trouble")
@@ -1377,6 +1434,8 @@ def decided(part, registry, before=None):
 	guess = hint(part, before)
 	if guess in available(registry) and (guess in _SURE or (guess == "open_thing" and computer.opensPlace(part))):
 		return guess
+	if guess == "do_command" and guess in available(registry) and re.search(_MODE_SWITCH, part.lower()):
+		return guess
 	# Right after a web page was opened, a part that only asks something asks it of that page. Measured with
 	# Qwen3.5 9B on 2026-11-18: asked to choose for "tell me how many emails I have" after "go to gmail.com", it
 	# chose to describe the screen, twice, and the user had to decide.
@@ -1493,13 +1552,22 @@ _NEEDS = {
 	# The jobs of docs/PLAN-ten-scenarios.md: each is offered only where its own function finds it in the words.
 	"step_through": wizard.wish, "fill_blank": paper.wish, "format_document": docformat.wish,
 	"check_layout": docformat.layoutWish, "human_check": lambda part: humancheck.about(part) or None, "pick_seat": seats.seatWish,
-	"pick_option": lambda part: None if guide.asks(part) else shopping.optionWish(part), "look_picture": images.meant}
+	"pick_option": lambda part: None if guide.asks(part) else shopping.optionWish(part), "look_picture": images.meant,
+	"about_focus": focus.wish}
 # Recipes the words point to that can hardly mean anything else: locking and shutting down, the Recycle Bin, the
 # computer's own volume. Where the words point to one of them, it is taken, whatever a model chose. Each of
 # their tools asks the user before it changes anything.
 _SURE = ("power", "windows_part", "read_place", "empty_bin", "recycle_bin", "system_volume", "file_task", "pick_date", "work_through",
 	"teach_words", "step_through", "fill_blank", "format_document", "check_layout", "human_check", "pick_seat", "pick_option",
-	"look_picture")
+	"look_picture", "about_focus")
+
+
+# Words that only ask something, at the start: a question, or "tell me". Asked of nothing on the screen and fitting no
+# job, they are looked up (fitted).
+_ASKED = re.compile(
+	rf"^\W*{computer._POLITE}(?:tell me|what|which|who|whose|when|where|why|how|"
+	r"(?:is|are|was|were|do|does|did)\s+(?:i|you|it|this|that|these|those|there|the|my|we|they|he|she|any|a|an)\b)\b",
+	re.IGNORECASE)
 
 
 def fitted(choice, part, guess):
@@ -1509,6 +1577,11 @@ def fitted(choice, part, guess):
 	needs = _NEEDS.get(choice)
 	if needs is not None and needs(part) is None and guess != choice:
 		return guess
+	# A question the model finds no job for is looked up, not planned freely: a small model plans a question badly, and
+	# a free plan for "what's 15 times 12" clicked a search result and ended in a question to the user (Qwen3.5 4B,
+	# tests/eval/requests6.json, 2026-11-19). Looking up changes nothing.
+	if choice == OTHER and (guess == "nvda_question" or _ASKED.match(computer.own(part))):
+		return "nvda_question"
 	# The model found nothing that fits, and the words point to a job whose tool reads everything it needs from
 	# them, and finds it there: "turn around in the game". Measured on the held-out set on 2026-11-18.
 	if choice == OTHER and guess in _NEEDS and _NEEDS[guess](part) is not None:

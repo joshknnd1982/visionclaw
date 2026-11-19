@@ -160,25 +160,33 @@ assert any("The user's words point to: explain_keys (tell you which keys to use)
 assert said(task, "After checking against your words, the model chose to tell you which keys to use.")
 assert said(task, "The model corrected its plan", taskModule.STATE)
 
-# 5b. It keeps its own choice: then the user decides, as when two models differ. The words' reading comes
-#     first, and nothing is said of two models.
-task, state, asked, rt = run("How do I read the window title?", choices=["describe"], userChoices=[0])
-assert task.state == taskModule.DONE and [s.tool for s in task.steps] == ["look_up", "answer"], task.log
-question, options = asked[0]
-assert question == "VisionClaw is not sure what you mean by \"How do I read the window title?\". What should it do?"
-assert options == ["Tell you which keys to use.", "Look at the screen and describe it.", "Cancel. I will ask in a different way."]
+# 5b. It keeps its own choice, and both ways only look: the user is not asked (the owner, 2026-11-19: "you must make
+#     visionclaw more confident"). What NVDA says comes before a picture; the picture is kept for when it does not
+#     answer. Nothing is said of two models.
+task, state, asked, rt = run("How do I read the window title?", choices=["describe"])
+assert task.state == taskModule.DONE and not asked and [s.tool for s in task.steps] == ["look_up", "answer"], task.log
 assert said(task, "Your words could also mean: tell you which keys to use. The model looked again and still chose to "
 	"look at the screen and describe it.")
+assert said(task, "Both ways only look and change nothing, so VisionClaw does not ask: it will tell you which keys to use, "
+	"and if that does not answer it, look at the screen and describe it.")
+assert [getattr(s, "otherWay", None) for s in task.steps if s.tool != "answer"] == ["describe"]
+
+# 5c. Where one of the two ways changes something, the user decides, as when two models differ. The words' reading
+#     comes first.
+task, state, asked, rt = run("Make NVDA talk faster", choices=["describe"], forms=[{"words": "speech rate"}, GOOD],
+	userChoices=[0])
+question, options = asked[0]
+assert question == "VisionClaw is not sure what you mean by \"Make NVDA talk faster\". What should it do?"
+assert options == ["Change an NVDA setting.", "Look at the screen and describe it.", "Cancel. I will ask in a different way."]
 assert said(task, "Not sure what you mean. Waiting for your choice.", taskModule.STATE)
 assert said(task, "Using the plan you chose", taskModule.STATE)
+assert task.state == taskModule.DONE and state["rate"] == 70, task.log
 
-# 5c. The user takes the model's choice instead.
-task, state, asked, rt = run("How do I read the window title?", choices=["describe"], userChoices=[1])
+# 5d. The user takes the model's choice instead, or cancels: then nothing is done.
+task, state, asked, rt = run("Make NVDA talk faster", choices=["describe"], userChoices=[1])
 assert task.state == taskModule.DONE and [s.tool for s in task.steps] == ["look", "answer"] and "looked" in state
-
-# 5d. The user cancels: nothing is done.
-task, state, asked, rt = run("How do I read the window title?", choices=["describe"], userChoices=[2])
-assert task.state == taskModule.CANCELLED and "looked" not in state and len(asked) == 1
+task, state, asked, rt = run("Make NVDA talk faster", choices=["describe"], userChoices=[2])
+assert task.state == taskModule.CANCELLED and "looked" not in state and "rate" not in state and len(asked) == 1
 
 # 5e. Words that point nowhere, or to what the model chose, cost no second question.
 task, state, asked, rt = run("How do I read the window title?", choices=["explain_keys"])

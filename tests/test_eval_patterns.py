@@ -19,13 +19,23 @@ import harness  # noqa: F401
 from visionClaw.claw import planner, understand
 
 HERE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "eval")
-# The first pattern's job, right for at least this many, on 2026-11-19.
-LEAST = {"known": 293, "requests": 120, "requests2": 80, "requests3": 51, "requests4": 29}
+# The first pattern's job, right for at least this many, on 2026-11-19 (the fourth set one more with about_focus, 1.15.0).
+LEAST = {"known": 293, "requests": 120, "requests2": 80, "requests3": 51, "requests4": 30}
 # The same after the words are understood (claw/understand.py), on 2026-11-19. The fourth set was written before the
 # grammar, by the same hand: the grammar took it from 29 to 54 of 60.
-UNDERSTOOD = {"known": 293, "requests": 120, "requests2": 81, "requests3": 52, "requests4": 54}
+UNDERSTOOD = {"known": 293, "requests": 120, "requests2": 81, "requests3": 52, "requests4": 55}
 
 grammar = understand.Grammar(None)
+# Jobs added after a set was written, and the jobs of that time whose answer they give and more. about_focus (1.15.0)
+# says the program, the window and the control the user is on, as where_am_i did, and every fact object_facts gave in
+# plain words: "what control am I on", written for where_am_i, is answered by it.
+LATER = {"about_focus": ("where_am_i", "object_facts")}
+
+
+def fits(job, allowed):
+	return job in allowed or any(old in allowed for old in LATER.get(job, ()))
+
+
 known = json.load(open(os.path.join(HERE, "known.json"), encoding="utf-8"))["jobs"]
 right = [text for job, texts in known.items() for text in texts if planner.hint(text) == job]
 assert len(right) >= LEAST["known"], f"known requests: {len(right)} named rightly, before {LEAST['known']}"
@@ -38,9 +48,9 @@ for name in ("requests", "requests2", "requests3", "requests4"):
 		assert item["request"].lower() not in seen, f"{item['request']!r} is known: an evaluation set must stay unseen"
 		assert all(job in planner.RECIPES for part in item["expect"] for job in part), item
 	one = [item for item in items if len(item["expect"]) == 1]
-	count = sum(planner.hint(item["request"]) in item["expect"][0] for item in one)
+	count = sum(fits(planner.hint(item["request"]), item["expect"][0]) for item in one)
 	assert count >= LEAST[name], f"{name}: {count} named rightly, before {LEAST[name]}"
-	count = sum(planner.hint(grammar.read(item["request"]).text) in item["expect"][0] for item in one)
+	count = sum(fits(planner.hint(grammar.read(item["request"]).text), item["expect"][0]) for item in one)
 	assert count >= UNDERSTOOD[name], f"{name}, understood: {count} named rightly, before {UNDERSTOOD[name]}"
 # A how-question is answered with keys, and a why-question is answered: nothing is done.
 for said, job in (("what's the shortcut to get to the address bar", "explain_keys"), ("how can I jump between headings", "explain_keys"),

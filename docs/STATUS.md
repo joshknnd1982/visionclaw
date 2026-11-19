@@ -2653,6 +2653,92 @@ how often a program gives a label only through LabeledBy, are the first things t
 truly unlabelled"). A name asked for on a labelled control of a web page that has no id or picture file is found again
 in browse mode only while the page stays loaded.
 
+## More confident: the control you are on, and no question between ways that only look (1.15.0, 2026-11-19)
+
+The owner asked VisionClaw what the current focused control was, and it said it was not sure and asked whether to
+look at the screen, run an NVDA command, or cancel. The owner then said: "you must make visionclaw more confident in all kinds of
+all possible situations. use its skills and system prompts as a reference to increase its confidence ... Visionclaw
+must answer all kinds of simple up to complex requests using its AI models with almost no issue. you may need to
+increase the ability of the language parser and orchestrator."
+
+What the log showed (VisionClaw's own log, 2026-11-19, Qwen3.5 4B picked for both jobs): "tell me about the focused
+control." and "tell me about the currently focused button." set off the pattern for NVDA's commands ("tell me ...
+focused"), the model chose to describe the screen twice, and the two were put to the owner as a choice. "what does
+this button do?" went to the look-up, which found the focused control among its passages, but the model that picks a
+line chose none, and the answer was "Nothing that was found answers that". Neither way was the right one.
+
+What was built:
+- `claw/focus.py`: plain code reads whether a request asks about the object the user is on (`wish`), which one (the
+  focus; in browse mode the object at the reading position, walked up from the text inside a link or button; the
+  navigator object; what is under the mouse), and what about it: what it is, what it does, a state asked with yes or
+  no (`stateAsked`, `STATE_WORDS`) or as one of two ("on or off"), its keys, how it looks, everything. Narrow on
+  purpose: anything to be done, a how-question at the start, focus mode and browse mode, a setting, a technical fact
+  or everything NVDA knows (object_facts), only how it looks (describe), a picture, window or page as a whole, and a
+  question followed by something to do are None.
+- The job `about_focus` (`planner.RECIPES`, first among the hints with the jobs of the ten scenarios, `_SURE`,
+  `_NEEDS`, `_WHOLE`, `_LOOKS`), and the tool `about_focus` in `nvdatools.py` (`_focusObject`, `_focusFacts`): NVDA's
+  facts in plain sentences (`focus.answer`): yes or no first, then kind and name, window and program, the states that
+  say something to a person, value or selected text, place in its list, what it is inside of, its description and
+  shortcut, how it is worked from the keyboard (`focus._USE`, Windows' and NVDA's own keys), and NVDA's own key that
+  says it, read from the running NVDA with the user's own gestures (reportCurrentFocus, navigatorObject_current,
+  moveNavigatorObjectToMouse). A name for an object without one comes from object names (`Namer.known`), else from its
+  picture with object names' question (`naming.question`, `decide`: "probably"); what a pressed thing does, where its
+  description and kind do not say it, is a model's guess (`focus.DOES_SYSTEM`), said as one. The answer is said word
+  for word; no model words it.
+- No question between two ways that only look (`consensus._bothLook`, `planner.onlyLooks`, `firstWay`): where the
+  model and the words, or two models, still differ after looking again and every tool of both ways only looks, one is
+  planned (the model's choice, but a picture after a way that reads NVDA's or Windows' facts) and the other kept as
+  `step.otherWay`. `orchestrator._nextWays` tries it where the first way failed, was skipped, or found nothing
+  (`planning.unanswered`, `lookup.NOTHING`), and `_runSteps` asks nothing when such a step fails. Where one of the two
+  changes something, the user decides as before. A freely written plan that only looks is used without a question.
+- A question the model finds no job for is looked up, never planned freely (`planner.fitted`, `_ASKED`): with Qwen3.5
+  4B a free plan for "what's 15 times 12" clicked a search result and ended in a question about the plan.
+- "Switch to focus mode", "go into focus mode" are NVDA's own command, decided without a model
+  (`planner._MODE_SWITCH`); "is the remember me box ticked" is not something to remember.
+- A section in `claw/knowledge/visionclaw-asking.md` for questions about all this, and a line in the gate of those
+  notes (`lookup._ASKING_NOTES`).
+- The instructions every answer gets (`prompts.SPEAKING`) were not changed: a sentence about answering surely was
+  tried, and the part would have gone over the 700 characters `tests/test_prompts.py` allows for it. What was wrong
+  was the choosing, and plain code now decides it.
+
+How it was measured, with the real Qwen3.5 4B for both jobs (the model VisionClaw picks on the owner's computer,
+`modelPick = auto`), with `tests/eval_routing.py`:
+- Two new evaluation sets in casual words, written before anything was run on them: `tests/eval/requests5.json` (64
+  requests, about half asking about the control the user is on) to write the rules from, and `requests6.json` (60,
+  other words), written after the fifth set's first run and before the rules were tuned, as the held-out set.
+- Fifth set: 34 of 64 right and 4 questions to the user on 1.13.0; 61 of 64 and none now.
+- Sixth set, held out: 35 of 60 right and 2 questions on 1.13.0; 55 of 60 and 3 questions when first run with the new
+  rules; then three small rules were made from its misses (focus mode decided, "remember me" as a box's name, a
+  question looked up instead of a free plan), so the sixth set is spent for those three: 59 of 60 and no questions
+  after them. "go into focus mode please" in it also fell under a rule for "switch to focus mode" written after the
+  sixth set was written (from the fifth set's miss), not after it was run. Write a seventh set before measuring again.
+- The older sets, before and after, the same model: the first set (137): 132 right and 3 questions, the same before
+  and after; its three questions are between running an NVDA command and a way that looks, and running a command can
+  change something, so the user is still asked.
+  Second set (88): 86 right and 1 question before; 85 right and none after, by the old expectations: "say what's
+  focused" (a question before) and "what control am I on" (where_am_i before) now go to about_focus, which answers
+  both, so 87 of 88 counting it where where_am_i was expected. Third set (65): 59 and 1 question, the same. Fourth
+  set (62): 54 and none, the same. The ten scenarios' sets (49 and 30): 47 and 1 question, 30 and none, the same.
+  "Before" is the planning code of 1.13.0 unpacked from git (VC_PLUGIN); 1.14.0 changed no planning.
+- `tests/live_orchestrator.py` with VC_ONLY for the owner's three requests and seven neighbours, the same model: all
+  ten done without a question to the user. The owner's three were answered from NVDA's facts at once ("The focus is
+  on the button "New Game" in the window "Space Trader" of the program spacetrader. It is 1 of 4. Press Space or
+  Enter to press it."), and "How do I bake a cake?", which ended in a question every time with the 9B (2026-11-18),
+  was answered that nothing was found and what was asked.
+- `tests/test_eval_patterns.py`: the known requests stay at 293; the fourth set rose from 29 to 30 (55 understood). A
+  request of an older set written for where_am_i or object_facts and now sent to about_focus counts as right
+  (`LATER`): about_focus says the program, the window and the control as where_am_i did, and every plain fact.
+- `tests/test_focus.py` (new, in `run_all.py`): the owner's own requests from the log, other wordings, the look-alikes
+  it must leave alone, the answers, and whole requests with a scripted model: no question between two looking ways,
+  the other way tried when the first finds nothing or fails, the user still asked where one way changes something.
+  `tests/test_nvda_stub.py`: the tool against stand-ins for NVDA's objects, without a picture and without a model.
+  `tests/test_one_model.py` 5b to 5d now say the new behaviour. All of `tests/run_all.py` passes.
+
+What was not tested: nothing of it has run inside NVDA; the walk is "The control you are on, and fewer questions" in
+`docs/TESTPLAN.md`. Browse mode's reading position, the selected text, the user's gestures for next time and the
+picture-based name and guess were tested only against stand-ins. The guess of what a button does was not measured
+with a real model. `tests/live_orchestrator.py` was run only for the ten requests named above, not in full.
+
 ## Next session
 
 1.12.0's part for small models (the section above): with the owner's yes, walk through "Small models stretched" in

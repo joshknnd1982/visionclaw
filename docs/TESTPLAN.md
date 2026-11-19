@@ -889,5 +889,28 @@ None of these has run inside NVDA. Each is one real run; say what you hear.
       for the field, with no beep and no "probably".
 - [ ] NVDA+Alt+N on a button with its own label (such as X): give it your own name; NVDA says your name from then on.
 
+## The control you are on, and fewer questions (1.15.0)
+- [ ] In a dialog whose Cancel button has the focus (Notepad's Save As): NVDA+Alt+C, "what is the focused control".
+      No question is asked. The answer begins "The focus is on the button "Cancel" in the window "Save As" of the
+      program notepad", says "Press Space or Enter to press it", and ends "Next time, NVDA+Tab says what has the focus."
+- [ ] On a check box: "is this checkbox checked". "Yes." or "No." first, right for the box. Press Space, ask again.
+- [ ] On a button without a description: "what does this button do". What pressing it does, then "A guess from its
+      name and picture, which may be wrong:" and a sentence that fits the button.
+- [ ] On a button that is only an icon and has no name: "what is this button". "It has no name of its own", then a
+      name from its picture with "probably" where it is not sure; after NVDA+Alt+N gave it a name, "you named it".
+- [ ] In browse mode on a web page, on a link: "what is this link". "In browse mode, the reading position is on the
+      link ...", not the document.
+- [ ] Move the navigator object with NVDA's object navigation and ask "what is the navigator object on"; move the
+      mouse and ask "what's under my mouse". Each names what NVDA says there, and its key for next time.
+- [ ] In an edit field with some text selected: "what is this field". The selected text is said.
+- [ ] "describe the button I'm on and what it looks like": the facts, then what its picture shows, said to be a
+      model's reading.
+- [ ] A request whose words point one way while the model chooses another, both only looking ("read the text in this
+      window" where the model chooses to describe): no question; VisionClaw says that both ways only look, tries one,
+      and the other if the first found nothing.
+- [ ] "go into focus mode" on a web page: NVDA's own command runs, with its sound, and nothing is asked.
+- [ ] "tell me a joke" and "what's 15 times 12": no question about a plan; the answer says plainly what was asked
+      and that nothing was found about it.
+
 ## Stopping NVDA
 - [ ] NVDA exits without an error, and no `vcengine.exe` is left running (Task Manager).

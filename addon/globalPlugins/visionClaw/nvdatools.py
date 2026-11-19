@@ -28,7 +28,7 @@ from .vclog import log
 
 from . import computertools, hardtools, mousetools, net, nvdainfo, ocr, placetools, profiletools, webtools
 from .claw import changes, commands, computer, debuglog, drivers, fixes, gamepad, guides, helpfiles, inside, lookup, match, microaddons, offers, pointer, policy, profiles, prompts, training, web
-from .claw import accessnotes, codeplan, guide, hardcase, pictures, places, planning
+from .claw import accessnotes, audit, codeplan, focus, guide, hardcase, naming, pictures, places, planning, working
 from .claw.catalog import CODER, VISION
 from .claw.llm import LLM, clip
 from .claw.memory import score, wordList, words as wordsOf
@@ -1129,6 +1129,89 @@ def failingLine(trace):
 	return f"The failing line is line {number}, in {function}: {code.strip()}"
 
 
+# --- The control the user is on, in plain words (claw/focus.py) ---
+
+def _focusObject(which):
+	"""(the object the user is on, which it is: focus.FOCUS, BROWSE, NAVIGATOR or MOUSE). In browse mode the focus is the
+	document, and the user is on what is at the reading position: the nearest object there that is something to use,
+	not the text inside it. Main thread."""
+	if which == focus.NAVIGATOR:
+		return api.getNavigatorObject(), focus.NAVIGATOR
+	if which == focus.MOUSE:
+		return api.getMouseObject(), focus.MOUSE
+	obj = api.getFocusObject()
+	interceptor = _safe(lambda: obj.treeInterceptor)
+	if interceptor is not None and not _safe(lambda: interceptor.passThrough, True):
+		import textInfos
+		at = _safe(lambda: interceptor.makeTextInfo(textInfos.POSITION_CARET).NVDAObjectAtStart)
+		found = at
+		for _step in range(4):
+			if found is None or not focus.isPlainText(_safe(lambda f=found: f.role.name) or ""):
+				break
+			found = _safe(lambda f=found: f.parent)
+		chosen = found if found is not None and _safe(lambda: found.role.name) != "DOCUMENT" else at
+		if chosen is not None:
+			return chosen, focus.BROWSE
+	return obj, focus.FOCUS
+
+
+def _focusFacts(which, namer=None):
+	"""(the object, which it is, its facts as focus.answer takes them). namer: object names (nametools.Namer), for a
+	name saved for an object without one. Main thread; never raises for a fact that cannot be read."""
+	obj, which = _focusObject(which)
+	if obj is None:
+		raise ToolError("NVDA has no such object now.")
+	fg = api.getForegroundObject()
+	role = _safe(lambda: obj.role.name) or "UNKNOWN"
+	states = sorted(name for name in (_safe(lambda s=state: s.name) for state in (_safe(lambda: obj.states) or ())) if name)
+
+	def words(value, limit=200):
+		return clip(" ".join(str(value or "").split()), limit).replace(" ...[cut]", "...")
+
+	facts = {
+		"name": words(_safe(lambda: obj.name)), "role": role,
+		"roleText": words(_safe(lambda: obj.role.displayString)) or role.lower(),
+		"value": words(_safe(lambda: obj.value), 160), "description": words(_safe(lambda: obj.description)),
+		"states": states, "shortcut": words(_safe(lambda: obj.keyboardShortcut), 40),
+		"app": words(_safe(lambda: obj.appModule.appName) or _safe(lambda: fg.appModule.appName), 60),
+		"title": words(_safe(lambda: fg.name), 80),
+	}
+	place = _safe(lambda: obj.positionInfo) or {}
+	if place.get("indexInGroup"):
+		facts["position"] = {"index": place["indexInGroup"], "count": place.get("similarItemsInGroup") or 0,
+			"level": place.get("level") or 0}
+	parent = _safe(lambda: obj.parent)
+	if parent is not None and parent != fg:
+		kind = words(_safe(lambda: parent.role.displayString), 40)
+		name = words(_safe(lambda: parent.name), 80)
+		if kind and name and _safe(lambda: parent.role.name) not in ("WINDOW", "PANE", "UNKNOWN"):
+			facts["inside"] = f"{kind} \"{name}\""
+	if which in (focus.FOCUS, focus.BROWSE) and ("EDITABLE" in states or role in ("EDITABLETEXT", "DOCUMENT", "TERMINAL")) \
+			and role != "PASSWORDEDIT":
+		import textInfos
+		holder = _safe(lambda: obj.treeInterceptor) if which == focus.BROWSE else obj
+		facts["selection"] = words(_safe(lambda: holder.makeTextInfo(textInfos.POSITION_SELECTION).text), 200)
+	location = _safe(lambda: obj.location)
+	if location and location.width > 0 and location.height > 0:
+		facts["box"] = (location.left, location.top, location.left + location.width, location.top + location.height)
+	# NVDA's own key that says this, read from the running NVDA with the user's own changes, for next time.
+	script = focus.NEXT_TIME_SCRIPTS.get(which)
+	if script:
+		found = [c for c in (_safe(_commands, []) or []) if c.scriptName == script and c.keys]
+		if found:
+			facts["nextTime"] = found[0].keys[0]
+	# A name for an object without one: what the user or the model gave it before (object names, nametools.py).
+	if not facts["name"] or naming.vague(facts["name"], role):
+		entry = _safe(lambda: namer.known(obj)) if namer is not None else None
+		if entry and entry.get("name"):
+			sure = entry.get("by") in (naming.YOU, naming.PERSON) or bool(entry.get("sure"))
+			facts["_named"] = (entry["name"], sure, focus.BY_YOU if entry.get("by") == naming.YOU else focus.SAVED)
+		if facts["name"] and naming.vague(facts["name"], role):
+			facts["vagueName"] = facts["name"]
+			facts["name"] = ""
+	return obj, which, facts
+
+
 def nvdaHas(name):
 	"""Whether the running NVDA has a dotted name, like api.getFocusObject: True, False, or None when that
 	cannot be told. Looking never changes anything: only modules that are loaded already are asked, nothing is
@@ -1375,6 +1458,97 @@ def build(plugin):
 	# Where the user is.
 	add("focus_info", "say which program, window and control the user is in", lambda task: onMain(screen.situation),
 		looks=True, title="Checking where you are", tell=VERBATIM)
+
+	# The control the user is on (claw/focus.py): NVDA's own facts in plain words, with how it is worked; a model only
+	# for a name it lacks and for what a button probably does where nothing says it, each said to be a guess.
+	def aboutFocus(task, asked):
+		want = focus.wish(asked) or {"object": focus.objectOf(asked) or focus.FOCUS, "asks": {focus.WHAT}, "state": None}
+		obj, which, facts = onMain(_focusFacts, want["object"], getattr(plugin, "namer", None))
+		task.check()
+		named = facts.pop("_named", None)
+		if not facts.get("name"):
+			facts["named"] = named or _nameFromPicture(task, facts)
+		task.check()
+		if focus.needsGuess(facts, want):
+			facts["does"] = _guessDoes(task, facts)
+		if focus.LOOKS in want["asks"]:
+			facts["looks"] = _lookAtFocus(task, facts, asked)
+		facts.pop("box", None)
+		result = focus.answer(facts, want, which)
+		debuglog.detail("focus", f"{which}: {facts!r}")
+		return result
+
+	def _pictureOf(box):
+		"""The picture of a place on the screen, or None where it cannot be taken (the screen curtain, nothing there)."""
+		if not box or box[2] - box[0] < 4 or box[3] - box[1] < 4:
+			return None
+		try:
+			return plugin._grab(box)
+		except Exception:
+			return None
+
+	def _optional(task, what, work):
+		"""A part of the answer a model gives. It only adds: when it cannot be had the facts are said without it."""
+		try:
+			return work()
+		except Exception as e:
+			if task.cancel.is_set():
+				raise
+			debuglog.error("focus", f"{what} could not be had from the model", e)
+			return None
+
+	def _nameFromPicture(task, facts):
+		"""(name, sure, who gave it) for an object without a name, from the model that sees its picture, the way object
+		names asks (claw/naming.py); None when there is no picture or no name came."""
+		role = facts.get("role") or ""
+		image = _pictureOf(naming.pictureBox(role, facts["box"]) if facts.get("box") else None)
+		if image is None:
+			return None
+
+		def work():
+			jpeg = prepareImage(image, config.conf["visionClaw"]["detailSize"])
+			task.emit("talk", "The control has no name, so its picture is looked at for one.")
+			answer = LLM(plugin.runtime, task).json(VISION, prompts.seeing(working.NAME_SYSTEM), naming.question(role),
+				working.NAME_SCHEMA, maxTokens=24, image=jpeg)
+			model = audit.cleanName(answer.get("name") if isinstance(answer, dict) else answer)
+			lines = ocr.recognize(image) if config.conf["visionClaw"].get("useOcr", True) else []
+			read = " ".join(ocr.linesText(lines).split()) if lines else ""
+			# A name the model gives that is itself vague ("Edit field") is no name.
+			name, sure = naming.decide("" if naming.vague(model, role) else model, read, "")
+			return (name, sure, focus.PICTURE) if name else None
+		return _optional(task, "A name from the picture", work)
+
+	def _guessDoes(task, facts):
+		image = _pictureOf(facts.get("box"))
+		if image is None and not facts.get("name"):
+			return None
+
+		def work():
+			jpeg = prepareImage(image, config.conf["visionClaw"]["detailSize"]) if image is not None else None
+			task.emit("talk", "Nothing says what it does, so the model is asked for a guess from its name and picture.")
+			answer = LLM(plugin.runtime, task).json(VISION, prompts.seeing(focus.DOES_SYSTEM), focus.doesQuestion(facts),
+				focus.DOES_SCHEMA, maxTokens=60, image=jpeg)
+			return focus.cleanGuess(answer.get("does") if isinstance(answer, dict) else "", facts) or None
+		return _optional(task, "What it does", work)
+
+	def _lookAtFocus(task, facts, asked):
+		image = _pictureOf(facts.get("box"))
+		if image is None:
+			return None
+
+		def work():
+			prepared = prepareImage(image, config.conf["visionClaw"]["detailSize"])
+			prompt = (
+				f"Look at this picture of one {facts.get('roleText') or 'control'} and answer: {asked} Answer in one or two "
+				f"short sentences. {pictures.rule(pictures.kindOf(asked))} If you cannot see it, say so instead of guessing.")
+			return plugin.runtime.describe(prepared, prompt, 160, cancel=task.cancel, system=prompts.seeing()) or None
+		return _optional(task, "What it looks like", work)
+
+	add("about_focus",
+		"say what the focused control, the item the user is on in browse mode, the navigator object or what is under the "
+		"mouse is: its kind and name, what it does, its state, its value, its keys, and how it is worked",
+		aboutFocus, {"asked": text("what the user asked, in their own words", maxLength=300, auto=True)},
+		looks=True, title="Asking NVDA about the control you are on", tell=VERBATIM)
 
 	# Looking, with the vision model.
 	def placeBox(words):

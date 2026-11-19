@@ -496,6 +496,12 @@ class Orchestrator:
 			step.guide = skillsModule.guide(getattr(task, "skills", ()), step.recipe)
 			task.emit(taskModule.STEP, f"Step {index + 1} of {len(steps)}: {step.title}.")
 			worked = agent.runStep(llm, task, self.registry, request, steps, index, params, self.lead, self.other)
+			if not worked and self._hasOtherWay(task, step):
+				# A way that only looks failed and another way that only looks is kept for this part (consensus._bothLook):
+				# that one is tried (_nextWays), and the user is not asked what to do.
+				task.emit(taskModule.DETAIL, f"That way did not work: {clip(step.result, 200)}")
+				index += 1
+				continue
 			if not worked:
 				choice = self._onFailure(task, step)
 				if choice == RETRY:
@@ -536,8 +542,11 @@ class Orchestrator:
 				break
 			after = task.steps[index + 1] if index + 1 < len(task.steps) else None
 			lastOfPart = after is None or after.tool == ANSWER or after.part != step.part
-			if (not lastOfPart or step.status != taskModule.STEP_DONE or getattr(step, "replaced", False)
-					or not planning.unanswered(step.result)):
+			# The other way kept for this part (consensus._bothLook) is tried where this one failed or found nothing.
+			other = self._hasOtherWay(task, step) and (step.status in (taskModule.STEP_FAILED, taskModule.SKIPPED)
+				or planning.unanswered(step.result) or str(step.result or "").startswith(lookup.NOTHING))
+			if (not lastOfPart or getattr(step, "replaced", False)
+					or not other and (step.status != taskModule.STEP_DONE or not planning.unanswered(step.result))):
 				index += 1
 				continue
 			try:
@@ -545,7 +554,9 @@ class Orchestrator:
 				ofPart = [s for s in task.steps if s.part == step.part and s.tool != ANSWER]
 				tried = list(dict.fromkeys(s.recipe for s in ofPart if s.recipe))
 				way = None
-				if not tool.changes and tool.looks and len(tried) <= planning.MAX_NEXT:
+				if other and step.otherWay in available and step.otherWay not in tried:
+					way = step.otherWay
+				elif not tool.changes and tool.looks and len(tried) <= planning.MAX_NEXT and step.status == taskModule.STEP_DONE:
 					way = planning.nextWay(step.part, tried, available)
 			except Exception as e:
 				debuglog.error("planning", "The next way could not be chosen", e)
@@ -572,6 +583,17 @@ class Orchestrator:
 				for old in ofPart:
 					old.replaced = False
 			index += 1
+
+	def _hasOtherWay(self, task, step):
+		"""Whether another way that only looks is kept for a step's part, and the step itself only looks."""
+		way = getattr(step, "otherWay", None)
+		if not way or way == step.recipe:
+			return False
+		try:
+			tool = self.registry.get(step.tool)
+		except KeyError:
+			return False
+		return tool.looks and not tool.changes and planner.onlyLooks(way, self.registry)
 
 	def _onFailure(self, task, step):
 		task.setState(taskModule.WAITING, f"A step did not work: {step.title}. Waiting for your choice.")

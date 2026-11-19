@@ -88,6 +88,7 @@ HELP = {
 	"controller_mode": "controller mode",
 	"keyboard_mouse": "make this control keyboard navigable",
 	"where_am_i": "what can i do here",
+	"about_focus": "what does this button do",
 	"object_facts": "tell me everything nvda knows about this control",
 	"inside_nvda": "what does the function api.getfocusobject do",
 	"audit_nvda": "do a full audit of nvda",

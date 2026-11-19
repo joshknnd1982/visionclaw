@@ -186,8 +186,10 @@ keyboard and speech alone.
   - **Never arm a stop on NVDA's speech being silenced before speech has begun.** NVDA silences speech at every key
     press (`inputCore.py`, `executeGesture`), so a key pressed while waiting, NVDA+Alt+P included, would throw the
     answer away without a word. A spoken answer arms it at its first piece (`SentenceSpeaker(onFirst=)`).
-- **The user stays in charge.** Models must agree before a task starts; when they do not, the user chooses.
-  Settings changes and new add-ons are confirmed with the user unless they turned confirmations off.
+- **The user stays in charge.** Models must agree before a task starts; when they do not, the user chooses where
+  one of the ways would change something. Between ways that only look, one is tried and then the other, and the user
+  is told (see "Between two ways that only look"). Settings changes and new add-ons are confirmed with the user unless
+  they turned confirmations off.
 - **Generated code is checked before it runs** (`claw/microaddons.py`): it must parse, pass the safety check,
   and be approved by the user. The safety check prevents accidents; it is not a sandbox. Never describe it as one.
 - **Code style:** tabs, camelCase, `# Translators:` comments on every user-visible string, `_()` for
@@ -880,6 +882,39 @@ keyboard and speech alone.
   `strongly`, `_WEAK`). Of nine questions to the user on the first set, the model had been right in six: one word
   ("shortcut", "headings", "menu") had set off a pattern for an action. So the model's choice stands where a pattern
   that is not only about questions points to it too, or where only such a weak pattern points elsewhere.
+- **The control the user is on is answered by plain code from NVDA's facts, without a question** (`claw/focus.py`,
+  the job `about_focus`, `nvdatools._focusFacts`). The owner asked on 2026-11-19 "what is the current focused control",
+  VisionClaw said it was not sure and asked whether to look at the screen or run an NVDA command, and the owner said:
+  "you must make visionclaw more confident in all kinds of all possible situations ... Visionclaw must answer all kinds
+  of simple up to complex requests using its AI models with almost no issue." What follows from it:
+  - **Plain code reads the question** (`focus.wish`): that the user asks about the object they are on, which one (the
+    focus; in browse mode what is at the reading position; the navigator object; what is under the mouse), and what
+    about it (what it is, what it does, a state, its keys, everything). The job is sure (`planner._SURE`), stands with
+    the jobs of the ten scenarios at the top of `_HINTS`, and is kept whole (`_WHOLE`). Kept narrow: anything to be done,
+    a how-question at the start, focus mode and browse mode, a setting, a technical fact or everything NVDA knows (left
+    to object_facts), only how it looks (describe), and a picture, window or page as a whole are None. Add every request
+    it takes wrongly, or misses, to `tests/test_focus.py`.
+  - **The answer is NVDA's facts in plain sentences** (`focus.answer`), starting with the answer: yes or no for a state,
+    then its kind and name, window and program, states said as a person says them, value or selected text, its place,
+    what it is inside of, its description and shortcut, how it is worked from the keyboard (`focus._USE`), and NVDA's
+    own key that says it, read from the running NVDA (`NEXT_TIME_SCRIPTS`), so that a person new to NVDA learns it.
+  - **A model only for what NVDA does not know, said to be a model's**: a name for an object without one, as object
+    names asks (`naming.question`, `naming.decide`: "probably"), after the name the user or VisionClaw saved; and what a
+    thing that is pressed does where neither its description nor its kind says it (`focus.DOES_SYSTEM`), said as "a
+    guess from its name and picture, which may be wrong". Nothing is pressed or changed.
+- **Between two ways that only look, the user is not asked** (`consensus._bothLook`, `planner.onlyLooks`, `firstWay`,
+  `orchestrator._nextWays`, `_hasOtherWay`). Where the model and the words, or two models, still differ after looking
+  again and every tool of both ways only finds out (`looks`, never `changes`), one is planned and the other is kept as
+  `step.otherWay`, tried without a question where the first fails or finds nothing; the user is told. The model's
+  choice goes first (it had been right in 6 of 9 questions, 2026-11-18), but a picture (`_PICTURE_WAYS`) after a way
+  that reads NVDA's or Windows' facts. Where one of the two changes something, the user still decides. A freely written
+  plan that only looks is used without a question. A question the model finds no job for is looked up, never planned
+  freely (`planner.fitted`). NVDA's focus mode and browse mode switched now are its command (`planner._MODE_SWITCH`).
+  - Measured on 2026-11-19 with Qwen3.5 4B for both jobs (`tests/eval_routing.py`, `VC_SET`): the fifth set
+    (`requests5.json`, to write from) 34 of 64 right with 4 questions to the user on 1.13.0, 61 of 64 with none; the
+    sixth (`requests6.json`, held out) 35 of 60 with 2 questions, 55 of 60 when first run, 59 of 60 with none after
+    three rules made from its misses, so it is spent: write a seventh before measuring a change to these. The older
+    sets did not change, except two requests of the second that now go to about_focus.
 - **A how-question is answered with keys, a why-question is answered, and nothing is done** (`planner._HOW`, `_WHY`,
   `_ANSWERS`), whatever job a word in it names, unless the job itself answers questions.
 - **A model that finds nothing that fits, where the words fully name a job whose tool reads them** (`planner._NEEDS`),
@@ -1527,6 +1562,8 @@ addon/
       seats.py               a seat map from the names of its seats or from its picture; which seats fit a wish
       naming.py              object names as plain logic: every role of NVDA sorted, what is truly unlabelled, vague
                              names, what tells an object apart, how sure a name is, the names kept and shared
+      focus.py               the control the user is on: what the words ask about it, and NVDA's facts about it in
+                             plain words, with how it is worked and NVDA's own key for next time
       busy.py                what VisionClaw is busy with for the user, and a status update when it has been quiet
                              too long: when one is due, what it says, when nothing is said
       router.py              which kinds of request and which tools a model is offered: by where the user is,
@@ -1602,12 +1639,15 @@ tools/                       build helpers
    (`change_setting` is `find_setting` then `set_setting`). Only a part that fits no recipe is planned freely
    by the model, and that plan is repaired by rules (`planner.normalize`).
 3. **Agreement** (`consensus.agree`): both models choose the recipe for each part, each on its own. Same choice:
-   agreed. Different: each is told the other's choice and chooses again. Still different: the user picks.
+   agreed. Different: each is told the other's choice and chooses again. Still different: the user picks, where one
+   of the two changes something; between two ways that only look, one is planned and the other tried where it finds
+   nothing (`consensus._bothLook`).
    A freely written plan is reviewed in words by the other model, corrected once, then put to the user.
    Never go back to asking a small model to judge a recipe plan in prose: it objects at random.
    When one model is chosen for both jobs (`runtime.oneModel`, carried in `params.oneModel`) there is no
    agreement: the recipe is chosen once and checked against the user's own words (`planner.hint`); where
-   the words point elsewhere the model is told so and chooses again, and if it still differs the user picks.
+   the words point elsewhere the model is told so and chooses again, and if it still differs the user picks (again
+   only where one of the two changes something).
    Do not let the model's second answer stand alone: measured with the 9B model, it kept a wrong choice both
    times. A freely written plan is checked by the same model with the reviewer's question, and the user is
    asked when it stays unsure.
@@ -1838,6 +1878,9 @@ A session is done only when its "Done when" line is true.
 - [x] **3.65 Only the truly unlabelled, and a name when asked.** Whatever the interfaces give is a label; the label
   linked to a field and the words inside a button said without a model; NVDA+Shift+Alt+B names the object where the
   user is on request, also over a label and with names off. Tested with stand-ins; not run inside NVDA.
+- [x] **3.65 More confident.** The control the user is on answered from NVDA's facts without a question; between two
+  ways that only look, one is tried and then the other, without a question; a question no job fits is looked up.
+  Measured with the real Qwen3.5 4B on two new sets, one held out; not run inside NVDA.
 - [ ] **3.5 Test inside NVDA.** Install the build in NVDA (ask the user first) and walk through
   `docs/TESTPLAN.md`. Fix what breaks. *Done when:* every item in the test plan is ticked by a real run.
 
@@ -1914,6 +1957,8 @@ python tests/test_naming.py              object names: every role sorted, truly 
                                          and the model; labels from elsewhere; a name asked for with NVDA+Shift+Alt+B
 python -u tests/live_object_names.py MODELS ID   a real vision model names drawn text buttons and fields the way
                                          object names ask; with tests/live_naming.py for icon buttons
+python tests/test_focus.py               the control the user is on: what the words ask, the answer from NVDA's facts;
+                                         two ways that only look tried one after the other without a question
 python tools/write_nvda_objects.py SRC VERSION   writes docs/NVDA-OBJECTS.md and tests/nvda_objects.json from NVDA's
                                          source
 python tests/test_ten.py                 colours and places measured in drawn pictures, a form that is only a picture, a

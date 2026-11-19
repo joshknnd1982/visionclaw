@@ -66,7 +66,8 @@ _COMPUTER = re.compile(
 # A setting for one program, a request that follows another, a date in a calendar, and asking by voice: asked only
 # when the question names one of these.
 _ASKING_NOTES = re.compile(
-	r"\b(only in (this|one|that|a) (program|app)|(one|a single|each) (program|app)\b.{0,20}\bsettings?|settings? for (one|a|this|each) "
+	r"\b(focused (control|object|item|button)|control (i'?m|i am) on|navigator object|not sure what i mean|"
+	r"(does|did|do) (not|n't) ask|without asking|only in (this|one|that|a) (program|app)|(one|a single|each) (program|app)\b.{0,20}\bsettings?|settings? for (one|a|this|each) "
 	r"(program|app)|configuration profiles?|own settings|do that again|say that again|follow[- ]?ups?|calendars?|date ?pickers?|"
 	r"pick(ing)? a date|by voice|with my voice|voice input|speech model|speech recognition|dictat\w+|microphone|"
 	r"speak (my|a|the) requests?|talk to (you|visionclaw)|stuck|step by step|work(ing)? through|usual way|"

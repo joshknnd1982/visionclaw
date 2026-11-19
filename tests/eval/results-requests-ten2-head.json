@@ -1,0 +1,462 @@
+{
+ "label": "requests-ten2-head",
+ "models": {
+  "backend": "auto",
+  "visionModel": "qwen3.5-4b",
+  "coderModel": "qwen3.5-4b-coder"
+ },
+ "stepwise": "auto",
+ "rows": [
+  {
+   "request": "what's written on the newest image in this conversation",
+   "expect": [
+    [
+     "look_picture"
+    ]
+   ],
+   "got": [
+    "look_picture"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  },
+  {
+   "request": "someone posted a comic strip, read it to me and tell me why it's funny",
+   "expect": [
+    [
+     "look_picture"
+    ]
+   ],
+   "got": [
+    "look_picture"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.0,
+   "state": "done"
+  },
+  {
+   "request": "check the main product image, is the couch grey or beige",
+   "expect": [
+    [
+     "look_picture"
+    ]
+   ],
+   "got": [
+    "look_picture"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  },
+  {
+   "request": "look at each picture in the gallery and say which one shows the kitchen",
+   "expect": [
+    [
+     "look_picture"
+    ]
+   ],
+   "got": [
+    "look_picture"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  },
+  {
+   "request": "on this scanned form, click the blank after Phone Number and type 555 0100",
+   "expect": [
+    [
+     "fill_blank"
+    ]
+   ],
+   "got": [
+    "fill_blank"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  },
+  {
+   "request": "write Jordan Lee on the dotted line under Print Name",
+   "expect": [
+    [
+     "fill_blank"
+    ]
+   ],
+   "got": [
+    "fill_blank"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  },
+  {
+   "request": "the pdf is flattened, check the square next to Married",
+   "expect": [
+    [
+     "fill_blank"
+    ]
+   ],
+   "got": [
+    "fill_blank"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.0,
+   "state": "done"
+  },
+  {
+   "request": "click Next until you get to the page that says Finish",
+   "expect": [
+    [
+     "step_through"
+    ]
+   ],
+   "got": [
+    "step_through"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  },
+  {
+   "request": "run through this installer and untick any toolbars it tries to add",
+   "expect": [
+    [
+     "step_through"
+    ]
+   ],
+   "got": [
+    "step_through"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.0,
+   "state": "done"
+  },
+  {
+   "request": "set the margins of this document to one inch",
+   "expect": [
+    [
+     "format_document"
+    ]
+   ],
+   "got": [
+    "format_document"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  },
+  {
+   "request": "can you format my essay in APA style",
+   "expect": [
+    [
+     "format_document"
+    ]
+   ],
+   "got": [
+    "format_document"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.0,
+   "state": "done"
+  },
+  {
+   "request": "single space this document and make the font Calibri",
+   "expect": [
+    [
+     "format_document"
+    ]
+   ],
+   "got": [
+    "format_document"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.0,
+   "state": "done"
+  },
+  {
+   "request": "did my resume spill onto a second page",
+   "expect": [
+    [
+     "check_layout"
+    ]
+   ],
+   "got": [
+    "check_layout"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.0,
+   "state": "done"
+  },
+  {
+   "request": "what's the page count of this report",
+   "expect": [
+    [
+     "check_layout"
+    ]
+   ],
+   "got": [
+    "check_layout"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.0,
+   "state": "done"
+  },
+  {
+   "request": "press the verify you are human checkbox for me",
+   "expect": [
+    [
+     "human_check"
+    ]
+   ],
+   "got": [
+    "human_check"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.0,
+   "state": "done"
+  },
+  {
+   "request": "I'm stuck on a recaptcha, describe the tiles",
+   "expect": [
+    [
+     "human_check"
+    ]
+   ],
+   "got": [
+    "human_check"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.0,
+   "state": "done"
+  },
+  {
+   "request": "select tiles 3 and 6 then press verify",
+   "expect": [
+    [
+     "human_check"
+    ]
+   ],
+   "got": [
+    "human_check"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.0,
+   "state": "done"
+  },
+  {
+   "request": "choose the black colour swatch",
+   "expect": [
+    [
+     "pick_option"
+    ]
+   ],
+   "got": [
+    "pick_option"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  },
+  {
+   "request": "is medium the size that's picked",
+   "expect": [
+    [
+     "pick_option"
+    ]
+   ],
+   "got": [
+    "pick_option"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.0,
+   "state": "done"
+  },
+  {
+   "request": "get me a window seat towards the back",
+   "expect": [
+    [
+     "pick_seat"
+    ]
+   ],
+   "got": [
+    "pick_seat"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.0,
+   "state": "done"
+  },
+  {
+   "request": "which aisle seats are still open on this seat map",
+   "expect": [
+    [
+     "pick_seat"
+    ]
+   ],
+   "got": [
+    "pick_seat"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.0,
+   "state": "done"
+  },
+  {
+   "request": "turn the gain dial down to 20 percent",
+   "expect": [
+    [
+     "set_control"
+    ]
+   ],
+   "got": [
+    "set_control"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.0,
+   "state": "done"
+  },
+  {
+   "request": "navigate this scanner app and set it to scan in colour",
+   "expect": [
+    [
+     "work_through"
+    ]
+   ],
+   "got": [
+    "work_through"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  },
+  {
+   "request": "this form won't go through, which field is the problem",
+   "expect": [
+    [
+     "form_trouble"
+    ]
+   ],
+   "got": [
+    "form_trouble"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 5.1,
+   "state": "done"
+  },
+  {
+   "request": "click the first option",
+   "expect": [
+    [
+     "click"
+    ]
+   ],
+   "got": [
+    "click"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  },
+  {
+   "request": "sign out of windows",
+   "expect": [
+    [
+     "power"
+    ]
+   ],
+   "got": [
+    "power"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  },
+  {
+   "request": "open the gallery app",
+   "expect": [
+    [
+     "open_thing"
+    ]
+   ],
+   "got": [
+    "open_thing"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  },
+  {
+   "request": "how many pictures are on this page",
+   "expect": [
+    [
+     "web_page",
+     "explore_page"
+    ]
+   ],
+   "got": [
+    "web_page"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.7,
+   "state": "done"
+  },
+  {
+   "request": "delete the picture called cat.jpg",
+   "expect": [
+    [
+     "file_task"
+    ]
+   ],
+   "got": [
+    "file_task"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  },
+  {
+   "request": "make NVDA read punctuation",
+   "expect": [
+    [
+     "change_setting"
+    ]
+   ],
+   "got": [
+    "change_setting"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.5,
+   "state": "done"
+  }
+ ]
+}

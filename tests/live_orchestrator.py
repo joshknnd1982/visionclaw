@@ -617,6 +617,13 @@ def makeRegistry(rt, state):
 				auto=lambda part: "navigator" if "navigator" in part.lower() else "mouse" if "mouse" in part.lower() else "focus"),
 			"asked": text("what the user asked for, in their own words", maxLength=300, auto=True),
 		}, looks=True, tell=V)
+	simple("about_focus",
+		"say what the focused control, the item the user is on in browse mode, the navigator object or what is under the "
+		"mouse is: its kind and name, what it does, its state, its value, its keys, and how it is worked",
+		"The focus is on the button \"New Game\" in the window \"Space Trader\" of the program spacetrader. It is 1 of 4. "
+		"Press Space or Enter to press it. The user said: {asked}",
+		"Asking NVDA about the control you are on",
+		{"asked": text("what the user asked, in their own words", maxLength=300, auto=True)}, looks=True, tell=V)
 	simple("audit_nvda",
 		"go through all of the running NVDA and count and list everything in it: every command, module, class, "
 		"function, object and value, and how it drives the speech synthesizer and the braille display; saves the "
@@ -1105,6 +1112,10 @@ REQUESTS = (
 	"Copy the window title to the clipboard.",
 	"What is the window class of the focused control?",
 	"Tell me everything NVDA knows about this control.",
+	# The owner's own words of 2026-11-19, which ended in a question to the owner (claw/focus.py).
+	"tell me about the focused control.",
+	"tell me about the currently focused button.",
+	"what does this button do?",
 	"What does the function api.getFocusObject do?",
 	"Do a full audit of NVDA.",
 	"Open the VisionClaw log.",

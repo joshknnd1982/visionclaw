@@ -431,7 +431,7 @@ assert instance.dataDir == DATA and instance.portableSettings()["searchEngine"] 
 instance.controller._stopped.set()
 instance.controller._thread.join(5)
 registry = instance.orchestrator.registry
-assert len(registry.names()) == 113, registry.names()
+assert len(registry.names()) == 114, registry.names()
 # Lessons from searches that happened to find something misled; they are dropped when VisionClaw starts.
 assert instance.memory.all() == ["Tool set_setting: this form failed: {} (x). This form worked: {}."], instance.memory.all()
 assert set(planner.available(registry)) == set(planner.RECIPES), set(planner.RECIPES) - set(planner.available(registry))
@@ -3340,6 +3340,50 @@ assert worked and result == "The navigator object. Name: Compose.", result
 assert nvdatools.objectOf("what is under the mouse") == "mouse" and nvdatools.objectOf("this button") == "focus"
 assert nvdatools.objectOf("the window class of this control") == "focus" and nvdatools.objectOf("facts about this window") == "window"
 assert registry.get("object_info").autoForm("the role of the navigator object")["object"] == "navigator"
+
+# --- The control the user is on, in plain words (about_focus, claw/focus.py) ---
+# No picture is taken in a test: without one, nothing is asked of a model.
+savedGrab = instance._grab
+
+
+def noPicture(box=None):
+	raise RuntimeError("no picture in a test")
+
+
+instance._grab = noPicture
+sys.modules["api"].getForegroundObject = lambda: types.SimpleNamespace(name="New message", appModule=types.SimpleNamespace(appName="mailer"))
+worked, result = registry.call(taskModule.Task("t"), "about_focus", {"asked": "what is the current focused control"})
+assert worked and result.startswith("The focus is on the button \"Send\" in the window \"New message\" of the program mailer."), result
+for said in ("It is 2 of 5.", "It is inside the dialog \"Compose\".", "It says of itself: Sends the message.",
+		"Its own shortcut key is alt+s.", "Press Space or Enter to press it."):
+	assert said in result, (said, result)
+assert "focusable" not in result and "Window class" not in result, result
+worked, result = registry.call(taskModule.Task("t"), "about_focus", {"asked": "what does this button do"})
+assert worked and "Pressing Enter or Space presses the button \"Send\"." in result and "guess" not in result, result
+worked, result = registry.call(taskModule.Task("t"), "about_focus", {"asked": "what is the navigator object on"})
+assert worked and result.startswith("The navigator object is the dialog \"Compose\""), result
+box = types.SimpleNamespace(
+	name="Remember me", role=Role(name="CHECKBOX", displayString="check box"), value=None, description="",
+	states=[Role(name="FOCUSABLE"), Role(name="FOCUSED")], keyboardShortcut="", location=None,
+	appModule=types.SimpleNamespace(appName="mailer"), positionInfo={}, parent=None)
+sys.modules["api"].getFocusObject = lambda: box
+worked, result = registry.call(taskModule.Task("t"), "about_focus", {"asked": "is this checkbox checked"})
+assert worked and result.startswith("No. The focus is on the check box \"Remember me\"") and "It is not checked." in result, result
+box.states.append(Role(name="CHECKED"))
+worked, result = registry.call(taskModule.Task("t"), "about_focus", {"asked": "is this box ticked?"})
+assert worked and result.startswith("Yes.") and "It is checked." in result, result
+# Without a name, and without a picture to read one from: said so, nothing made up.
+bare = types.SimpleNamespace(
+	name="", role=Role(name="BUTTON", displayString="button"), value=None, description="", states=[], keyboardShortcut="",
+	location=types.SimpleNamespace(left=10, top=10, width=20, height=20), appModule=types.SimpleNamespace(appName="mailer"),
+	positionInfo={}, parent=None)
+sys.modules["api"].getFocusObject = lambda: bare
+worked, result = registry.call(taskModule.Task("t"), "about_focus", {"asked": "what does this button do"})
+assert worked and "It has no name of its own, and none could be found for it." in result, result
+assert "Nothing tells what it does: it has no name and no description." in result, result
+sys.modules["api"].getFocusObject = lambda: button
+instance._grab = savedGrab
+assert registry.get("about_focus").looks and not registry.get("about_focus").changes
 
 # --- The audit of the whole NVDA, and VisionClaw's log, opened only when asked ---
 started = []

@@ -114,6 +114,9 @@ def _onRecipe(llm, task, part, context, registry, askUser, lead, other, single=F
 		task.emit(taskModule.TALK, (
 			f"Your words could also mean: {planner.label(guess)}. The model looked again and still chose to "
 			f"{planner.label(again)}."))
+		looked = _bothLook(task, part, registry, again, guess)
+		if looked is not None:
+			return looked, REVISED
 		ways = [guess, again]
 		choices = [_sentence(planner.label(way)) for way in ways] + ["Cancel. I will ask in a different way."]
 		question = f"VisionClaw is not sure what you mean by \"{clip(part, 200)}\". What should it do?"
@@ -146,6 +149,9 @@ def _onRecipe(llm, task, part, context, registry, askUser, lead, other, single=F
 		return mineAgain, REVISED
 	# Each swapping to the other's first choice is still a disagreement, so the first choices stand.
 	task.emit(taskModule.TALK, "The models still do not agree.")
+	looked = _bothLook(task, part, registry, mine, theirs)
+	if looked is not None:
+		return looked, REVISED
 	choices = [
 		f"As the {leadName} suggests: {planner.label(mine)}",
 		f"As the {otherName} suggests: {planner.label(theirs)}",
@@ -159,6 +165,31 @@ def _onRecipe(llm, task, part, context, registry, askUser, lead, other, single=F
 		raise Declined()
 	task.emit(taskModule.TALK, f"You chose: {choices[picked]}")
 	return (mine, theirs)[picked], USER_CHOSE
+
+
+def _bothLook(task, part, registry, chosen, other):
+	"""Where two ways are left for a part and both only find something out, the user is not asked to choose: nothing
+	is changed either way. The first (planner.firstWay) is planned, the other is kept to be tried where the first does
+	not answer (orchestrator._nextWays), and the user is told. The owner said on 2026-11-19, after "tell me about the
+	focused control" was put to the owner as a choice between a picture and an NVDA command: "you must make visionclaw more
+	confident". Returns the way planned, or None where one of them changes something: then the user decides."""
+	if chosen == other or not (planner.onlyLooks(chosen, registry) and planner.onlyLooks(other, registry)):
+		return None
+	first, second = planner.firstWay(chosen, other)
+	task.otherWays = getattr(task, "otherWays", {})
+	task.otherWays[part] = second
+	task.emit(taskModule.TALK, (
+		f"Both ways only look and change nothing, so VisionClaw does not ask: it will {planner.label(first)}, and if that "
+		f"does not answer it, {planner.label(second)}."))
+	return first
+
+
+def _onlyLooking(steps, registry):
+	"""Whether every step of a plan only finds something out."""
+	try:
+		return bool(steps) and all(registry.get(s.tool).looks and not registry.get(s.tool).changes for s in steps)
+	except KeyError:
+		return False
 
 
 def _onOwnPlan(llm, task, part, context, registry, params, askUser, lead):
@@ -185,6 +216,9 @@ def _onOwnPlan(llm, task, part, context, registry, params, askUser, lead):
 		return revised, REVISED
 	task.emit(taskModule.TALK, f"The model still finds a problem: {problemAgain}")
 	task.check()
+	if _onlyLooking(revised, registry):
+		task.emit(taskModule.TALK, "The new plan only looks and changes nothing, so VisionClaw does not ask and uses it.")
+		return revised, REVISED
 	choices = ["Use the new plan: " + _oneLine(revised)]
 	plans = [revised]
 	if planner.planText(steps) != planner.planText(revised):
@@ -230,6 +264,10 @@ def _onFreePlan(llm, task, part, context, registry, params, askUser, lead, other
 		return revised, REVISED
 	task.emit(taskModule.TALK, f"The {otherName} still disagrees: {problemAgain}")
 	task.check()
+	if _onlyLooking(revised, registry):
+		task.emit(taskModule.TALK, (
+			f"The {leadName}'s new plan only looks and changes nothing, so VisionClaw does not ask and uses it."))
+		return revised, REVISED
 	try:
 		note = f"Another model's plan had this problem: {clip(problemAgain, 300)}\nWrite your own plan."
 		theirs = planner.freeSteps(llm, other, part, context, registry, params, note, facts=facts)
@@ -289,8 +327,11 @@ def agree(llm, task, request, context, registry, params, askUser, lead=policy.LE
 				partHow = max(partHow, planHow, key=_RANK.get)
 			else:
 				partSteps = planner.recipeSteps(recipe, part, registry)
+			otherWay = getattr(task, "otherWays", {}).get(part) if recipe != planner.OTHER else None
 			for step in partSteps:
 				step.onlyIf = gate
+				# The other way that only looks, tried where this one does not answer (_bothLook).
+				step.otherWay = otherWay
 			steps += partSteps
 			recipes.append(recipe)
 			before = recipe
