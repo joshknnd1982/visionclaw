@@ -810,7 +810,11 @@ keyboard and speech alone.
     icons have the automation id `SystemTrayIcon`; the hidden ones exist only while shown, in
     `TopLevelWindowForOverflowXamlIsland`. What was read is at the top of `placetools.py`; read it again when Windows
     changes, do not guess a class or an id. The hidden icons are shown for a moment through Windows' own Invoke and
-    hidden again only while still shown; **this has not run on the real taskbar**: try it first in NVDA.
+    hidden again only while still shown. Tried once on the owner's taskbar from plain Python, with his yes: they
+    showed within 0.1 seconds, all four were read, and they were hidden again; but showing them took the focus and
+    hiding them left it on the taskbar, so the window that was in front is now brought back
+    (`computertools.focusWindow`); tried again the same way with his yes, and it came back (1.9.1). Not yet run
+    inside NVDA, where it is NVDA's process that brings the window back.
   - **A thing inside a place is clicked there** (`places.clicksIn`, `within`; `nvdatools` `list_items` and
     `onTaskbar`): listed from the place with the screen's own pixels, clicked with the mouse in its middle after the
     usual question. The desktop only while it is in front. "Click Dropbox" from any window is looked for in the tray

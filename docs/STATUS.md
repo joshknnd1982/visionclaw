@@ -1,6 +1,6 @@
 # VisionClaw status
 
-Updated 2026-11-18, version 1.9.0.
+Updated 2026-11-18, version 1.9.1.
 
 ## What exists
 
@@ -2019,8 +2019,21 @@ What was tested, and how:
   through my downloads folder. >> Open the second one.", where the stand-in that finds things to open has no
   report.pdf; run again on the code of 1.8.0, that session asks the same. No next way was needed in the live run: the
   requests that need one are now decided before. 90 of the 213 got a brief.
+- **The hidden icons on the owner's real taskbar, with his yes** (after the release, the same evening), from plain
+  Python, the way `placetools.hiddenItems` does it: Show Hidden Icons was found and invoked; the window
+  `TopLevelWindowForOverflowXamlIsland` ("System tray overflow window.") was shown within 0.1 seconds; its four
+  icons were read (Claude, NVDA, Copilot, NVIDIA Settings; buttons of class `SystemTray.NormalButton`, automation id
+  `NotifyItemIcon`, each reported twice, once from the window and once from its content window, and said once); it
+  was hidden again by invoking the button a second time. **What it found wrong**: the window shown took the focus,
+  and after it was hidden the focus was on the taskbar, not on the window that was in front before. Fixed: the
+  window in front before is remembered and brought back (`computertools.focusWindow`), tested in
+  `tests/test_nvda_stub.py` with stand-ins for Windows, and tried once more on the owner's taskbar with his yes:
+  the four icons were read, the window was hidden again, the focus was on the taskbar right after, and the window
+  that was in front (Claude) came back to the front. Released as 1.9.1. The window that keeps the hidden icons
+  stays after the first time, not shown; it is then not read where it is, but shown first, as on the first time.
+  From NVDA's own process, bringing the window back is still to be tried.
 - **Not run inside NVDA.** First to try: the owner's request from the desktop, then from Notepad, and whether the
-  hidden icons are read and Show hidden icons is closed again (the new section of `docs/TESTPLAN.md`).
+  hidden icons are read and the focus comes back to where it was (the new section of `docs/TESTPLAN.md`).
 
 ## Next session
 

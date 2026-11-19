@@ -690,7 +690,7 @@ shown for a moment and hidden again.
 - [ ] "Tell me all objects that are currently in the system tray." from the desktop: every icon shown on the
       taskbar, the clock, and the key Windows+B. No "I cannot see". Compare with Windows+B and the arrow keys.
 - [ ] The hidden icons are read too (NVDA's own icon is usually among them). Afterwards Show hidden icons is closed
-      again, and NVDA's focus is where it was. If the hidden ones are said to be "could not be read", say so.
+      again, and NVDA's focus is back in the window you were in, not on the taskbar. If the hidden ones are said to be "could not be read", say so.
 - [ ] The same from inside another program, such as Notepad: the tray is read, Notepad is not touched.
 - [ ] "Is NVDA running in the system tray?", "how many icons are in the system tray?".
 - [ ] "Which programs are on my taskbar?": pinned and running programs, Start and Search.

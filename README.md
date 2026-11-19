@@ -23,9 +23,14 @@ chat apps, and names for unlabelled buttons.
 > [docs/STATUS.md](docs/STATUS.md) for exactly what was tested.
 
 <!-- news: written by tools/write_help.py from manifest.ini; do not change it by hand -->
-This README is for VisionClaw 1.9.0.
+This README is for VisionClaw 1.9.1.
 
-## What is new in 1.9.0
+## What is new in 1.9.1
+
+- Reading the system tray no longer leaves you on the taskbar. To read the hidden icons, VisionClaw shows them for a moment and hides them again; on Windows 11 that moved the focus to the taskbar. Now the window you were in comes back to the front, so after "what is in my system tray" you are where you were before.
+- Stated plainly: tried on the owner's real Windows 11 taskbar outside NVDA: the four hidden icons were read, hidden again, and the window in front came back. Not run inside NVDA yet.
+
+## What was new in 1.9.0
 
 - What is in the system tray is read for you. Say "what is in my system tray" or "tell me all objects that are currently in the system tray". Before, this was answered from a picture of the desktop, which said "I cannot see the system tray in this image". Now VisionClaw reads every icon from what Windows tells screen readers, word for word, with no model and no picture: the icons shown on the taskbar, the hidden ones behind Show hidden icons, and the clock. It ends with the key that goes there, Windows+B.
 - The same for the taskbar, the desktop and more. Say "which programs are on my taskbar", "what icons are on my desktop", "read my notifications" or "what is in quick settings". The notifications, quick settings, the Start menu and clipboard history exist only while they are open, so VisionClaw opens them with their own key, reads them, and leaves them open; Escape closes them.
@@ -35,19 +40,6 @@ This README is for VisionClaw 1.9.0.
 - VisionClaw learns from it: the way that found nothing is counted as not working, and the way that answered as working, on this computer. Before, the "I cannot see it" answer was counted as a success.
 - Words that mean the same thing count as one: "system tray" and "notification area", "objects" and "icons", "tell me" and "which". So what VisionClaw learned for one wording is used for another.
 - Stated plainly: tested with stand-ins for NVDA and Windows made from what Windows 11 reported about the taskbar on the owner's computer, and with the real Qwen3.5 9B model. Not run inside NVDA yet: reading the system tray in NVDA is the first thing to try.
-
-## What was new in 1.8.0
-
-- The Start menu works. "Click the start button", "click the windows start button using the mouse" and "open the windows start menu" all failed before: the Start button is on the taskbar, not in the window in front, so it was never found there. Now VisionClaw opens the Start menu with Control+Escape, which does the same as clicking the Start button, says where NVDA is, and tells you the key for next time.
-- The other parts of Windows itself work the same way, each with its own key: Windows search, the taskbar, the notification area or system tray, quick settings, the notification center, Task View, the Run dialog, the Quick Link menu (what a right-click on the Start button shows), clipboard history and the emoji panel. Say "go to the system tray" or "open quick settings".
-- Where a program could have a Start button of its own, as a game can, and nothing in its window is called Start, VisionClaw asks whether to open the Start menu of Windows instead. On the desktop, the taskbar or in a folder window it does not need to ask.
-- A click never lands on the wrong thing in silence. When the item a model picked has none of the words you said, VisionClaw asks "Nothing in this window is called ... The closest found is ... Use it anyway?". When the model says the thing is not there, nothing is clicked, and you are told so. Before, "click the start button" clicked a Settings button, and a sentence the model wrote was matched to an item called "te".
-- When what you named is not in the window but is a program, folder or place of Windows, VisionClaw offers to open it by its name instead.
-- Smarter planning. Before a model chooses how to do a request, plain code now tells it where you are in plain words (the desktop, the taskbar, a dialog box, a web browser, a folder window), one or two short planning notes that your own words call up, how a request in nearly the same words went well before on this computer, and the jobs of the skills that fit. A model still chooses, and plain code still checks.
-- The planning notes are ranked with BM25, the way search engines rank pages, so that the note sharing the rarest words with your request comes first.
-- How a request was done is counted on this computer, as it went well or not, in the file plans.json in VisionClaw's data folder. A way of doing it is mentioned to the model only when it has proved itself, by Laplace's rule of succession, and what worked lately counts for more than what worked long ago. It is data, never code, and nothing leaves the computer.
-- A new skill, Parts of Windows itself, for the Start menu, the taskbar and the notification area.
-- Stated plainly: tested with stand-ins for NVDA, Windows and the keyboard, and with the real Qwen3.5 9B model choosing the job. Not run inside NVDA yet: whether Control+Escape sent by VisionClaw opens the Start menu on your computer is the first thing to try.
 
 How to use each of these is explained in its own part of this README, further down.
 <!-- /news -->
@@ -319,7 +311,7 @@ settings; what cannot be undone is always asked about.
 | You say | What happens |
 |---|---|
 | *Open Notepad. Open my Downloads folder. Open the Recycle Bin. Go into my Windows settings. Open Bluetooth settings.* | The thing is found by its name among the programs of the Start menu, what is on your desktop, the folders, tools and settings pages of Windows, and your own files, and opened as a double click would. When several things have the name, you are asked which. |
-| *What is in my system tray? Tell me all objects that are currently in the system tray. Is NVDA running in the system tray? How many icons are in the system tray? Which programs are on my taskbar? What icons are on my desktop? Read my notifications. What is in quick settings?* | What is there is read from what Windows tells screen readers, word for word, with no model and no picture, and you are told the key that goes there. The hidden tray icons are read too: VisionClaw shows them for a moment through Windows itself and hides them again. The notifications, quick settings, the Start menu and clipboard history exist only while they are open, so they are opened with their own key, read, and left open; Escape closes them. |
+| *What is in my system tray? Tell me all objects that are currently in the system tray. Is NVDA running in the system tray? How many icons are in the system tray? Which programs are on my taskbar? What icons are on my desktop? Read my notifications. What is in quick settings?* | What is there is read from what Windows tells screen readers, word for word, with no model and no picture, and you are told the key that goes there. The hidden tray icons are read too: VisionClaw shows them for a moment through Windows itself and hides them again, and the window you were in comes back to the front. The notifications, quick settings, the Start menu and clipboard history exist only while they are open, so they are opened with their own key, read, and left open; Escape closes them. |
 | *Right-click the volume icon in the system tray. Click the Firefox button on the taskbar. Click Dropbox.* | Something inside the system tray or on the taskbar is clicked there, with the mouse in its middle, after a question. A thing you name that is in no window is looked for in the notification area and on the taskbar, and you are asked before it is used there. |
 | *Open the Start menu. Click the Start button. Go to the system tray. Open quick settings. Go to the taskbar. Open the notification center. Open Task View. Open the Run dialog. Open clipboard history. Open the emoji panel.* | The part of Windows itself is opened with Windows' own key, and you are told that key for next time and how to move inside it. These are in no program's window, so they are never among a window's items. Where a program could have a Start button of its own and nothing in its window is called Start, you are asked whether the Start menu of Windows is meant. |
 | *Click the recycle bin* (while another program is in front) | When nothing in the window has the name you said, and it is a program, folder or place of Windows, VisionClaw offers to open it by its name instead. When the item a model picked has none of your words, you are asked before anything is clicked. |

@@ -221,6 +221,12 @@ def _overflow():
 	return _user32.FindWindowW(_OVERFLOW_NEW, None), False
 
 
+def _foreground():
+	"""The window in front, as its handle. Main thread."""
+	_user32.GetForegroundWindow.restype = wintypes.HWND
+	return _user32.GetForegroundWindow() or 0
+
+
 def _overflowShown():
 	hwnd, _always = _overflow()
 	return _visible(hwnd)
@@ -242,7 +248,9 @@ def _invoke(element):
 def hiddenItems(shown, onMain):
 	"""The icons hidden behind Show hidden icons, as (their facts, whether they could be read). On Windows 10 they
 	are read where they are; on Windows 11 they exist only while shown, so the button is pressed through Windows
-	itself, they are read, and the button is pressed again to hide them, as they were. shown: what trayItems gave."""
+	itself, they are read, and the button is pressed again to hide them, as they were. Showing them takes the focus,
+	and hiding them leaves it on the taskbar (seen on the owner's Windows 11 on 2026-11-18), so the window that was
+	in front is brought back afterwards. shown: what trayItems gave."""
 	hwnd, always = onMain(_overflow)
 	if hwnd and always:
 		return onMain(_readAll, [hwnd], True), True
@@ -252,6 +260,7 @@ def hiddenItems(shown, onMain):
 	if chevron is None or chevron.get("element") is None:
 		return [], False
 	debuglog.log("places", "Showing the hidden icons for a moment, to read them.")
+	before = onMain(_foreground)
 	if not onMain(_invoke, chevron["element"]):
 		return [], False
 	found, read = [], False
@@ -267,6 +276,11 @@ def hiddenItems(shown, onMain):
 		# Hidden again as they were: the button is pressed again only while they are still shown.
 		if onMain(_overflowShown):
 			onMain(_invoke, chevron["element"])
+		# And the user is put back where they were, not left on the taskbar.
+		if before and onMain(_foreground) != before:
+			time.sleep(_POLL)
+			if not computertools.focusWindow(before):
+				debuglog.log("places", "The window in front before the hidden icons were shown could not be brought back.")
 	return found, read
 
 

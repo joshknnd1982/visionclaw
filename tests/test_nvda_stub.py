@@ -357,6 +357,34 @@ HIDDEN = [
 	{"name": "Dropbox\nUp to date", "kind": 50000, "cls": "SystemTray.NormalButton", "aid": "NotifyItemIcon", "box": None, "hidden": True},
 ]
 front = {"app": "explorer", "class": "Progman"}
+# Showing the hidden icons, reading them and hiding them again, with stand-ins for Windows: Windows 11 moves the
+# focus to them and leaves it on the taskbar after; the window that was in front is brought back (2026-11-18).
+flyout = {"shown": False, "front": 5}
+
+
+def fakeInvoke(element):
+	did.append(("invoke", element))
+	flyout["shown"] = not flyout["shown"]
+	flyout["front"] = 77 if flyout["shown"] else 9
+	return True
+
+
+realLow = (placetools._overflow, placetools._visible, placetools._invoke, placetools._foreground, placetools._readAll)
+placetools._overflow = lambda: (77 if flyout["shown"] else 0, False)
+placetools._visible = lambda hwnd: hwnd == 77 and flyout["shown"]
+placetools._invoke = fakeInvoke
+placetools._foreground = lambda: flyout["front"]
+placetools._readAll = lambda hwnds, hidden=False: [dict(item, hidden=True) for item in HIDDEN] if hwnds == [77] else []
+placetools._POLL = 0.01
+del did[:]
+chevronItem = dict(TASKBAR[5], element="the chevron")
+found, read = placetools.hiddenItems([chevronItem], lambda fn, *args: fn(*args))
+assert read and [item["name"] for item in found] == ["NVDA", "Dropbox\nUp to date"], found
+assert did == [("invoke", "the chevron"), ("invoke", "the chevron"), ("focus", 5)] and not flyout["shown"], did
+# No button that shows them: nothing is pressed, and they are said not to have been read.
+del did[:]
+assert placetools.hiddenItems([TASKBAR[6]], lambda fn, *args: fn(*args)) == ([], False) and did == []
+(placetools._overflow, placetools._visible, placetools._invoke, placetools._foreground, placetools._readAll) = realLow
 placetools.trayItems = lambda: [dict(item) for item in TASKBAR]
 placetools.hiddenItems = lambda shown, onMain: (did.append(("hidden icons",)) or [dict(item) for item in HIDDEN], True)
 placetools.desktopItems = lambda: [
