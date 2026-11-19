@@ -1,6 +1,6 @@
 # VisionClaw status
 
-Updated 2026-11-19, version 1.11.0.
+Updated 2026-11-19, version 1.11.1.
 
 ## What exists
 
@@ -2215,6 +2215,27 @@ itself; what each call is fed does. So the work sheet was made the one place eac
 - **Not run inside NVDA.** The new tool `my_words`, the work sheets in the real data folder, the piece writer's add-ons
   loaded into NVDA, and the look tool's questions in parts have run only against stand-ins. `docs/TESTPLAN.md` has a
   new section for them.
+
+## 1.11.1: a correction, and the whole live test (2026-11-19)
+
+**What went wrong.** Several Claude sessions worked in the same checkout. 1.11.0 was built from a clean copy, but
+its `manifest.ini` was made from the shared one with one line of another session taken out, not from 1.10.0 with
+this session's own edits: two key lines of the description and one point of what is new, about status updates
+for descriptions (NVDA+Alt+P, NVDA+Alt+X), came along, and `tools/write_help.py` wrote that point into both help
+files. None of that feature's code was in 1.11.0. Found by the session that is writing it. **What was done**: the
+GitHub release notes of 1.11.0 were corrected, with a line that says so; 1.11.1 was made from the tag v1.11.0 on
+the branch `release-1.11`, with the description's two lines as in 1.10.0, the point taken out, and nothing else
+changed; `main` was left alone, since it holds that session's own work for 1.12.0. **Lesson**: rebuild every
+shared file from HEAD plus your own edits, never from the shared copy (see the memory on releasing from a
+shared checkout).
+
+**The whole live test of 1.11.0**, `tests/live_orchestrator.py`, run from a clean copy of the tag v1.11.0 with
+Qwen3.5 9B for both jobs at the owner's settings, after the release, at the owner's request: all **219** requests
+(the 215 of 1.10.0 and four new ones) were carried out, in at most 8.5 seconds each, with no fault. VisionClaw
+asked the user three times, the same three as 1.10.0: "click the start button." with the game in front, the second
+half of the deep query ("Tell me how a sighted person works it"), and the "report pdf" session, a gap of the
+`find_thing` stand-in. No output of 1.10.0's whole run was kept, so the answers were not compared one by one;
+the totals are those of 1.10.0's run in this file.
 
 ## Next session
 

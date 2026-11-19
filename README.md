@@ -23,9 +23,14 @@ chat apps, and names for unlabelled buttons.
 > [docs/STATUS.md](docs/STATUS.md) for exactly what was tested.
 
 <!-- news: written by tools/write_help.py from manifest.ini; do not change it by hand -->
-This README is for VisionClaw 1.11.0.
+This README is for VisionClaw 1.11.1.
 
-## What is new in 1.11.0
+## What is new in 1.11.1
+
+- Corrected: the description of VisionClaw and what was new in 1.11.0 also named status updates for descriptions, with NVDA+Alt+P saying how far a description is and NVDA+Alt+X stopping one. That is not in VisionClaw yet, and it was taken out. NVDA+Alt+P says how far the request is, and NVDA+Alt+X stops the request, as before. Nothing else changed.
+- Stated plainly: the whole live test of 1.11.0 was run with Qwen3.5 9B after its release: all 219 requests were carried out, in at most 8.5 seconds each, and VisionClaw asked the user only the three questions 1.10.0 also asked. Not run inside NVDA yet.
+
+## What was new in 1.11.0
 
 - VisionClaw understands many more ways of saying things, the way a text adventure understands its player. "Take a peek at the screen", "kill the typing echo", "give the Save button a click", "punch in control c", "google how to bake bread", "dump the bin" and "lock up the pc" are understood as the plain words VisionClaw knows, by plain code, before anything is decided. When the meaning of your words was changed, the answer begins "Understood as", so you always know. Words in quotes, text to be typed, names, searches and what you ask it to remember are never changed. Measured on 62 requests in casual words: the right job went from 40 to 52 with Qwen3.5 9B, and from 41 to 55 with the small Qwen3.5 2B, which no longer had to ask you which you meant.
 - Teach VisionClaw your own words. Say "when I say shh, I mean stop talking", or "understand zap as turn off". From then on that word is understood that way, first of all. Say "which words have I taught you" to hear them, "forget the word shh" to forget one, and "forget all the words I taught you" to forget them all. They are kept in the file understanding.md in VisionClaw's data folder, which you can read and change.
@@ -34,20 +39,7 @@ This README is for VisionClaw 1.11.0.
 - "Gets checked" means checked: an add-on for "when a checkbox gets checked, say checked" speaks only when the box is checked, not when it is unchecked. When no key is named, as in "give me a key that reads the window title", VisionClaw chooses one nothing else uses and tells you which. Before an add-on is turned on you are told what it cannot do, such as a heading in browse mode, which never gets the focus. What cannot be written in pieces, such as something every hour, is written as one piece as before, and you are told why.
 - When an add-on VisionClaw wrote fails in one place, only the method where it failed is sent to the model to correct.
 - A question about the screen is asked one part at a time. "What is in this photo, and is there any text in it?" is two questions to the model that sees, each with the one rule of its kind: text read exactly, a count with the number first, yes or no first and then where, a colour in plain words. You hear each answer after its own question.
-- NVDA+Alt+P now also says how far a description, an answer about a picture, the words you spoke or the overlay's icons are, and NVDA+Alt+X also stops a description or an answer that is still on its way. While you wait for a description, other keys no longer throw it away: read on, or press NVDA+Alt+P, and it still comes. Once it is spoken, Control stops it, as before.
 - Stated plainly: measured with the real Qwen3.5 9B, and with Qwen3.5 2B and Qwen2.5 Coder 1.5B, on requests and add-ons written for this; tested with stand-ins for NVDA. The new requests in casual words were written by the same hand as the words VisionClaw understands, the same day. Not run inside NVDA yet.
-
-## What was new in 1.10.0
-
-- VisionClaw understands more ways of saying things, and asks you less. Measured on requests in words it had never seen: the right job went from 55 to 58 of 65, and the times it had to ask you which you meant from 5 to 1.
-- A question about how to do something is answered with the keys, and nothing is done. "How can I jump between headings on a web page" and "what's the shortcut to get to the address bar" no longer list headings or make a hotkey. A question that begins with why, such as "why does NVDA say clickable all the time", is answered too.
-- When the model's choice also fits your words, VisionClaw goes with it instead of asking you. Before, it asked you nine times on the first test set, and the model had been right in six of them.
-- More requests are understood by plain code: "press alt f4" and "send control s to this program" press those keys in the program; "the whole computer is too loud" turns the computer's volume down; "what did I download today" looks in Downloads; "open the NVDA menu" and "what's on the clipboard" run NVDA's own command; "click the attack button every second" clicks in a rhythm; "go back to Chrome" switches to Chrome; "what does this dialog say" reads it; "I want to hear line numbers" and "every letter I type" are NVDA settings.
-- A complaint and what to do about it is one request: "NVDA keeps saying every word I type, make it stop". And "I'm lost, how do I print this" answers how to print, instead of only saying where you are.
-- Which model for what you want to do. Say "which model should I use for describing pictures", "should I switch to a smaller model", "which model is best for writing add-ons" or "suggest a model". VisionClaw suggests one from your graphics card and memory, what was measured with each model and on which day, and how your requests went with it on this computer. It changes nothing: you choose in the models window, NVDA+Alt+M.
-- Your own review of a model counts. VisionClaw keeps how requests went with each model on this computer in the file models-went.json in its data folder, and what you ask it to remember about a model, such as "remember that the 9B is too slow for me", brings the faster choice into the suggestion.
-- A new skill, Choosing a model, and a note VisionClaw looks things up in about which model fits what.
-- Stated plainly: measured with the real Qwen3.5 9B on three sets of requests written for this, none of them used to tune VisionClaw when it was written; tested with stand-ins for NVDA. Not run inside NVDA yet.
 
 How to use each of these is explained in its own part of this README, further down.
 <!-- /news -->
