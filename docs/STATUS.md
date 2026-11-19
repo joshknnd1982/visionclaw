@@ -1,6 +1,6 @@
 # VisionClaw status
 
-Updated 2026-11-19, version 1.10.0.
+Updated 2026-11-19, version 1.11.0.
 
 ## What exists
 
@@ -2110,7 +2110,120 @@ the dial, which is what the user had chosen when asked. Questions to the user: 3
 button." with the game in front, the second half of the deep query, and the "report pdf" session, which asks the same
 on the code of 1.8.0). Both requests for a model suggestion went to `model_advice`. **Not run inside NVDA.**
 
+## Understanding your words, the work sheet, add-ons in pieces, questions in parts (1.11.0, 2026-11-19)
+
+The owner asked, in one request: "build an orchestrator in python that takes a big prompt and breaks it down into
+bite-size pieces a small 1b to 9b model can understand. visionclaw must have skills and system prompts, memory and rag
+to understand the different ways a user may request something, like how inform text adventures understand different
+things in different ways"; then the same "for pictures and all other functions"; and "no matter what model the user
+chooses, visionclaw must force these small models to be as accurate as possible, this means using temporary markdown
+files to plan and feed small bite-size pieces into tiny models, which get deleted when a job is done". Asked whether
+this is the best way, Claude agreed, with one caveat said to the owner: a file does not make a model more exact by
+itself; what each call is fed does. So the work sheet was made the one place each step's question comes from.
+
+**What was built** (the rules are in CLAUDE.md):
+- `claw/understand.py` and `claw/understanding.md`: the user's words understood by plain code, the way Inform's
+  "Understand" lines work. Four sections by where a line may change something; tokens [x], [keys], [thing], [window];
+  what is never changed (quotes, text to be typed, names, searches, addresses, keys, and requests to remember, make a
+  skill or teach a word); "Understood as" at the start of the answer when a meaning was changed.
+- The user's own words: the job `teach_words`, the tool `my_words` (`wordtools.py`), the file `understanding.md` in
+  the data folder, read again when it changes.
+- `claw/worksheet.py`: the work sheet of every request, in `work` of the data folder, deleted in `Orchestrator.run`'s
+  `finally` and at start. Each step is fed from it what its own part found (`agent.found`); a step a model planned
+  itself, one that leans on "it", and one added for what was missing are given everything, as before.
+- `claw/codeplan.py`: an add-on read into pieces by plain code (keys, events, kinds of control, states, programs), its
+  frame and the beeps and fixed sentences written by plain code, the lines of each piece written by the model from
+  that piece's section of the work sheet, checked, corrected and reviewed one piece at a time; the old writer for what
+  cannot be framed; a failing add-on corrected one method at a time where everything that went wrong is in one method.
+- `claw/pictures.py`: a question about the screen asked in its parts, each with the one rule of its kind.
+- Skills, prompts, memory and retrieval: every piece of an add-on gets the skills, memories, library and notes chosen
+  for its own words (`nvdatools.coderNotes` per piece); the piece writer and each kind of picture question have
+  instructions of their own, without examples; the user's own words are kept as Markdown; VisionClaw's notes
+  (`visionclaw-asking.md`) answer questions about all of it, asked only when a question names it.
+
+**What was tested, and how.**
+- Plain Python: `tests/test_codeplan.py` (requests read into pieces; the frame; every assembled add-on run against
+  stand-ins for NVDA's modules, `tests/addonstandin.py`: a beep only for links, nothing in another program, a key
+  passed on there, a failing piece that does not stop NVDA; scripted models: a piece is given nothing of the others,
+  a failing piece is sent back alone, a review's fault, the old writer for a timer, one method corrected; the work
+  sheet written, fed from, and deleted) and `tests/test_understand.py` (the grammar, what is never changed, the user's
+  own words as a file, picture questions, and whole requests through the orchestrator: "Understood as", the work sheet
+  a file while the request runs and gone after it, also after a failure, and a second part not given what the first
+  found). `python tests/run_all.py` passes.
+- **Choosing the job, with the real Qwen3.5 9B** for both jobs, one question at a time, the owner's settings
+  (`tests/eval_routing.py`). A fourth set, `tests/eval/requests4.json`, 62 requests in casual, roundabout and slangy
+  words, was written before the grammar and before anything was run on it, and 1.10.0 was scored on it first:
+
+  | Set | 1.10.0 | 1.11.0 |
+  |---|---|---|
+  | First (137) | 135 right, 0 asked | 135 right, 0 asked: the same, request for request |
+  | Second (88) | 87 right, 1 asked | 87 right, 1 asked: the same |
+  | Third (65) | 58 right, 1 asked | 58 right, 1 asked: the same |
+  | **Fourth (62, casual words)** | **40 right (65%), 2 asked** | **52 right (84%), 1 asked**: 12 better, none worse |
+  | Fourth, with Qwen3.5 2B choosing (stepwise Automatic) | 41 right (66%), 5 asked | **55 right (89%), 0 asked** |
+
+  Plain code alone, the planner's first pattern: on the fourth set 29 of 60 from the raw words, 54 of 60 after the
+  words are understood; on the 593 known and earlier requests none worse, two better. **Said plainly**: the fourth set
+  and the grammar were written by the same hand on the same day, so the gain on it is what the grammar can do on
+  words like its own; a set in the owner's own words is the honest measure of what comes next. Left open on the fourth
+  set, not tuned on, for a fifth set to measure: a complaint and its remedy said in one breath is split in two ("the pc
+  is blaring, turn it down", "nvda is mumbling, crank up the voice volume", "my beeping add-on is broken, sort it
+  out", "check out this chart and give me the gist"); "how many people are in this photo" and "what's this thing I'm
+  sitting on" go to a question; "how's my battery doing" and "anything new for visionclaw" too; "read everything from
+  here down" reads the window's text instead of starting say all; "what's this page going on about" asks the user.
+- **Writing add-ons, with the real Qwen3.5 9B** (`tests/live_codeplan.py`): nine add-ons, written down with what each must do before either way was run, each written as one piece
+  (`microaddons.write`, as before) and piece by piece (`codeplan.write`), at the owner's settings (reasoning
+  Automatic, which is High for an add-on). Every add-on that passed the checks was run against stand-ins for NVDA's
+  modules (`tests/addonstandin.py`) to see whether it does what was asked:
+
+  | Request | One piece | Piece by piece |
+  |---|---|---|
+  | Say hello with NVDA+shift+H | right, 97 s | right, 0 s (plain code) |
+  | Beep when a link gets the focus | right, 94 s | right, 0 s (plain code) |
+  | In Notepad, the focused control's name with NVDA+shift+N | right, 97 s | right, 58 s |
+  | The time with NVDA+alt+T | right, 138 s | right, 58 s |
+  | Beep for a button, the window's title with NVDA+shift+W, "link ahead" for a link | wrong (`window.appName`), 288 s | right, 110 s |
+  | Only in Firefox: "heading" for a heading, the focused control's name with NVDA+alt+N | wrong (`Role.HEADLINE`, which NVDA does not have, and the key works in every program), 95 s | wrong (says the control's kind instead of its name, after the review named a fault that was not there), 110 s |
+  | "Checked" when a checkbox gets checked, a count of the name's characters with NVDA+shift+C | wrong (silent when checked), 286 s | right, 55 s |
+  | Beep each time a character is typed | refused by its own check, 422 s | right, 0 s (plain code) |
+  | The focused control's value with NVDA+shift+V, a beep when a progress bar changes | wrong (no beep), 290 s | right, 56 s |
+  | **All nine** | **8 passed the checks, 4 did what was asked, 1806 s** | **9 passed the checks, 8 did what was asked, 446 s** |
+
+  Found and corrected while measuring, each with a test: the piece writer took the first line of an answer without
+  its indentation, so every answer of the 9B, which writes a piece's lines indented, was a syntax error the model could
+  not correct, and the piece fell back to one piece after many minutes (`codeplan._block`); a check of the same program
+  the frame checks was refused (now left, `codeplan.problems`); both writers wrote a window's title as
+  `obj.appModule.windowTitle` or `.title`, which NVDA does not have, and plain code now writes it as the name
+  (`microaddons.fixNames`, and a line in `objects-and-events.md`); the one-piece writer's own check took "each time I
+  type a character" for a key and refused the event (`microaddons._ON_KEY`). The one-piece column was measured before
+  that last fix. The first run, before these fixes, is not counted: it was stopped.
+  With the smallest suggested pair, Qwen2.5 Coder 1.5B writing and Qwen3.5 2B reviewing, on the GeForce, after the
+  fixes above and two more this pair showed (`controlTypes.Role.PROGRESS_BAR`, and `datetime.now()` on the module
+  datetime, both corrected in `microaddons.fixNames`), with the stand-in made fuller (all 156 kinds of control NVDA
+  has, read in `tests/test_working.py`, and the attributes NVDA's controls have, after it had wrongly failed an add-on
+  that used `Role.LABEL` and `windowControlID`): **one piece 9 passed the checks and 3 did what was asked, in 27
+  seconds; piece by piece 9 passed and 9 did what was asked, in 13 seconds.** The session working on 1.12.0 ran the
+  same nine on the Radeon 780M the same morning, before the datetime fix: one piece 2 of 9, piece by piece 8 of 9.
+- **The live test, in part**, with Qwen3.5 9B for both jobs at the owner's settings: the 12 requests of
+  `tests/live_orchestrator.py` that have several parts, where what a step is fed changed (each part now gets only
+  what its own part found), and four new ones for this version. All 16 were carried out, each part by the job it was
+  before, with no question to the user: the Recycle Bin opened after it was seen, the volume, gmail.com and the
+  closed Settings window in one request, the controls of a dialog with tabs, the folder made and the file moved,
+  and the rest. "Kill the typing echo please" and "Give the screen a once-over" were answered "Understood as: turn
+  off the typing echo." and "Understood as: look at the screen.". **The whole live test (210 sessions, about 40
+  minutes) was not run** for this version: three other sessions were waiting for the graphics card.
+- **Not run inside NVDA.** The new tool `my_words`, the work sheets in the real data folder, the piece writer's add-ons
+  loaded into NVDA, and the look tool's questions in parts have run only against stand-ins. `docs/TESTPLAN.md` has a
+  new section for them.
+
 ## Next session
+
+1.11.0 understands casual words and the user's own words, feeds every step from a work sheet, and writes add-ons
+piece by piece. First, with the owner's yes: the new section of `docs/TESTPLAN.md`, "Understanding your words, the
+work sheet, add-ons in pieces", in NVDA. Then a fifth evaluation set in the owner's own casual words, to measure the
+grammar on words its writer did not choose; the misses of the fourth set listed above are for that set to measure.
+With the owner's yes, download Qwen3.5 2B or 0.8B and run `tests/live_codeplan.py` and `tests/eval_routing.py` with
+it: the piece writer was made for the smallest models and was measured only with the 9B.
 
 1.7.0 added four things, and none of them has run inside NVDA. With the owner's yes, in this order: the first
 item of "A setting only for one program" in `docs/TESTPLAN.md` (does a profile that was only just made apply at

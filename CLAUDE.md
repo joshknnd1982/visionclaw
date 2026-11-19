@@ -182,8 +182,9 @@ keyboard and speech alone.
   one that does not.
 - **What plain code can correct, plain code corrects.** A small model keeps what it once wrote however often
   it is told. Before sending code back to the coder, `microaddons.tidy` takes out what was not asked for, adds
-  forgotten imports and `nextHandler()`, fixes role comparisons, adds a program limit, and salvages a file that
-  was cut off. Add to `tidy` whenever the real model shows a new mistake of this kind, and never show the coder
+  forgotten imports and `nextHandler()`, fixes role comparisons, adds a program limit, salvages a file that
+  was cut off, and writes a window's or a control's title, which NVDA does not have, as the name it has
+  (`fixNames`: Qwen3.5 9B wrote `obj.appModule.windowTitle` and `api.getForegroundObject().title`). Add to `tidy` whenever the real model shows a new mistake of this kind, and never show the coder
   an example that does two things: it copies all of it.
 - **Never put an example in a message a model reads after a failure.** It copies the example as if it were the
   answer: "try other words, like speech rate" made the model change the speech rate. Say what is needed in
@@ -1047,6 +1048,77 @@ keyboard and speech alone.
     when it can only be meant in a place or by words of its own, and add the request to `tests/test_computer.py`,
     where every request listed must be offered the recipe its words point to. Measure with the whole of
     `tests/live_orchestrator.py` after changing a gate.
+- **The user's words are understood before anything is decided, by plain code, the way a text adventure understands
+  its player** (`claw/understand.py`). The owner said on 2026-11-19: "visionclaw must have skills and system prompts,
+  memory and rag to understand the different ways a user may request something, like how inform text adventures
+  understand different things in different ways." What follows from it:
+  - **Lines, not a model.** VisionClaw's own lines are Markdown in `claw/understanding.md`: - "these words", "or
+    these" mean "those words", with the tokens [x], [keys], [thing] and [window]. Its section says where a line may
+    change something: at the start or the end only (words said for nothing), anywhere (spellings, words that mean
+    the same), or only where something to do begins (ways of saying what to do: "fire up" is "open" at the start of
+    a request or after "and", "then", a comma, "please" or "could you", and nowhere else). A line only joins words
+    that ask for the same thing about working the computer by keyboard, speech and braille.
+  - **What must stay the user's own is never changed** (`understand._keep`, `_OWN_WORDS`): quotes, text to be typed, a
+    name given, what is to be searched for, web addresses, file names, keys, and every request to remember, to make
+    a skill, or to teach a word. Add to them when a new kind of the user's own text appears.
+  - **The user is told** when the meaning of a word was changed: the answer begins "Understood as" (`Reading.said`).
+    A spelling or a greeting left out is not said.
+  - **The user's own words** (the job `teach_words`, the tool `my_words` in `wordtools.py`): taught in words ("when I
+    say shh, I mean stop talking"), read by plain code (`understand.wishOf`), asked about with `confirm`, forgetting
+    all with `mustAgree`, kept as Markdown in `understanding.md` of the data folder, read again when the file
+    changes, applied first and anywhere. A word of fewer than two letters, an everyday word and a word that means
+    itself are refused (`understand.refusal`).
+  - **A line is kept only when it does not make the known requests worse.** Measure with plain code first (the first
+    pattern's job on `known.json` and the evaluation sets, before and after), then with the real model on a set the
+    lines were not written from. Measured on 2026-11-19: no request of the 593 known ones got worse, two got better;
+    the fourth set, written before the grammar, went from 40 to 52 of 62 with Qwen3.5 9B, and from 41 to 55 with
+    Qwen3.5 2B, with the questions to the user from 5 to 0. Both were written by the
+    same hand on the same day: a set in the owner's own words is the honest measure of what comes next.
+- **Every request has a work sheet, which feeds each step, and which is deleted when the request ends**
+  (`claw/worksheet.py`). The owner said on 2026-11-19: "no matter what model the user chooses, visionclaw must force
+  these small models to be as accurate as possible, this means using temporary markdown files to plan and feed small
+  bite-size pieces into tiny models, which get deleted when a job is done."
+  - It is a Markdown file in `work` of the data folder: the request, how it was understood, the plan, what each step
+    was given and found, and the sections of the work itself (an add-on's pieces, the parts of a question about a
+    picture). Without a folder it is kept in memory; writing it never ends a request.
+  - **It is what a step is fed from** (`agent.found`, `worksheet.feed`): a step is given what the steps of its own
+    part found and the check it depends on, not everything found so far. A step a model planned itself, one that
+    leans on "it" or "there", and one added to finish what was missing (`step.wide`) are given everything, as before.
+  - **It is deleted** in `Orchestrator.run`'s `finally`, however the request ended; what is left after NVDA closed in
+    the middle of a request is deleted when VisionClaw starts (`worksheet.clean`). Never keep a work sheet, and never
+    put anything into it that the log would not hold.
+- **An add-on is written piece by piece** (`claw/codeplan.py`). The owner said on 2026-11-19: "for coding with
+  visionclaw, build an orchestrator in python that takes a big prompt and breaks it down into bite-size pieces a small
+  1b to 9b model can understand."
+  - **Plain code reads the request into pieces**: one key command or one event each, with what it does in the user's
+    words (`codeplan.read`). The keys (`gestureOf`), the events (`EVENTS`), the kinds of control (`ROLE_WORDS`, read from
+    NVDA's `controlTypes.Role` in `tests/test_working.py`), the states (`STATES`) and the programs (`APP_NAMES`) are
+    read by plain code; a model never decides them. A key not named is chosen by `fixes.freeKeys` and the user is told.
+  - **Plain code writes the frame** (`frame`, `assemble`): imports, class, decorator, the check for the program, the
+    kind of control and the state, the try and the `nextHandler()` of an event, and a body that is a beep or a fixed
+    sentence (`plainBody`). The model writes only the lines inside one piece, fed from that piece's section of the work
+    sheet, with the notes, skills and memories chosen for that piece's own words (`notesFor`, `nvdatools.coderNotes`).
+    It never sees the other pieces. `PIECE_SYSTEM` has no example; the method with its place is the only code shown.
+  - **Each piece is checked, corrected and reviewed on its own**; the checks decide, the review advises; the whole
+    add-on is checked again. What plain code cannot frame for certain (`_UNFRAMED`: a timer, NVDA's start, a settings
+    panel, a class) or a piece that never passes is written as one piece by `microaddons.write`, as before, and the
+    user is told why. What the frame means the add-on cannot do is said before it is turned on (`codeplan.limits`).
+  - **A piece's lines are taken as the model indented them** (`_block`): the real 9B writes them indented as they
+    stand in the method, and stripping the answer as a whole made every answer a syntax error it could not correct.
+    A program check of the same program the frame checks is left in the lines; it does no harm.
+  - **A failing add-on is corrected one method at a time** where everything that went wrong is in one method
+    (`fixMethod`); otherwise as a whole, as before.
+  - Measured on 2026-11-19 on nine add-ons run against stand-ins for NVDA: with Qwen3.5 9B, 8 of 9 did what was
+    asked piece by piece against 4 of 9 as one piece, in a quarter of the time; with Qwen2.5 Coder 1.5B, 9 of 9
+    against 3 of 9. Do not go back to one piece for what plain code can frame.
+  - Measure with `python -u tests/live_codeplan.py MODELS`, which runs every add-on against `tests/addonstandin.py` to
+    see whether it does what was asked; read every add-on. Add a case there for every kind of request the real model
+    gets wrong, written before it is run.
+- **A question about a picture is asked in its parts, each with the one rule of its kind** (`claw/pictures.py`, the
+  tool `look`). Plain code splits it (`pieces`, at most `MAX_PIECES`), tells its kind from its words (`kindOf`), adds
+  the rule of the kind right after the question (`RULES`, plain sentences, no example, nothing that needs sight), and
+  says each answer after its own question (`together`). VisionClaw's own questions to the model that sees are asked
+  whole (`look(whole=True)`). The description window (`followup.py`) is unchanged: it was measured as it is.
 - **Never commit** model files (`*.gguf`, `*.bin`), `dist/`, tokens, or the `SmallClaw/` reference clone.
 
 ## Layout
@@ -1124,6 +1196,7 @@ addon/
                              speech model in an engine of its own on the processor
     voiceui.py               asking by voice as the user meets it: the speech model offered and downloaded
                              after a question, listening started and stopped, the beeps, the tools
+    wordtools.py             the user's own words: taught, listed and forgotten in words, kept in understanding.md
     portableui.py            the window that makes a portable copy: one .nvda-addon file with everything, or
                              VisionClaw with everything straight into a portable NVDA; progress, stopping
     (the rest)               VisionMate features: overlay, OCR, chat photos, labels ...
@@ -1172,6 +1245,15 @@ addon/
                              the text in a picture; the steps to the right month and day
       voice.py               the speech models and their files; when a person has begun and finished speaking;
                              a recording as a WAVE file; what the model is told and what is made of its answer
+      understand.py          the user's words understood as the plain words VisionClaw knows, by lines of Markdown
+                             (understanding.md, and the user's own in the data folder); what is never changed
+      understanding.md       VisionClaw's own lines of words that mean the same, by where they may stand
+      worksheet.py           the work sheet of a request: a temporary Markdown file with the plan, from which each
+                             step is fed what its own part found; deleted when the request ends
+      codeplan.py            an add-on written piece by piece: the request read into keys and events by plain code,
+                             the frame written by plain code, the lines of each piece by the model, one at a time;
+                             a failing add-on corrected one method at a time
+      pictures.py            a question about a picture split into its parts, the kind of each, and its rule
       router.py              which kinds of request and which tools a model is offered: by where the user is,
                              by the part before, and by what the words name
       pointer.py             which mouse action is meant, where a drag ends, how pointer mode moves; how long
@@ -1452,6 +1534,9 @@ A session is done only when its "Done when" line is true.
   for word; a thing there clicked; a way of looking that found nothing followed by the next way; plans learned from
   what really happened and recalled by concepts. Tested with stand-ins built from the owner's real taskbar and with
   the real Qwen3.5 9B choosing; not run inside NVDA.
+- [x] **3.59 Understanding, work sheets, and bite-size writing.** Casual words and the user's own words understood
+  by plain code; a work sheet for every request that feeds each step and is deleted; add-ons written piece by
+  piece; questions about a picture asked in their parts. Measured with the real Qwen3.5 9B; not run inside NVDA.
 - [ ] **3.5 Test inside NVDA.** Install the build in NVDA (ask the user first) and walk through
   `docs/TESTPLAN.md`. Fix what breaks. *Done when:* every item in the test plan is ticked by a real run.
 
@@ -1512,6 +1597,12 @@ python tests/test_planning.py            the parts of Windows itself from the wo
                                          where the user is, planning notes by BM25, plans by Laplace's rule and ageing
 python tests/test_eval_patterns.py       the planner's patterns against the known requests and the evaluation sets
 python tests/test_advice.py              which model fits what the user wants to do; how requests went with each model
+python tests/test_codeplan.py            an add-on read into pieces, its frame, run against stand-ins for NVDA; pieces
+                                         written, corrected and reviewed one at a time; the work sheet; one method fixed
+python tests/test_understand.py          casual words understood, what is never changed, the user's own words, a question
+                                         about a picture in its parts, whole requests with their work sheet
+python -u tests/live_codeplan.py MODELS  the real model writes nine add-ons as one piece and piece by piece; each is run
+                                         against stand-ins for NVDA to see whether it does what was asked
 python -u tests/eval_routing.py MODELS auto VISIONID CODERID always LABEL
                                          the real model chooses the job for an evaluation set; nothing is carried out
 python tests/test_places.py              which place of Windows and what is wanted there, what the owner's real taskbar

@@ -28,7 +28,7 @@ from .vclog import log
 
 from . import computertools, mousetools, net, nvdainfo, ocr, placetools, profiletools, webtools
 from .claw import changes, commands, computer, debuglog, drivers, fixes, gamepad, guides, helpfiles, inside, lookup, match, microaddons, offers, pointer, policy, profiles, prompts, training, web
-from .claw import guide, places, planning
+from .claw import codeplan, guide, pictures, places, planning
 from .claw.catalog import CODER, VISION
 from .claw.llm import LLM, clip
 from .claw.memory import score, wordList, words as wordsOf
@@ -1255,7 +1255,8 @@ def fixAddon(plugin, task, name, said=""):
 	# What a skill says, what the user asked VisionClaw to remember, their library, the notes on accessibility
 	# interfaces and the lines of the developer guides that belong with the add-on come before the notes.
 	notes = coderNotes(plugin, task, purpose, notes)
-	fixed = microaddons.fix(LLM(plugin.runtime, task), task, purpose, source, problems, notes, task.params, CODER, VISION)
+	fixed = codeplan.fixMethod(LLM(plugin.runtime, task), task, purpose, source, problems, notes, task.params, CODER, VISION,
+		sheet=getattr(task, "sheet", None))
 	repairs = meta.get("repairs", 0) + 1
 	store.save(ident, fixed, purpose, repairs=repairs)
 	try:
@@ -1346,7 +1347,9 @@ def build(plugin):
 				return _safe(lambda: onMain(placetools.boxOf, ident))
 		return None
 
-	def look(task, target, question):
+	def look(task, target, question, whole=False):
+		"""whole: the question is VisionClaw's own and is asked as it is; a question in the user's words is asked in
+		its separate questions, one at a time, each with the one rule of its kind (claw/pictures.py)."""
 		box = placeBox(question)
 		if box is not None:
 			try:
@@ -1358,21 +1361,32 @@ def build(plugin):
 			image, _box = screen.picture(target)
 		task.check()
 		lines = ocr.recognize(image) if config.conf["visionClaw"]["useOcr"] else []
-		prompt = (
-			ocr.promptPart(lines) + f"Look at this picture of the user's {target} and answer: {question} "
-			"Answer in a few short sentences. If you cannot see it, say so instead of guessing."
-		)
 		# What a chosen skill says about looking, such as how a photo or a chart is best described.
 		guide = stepGuide(task)
-		if guide:
-			prompt += f"\n{guide}"
 		seer = policy.roleName(VISION, policy.isOneModel(plugin.runtime))
-		task.emit("talk", f"Asked the {seer}: {question}")
-		answer = plugin.runtime.describe(prepareImage(image, config.conf["visionClaw"]["detailSize"]), prompt, 350,
-			cancel=task.cancel, system=prompts.seeing())
-		task.check()
-		task.emit("talk", f"The {seer} answered: {clip(answer, 400)}")
-		return answer or f"The {seer} gave no answer."
+		prepared = prepareImage(image, config.conf["visionClaw"]["detailSize"])
+		asks = [(pictures.kindOf(question), question)] if whole else pictures.pieces(question) or [(pictures.DESCRIBE, question)]
+		if len(asks) > 1:
+			task.emit("talk", f"The question is asked in {len(asks)} parts, one at a time: " + "; ".join(text for _k, text in asks) + ".")
+		answers = []
+		for kind, asked in asks:
+			task.check()
+			prompt = (
+				ocr.promptPart(lines) + f"Look at this picture of the user's {target} and answer: {asked} "
+				f"Answer in a few short sentences. {pictures.rule(kind)} If you cannot see it, say so instead of guessing."
+			)
+			if guide:
+				prompt += f"\n{guide}"
+			task.emit("talk", f"Asked the {seer}: {asked}")
+			answer = plugin.runtime.describe(prepared, prompt, 350, cancel=task.cancel, system=prompts.seeing())
+			task.check()
+			task.emit("talk", f"The {seer} answered: {clip(answer, 400)}")
+			answers.append((asked, answer or f"The {seer} gave no answer."))
+		sheet = getattr(task, "sheet", None)
+		if sheet is not None and len(asks) > 1:
+			sheet.section("Questions about the picture", "\n".join(
+				f"{number}. {asked} ({kind}): {clip(answer, 300)}" for number, ((kind, asked), (_q, answer)) in enumerate(zip(asks, answers), 1)))
+		return pictures.together(answers)
 
 	add("look", "look at the screen with the vision model and answer a question about what is shown", look, {
 		"target": text("what to look at", enum=_TARGETS, auto=targetOf),
@@ -2262,6 +2276,18 @@ def build(plugin):
 			"asked": text("what the user asked for, in their own words", maxLength=300, auto=True),
 		}, changes=True, before="list_items", title="Making the hotkey")
 
+	def usedKeys():
+		"""The keys VisionClaw's own add-ons and helpers already use, so that a key chosen for a new one is free."""
+		keys = []
+		try:
+			for meta in plugin.helpers.store.list():
+				keys += [key for key, _text in microaddons.gestures(plugin.helpers.store.source(meta["name"]) or "")]
+			for bindings in getattr(plugin.helpers, "_bindings", {}).values():
+				keys += [str(binding.get("key", "")) for binding in bindings.values() if isinstance(binding, dict)]
+		except Exception as e:
+			debuglog.error("codeplan", "The keys in use could not be listed", e)
+		return [key for key in keys if key]
+
 	def createAddon(task, name, purpose):
 		params = task.params
 		llm = LLM(plugin.runtime, task)
@@ -2269,7 +2295,7 @@ def build(plugin):
 		if _ABOUT_SCREEN.search(purpose):
 			# The two models work together: the vision model says what is there, the coder writes the fix for it.
 			try:
-				seen = look(task, "window", "Which buttons, labels and controls does this window show? Name them briefly.")
+				seen = look(task, "window", "Which buttons, labels and controls does this window show? Name them briefly.", whole=True)
 				facts += "\nWhat the vision model sees in the window: " + clip(seen, 500)
 			except (ToolError, EngineError):
 				pass
@@ -2280,11 +2306,18 @@ def build(plugin):
 		# What a skill says, what the user asked VisionClaw to remember, their library, the notes on accessibility
 		# interfaces and the lines of the developer guides that belong with the add-on come before the notes.
 		notes = coderNotes(plugin, task, purpose, notes)
-		source = microaddons.write(llm, task, purpose, facts, notes, params, CODER, VISION)
+
+		def notesFor(words):
+			# What fits one piece's own words: the notes, skills, memories and guides chosen for them alone.
+			found = plugin.knowledge.text(words, limit=2, chars=500, sources=("addon-development", "objects-and-events"))
+			return coderNotes(plugin, task, words, found)
+
+		source = codeplan.write(llm, task, purpose, facts, notes, params, CODER, VISION, notesFor=notesFor,
+			sheet=getattr(task, "sheet", None), usedKeys=usedKeys())
 		keys = microaddons.gestures(source)
 		keyText = " Keys: " + "; ".join(f"{k} ({d})" if d else k for k, d in keys) + "." if keys else ""
 		# What the code really does, found by checking it, in plain words: nobody has to read code.
-		checked = " ".join(microaddons.describe(source))
+		checked = " ".join(microaddons.describe(source) + list(getattr(task, "codeLimits", [])))
 		# Translators: Asked before a newly written add-on is turned on. {facts} are plain sentences about it.
 		question = _(
 			"VisionClaw wrote an add-on called {name}. You asked for: {purpose}. "
@@ -2665,6 +2698,9 @@ def build(plugin):
 	# What the user asked VisionClaw to remember, as Markdown files, and the user's library of documents.
 	from . import memorytools
 	memorytools.register(plugin, add, text, onMain, confirm)
+	# The user's own words: a word taught to mean something else, listed and forgotten (wordtools.py).
+	from . import wordtools
+	wordtools.register(plugin, add, text, confirm, mustAgree)
 	# The computer itself: things opened by name, the Recycle Bin, the volume, windows, files, facts, power.
 	computertools.register(add, plugin, text, onMain, confirm, mustAgree, Refused, screen)
 	# What is in a part of Windows itself: the system tray, the taskbar, the desktop, and the parts opened first.

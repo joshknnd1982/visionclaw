@@ -21,6 +21,12 @@ import harness
 from visionClaw.claw import audit, catalog, commands, fixes, library, lookup, match, memories, orchestrator, pointer, runtime, scrolling, tools, web
 from visionClaw.claw import computer, controls, dates, partners, places, planner, profiles, prompts, router, skills
 from visionClaw.claw import guide as walking
+try:
+	# Understanding the user's words and the work sheets came with 1.11.0; an older copy scored with VC_PLUGIN has none.
+	from visionClaw.claw import understand
+except ImportError:
+	understand = None
+WORK = tempfile.mkdtemp(prefix="visionclaw-work-")
 from visionClaw.claw.knowledge import Knowledge
 from visionClaw.claw import task as taskModule
 from visionClaw.claw.catalog import CODER, VISION
@@ -344,6 +350,16 @@ def makeRegistry(rt, state):
 			return result.format(**form) if form else result
 		reg.add(tools.Tool(name, description, run, fields, title=title, **options))
 
+	if understand is not None:
+		# The user's own words, as in wordtools.py: the stand-in keeps nothing.
+		simple("my_words",
+			"teach VisionClaw a word or phrase of the user's own that is to mean something else from now on, list the "
+			"words taught, or forget one or all of them",
+			"From now on, the word is understood as the user said. To undo it, say forget the word.", "Your own words", {
+				"action": text("teach a new word, list the words taught, forget one word, or forget all of them",
+					enum=list(understand.ACTIONS), auto=understand.actionOf),
+				"asked": text("what the user asked for, in their own words", maxLength=300, auto=True),
+			}, changes=True, tell=tools.VERBATIM)
 	simple("page_outline",
 		"say how the web page is laid out: its headings in order, and how many links, buttons and fields it has",
 		"The web page Example Shop has 2 headings, 3 links, 1 buttons and 1 form fields.\n"
@@ -927,6 +943,10 @@ with open(os.path.join(SHELF.folder, "Space Trader manual.txt"), "w", encoding="
 	_f.write("TRADING\nPress T to open the market. Buy low and sell high.\n\nSAVING\nSaving is done with Control+S.\n")
 
 REQUESTS = (
+	# The user's own words and casual words understood (claw/understand.py, 1.11.0). None is from an evaluation set.
+	"When I say shh, I mean stop talking. >> Which words have I taught you?",
+	"Kill the typing echo please.",
+	"Give the screen a once-over.",
 	# A setting for one program only, a date in a calendar, asking by voice, and requests that follow the one
 	# before them (2026-11-18). Requests joined by " >> " are asked one after the other of the same VisionClaw.
 	"Make NVDA speak a little faster, only in this program.",
@@ -1204,6 +1224,9 @@ def runOne(orch, request, reasoning, state, follows):
 	orch.skills = SKILLS
 	# Where the user is, for the router: a game in front, no web page, no controller.
 	orch.facts = lambda: {router.WEB: False, router.CONTROLLER: False, router.DIRECT: False}
+	if understand is not None:
+		orch.understanding = understand.Grammar(None)
+		orch.workFolder = WORK
 	task = taskModule.Task(request, reasoning=reasoning)
 	start = time.time()
 	orch.run(task)

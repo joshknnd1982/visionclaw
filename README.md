@@ -23,9 +23,21 @@ chat apps, and names for unlabelled buttons.
 > [docs/STATUS.md](docs/STATUS.md) for exactly what was tested.
 
 <!-- news: written by tools/write_help.py from manifest.ini; do not change it by hand -->
-This README is for VisionClaw 1.10.0.
+This README is for VisionClaw 1.11.0.
 
-## What is new in 1.10.0
+## What is new in 1.11.0
+
+- VisionClaw understands many more ways of saying things, the way a text adventure understands its player. "Take a peek at the screen", "kill the typing echo", "give the Save button a click", "punch in control c", "google how to bake bread", "dump the bin" and "lock up the pc" are understood as the plain words VisionClaw knows, by plain code, before anything is decided. When the meaning of your words was changed, the answer begins "Understood as", so you always know. Words in quotes, text to be typed, names, searches and what you ask it to remember are never changed. Measured on 62 requests in casual words: the right job went from 40 to 52 with Qwen3.5 9B, and from 41 to 55 with the small Qwen3.5 2B, which no longer had to ask you which you meant.
+- Teach VisionClaw your own words. Say "when I say shh, I mean stop talking", or "understand zap as turn off". From then on that word is understood that way, first of all. Say "which words have I taught you" to hear them, "forget the word shh" to forget one, and "forget all the words I taught you" to forget them all. They are kept in the file understanding.md in VisionClaw's data folder, which you can read and change.
+- Every request has a work sheet: a Markdown file with the plan, what each small step is given and what it found, in the folder work of VisionClaw's data folder. Each question to a model is made from it, so a small model gets only its own piece of the work: what the steps of its own part found, not everything found so far. Open it while a long request runs to follow along. It is deleted when the request is done, also when it failed or was stopped.
+- Add-ons are written piece by piece. Say "write an add-on that beeps when a link gets the focus, says the time with NVDA+Alt+T, and only works in Firefox". Plain code reads it into pieces, one key or one thing that happens by itself each, and writes everything around them: the key, the event, the kind of control, the program, and a beep or a fixed sentence. The model writes only the few lines inside one piece, with the notes, skills and memories that fit that piece, and never sees the others. Each piece is checked and reviewed on its own. Measured on nine add-ons, each run against stand-ins for NVDA to see whether it does what was asked: with Qwen3.5 9B, 8 of 9 did, against 4 of 9 written as one piece, in a quarter of the time; with the small Qwen2.5 Coder 1.5B, 9 of 9, against 3 of 9.
+- "Gets checked" means checked: an add-on for "when a checkbox gets checked, say checked" speaks only when the box is checked, not when it is unchecked. When no key is named, as in "give me a key that reads the window title", VisionClaw chooses one nothing else uses and tells you which. Before an add-on is turned on you are told what it cannot do, such as a heading in browse mode, which never gets the focus. What cannot be written in pieces, such as something every hour, is written as one piece as before, and you are told why.
+- When an add-on VisionClaw wrote fails in one place, only the method where it failed is sent to the model to correct.
+- A question about the screen is asked one part at a time. "What is in this photo, and is there any text in it?" is two questions to the model that sees, each with the one rule of its kind: text read exactly, a count with the number first, yes or no first and then where, a colour in plain words. You hear each answer after its own question.
+- NVDA+Alt+P now also says how far a description, an answer about a picture, the words you spoke or the overlay's icons are, and NVDA+Alt+X also stops a description or an answer that is still on its way. While you wait for a description, other keys no longer throw it away: read on, or press NVDA+Alt+P, and it still comes. Once it is spoken, Control stops it, as before.
+- Stated plainly: measured with the real Qwen3.5 9B, and with Qwen3.5 2B and Qwen2.5 Coder 1.5B, on requests and add-ons written for this; tested with stand-ins for NVDA. The new requests in casual words were written by the same hand as the words VisionClaw understands, the same day. Not run inside NVDA yet.
+
+## What was new in 1.10.0
 
 - VisionClaw understands more ways of saying things, and asks you less. Measured on requests in words it had never seen: the right job went from 55 to 58 of 65, and the times it had to ask you which you meant from 5 to 1.
 - A question about how to do something is answered with the keys, and nothing is done. "How can I jump between headings on a web page" and "what's the shortcut to get to the address bar" no longer list headings or make a hotkey. A question that begins with why, such as "why does NVDA say clickable all the time", is answered too.
@@ -36,11 +48,6 @@ This README is for VisionClaw 1.10.0.
 - Your own review of a model counts. VisionClaw keeps how requests went with each model on this computer in the file models-went.json in its data folder, and what you ask it to remember about a model, such as "remember that the 9B is too slow for me", brings the faster choice into the suggestion.
 - A new skill, Choosing a model, and a note VisionClaw looks things up in about which model fits what.
 - Stated plainly: measured with the real Qwen3.5 9B on three sets of requests written for this, none of them used to tune VisionClaw when it was written; tested with stand-ins for NVDA. Not run inside NVDA yet.
-
-## What was new in 1.9.1
-
-- Reading the system tray no longer leaves you on the taskbar. To read the hidden icons, VisionClaw shows them for a moment and hides them again; on Windows 11 that moved the focus to the taskbar. Now the window you were in comes back to the front, so after "what is in my system tray" you are where you were before.
-- Stated plainly: tried on the owner's real Windows 11 taskbar outside NVDA: the four hidden icons were read, hidden again, and the window in front came back. Not run inside NVDA yet.
 
 How to use each of these is explained in its own part of this README, further down.
 <!-- /news -->
@@ -73,6 +80,11 @@ Press **NVDA+Alt+C**, type a request, and press Enter. For example:
 - *Turn left.* *Look up a little.* *This game has its own mouse pointer.* (For games that read the mouse directly.)
 - *Is a controller connected?* *Turn on controller mode.* *Make the X button on my controller click Play.*
 - *Write an add-on that beeps when a link gets the focus.*
+- *Write an add-on that beeps when a link gets the focus, says the time with NVDA+Alt+T, and only works in Firefox.*
+  (Written piece by piece.)
+- *Take a peek at the screen.* *Kill the typing echo.* *Give the Save button a click.* (Casual words are understood.)
+- *When I say shh, I mean stop talking.* *Which words have I taught you?* *Forget the word shh.*
+- *What is in this photo, and is there any text in it?* (Asked one part at a time.)
 - *Open bbc.co.uk*, *Search the web for the weather in Boston*, *What does this page say about refunds?*
 - *Type garden gloves into the search box and search.*
 - *Which speech synthesizer am I using? What braille display do I have, and how many cells does it have?*
@@ -109,6 +121,61 @@ You do not need to know NVDA. VisionClaw finds the right NVDA setting or command
    you plainly when a part could not be done.
 7. **It learns.** When a step first fails and then works, the lesson is kept on your computer and used for
    similar requests later. The models can also read NVDA's own user guide and notes about NVDA's add-on system.
+
+## How VisionClaw understands your words
+
+VisionClaw reads what you say the way a text adventure reads its player: some words are understood as other words
+that mean the same, before anything is decided. "Take a peek at the screen" is understood as "look at the screen",
+"kill the typing echo" as "turn off the typing echo", "give the Save button a click" as "click the Save button",
+"punch in control c" as "press control c", "google how to bake bread" as "search the web for how to bake bread",
+"dump the bin" as "empty the recycle bin", and "hey VisionClaw, ... for me please" loses its greeting. This is done
+by plain program code, from lines written in a Markdown file that comes with VisionClaw (`understanding.md` in its
+`claw` folder); no model decides it, and nothing goes online. Small models read plain words much better than slang.
+
+- **You are told.** When the meaning of a word was changed, the answer begins "Understood as", with your request as
+  it was understood. A spelling or a greeting that was left out is not said.
+- **Your own words stay yours.** Words in quotes, text you ask to have typed, a name you give, what is to be
+  searched for, web addresses, file names, keys, and every request to remember something, to make a skill or to
+  teach a word are never changed.
+- **A way of saying what to do counts only where something to do begins.** "Fire up Notepad" opens Notepad, but
+  "why does the fan fire up" is left as it is.
+
+### Your own words
+
+Teach VisionClaw a word or phrase of your own. Say *when I say shh, I mean stop talking*, *understand zap as turn
+off*, or *by brb I mean lock the computer*. VisionClaw asks you first (unless you turned questions off), and from
+then on that word is understood that way, before everything else, anywhere in a request, also when it is all you
+say. The answer then begins "Understood as".
+
+- *Which words have I taught you?* lists them.
+- *Forget the word shh.* forgets one. *Forget all the words I taught you.* forgets all of them, always after a
+  question.
+- They are kept in the file `understanding.md` in VisionClaw's data folder, one line each, which you can read and
+  change in any editor; a line you write there counts at once.
+- A word of fewer than two letters, an everyday word like "it" or "the", and a word that means itself cannot be
+  taught: they would change nearly every request. You are told why.
+
+### Questions about a picture, one at a time
+
+A question about what is on the screen is put to the model that sees in its separate parts. "What is in this photo,
+and is there any text in it?" is two questions, asked one after the other with the same picture. Each gets the one
+rule of its kind right after it, where a small model heeds it most: text is read exactly as it is written; a count
+gives the number first; "is there" is answered yes or no first, then where; a colour is named in plain words; people
+are described without saying who they are; a chart is told by its title, its axes and its trend. You hear each
+answer after its own question. Your own words are always the question.
+
+## The work sheet: every request in small pieces
+
+Every request has a work sheet: a Markdown file with the plan, what each small step is given, and what it found. It
+is the one place each question to a model is made from, so that a small model gets only its own small piece of the
+work: a step is given what the steps of its own part found, not everything found so far, and a piece of an add-on is
+given its own section and nothing of the others. A step that speaks of "it" or "there", and a step a model planned
+itself, are given everything found before it, as before.
+
+The work sheet is in the folder `work` of VisionClaw's data folder while the request runs, so you can open it in
+any editor to follow along. **It is deleted when the request is done**, also when it failed or you stopped it; one
+left over because NVDA closed in the middle of a request is deleted when VisionClaw starts. What happened is still in
+VisionClaw's own log, when the log is on.
 
 ## Install
 
@@ -1110,6 +1177,30 @@ pointer before you click.
 ## Add-ons written by VisionClaw
 
 **You never have to read, write or debug code.** You say what you need; the coder model writes a small add-on.
+
+### Written piece by piece
+
+A request for an add-on is broken into bite-size pieces by plain program code, the way a text adventure reads a
+command: each piece is one key command or one thing that happens by itself. *Write an add-on that beeps when a link
+gets the focus, says the time with NVDA+Alt+T, and only works in Firefox* is two pieces and one program.
+
+- **Plain code writes everything around the pieces:** the imports, the key you named, the event (a control getting
+  the focus, a window coming to the front, a name, value or state that changes, a character you type, the cursor
+  moving, an alert, a notification, something appearing), the kind of control ("a link", "a heading", "a
+  checkbox"), the state ("gets checked" speaks only when the box is now checked, not when it is unchecked), and the
+  program. A piece whose work is a beep or a fixed sentence, such as *say heading*, is written by plain code too.
+- **The model writes only the few lines inside one piece**, fed from that piece's section of the work sheet: what it
+  must do, when it runs, the method with the place for its lines, and the notes, skills and memories that fit that
+  piece's own words. It never sees the other pieces.
+- **Each piece is checked, corrected and reviewed on its own**, then plain code puts them together and checks the
+  whole add-on once more.
+- **A key command whose key you did not name** gets a key nothing else uses, and you are told which.
+- **You are told what it cannot do**: an add-on for headings that get the focus works in a program and in focus
+  mode, but in browse mode on a web page moving to a heading does not move the focus.
+- **What cannot be read into pieces** for certain, such as something every hour, at NVDA's start, or a settings
+  panel, is written as one piece as before, and you are told why.
+- **When an add-on fails in one place**, only the method where it failed is sent to the model to correct, and put
+  back; when it failed in several places, or you say in words what is wrong, the whole add-on is corrected as before.
 
 Before it can run:
 - The code must pass a check: it must be valid, must not start programs, use the network, or delete or write

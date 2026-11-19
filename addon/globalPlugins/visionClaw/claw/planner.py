@@ -11,7 +11,7 @@
 
 import re
 
-from . import computer, controls, dates, debuglog, direct, gamepad, guide, memories, partners, places, pointer, policy, profiles, router, touch
+from . import computer, controls, dates, debuglog, direct, gamepad, guide, memories, partners, places, pointer, policy, profiles, router, touch, understand
 from .llm import LLMError, clip
 from .task import Step
 from .tools import ANSWER
@@ -494,6 +494,12 @@ RECIPES = {
 		"delete the speech model for asking by voice",
 		"delete the speech model for asking by voice from this computer",
 		("remove_voice",)),
+	# The user's own words, understood as other words from then on (claw/understand.py): taught, listed, forgotten.
+	"teach_words": (
+		"understand a word of yours",
+		"teach VisionClaw a word or phrase of the user's own that is to mean something else from now on, say which "
+		"words were taught, or forget one",
+		("my_words",)),
 	"power": (
 		"lock, restart or shut down the computer",
 		"lock the computer, put it to sleep, restart it, shut it down or sign out of Windows, or call off a restart "
@@ -535,6 +541,9 @@ _HINTS = (
 	# speak of a file, a folder or a document, or write a name with its ending, and then "delete the file
 	# notes.txt" is not about VisionClaw's notes on a program.
 	("file_task", lambda part: computer.fileTask(part) is not None),
+	# A word of the user's own, taught, listed or forgotten: "when I say shh, I mean stop talking". Before memories,
+	# which "forget" would otherwise set off. Only where the words can hardly mean anything else (understand.wishOf).
+	("teach_words", lambda part: understand.wishOf(part) is not None),
 	# The settings a program has for itself, in NVDA's configuration profiles: taking them away, and which
 	# programs have some. Changing one is change_setting, below, with "only in this program" in the words.
 	# A date to be chosen in a calendar: the words name a calendar or a date field, and a date. Before everything
@@ -1019,7 +1028,7 @@ _REPORTS = re.compile(r"^\s*(?:please\s+)?(tell|say|read|describe|report|list|su
 # What only looks: a report joined to it by "and" is about what was looked at, and stays with it.
 _LOOKS = ("read_place", "describe", "read_text", "where_am_i", "check_access", "page_outline", "explore_page", "form_trouble", "web_page", "nvda_question", "explain_keys")
 # Recipes whose words are the user's own text, which may hold commas and "and" of its own.
-_WHOLE = ("learn_app", "write_addon", "add_skill", "add_fix", "work_through")
+_WHOLE = ("learn_app", "write_addon", "add_skill", "add_fix", "work_through", "teach_words")
 # What is wrong, then one short wish about it that says "it" or "that": "..., make it stop", "..., fix that".
 _COMPLAINT = re.compile(
 	r"^(?!\s*(?:please\s+)?(?:can you\s+)?(?:open|close|click|press|type|turn|set|go|switch|start|find|read|tell|show)\b)"
@@ -1351,11 +1360,13 @@ _NEEDS = {
 	"recycle_bin": lambda part: computer.asksAboutBin(part) or None,
 	# Remembering is only meant where the words ask for it or say something lasting about the user. A real
 	# model sent "see if it needs to be emptied or not" there, and the request was kept as a memory.
-	"remember": lambda part: (memories.asksToRemember(part) or memories.lasting(part)) or None}
+	"remember": lambda part: (memories.asksToRemember(part) or memories.lasting(part)) or None,
+	"teach_words": understand.wishOf}
 # Recipes the words point to that can hardly mean anything else: locking and shutting down, the Recycle Bin, the
 # computer's own volume. Where the words point to one of them, it is taken, whatever a model chose. Each of
 # their tools asks the user before it changes anything.
-_SURE = ("power", "windows_part", "read_place", "empty_bin", "recycle_bin", "system_volume", "file_task", "pick_date", "work_through")
+_SURE = ("power", "windows_part", "read_place", "empty_bin", "recycle_bin", "system_volume", "file_task", "pick_date", "work_through",
+	"teach_words")
 
 
 def fitted(choice, part, guess):

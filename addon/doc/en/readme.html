@@ -12,8 +12,20 @@ If VisionMate is installed, disable it in the Add-on Store: VisionClaw uses the 
 next. The first parts say what is new. Every feature of VisionClaw, old and new, is explained after them.</p>
 
 <!-- news: written by tools/write_help.py from manifest.ini; do not change it by hand -->
-<p>This help is for VisionClaw 1.10.0.</p>
-<h2>What is new in 1.10.0</h2>
+<p>This help is for VisionClaw 1.11.0.</p>
+<h2>What is new in 1.11.0</h2>
+<ul>
+<li>VisionClaw understands many more ways of saying things, the way a text adventure understands its player. "Take a peek at the screen", "kill the typing echo", "give the Save button a click", "punch in control c", "google how to bake bread", "dump the bin" and "lock up the pc" are understood as the plain words VisionClaw knows, by plain code, before anything is decided. When the meaning of your words was changed, the answer begins "Understood as", so you always know. Words in quotes, text to be typed, names, searches and what you ask it to remember are never changed. Measured on 62 requests in casual words: the right job went from 40 to 52 with Qwen3.5 9B, and from 41 to 55 with the small Qwen3.5 2B, which no longer had to ask you which you meant.</li>
+<li>Teach VisionClaw your own words. Say "when I say shh, I mean stop talking", or "understand zap as turn off". From then on that word is understood that way, first of all. Say "which words have I taught you" to hear them, "forget the word shh" to forget one, and "forget all the words I taught you" to forget them all. They are kept in the file understanding.md in VisionClaw's data folder, which you can read and change.</li>
+<li>Every request has a work sheet: a Markdown file with the plan, what each small step is given and what it found, in the folder work of VisionClaw's data folder. Each question to a model is made from it, so a small model gets only its own piece of the work: what the steps of its own part found, not everything found so far. Open it while a long request runs to follow along. It is deleted when the request is done, also when it failed or was stopped.</li>
+<li>Add-ons are written piece by piece. Say "write an add-on that beeps when a link gets the focus, says the time with NVDA+Alt+T, and only works in Firefox". Plain code reads it into pieces, one key or one thing that happens by itself each, and writes everything around them: the key, the event, the kind of control, the program, and a beep or a fixed sentence. The model writes only the few lines inside one piece, with the notes, skills and memories that fit that piece, and never sees the others. Each piece is checked and reviewed on its own. Measured on nine add-ons, each run against stand-ins for NVDA to see whether it does what was asked: with Qwen3.5 9B, 8 of 9 did, against 4 of 9 written as one piece, in a quarter of the time; with the small Qwen2.5 Coder 1.5B, 9 of 9, against 3 of 9.</li>
+<li>"Gets checked" means checked: an add-on for "when a checkbox gets checked, say checked" speaks only when the box is checked, not when it is unchecked. When no key is named, as in "give me a key that reads the window title", VisionClaw chooses one nothing else uses and tells you which. Before an add-on is turned on you are told what it cannot do, such as a heading in browse mode, which never gets the focus. What cannot be written in pieces, such as something every hour, is written as one piece as before, and you are told why.</li>
+<li>When an add-on VisionClaw wrote fails in one place, only the method where it failed is sent to the model to correct.</li>
+<li>A question about the screen is asked one part at a time. "What is in this photo, and is there any text in it?" is two questions to the model that sees, each with the one rule of its kind: text read exactly, a count with the number first, yes or no first and then where, a colour in plain words. You hear each answer after its own question.</li>
+<li>NVDA+Alt+P now also says how far a description, an answer about a picture, the words you spoke or the overlay's icons are, and NVDA+Alt+X also stops a description or an answer that is still on its way. While you wait for a description, other keys no longer throw it away: read on, or press NVDA+Alt+P, and it still comes. Once it is spoken, Control stops it, as before.</li>
+<li>Stated plainly: measured with the real Qwen3.5 9B, and with Qwen3.5 2B and Qwen2.5 Coder 1.5B, on requests and add-ons written for this; tested with stand-ins for NVDA. The new requests in casual words were written by the same hand as the words VisionClaw understands, the same day. Not run inside NVDA yet.</li>
+</ul>
+<h2>What was new in 1.10.0</h2>
 <ul>
 <li>VisionClaw understands more ways of saying things, and asks you less. Measured on requests in words it had never seen: the right job went from 55 to 58 of 65, and the times it had to ask you which you meant from 5 to 1.</li>
 <li>A question about how to do something is answered with the keys, and nothing is done. "How can I jump between headings on a web page" and "what's the shortcut to get to the address bar" no longer list headings or make a hotkey. A question that begins with why, such as "why does NVDA say clickable all the time", is answered too.</li>
@@ -24,11 +36,6 @@ next. The first parts say what is new. Every feature of VisionClaw, old and new,
 <li>Your own review of a model counts. VisionClaw keeps how requests went with each model on this computer in the file models-went.json in its data folder, and what you ask it to remember about a model, such as "remember that the 9B is too slow for me", brings the faster choice into the suggestion.</li>
 <li>A new skill, Choosing a model, and a note VisionClaw looks things up in about which model fits what.</li>
 <li>Stated plainly: measured with the real Qwen3.5 9B on three sets of requests written for this, none of them used to tune VisionClaw when it was written; tested with stand-ins for NVDA. Not run inside NVDA yet.</li>
-</ul>
-<h2>What was new in 1.9.1</h2>
-<ul>
-<li>Reading the system tray no longer leaves you on the taskbar. To read the hidden icons, VisionClaw shows them for a moment and hides them again; on Windows 11 that moved the focus to the taskbar. Now the window you were in comes back to the front, so after "what is in my system tray" you are where you were before.</li>
-<li>Stated plainly: tried on the owner's real Windows 11 taskbar outside NVDA: the four hidden icons were read, hidden again, and the window in front came back. Not run inside NVDA yet.</li>
 </ul>
 <p>How to use each of these is explained in its own part of this page, further down.</p>
 <!-- /news -->
@@ -87,6 +94,34 @@ only the step it happened in; the rest of your request is still done. By default
 changes a setting, clicks, presses keys or types; you can turn that off in the settings. Anything that could take
 speech or braille away, or that cannot be undone, is always asked about, whatever the settings say. What
 VisionClaw says it did is taken from what the tools really reported.</p>
+
+<h2>How VisionClaw understands your words</h2>
+<p>VisionClaw reads what you say the way a text adventure reads its player: some words are understood as other
+words that mean the same, before anything is decided. "Take a peek at the screen" is understood as "look at the
+screen", "kill the typing echo" as "turn off the typing echo", "give the Save button a click" as "click the Save
+button", "punch in control c" as "press control c", "google how to bake bread" as "search the web for how to bake
+bread", and "dump the bin" as "empty the recycle bin". Plain program code does this, from lines in a Markdown file
+that comes with VisionClaw, understanding.md in its claw folder; no model decides it and nothing goes online. When
+the meaning of a word was changed, the answer begins "Understood as". Words in quotes, text you ask to have typed,
+a name you give, what is to be searched for, web addresses, file names, keys, and every request to remember
+something, make a skill or teach a word are never changed. A way of saying what to do counts only where something
+to do begins: "fire up Notepad" opens Notepad, but "why does the fan fire up" is left as it is.</p>
+<p>Teach VisionClaw your own words: say "when I say shh, I mean stop talking", "understand zap as turn off", or "by
+brb I mean lock the computer". VisionClaw asks you first, unless you turned questions off, and from then on that
+word is understood that way, before everything else. Ask "which words have I taught you" to hear them, "forget the
+word shh" to forget one, and "forget all the words I taught you" to forget all of them, which is always asked about
+first. They are kept in the file understanding.md in VisionClaw's data folder, one line each, which you can read and
+change in any editor. A word of fewer than two letters, an everyday word like "it", and a word that means itself
+cannot be taught; you are told why.</p>
+
+<h2>The work sheet: every request in small pieces</h2>
+<p>Every request has a work sheet: a Markdown file with the plan, what each small step is given, and what it found.
+Each question to a model is made from it, so that a small model gets only its own small piece of the work: a step is
+given what the steps of its own part found, not everything found so far, and a piece of an add-on is given its own
+section and nothing of the others. A step that speaks of "it" or "there", and a step a model planned itself, are
+given everything found before it. The work sheet is in the folder work of VisionClaw's data folder while the request
+runs, so you can open it to follow along. It is deleted when the request is done, also when it failed or you
+stopped it; one left over because NVDA closed in the middle of a request is deleted when VisionClaw starts.</p>
 
 <h2>Asking by voice</h2>
 <p>Press NVDA+Alt+V, or Alt+V in the Ask VisionClaw window, and speak after the high beep. VisionClaw stops
@@ -268,6 +303,11 @@ field afterwards.</p>
 where you can ask questions about the image. Press Control to stop speaking. On a photo message in a chat app,
 or an image file in File Explorer, NVDA+Alt+A describes the photo itself. You can also ask in words: "what is on
 my screen?", or "read the text in this window" for the exact text shown.</p>
+<p>A question about what is on the screen, asked in words, is put to the model that sees in its separate parts:
+"what is in this photo, and is there any text in it?" is two questions, asked one after the other with the same
+picture. Each gets the one rule of its kind: text is read exactly as written, a count gives the number first, "is
+there" is answered yes or no first and then where, a colour is named in plain words, people are described without
+saying who they are, a chart is told by its title, axes and trend. You hear each answer after its own question.</p>
 <p>In the description window every question is answered: what is highlighted or selected, where something is,
 what a thing is for, what could be done next. What the picture does not show, the model says is not shown. A
 question about a key, such as "how do I read the title of this window", is given NVDA's real command for it, so
@@ -501,6 +541,16 @@ what it does wrong. Generated add-ons start without restarting NVDA and come bac
 you have made" or "remove the add-on" followed by its name to manage them. Ask "save the add-on" followed by its
 name "as a file" to get a normal add-on file in your Documents folder, under VisionClaw add-ons, that you can
 install for good or share.</p>
+<p>An add-on is written piece by piece. Ask "write an add-on that beeps when a link gets the focus, says the time
+with NVDA+Alt+T, and only works in Firefox": plain program code reads it into pieces, one key command or one thing
+that happens by itself each, and writes everything around them: the key, the event, the kind of control, the state
+("gets checked" speaks only when the box is now checked), the program, and a beep or a fixed sentence. The model
+writes only the few lines inside one piece, fed from that piece's section of the work sheet with the notes that fit
+that piece, and never sees the other pieces. Each piece is checked and reviewed on its own, and the whole add-on
+once more. A key command whose key you did not name gets a key nothing else uses, and you are told which. You are
+told what it cannot do, such as a heading in browse mode, which never gets the focus. What cannot be read into
+pieces, such as something every hour or at NVDA's start, is written as one piece as before, and you are told why.
+When an add-on fails in one place, only the method where it failed is corrected.</p>
 <p>The check prevents accidents; it is not a sandbox. Once you say yes, the code runs inside NVDA like any other
 add-on. Small models make mistakes.</p>
 

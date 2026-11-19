@@ -431,7 +431,7 @@ assert instance.dataDir == DATA and instance.portableSettings()["searchEngine"] 
 instance.controller._stopped.set()
 instance.controller._thread.join(5)
 registry = instance.orchestrator.registry
-assert len(registry.names()) == 104, registry.names()
+assert len(registry.names()) == 105, registry.names()
 # Lessons from searches that happened to find something misled; they are dropped when VisionClaw starts.
 assert instance.memory.all() == ["Tool set_setting: this form failed: {} (x). This form worked: {}."], instance.memory.all()
 assert set(planner.available(registry)) == set(planner.RECIPES), set(planner.RECIPES) - set(planner.available(registry))

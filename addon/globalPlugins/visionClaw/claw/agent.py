@@ -5,11 +5,13 @@
 # VisionClaw - carries out one step of a plan. A step is one tool. What code can fill in of the tool's form,
 # it fills in; the model fills in the rest; Python runs the tool. If the tool reports an error, the model sees
 # the error and corrects the form. If that does not help, the other model is asked for a hint.
+# What the steps before found is given from the request's work sheet (claw/worksheet.py): only what the steps of
+# this step's own part found, so that a small model reads a few lines about its own piece of the work.
 # No NVDA dependencies.
 
 import json
 
-from . import policy, prompts, shapes
+from . import debuglog, policy, prompts, shapes
 from . import task as taskModule
 from .llm import LLMError, clip
 
@@ -53,17 +55,29 @@ def resultsText(steps, upTo):
 	return "\n".join(lines) or "Nothing yet."
 
 
+def found(task, steps, index):
+	"""What step index is given of what was found so far: from the task's work sheet when it has one, else every
+	step before it. A fault in the sheet never ends the step."""
+	sheet = getattr(task, "sheet", None)
+	if sheet is not None:
+		try:
+			return sheet.feed(steps, index)
+		except Exception as e:
+			debuglog.error("worksheet", "What the step is given could not be taken from the work sheet", e)
+	return resultsText(steps, index)
+
+
 def _asked(request, step):
 	"""What this step is for: its own part of the request if it has one, else the whole request."""
 	return step.part or request
 
 
-def _fieldPrompt(request, steps, index, tool, name, shape, form, tries, hint):
+def _fieldPrompt(request, steps, index, tool, name, shape, form, tries, hint, given=None):
 	"""The prompt for one field of a form: as little as a very small model needs for one answer."""
 	step = steps[index]
 	parts = [
 		f"The user asked: \"{clip(_asked(request, step), 400)}\"",
-		f"Results so far:\n{resultsText(steps, index)}",
+		f"Results so far:\n{given if given is not None else resultsText(steps, index)}",
 		f"Step: {step.title}.",
 	]
 	done = [f"{field} = {value}" for field, value in form.items() if not tool.fields[field].get("auto")]
@@ -78,9 +92,11 @@ def _fieldPrompt(request, steps, index, tool, name, shape, form, tries, hint):
 	return "\n".join(parts)
 
 
-def fillOneByOne(llm, task, lead, request, steps, index, tool, skip, form, tries, hint, params):
+def fillOneByOne(llm, task, lead, request, steps, index, tool, skip, form, tries, hint, params, given=None):
 	"""Fill in a form one field at a time: one small question, one value, and what the value may be is
 	narrowed by the fields already filled in. For models too small to fill in a whole form at once."""
+	if given is None:
+		given = found(task, steps, index)
 	for name, spec in tool.fields.items():
 		if name in skip:
 			continue
@@ -93,7 +109,7 @@ def fillOneByOne(llm, task, lead, request, steps, index, tool, skip, form, tries
 				continue
 		shape = shapes.shapes(tool.name, [name], steps, index, form).get(name, {})
 		schema = tool.schema([other for other in tool.fields if other != name], {name: shape})
-		prompt = _fieldPrompt(request, steps, index, tool, name, shape, form, tries, hint)
+		prompt = _fieldPrompt(request, steps, index, tool, name, shape, form, tries, hint, given)
 		value = None
 		for _again in range(2):
 			value = llm.json(
@@ -111,11 +127,11 @@ def fillOneByOne(llm, task, lead, request, steps, index, tool, skip, form, tries
 	return form
 
 
-def _formPrompt(request, steps, index, tool, tries, hint, skip, narrowed=None):
+def _formPrompt(request, steps, index, tool, tries, hint, skip, narrowed=None, given=None):
 	step = steps[index]
 	parts = [
 		f"The user asked: \"{clip(_asked(request, step), 600)}\"",
-		f"Results so far:\n{resultsText(steps, index)}",
+		f"Results so far:\n{given if given is not None else resultsText(steps, index)}",
 		f"Now do this step: {step.title}." + (f" {step.detail}" if step.detail and step.detail != step.part else ""),
 		tool.formText(skip, narrowed),
 	]
@@ -130,11 +146,12 @@ def _formPrompt(request, steps, index, tool, tries, hint, skip, narrowed=None):
 	return "\n".join(parts)
 
 
-def askHint(llm, role, request, steps, index, tool, tries):
+def askHint(llm, role, request, steps, index, tool, tries, given=None):
 	"""The other model looks at a stuck step and suggests how to fill in the form."""
 	step = steps[index]
+	given = given if given is not None else resultsText(steps, index)
 	user = (
-		f"The user asked: \"{clip(_asked(request, step), 500)}\"\nResults so far:\n{resultsText(steps, index)}\n"
+		f"The user asked: \"{clip(_asked(request, step), 500)}\"\nResults so far:\n{given}\n"
 		f"Stuck step: {step.title}.\n{tool.formText()}\n"
 		+ "\n".join(f"Tried: {json.dumps(form)} -> {clip(error, 300)}" for form, error in tries[-2:])
 	)
@@ -156,6 +173,9 @@ def runStep(llm, task, registry, request, steps, index, params, lead=policy.LEAD
 	asked = False
 	attempts = 1 + params.retries
 	attempt = 0
+	# What the steps before found, for this step: taken from the work sheet once, since it does not change while
+	# this step is tried again.
+	given = found(task, steps, index)
 	while attempt < attempts:
 		task.check()
 		attempt += 1
@@ -167,7 +187,7 @@ def runStep(llm, task, registry, request, steps, index, params, lead=policy.LEAD
 		if any(name not in skip for name in tool.fields):
 			try:
 				if params.oneByOne:
-					fillOneByOne(llm, task, lead, request, steps, index, tool, skip, form, tries, hint, params)
+					fillOneByOne(llm, task, lead, request, steps, index, tool, skip, form, tries, hint, params, given)
 				else:
 					if not tries:
 						# What the user's own words already say is not asked of a model.
@@ -181,7 +201,7 @@ def runStep(llm, task, registry, request, steps, index, params, lead=policy.LEAD
 					# What the results so far allow for a field is all the model can write there.
 					narrowed = shapes.shapes(tool.name, [name for name in tool.fields if name not in skip], steps, index, form)
 					form.update(llm.json(
-						lead, _FORM_SYSTEM, _formPrompt(request, steps, index, tool, tries, hint, skip, narrowed),
+						lead, _FORM_SYSTEM, _formPrompt(request, steps, index, tool, tries, hint, skip, narrowed, given),
 						tool.schema(skip, narrowed), maxTokens=params.formTokens, reasoning=params.reasoning,
 					))
 			except _Filled:
@@ -218,7 +238,7 @@ def runStep(llm, task, registry, request, steps, index, params, lead=policy.LEAD
 			task.emit(taskModule.TALK, (
 				"The model is stuck and looks at the step in another way." if one
 				else f"The {policy.ROLE_NAMES[lead]} is stuck and asks the {policy.ROLE_NAMES[other]}."))
-			hint = askHint(llm, other, request, steps, index, tool, tries)
+			hint = askHint(llm, other, request, steps, index, tool, tries, given)
 			if hint:
 				task.emit(taskModule.TALK, (
 					f"What the model came up with: {hint}" if one else f"Hint from the {policy.ROLE_NAMES[other]}: {hint}"))

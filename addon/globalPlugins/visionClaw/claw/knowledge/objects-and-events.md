@@ -2,8 +2,9 @@
 
 ## Getting the focused control, the navigator object, the window
 import api. api.getFocusObject() is the control with the keyboard focus. api.getNavigatorObject() is where
-object navigation is. api.getForegroundObject() is the window in front. api.getDesktopObject() is the
-desktop. api.copyToClip("text") copies text to the clipboard.
+object navigation is. api.getForegroundObject() is the window in front, and its name is the window's title:
+api.getForegroundObject().name. api.getDesktopObject() is the desktop. api.copyToClip("text") copies text to the
+clipboard.
 
 ## Properties of a control, object attributes
 obj.name is its label. obj.role is its kind, like controlTypes.Role.BUTTON. obj.states is a set, like

@@ -116,6 +116,8 @@ def main():
 			orch.program = lambda: "chrome" if web else "notepad"
 			orch.skills = live.SKILLS
 			orch.facts = lambda: {router.WEB: web, router.CONTROLLER: False, router.DIRECT: False}
+			if live.understand is not None:
+				orch.understanding = live.understand.Grammar(None)
 			task = taskModule.Task(request, reasoning=reasoning)
 			start = time.time()
 			orch.run(task)

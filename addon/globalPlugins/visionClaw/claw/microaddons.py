@@ -110,7 +110,10 @@ _WANTS_EVENT = re.compile(
 	r"changes?|appears?|opens?|announce|tell me if|warn|alert|watch|monitor)\b", re.IGNORECASE)
 _WANTS_KEY = re.compile(r"\b(press|key|keys|hot ?key|shortcut|nvda\s*\+|control\s*\+|alt\s*\+|shift\s*\+)", re.IGNORECASE)
 # "when I press ..." asks for a key, not for something that happens by itself.
-_ON_KEY = re.compile(r"\b(when|whenever|every time|each time|as soon as)\s+(i|you|the user)\s+(press|hit|push|use|type)\b[^,.;]*",
+# Typing a character is something that happens by itself: "each time I type a character, beep" was refused as asking
+# for no event by this pattern, measured with Qwen3.5 9B on 2026-11-19 (tests/live_codeplan.py).
+_ON_KEY = re.compile(r"\b(when|whenever|every time|each time|as soon as)\s+(i|you|the user)\s+(press|hit|push|use|type)\b"
+	r"(?!\s+(?:a|an|any|each|every)?\s*(?:character|letter|char|key)s?\b)[^,.;]*",
 	re.IGNORECASE)
 # Kinds of control as small models write them, and what NVDA calls them.
 _ROLES = {
@@ -301,7 +304,52 @@ def tidy(source, purpose, facts=""):
 		except SyntaxError:
 			return "".join(source)
 		lines = source.splitlines(keepends=True)
-	# obj.role == "link" never matches; NVDA's kinds are controlTypes.Role.LINK and so on.
+	source = fixRoles(fixNames(source))
+	program = _programAsked(purpose, facts)
+	if program and program.lower() not in _limits(source):
+		source = _limitTo(source, program)
+	return _addImports(_passEventsOn(source))
+
+
+# Names of a control's or a program's title that small models make up, and what NVDA has. Measured with Qwen3.5 9B on
+# 2026-11-19 (tests/live_codeplan.py): "say the title of the window" was written as obj.appModule.windowTitle, both
+# as one piece and in pieces, and as api.getForegroundObject().title. NVDA has neither: a window's title is the
+# name of the window in front, and a control's is its name.
+_APP_TITLE = re.compile(r"\b(?:\w+(?:\(\))?\.)+appModule\.(?:windowTitle|title)\b")
+_MADE_UP_NAME = re.compile(
+	r"\b(?P<root>api\.get(?:Focus|Foreground|Navigator)Object\(\)|obj|focus|fg|window|win|foreground|fore|nav|control)"
+	r"\.(?:title|windowTitle|caption|label|text_name)\b")
+
+
+# Measured with Qwen2.5 Coder 1.5B the same day: controlTypes.Role.PROGRESS_BAR, which NVDA writes PROGRESSBAR, and
+# datetime.now() where the module datetime is imported, which has no now.
+_ROLE_NAME = re.compile(r"\bcontrolTypes\.Role\.([A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+)\b")
+_DATETIME = re.compile(r"(?<![\w.])datetime\.(now|today|utcnow|fromtimestamp)\(")
+
+
+def fixNames(source):
+	"""Names NVDA and Python do not have, written as the names they have: a title or label of a control, a kind of
+	control with an underscore NVDA does not write, datetime's now on the module. Plain code corrects them, because a
+	small model keeps what it once wrote however often it is told."""
+	from . import working
+	source = _APP_TITLE.sub("api.getForegroundObject().name", source)
+	source = _MADE_UP_NAME.sub(lambda found: found.group("root") + ".name", source)
+	source = _ROLE_NAME.sub(lambda found: found.group(0) if working.knownRole(found.group(1))
+		or not working.knownRole(found.group(1).replace("_", "")) else "controlTypes.Role." + found.group(1).replace("_", ""),
+		source)
+	if not re.search(r"^\s*from\s+datetime\s+import\b", source, re.MULTILINE):
+		source = _DATETIME.sub(lambda found: f"datetime.datetime.{found.group(1)}(", source)
+	return source
+
+
+def fixRoles(source):
+	"""obj.role == "link" never matches; NVDA's kinds are controlTypes.Role.LINK and so on. Plain code writes them
+	the way NVDA needs them, and imports controlTypes."""
+	try:
+		tree = ast.parse(source)
+	except SyntaxError:
+		return source
+	lines = source.splitlines(keepends=True)
 	changes = []
 	for node in ast.walk(tree):
 		if not isinstance(node, ast.Compare):
@@ -320,10 +368,7 @@ def tidy(source, purpose, facts=""):
 	source = "".join(lines)
 	if changes and not re.search(r"^\s*import controlTypes\b", source, re.MULTILINE):
 		source = "import controlTypes\n" + source
-	program = _programAsked(purpose, facts)
-	if program and program.lower() not in _limits(source):
-		source = _limitTo(source, program)
-	return _addImports(_passEventsOn(source))
+	return source
 
 
 # NVDA's modules that add-ons use most, each imported by its own name.

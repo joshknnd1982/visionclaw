@@ -57,6 +57,7 @@ HELP = {
 	"switch_driver": "switch my speech synthesizer to espeak",
 	"fix_addon": "fix the add-on",
 	"undo_change": "undo that",
+	"teach_words": "when i say shh, i mean stop talking",
 	"list_changes": "what did you change",
 	"program_settings": "only in this program",
 	"remove_program_settings": "remove the settings for this program",

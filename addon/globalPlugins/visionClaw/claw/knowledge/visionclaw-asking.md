@@ -1,7 +1,9 @@
 <!-- Written on 2026-11-18 from VisionClaw's own code: claw/profiles.py and profiletools.py (an NVDA setting for
 one program only), claw/followups.py (a request that follows the one before it), claw/dates.py and datetools.py
 (a date chosen in a calendar), claw/voice.py, voiceinput.py and voiceui.py (asking by voice), claw/advice.py (which
-model fits what you want to do). When the code
+model fits what you want to do); and on 2026-11-19 from claw/understand.py, wordtools.py, claw/worksheet.py,
+claw/codeplan.py and claw/pictures.py (how words are understood, your own words, the work sheet, an add-on written
+piece by piece, questions about a picture). When the code
 changes, read it again and bring these up to date; do not write them from memory. Each section is short on
 purpose: one section is one answer, and it is given to the user word for word by the smallest models.
 Nothing may stand between this comment and the first heading but the title, or it becomes a section. -->
@@ -67,3 +69,28 @@ same. That add-on's own helper is NVDA+Shift+J, then K, then the JAWS keystroke.
 With the add-on ClassicSpeech running, ask: set ClassicSpeech to Advanced, say less about each control, which
 speech schemes do I have, switch to the scheme and its name, turn schemes off, open voice profiles. VisionClaw
 asks first, uses ClassicSpeech's own commands, and undo that puts a change back.
+
+## Understood as: how VisionClaw understands casual words, slang and other ways of saying something
+Before it decides what to do, VisionClaw reads casual words as the plain words it knows: take a peek at the
+screen is look at the screen, kill the typing echo is turn off the typing echo. When the meaning was changed,
+the answer begins Understood as. Text in quotes, text to type, names and searches are never changed.
+
+## Teaching VisionClaw a word of your own, your own words, forgetting a word you taught
+Say: when I say shh, I mean stop talking. From then on that word is understood that way. Which words have I
+taught you lists them. Forget the word shh forgets one; forget all the words I taught you forgets all. They are
+in the file understanding.md in VisionClaw's data folder.
+
+## The work sheet of a request: the plan in small pieces, where it is and when it is deleted
+Every request has a work sheet, a Markdown file with the plan and what each step is given and found, in the
+folder work of VisionClaw's data folder. Each model is fed only its own piece of the work from it. It is deleted
+when the request is done, failed or was stopped.
+
+## An add-on written piece by piece, and why one was written as one piece
+VisionClaw reads a request for an add-on into pieces: one key or one thing that happens by itself each. Plain
+code writes the key, the event and the program; the model writes only the lines inside one piece. Something
+every hour, at NVDA's start or a settings panel is written as one piece, and you are told why.
+
+## Asking about a picture in several parts, one question at a time
+A question about the screen with several parts, such as what is in this photo and is there any text in it, is
+asked of the model that sees one part at a time, each with the rule of its kind. You hear each answer after its
+own question.

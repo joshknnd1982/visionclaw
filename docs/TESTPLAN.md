@@ -702,5 +702,23 @@ shown for a moment and hidden again.
       area and asks before it clicks it there.
 - [ ] "What is the system tray?" and "how do I get to the system tray?" are still answered as questions.
 
+## Understanding your words, the work sheet, add-ons in pieces (1.11.0)
+- [ ] "Take a peek at the screen": the answer begins "Understood as: look at the screen." and describes it.
+- [ ] "Kill the typing echo": understood as turn off the typing echo, asked, and turned off. "Undo that" puts it back.
+- [ ] "Type I wanna go home" in Notepad types exactly "I wanna go home".
+- [ ] "When I say shh, I mean stop talking": asked, then kept. The file understanding.md is in VisionClaw's data
+      folder with that line. "Shh" is then understood as "stop talking". "Which words have I taught you" lists it;
+      "forget the word shh" forgets it.
+- [ ] While a long request runs (for example "write an add-on that beeps when a link gets the focus and says the
+      time with NVDA+Alt+T"), the folder work in VisionClaw's data folder holds one request-....md file, which can be
+      opened and read. When the request is done, the folder is empty. The same after NVDA+Alt+X stops a request.
+- [ ] That add-on is announced as written in 2 pieces; the beep is written by plain code. Turned on, a link that gets
+      the focus beeps, and NVDA+Alt+T says the time.
+- [ ] "Write an add-on that says heading whenever a heading gets the focus, and only works in Firefox": before it is
+      turned on, VisionClaw says that in browse mode moving to a heading does not move the focus.
+- [ ] "Give me a key that reads the window title": VisionClaw says which free key it chose; the key works.
+- [ ] On a photo or a window: "what is in this picture, and is there any text in it?": two answers, each after its
+      own question.
+
 ## Stopping NVDA
 - [ ] NVDA exits without an error, and no `vcengine.exe` is left running (Task Manager).

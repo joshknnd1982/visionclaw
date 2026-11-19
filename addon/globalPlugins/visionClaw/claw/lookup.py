@@ -73,7 +73,9 @@ _ASKING_NOTES = re.compile(
 	r"(your|visionclaw'?s?) (own )?voice|voice of (your|its) own|every (application|program|app)|everywhere|"
 	r"jaws migrat\w+|migration assistant|jaws\b.{0,30}\b(keys?|keystrokes?|commands?|hot ?keys?|shortcuts?)|"
 	r"classic ?speech|verbosity|(speech|sound) schemes?|voice profiles?|"
-	r"(which|what|best|smaller|larger|bigger|faster|different|switch\w*|suggest\w*|recommend\w*) (ai )?models?|quants?)\b"
+	r"(which|what|best|smaller|larger|bigger|faster|different|switch\w*|suggest\w*|recommend\w*) (ai )?models?|quants?|"
+	r"understood as|teach (you|visionclaw) (a |my |the )?(own )?(words?|phrases?)|(my|your) own words|words? (i|you) taught|"
+	r"taught (you|visionclaw)|work ?sheets?|piece by piece|in pieces|one piece|several parts|one question at a time)\b"
 	# JAWS with a written-out key, as in "JAWS's Insert+F7". JAWS alone is not enough: "what is the JAWS cursor
 	# called in NVDA" was answered with the note on the JAWS Migration Assistant (measured on 2026-11-18).
 	r"|\bjaws\b.{0,20}\w\+\w", re.IGNORECASE)

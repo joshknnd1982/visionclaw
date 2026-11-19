@@ -36,7 +36,7 @@ from speech import extensions as speechExtensions
 
 from . import autodescribe, clawui, controlkeys, curtain, dialogs, explorer, followup, hardware, helpers, imaging, labels, localmedia, mousetools, nvdatools, ocr, sounds, updater, viewers, winzapp
 from . import asktools, memorytools, ownvoice, padtools, touchinput, voiceui
-from .claw import catalog, direct, drivers, guides, learn, offers, planning, portable, prompts, training
+from .claw import catalog, direct, drivers, guides, learn, offers, planning, portable, prompts, training, understand, worksheet
 from .claw.changes import ChangeLog
 from .claw import debuglog
 from .claw import task as clawTask
@@ -524,6 +524,16 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		# How and when VisionClaw does a kind of job: its own skills, and the user's in a folder of their own.
 		self.skills = Skills(os.path.join(DATA_DIR, "skills"), recipes=set(RECIPES))
 		self.helpers = helpers.Helpers(self, DATA_DIR)
+		# The words VisionClaw understands: its own lines, and the user's own words in understanding.md
+		# (claw/understand.py).
+		self.understanding = understand.Grammar(DATA_DIR)
+		# The work sheets of requests, deleted when each request ends; any left over from a request that NVDA closed
+		# in the middle of are deleted now (claw/worksheet.py).
+		self.workDir = os.path.join(DATA_DIR, worksheet.FOLDER)
+		try:
+			worksheet.clean(self.workDir)
+		except Exception as e:
+			debuglog.error("worksheet", "Work sheets left over could not be deleted", e)
 		# What VisionClaw found out about how one program is worked: how its mouse is moved, and whether it
 		# takes touch. Plain data, kept between sessions.
 		self.appWays = direct.AppWays(os.path.join(DATA_DIR, "appways.json"))
@@ -554,6 +564,8 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		# How requests went with each model on this computer: the user's own review of a model (claw/advice.py).
 		self.orchestrator.outcomes = planning.Outcomes(os.path.join(DATA_DIR, "models-went.json"))
 		self.orchestrator.facts = self._clawFacts
+		self.orchestrator.understanding = self.understanding
+		self.orchestrator.workFolder = self.workDir
 		# Telling the user, once, what can be downloaded for them (claw/offers.py).
 		self.offers = offers.Offers(os.path.join(DATA_DIR, "offered.json"))
 		self.orchestrator.offer = lambda request, recipes: self.offers.next(request, recipes, self.downloadState())

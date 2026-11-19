@@ -3,13 +3,15 @@
 # See LICENSE for the full terms.
 
 # VisionClaw - the orchestration layer. Runs one request from start to finish:
-# break it into bite-size steps, choose how hard to think, get both models to agree, run the steps one at a
-# time, check the result, tell the user what really happened, and remember what was learned.
-# No NVDA dependencies.
+# understand the user's words (claw/understand.py), break the request into bite-size steps, choose how hard to
+# think, get both models to agree, run the steps one at a time, each fed from the request's work sheet only what
+# its own part found (claw/worksheet.py), check the result, tell the user what really happened, remember what was
+# learned, and delete the work sheet. No NVDA dependencies.
 
 import time
 
 from . import agent, consensus, debuglog, followups, lookup, pageview, planner, planning, policy, prompts, shapes
+from . import understand, worksheet
 from . import memories as memoriesModule
 from . import skills as skillsModule
 from . import task as taskModule
@@ -90,6 +92,10 @@ class Orchestrator:
 		self.plans = None
 		# How requests went with each model on this computer (planning.Outcomes), or None; set by the add-on.
 		self.outcomes = None
+		# The words VisionClaw understands, its own and the user's (claw/understand.py), or None; set by the add-on.
+		self.understanding = None
+		# Where the work sheets of requests are written (claw/worksheet.py), or None to keep them in memory only.
+		self.workFolder = None
 
 	def _oneByOne(self):
 		try:
@@ -100,6 +106,11 @@ class Orchestrator:
 	def run(self, task):
 		"""Carry out a task. Never raises: the outcome is in task.state and task.answer."""
 		debuglog.log("task", f"New request: {task.request!r}. Reasoning setting: {task.reasoning}.")
+		try:
+			task.sheet = worksheet.Sheet(self.workFolder, task.request)
+		except Exception as e:
+			debuglog.error("worksheet", "The work sheet could not be made; the request goes on without a file", e)
+			task.sheet = worksheet.Sheet(None, task.request)
 		try:
 			self._run(task)
 		except taskModule.Cancelled:
@@ -125,6 +136,11 @@ class Orchestrator:
 			task.setState(taskModule.FAILED, "The task failed.")
 			raise
 		finally:
+			# The work sheet is deleted when the request ends, whatever way it ended.
+			try:
+				task.sheet.close()
+			except Exception as e:
+				debuglog.error("worksheet", "The work sheet could not be closed", e)
 			debuglog.log("task", (
 				f"Request ended as {task.state} after {task.seconds()} seconds. "
 				f"Steps: {[(step.tool, step.status) for step in task.steps]}. Answer: {task.answer!r}"))
@@ -147,6 +163,9 @@ class Orchestrator:
 		request = " ".join(task.request.split())
 
 		task.setState(taskModule.UNDERSTANDING, "Understanding your request.")
+		# The user's words, understood the way a text adventure understands its player: casual words and the user's
+		# own taught words become the plain words VisionClaw knows, by plain code.
+		request = self._understand(task, request)
 		# A request that follows the one before it is written out in full first, or answered at once.
 		request, background = self._follow(llm, task, request)
 		if request is None:
@@ -178,6 +197,7 @@ class Orchestrator:
 			steps, how, recipes = consensus.agree(
 				llm, task, request, context, self.registry, params, self.askUser, self.lead, self.other)
 		task.steps = steps
+		self._sheetPlan(task, steps, recipes, request)
 		# Only the skills that speak about a step of this plan are kept and named: "turn off the game skill"
 		# has the word game, but the game skill says nothing about turning a skill off.
 		task.skills = [skill for skill in task.skills
@@ -216,9 +236,12 @@ class Orchestrator:
 
 		# What the next request may lean on is the answer itself, without what is added to it below.
 		task.plainAnswer = answer
-		# A request that followed the one before it: the user is told what it was taken as.
+		# A request that followed the one before it, or whose words were understood as other words: the user is told
+		# what it was taken as.
 		if getattr(task, "said", ""):
 			answer = f"{followups.taken(task.said, request)} {answer}"
+		elif getattr(task, "understood", ""):
+			answer = f"{understand.taken(request)} {answer}"
 		self._learn(task)
 		self._keepPlan(task, request, recipes, how)
 		self._keepModel(task)
@@ -287,6 +310,35 @@ class Orchestrator:
 		full = followups.checked(written, request, last, mustChange=followups.strong(request))
 		debuglog.log("followups", f"The model wrote {written!r}; plain code " + ("stands behind it." if full else "does not use it."))
 		return full
+
+	def _understand(self, task, request):
+		"""The request as VisionClaw understands its words (claw/understand.py). Where the meaning of a word was
+		changed, the user is told now and at the start of the answer. A fault never ends the request."""
+		if self.understanding is None:
+			return request
+		reading = self.understanding.read(request)
+		if not reading.changed or not reading.text:
+			return request
+		debuglog.log("understand", f"{request!r} is understood as {reading.text!r}: {understand.changesText(reading)}")
+		task.request = reading.text
+		try:
+			task.sheet.understood = reading.text
+			task.sheet.write()
+		except Exception as e:
+			debuglog.error("worksheet", "The work sheet could not be written", e)
+		if reading.said:
+			task.understood = reading.text
+			task.emit(taskModule.TALK, f"You said: \"{request}\". {understand.taken(reading.text)}")
+		else:
+			task.emit(taskModule.DETAIL, f"Understood as: {reading.text}")
+		return reading.text
+
+	def _sheetPlan(self, task, steps, recipes, request):
+		"""The plan, written into the work sheet. A fault here never ends the request."""
+		try:
+			task.sheet.plan(steps, recipes, understood=request)
+		except Exception as e:
+			debuglog.error("worksheet", "The plan could not be written into the work sheet", e)
 
 	def _chooseSkills(self, task, request):
 		"""The skills that fit a request, by its words. A skill only helps, so a fault here never ends the request."""
@@ -396,6 +448,7 @@ class Orchestrator:
 				step.holds = bool(step.test(step.result))
 				task.emit(taskModule.DETAIL, "That holds, so what depends on it is done." if step.holds
 					else "That does not hold, so what depends on it is left out.")
+			self._sheetWrite(task)
 			# After finding something out, the rest of a plan the model wrote itself may no longer fit.
 			remaining = [s for s in steps[index + 1:] if s.tool != ANSWER]
 			if (worked and replans and remaining and self.registry.get(step.tool).looks
@@ -499,6 +552,13 @@ class Orchestrator:
 			"The model changed the rest of the plan:\n" if params.oneModel
 			else "Both models agreed to change the rest of the plan:\n") + planner.planText(task.steps))
 		task.emit(taskModule.STATE, f"The plan changed after looking. Now {len(task.steps)} steps.")
+
+	@staticmethod
+	def _sheetWrite(task):
+		sheet = getattr(task, "sheet", None)
+		if sheet is not None:
+			sheet.steps = task.steps
+			sheet.write()
 
 	@staticmethod
 	def _work(task):
@@ -675,6 +735,9 @@ class Orchestrator:
 			"Steps for the missing part:\n" if params.oneModel
 			else "Both models agreed on steps for the missing part:\n") + planner.planText(extra))
 		done = self._work(task)
+		# Steps added for what was missing are given everything found so far.
+		for step in extra:
+			step.wide = True
 		task.steps = done + extra
 		task.setState(taskModule.WORKING, f"Doing the missing part: {len(extra) - 1} more steps.")
 		self._runSteps(llm, task, request, params, start=len(done))

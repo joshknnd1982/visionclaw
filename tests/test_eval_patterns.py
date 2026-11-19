@@ -16,17 +16,23 @@ import json
 import os
 
 import harness  # noqa: F401
-from visionClaw.claw import planner
+from visionClaw.claw import planner, understand
 
 HERE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "eval")
 # The first pattern's job, right for at least this many, on 2026-11-19.
-LEAST = {"known": 293, "requests": 120, "requests2": 80, "requests3": 51}
+LEAST = {"known": 293, "requests": 120, "requests2": 80, "requests3": 51, "requests4": 29}
+# The same after the words are understood (claw/understand.py), on 2026-11-19. The fourth set was written before the
+# grammar, by the same hand: the grammar took it from 29 to 54 of 60.
+UNDERSTOOD = {"known": 293, "requests": 120, "requests2": 81, "requests3": 52, "requests4": 54}
 
+grammar = understand.Grammar(None)
 known = json.load(open(os.path.join(HERE, "known.json"), encoding="utf-8"))["jobs"]
 right = [text for job, texts in known.items() for text in texts if planner.hint(text) == job]
 assert len(right) >= LEAST["known"], f"known requests: {len(right)} named rightly, before {LEAST['known']}"
+right = [text for job, texts in known.items() for text in texts if planner.hint(grammar.read(text).text) == job]
+assert len(right) >= UNDERSTOOD["known"], f"known requests, understood: {len(right)} named rightly, before {UNDERSTOOD['known']}"
 seen = {text.lower() for texts in known.values() for text in texts}
-for name in ("requests", "requests2", "requests3"):
+for name in ("requests", "requests2", "requests3", "requests4"):
 	items = json.load(open(os.path.join(HERE, name + ".json"), encoding="utf-8"))["requests"]
 	for item in items:
 		assert item["request"].lower() not in seen, f"{item['request']!r} is known: an evaluation set must stay unseen"
@@ -34,6 +40,8 @@ for name in ("requests", "requests2", "requests3"):
 	one = [item for item in items if len(item["expect"]) == 1]
 	count = sum(planner.hint(item["request"]) in item["expect"][0] for item in one)
 	assert count >= LEAST[name], f"{name}: {count} named rightly, before {LEAST[name]}"
+	count = sum(planner.hint(grammar.read(item["request"]).text) in item["expect"][0] for item in one)
+	assert count >= UNDERSTOOD[name], f"{name}, understood: {count} named rightly, before {UNDERSTOOD[name]}"
 # A how-question is answered with keys, and a why-question is answered: nothing is done.
 for said, job in (("what's the shortcut to get to the address bar", "explain_keys"), ("how can I jump between headings", "explain_keys"),
 		("why does nvda say clickable all the time", "nvda_question"), ("how do I get to the system tray", "explain_keys")):
