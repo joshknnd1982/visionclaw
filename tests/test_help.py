@@ -58,6 +58,7 @@ HELP = {
 	"scratchpad": "start a scratchpad for setting up my game",
 	"ask_scratchpad": "what did you write on the scratchpad about the vocals",
 	"own_errors": "what errors are in your log",
+	"nvda_log": "check nvda's log",
 	"fix_self": "fix that bug in your code",
 	"own_fixes": "which fixes did you make to your own code",
 	"switch_driver": "switch my speech synthesizer to espeak",

@@ -13,7 +13,7 @@
 import time
 
 from . import agent, consensus, debuglog, followups, lookup, pageview, planner, planning, policy, prompts, shapes
-from . import corrections, scratchpad, sentences, understand, worksheet
+from . import corrections, nvdalog, scratchpad, sentences, skilllog, understand, worksheet
 from . import memories as memoriesModule
 from . import skills as skillsModule
 from . import task as taskModule
@@ -120,6 +120,22 @@ class _Spoken:
 		self.task.emit(taskModule.SAY, text)
 
 
+class Stopped:
+	"""A request the user stopped in the middle, as "carry on" needs it: its words, its plan with what each step found,
+	how it was chosen, and when it was stopped. Kept in memory only."""
+
+	def __init__(self, task, when):
+		self.request = task.request
+		self.said = getattr(task, "original", "") or task.request
+		self.steps = list(task.steps)
+		self.recipes = list(getattr(task, "recipes", None) or [])
+		self.how = getattr(task, "how", None)
+		self.params = getattr(task, "params", None)
+		self.skills = list(getattr(task, "skills", None) or [])
+		self.facts = dict(getattr(task, "facts", None) or {})
+		self.when = when
+
+
 class Orchestrator:
 	"""runtime: the two models, or one model that does both jobs. registry: the tools.
 	askUser(question, choices) returns the index the user chose, or None.
@@ -153,6 +169,15 @@ class Orchestrator:
 		self.last = None
 		# The request before, as the user said it, for a correction of it (claw/corrections.py). Only while NVDA runs.
 		self.lastSaid = ""
+		# A request the user stopped in the middle, kept so that "carry on" goes on from the step where it stopped
+		# (Stopped). Only while NVDA runs, never written to the disk, and only for scratchpad.STOPPED_SECONDS.
+		self.stopped = None
+		# NVDA's own log as the add-on reads it (nvdalogfeed.Feed): mark() gives a place at its end, since(place) the
+		# entries written after it that may be read, recent() those of the last minutes. None where NVDA keeps no log or
+		# the user turned off reading it while VisionClaw works (the setting "useNvdaLog"). Never IO or debug entries.
+		self.nvdaLog = None
+		# The time of day as NVDA's log has it, seconds since the epoch: what is recent in the log.
+		self.wallClock = time.time
 		self.clock = time.monotonic
 		# How requests were done well on this computer (claw/planning.py), or None; set by the add-on.
 		self.plans = None
@@ -188,12 +213,15 @@ class Orchestrator:
 			debuglog.error("worksheet", "The work sheet could not be made; the request goes on without a file", e)
 			task.sheet = worksheet.Sheet(None, task.request)
 		task.written = []
+		# The lines of the lasting scratchpads given with this request: how it went is counted on them (_keepOnPads).
+		task.givenNotes = []
 		task.where = self._subject()
 		if self.pads is not None and self._learning():
 			task.sheet.lasting = lambda query: self.pads.notesFor(query, task.where)
 		try:
 			self._run(task)
 		except taskModule.Cancelled:
+			self._keepStopped(task)
 			task.setState(taskModule.CANCELLED, "Stopped.")
 		except consensus.Declined:
 			task.setState(taskModule.CANCELLED, "Cancelled. Nothing was changed.")
@@ -203,6 +231,7 @@ class Orchestrator:
 			task.setState(taskModule.FAILED, "A model is missing.")
 		except EngineError as e:
 			if task.cancel.is_set():
+				self._keepStopped(task)
 				task.setState(taskModule.CANCELLED, "Stopped.")
 			else:
 				debuglog.error("task", "The engine failed during the request", e)
@@ -245,6 +274,13 @@ class Orchestrator:
 		request = " ".join(task.request.split())
 
 		task.setState(taskModule.UNDERSTANDING, "Understanding your request.")
+		# "Carry on": the request that was stopped goes on from the step where it stopped (in memory only).
+		if self._carryOn(llm, task, request):
+			return
+		# "Do the next one": the next thing on the open task scratchpad's list is carried out (claw/scratchpad.py).
+		request = self._fromList(task, request)
+		if request is None:
+			return
 		# The user's words, understood the way a text adventure understands its player: casual words and the user's
 		# own taught words become the plain words VisionClaw knows, by plain code.
 		# "No, I meant ...": what was meant is done instead of the request before (claw/corrections.py).
@@ -260,7 +296,7 @@ class Orchestrator:
 		one = policy.isOneModel(self.runtime)
 		params = task.params = policy.select(planner.quickTriage(request), task.reasoning)._replace(
 			oneByOne=small, oneModel=one)
-		context = self._context(request)
+		context = self._context(request, task.givenNotes)
 		if background:
 			context = f"{context}\n{background}" if context else background
 		# Where the user is, as plain facts for the router (claw/router.py). Unknown hides nothing.
@@ -281,6 +317,8 @@ class Orchestrator:
 			steps, how, recipes = consensus.agree(
 				llm, task, request, context, self.registry, params, self.askUser, self.lead, self.other)
 		task.steps = steps
+		# Kept with the task, so that a request stopped in the middle can be carried on from where it stopped.
+		task.recipes, task.how = recipes, how
 		self._sheetPlan(task, steps, recipes, request)
 		# Only the skills that speak about a step of this plan are kept and named: "turn off the game skill"
 		# has the word game, but the game skill says nothing about turning a skill off.
@@ -311,6 +349,11 @@ class Orchestrator:
 			task.emit(taskModule.DETAIL, where)
 
 		self._runSteps(llm, task, request, params)
+		self._complete(llm, task, request, params, recipes, how)
+
+	def _complete(self, llm, task, request, params, recipes, how):
+		"""Everything after the steps: the next way where a way of looking found nothing, the answer, what is learned
+		and kept, and what is added to the answer. Also for a request that was carried on after it was stopped."""
 		# What was found is checked by plain code; a way of looking that found nothing is followed by the next way.
 		self._nextWays(llm, task, request, params)
 		# A request that followed the one before it, or whose words were understood as other words: the user is told
@@ -331,6 +374,12 @@ class Orchestrator:
 		self._keepPlan(task, request, recipes, how)
 		self._keepModel(task)
 		kept = self._keep(task) or self._keepCorrection(task, request)
+		# A thing on the task scratchpad's list that was carried out is checked off where it went well.
+		ticked = self._tickOff(task)
+		kept = f"{kept}\n{ticked}" if kept and ticked else (kept or ticked)
+		# An answer worded from the scratchpads alone says so after it, by plain code (prompts.PAD_HELP says why).
+		source = self._fromPads(task)
+		kept = f"{kept}\n{source}" if kept and source else (kept or source)
 		if kept:
 			answer = f"{answer.rstrip()}\n{kept}" if answer else kept
 		# One sentence, said once, that something which fits this request can be downloaded (claw/offers.py).
@@ -543,7 +592,7 @@ class Orchestrator:
 			debuglog.error("memories", "The memories about answers could not be read", e)
 			return []
 
-	def _context(self, request):
+	def _context(self, request, given=None):
 		parts = []
 		try:
 			where = self.situation()
@@ -567,14 +616,207 @@ class Orchestrator:
 		# The open task scratchpad, and the few lines of the scratchpads that are about the request.
 		if self.pads is not None:
 			try:
-				written = self.pads.contextText(request, self._subject()) if self._learning() else self._taskContext()
+				written = (self.pads.contextText(request, self._subject(), given) if self._learning()
+					else self._taskContext())
 			except Exception as e:
 				debuglog.error("scratchpad", "The scratchpads could not be read for the request", e)
 				written = ""
 			if written:
 				debuglog.log("scratchpad", f"Given with the request: {written!r}")
 				parts.append(written)
+		# What NVDA logged lately, for a question about what went wrong in NVDA.
+		trouble = self._logTrouble(request)
+		if trouble:
+			debuglog.log("nvdalog", f"Given with the request: {trouble!r}")
+			parts.append(trouble)
 		return "\n".join(parts)
+
+	# --- A request carried on after it was stopped, and the task scratchpad's list ---
+
+	def _keepStopped(self, task):
+		"""A request stopped after its plan was made, with steps still to do, is kept in memory so that "carry on" goes
+		on from the step where it stopped, as a cloud model goes on from its notes. Never written to the disk."""
+		try:
+			steps = list(getattr(task, "steps", None) or [])
+			recipes = getattr(task, "recipes", None)
+			left = [step for step in steps if step.tool != ANSWER and step.status != taskModule.STEP_DONE]
+			if not steps or recipes is None or not left:
+				return
+			self.stopped = Stopped(task, self.clock())
+			debuglog.log("task", f"Kept to be carried on: {task.request!r}, {len(steps) - len(left)} of {len(steps)} steps done.")
+		except Exception as e:
+			debuglog.error("task", "The stopped request could not be kept", e)
+
+	def _carryOn(self, llm, task, request):
+		"""For "carry on", "continue where you left off": the request that was stopped goes on from the first step that was
+		not done; what the steps before found is used as it was, and the user is told so. True when this request was
+		handled here. A request that was not stopped, or too long ago, is told so by plain code."""
+		try:
+			wanted = scratchpad.carryOn(request)
+		except Exception:
+			wanted = False
+		if not wanted:
+			return False
+		stopped, self.stopped = self.stopped, None
+		if stopped is None or self.clock() - stopped.when > scratchpad.STOPPED_SECONDS:
+			self._plainAnswer(task, "No request was stopped in the last 30 minutes, so there is nothing to carry on with. "
+				"Say what you want done.")
+			return True
+		for step in stopped.steps:
+			if step.tool == ANSWER or step.status != taskModule.STEP_DONE:
+				step.status, step.result = taskModule.PENDING, ""
+		start = next(at for at, step in enumerate(stopped.steps) if step.status != taskModule.STEP_DONE)
+		task.said = request
+		task.request = stopped.request
+		task.original = stopped.said
+		task.steps, task.recipes, task.how = stopped.steps, stopped.recipes, stopped.how
+		task.skills, task.facts, task.plans = stopped.skills, stopped.facts, self.plans
+		params = task.params = stopped.params
+		self._sheetPlan(task, task.steps, task.recipes, stopped.request)
+		count = len([step for step in task.steps if step.tool != ANSWER])
+		before = ("" if start == 0 else
+			" What the steps before it found was found before you stopped it, and may be out of date.")
+		task.emit(taskModule.TALK, f"Carrying on with \"{uncut(stopped.request)}\" from step {start + 1} of {count}.{before}")
+		debuglog.log("task", f"Carried on: {stopped.request!r} from step {start + 1}.")
+		task.setState(taskModule.WORKING, f"Carrying on from step {start + 1}.")
+		self._runSteps(llm, task, stopped.request, params, start=start)
+		self._complete(llm, task, stopped.request, params, task.recipes, task.how)
+		return True
+
+	def _fromList(self, task, request):
+		"""For "do the next one", "do step 3 on my scratchpad": the words of that thing on the open task scratchpad's list
+		are the request, and the user is told so; it is checked off afterwards where it went well (_tickOff). Any other
+		request comes back as it is; None when this one was answered at once (nothing on the list)."""
+		if self.pads is None:
+			return request
+		try:
+			wanted = scratchpad.doWish(request)
+			if wanted is None:
+				return request
+			pad = self.pads.active()
+			number, text = scratchpad.itemOf(pad, wanted["number"])
+		except Exception as e:
+			debuglog.error("scratchpad", "The task scratchpad's list could not be read", e)
+			return request
+		if number is None:
+			self._plainAnswer(task, text)
+			return None
+		task.said = request
+		task.request = text
+		task.fromList = (pad.title, number, text)
+		task.emit(taskModule.TALK, f"You said: \"{request}\". Number {number} on your scratchpad {pad.title} is: {text}")
+		task.setState(taskModule.UNDERSTANDING, followups.taken(request, text))
+		return text
+
+	def _tickOff(self, task):
+		"""After a thing of the list was carried out: checked off where the request went well, by plain code
+		(planning.outcome), and the user is told what is next; else that it stays on the list. "" for other requests."""
+		listed = getattr(task, "fromList", None)
+		if not listed or self.pads is None:
+			return ""
+		title, number, text = listed
+		try:
+			went = planning.outcome(task)
+			pad = self.pads.tick(title, number) if went else None
+			return scratchpad.tickedText(pad, number, text, went)
+		except Exception as e:
+			debuglog.error("scratchpad", "The thing on the list could not be checked off", e)
+			return ""
+
+	@staticmethod
+	def _fromPads(task):
+		"""The sentence said after an answer the model worded from lines of the scratchpads alone, or "". Measured: the
+		model said where such lines are from 0 times in 8, and before the answer when told to begin with it."""
+		worded = getattr(task, "infoTools", None) or []
+		if worded and all(name == "scratchpad_search" for name in worded):
+			return "This was written down on a scratchpad before, and may be out of date."
+		return ""
+
+	def _plainAnswer(self, task, text):
+		"""A request answered at once by plain code, with nothing done."""
+		task.keepLast = True
+		task.steps = [planner.answerStep()]
+		task.steps[0].status, task.steps[0].result = taskModule.STEP_DONE, text
+		task.answer = text
+		task.emit(taskModule.ANSWER, text)
+		task.setState(taskModule.DONE, "Finished.")
+
+	# --- NVDA's own log, read while VisionClaw works (claw/nvdalog.py, docs/PLAN-nvda-log.md) ---
+
+	def _logMark(self):
+		"""A place at the end of NVDA's log before a step, or None where it is not read. Never a fault."""
+		if self.nvdaLog is None:
+			return None
+		try:
+			return self.nvdaLog.mark()
+		except Exception as e:
+			debuglog.error("nvdalog", "The end of NVDA's log could not be found", e)
+			return None
+
+	def _logged(self, task, step, worked, before):
+		"""What NVDA wrote in its log while a step ran, for a step that failed or that changed something: its errors, a
+		driver that fell back, a freeze, said by plain code (nvdalog.troubleText) with the add-on or part of NVDA they came
+		from, and added to what the step reports, so that the user hears why, and a change is not said to have worked
+		when NVDA logged that it did not. Nothing for a step that only looked and worked, or that reads NVDA's log itself.
+		Never a fault."""
+		if before is None or str(step.tool).startswith("nvda_log"):
+			return
+		try:
+			tool = self.registry.get(step.tool)
+			if worked and not getattr(tool, "changes", False):
+				return
+			said = nvdalog.troubleText(self.nvdaLog.since(before), *self._logAddons())
+		except Exception as e:
+			debuglog.error("nvdalog", "What NVDA logged during a step could not be read", e)
+			return
+		if not said:
+			return
+		debuglog.log("nvdalog", f"NVDA logged during step {step.tool}: {said}")
+		step.result = f"{str(step.result or '').rstrip()} NVDA's log says, from while this was done: {said}".strip()
+		task.emit(taskModule.DETAIL, f"NVDA's log says: {said}")
+
+	def _logAddons(self):
+		"""(modules, names) of the installed add-ons, so that a line of NVDA's log names the add-on it came from."""
+		try:
+			found = self.nvdaLog.addons()
+			return found if found else (None, None)
+		except Exception:
+			return (None, None)
+
+	def _skillLog(self, task, recipe=None, anyRecipe=None):
+		"""The lines of NVDA's log that the chosen skills want for this step (recipe) or for the answer (anyRecipe): the kinds
+		their SKILL.md names (log:), logged in the last minutes, at most skilllog.MAX_LINES (claw/skilllog.py). The log is
+		read once a request. [] where it is not read or nothing fits. Never a fault."""
+		if self.nvdaLog is None:
+			return []
+		try:
+			kinds = skilllog.kindsFor(getattr(task, "skills", ()), skillsModule.applies, recipe, anyRecipe)
+			if not kinds:
+				return []
+			entries = getattr(task, "logRecent", None)
+			if entries is None:
+				entries = task.logRecent = list(self.nvdaLog.recent() or [])
+			found = skilllog.lines(entries, kinds, self.wallClock(), *self._logAddons())
+		except Exception as e:
+			debuglog.error("nvdalog", "NVDA's log could not be read for the skills", e)
+			return []
+		if found:
+			debuglog.log("nvdalog", f"Given with the skills ({', '.join(kinds)}): {found}")
+		return found
+
+	def _logTrouble(self, request):
+		"""For a request that asks why something in NVDA went wrong (nvdalog.asksTrouble): the errors, driver fallbacks
+		and freezes NVDA logged in the last minutes, in plain sentences, for the model that chooses; "" otherwise."""
+		if self.nvdaLog is None:
+			return ""
+		try:
+			if not nvdalog.asksTrouble(request):
+				return ""
+			said = nvdalog.troubleText(self.nvdaLog.recent(), *self._logAddons())
+		except Exception as e:
+			debuglog.error("nvdalog", "NVDA's recent trouble could not be read for the request", e)
+			return ""
+		return f"From NVDA's log, of the last minutes: {said}" if said else ""
 
 	def _taskContext(self):
 		"""The open task scratchpad alone, where the models do not learn on the fly: the user started it themselves."""
@@ -631,8 +873,14 @@ class Orchestrator:
 			task.current = index
 			# What the chosen skills say about this kind of step, for the models that work on it.
 			step.guide = skillsModule.guide(getattr(task, "skills", ()), step.recipe)
+			# What the chosen skills want from NVDA's log, where NVDA logged it in the last minutes (claw/skilllog.py).
+			logLines = self._skillLog(task, recipe=step.recipe)
+			if logLines:
+				step.guide = "\n".join(([step.guide] if step.guide else []) + logLines)
 			task.emit(taskModule.STEP, f"Step {index + 1} of {len(steps)}: {step.title}.")
+			logged = self._logMark()
 			worked = agent.runStep(llm, task, self.registry, request, steps, index, params, self.lead, self.other)
+			self._logged(task, step, worked, logged)
 			if not worked and self._hasOtherWay(task, step):
 				# A way that only looks failed and another way that only looks is kept for this part (consensus._bothLook):
 				# that one is tried (_nextWays), and the user is not asked what to do.
@@ -712,17 +960,41 @@ class Orchestrator:
 		if self.pads is None or getattr(task, "keepLast", False):
 			return
 		try:
-			said = getattr(task, "original", "") or task.request
-			if self.pads.active() is not None and task.state in (taskModule.DONE, taskModule.FAILED):
+			# A thing of the list that was carried out is recorded in its own words, not as "do the next one".
+			listed = getattr(task, "fromList", None)
+			said = listed[2] if listed else (getattr(task, "original", "") or task.request)
+			finished = task.state in (taskModule.DONE, taskModule.FAILED)
+			if self.pads.active() is not None and finished:
 				answer = " ".join(str(getattr(task, "plainAnswer", "") or task.answer or "").split())
 				outcome = answer if task.state == taskModule.DONE else "it did not work."
 				self.pads.record(said, outcome or "done.", getattr(task, "where", ""))
+			if not self._learning():
+				return
+			went = planning.outcome(task) if finished else None
+			# How the request went is counted on every lasting line it was given, to the model that chose and to its
+			# steps: lines that help come first next time, and lines that do not are set aside (Pads.judge).
+			sheet = getattr(task, "sheet", None)
+			given = list(getattr(task, "givenNotes", None) or []) + list(getattr(sheet, "given", None) or [])
+			if given and went is not None:
+				aside = self.pads.judge(given, went)
+				debuglog.log("scratchpad", f"The request went {'well' if went else 'not well'}; counted on {len(given)} lines given"
+					+ (f"; set aside: {[note.text for note in aside]}" if aside else "."))
 			where = getattr(task, "where", "")
-			if not self._learning() or not where:
+			if not where:
 				return
 			for note in getattr(task, "written", []):
 				self.pads.learn(where, note.text, scratchpad.BY_MODEL, f"\"{uncut(said)}\"")
-			for part, first, way in getattr(task, "tried", []):
+			tried = getattr(task, "tried", [])
+			# What did not work is written down too, as cloud models keep their failed attempts in view: a way of looking
+			# that found nothing here, where no next way answered, so that the model that chooses is told it next time.
+			if went is False and not tried and task.state == taskModule.DONE:
+				for step in task.steps:
+					if (step.recipe and step.tool != ANSWER and step.status == taskModule.STEP_DONE
+							and not getattr(step, "replaced", False) and self.registry.get(step.tool).looks
+							and planning.unanswered(step.result)):
+						self.pads.learn(where, f"For \"{uncut(step.part or said)}\", {planner.label(step.recipe)} found nothing here.",
+							scratchpad.BY_VISIONCLAW, f"\"{uncut(said)}\"")
+			for part, first, way in tried:
 				if first and way and task.state == taskModule.DONE:
 					self.pads.learn(where, (
 						f"For \"{uncut(part)}\", {planner.label(first)} found nothing here, and {planner.label(way)} answered it."),
@@ -929,6 +1201,10 @@ class Orchestrator:
 			guide = skillsModule.guide(getattr(task, "skills", ()), anyRecipe={s.recipe for s in self._work(task)})
 			if guide:
 				user += f"\n{guide}"
+			# And what they want from NVDA's log: the answer's instructions then say how lines of the log are said.
+			logLines = self._skillLog(task, anyRecipe={s.recipe for s in self._work(task)})
+			if logLines:
+				user += "\n" + "\n".join(logLines)
 			# How much help the user said they want, kept among their memories, goes with every answer.
 			wanted = self._helpWanted()
 			if wanted:

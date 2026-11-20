@@ -1271,10 +1271,48 @@ def coderNotes(plugin, task, purpose, notes):
 		stepGuide(task) or addonGuide(getattr(plugin, "skills", None), purpose),
 		memorytools.forCoder(plugin, purpose).strip(),
 		accessLines(plugin, purpose),
+		padLines(plugin, purpose),
+		logLines(plugin, purpose),
 		guideLines(plugin, purpose, notes),
 		notes,
 	]
 	return "\n".join(part for part in parts if part)
+
+
+def logLines(plugin, purpose):
+	"""The developer info NVDA logged in the last minutes about an object of the program in front, after the user pressed
+	NVDA+F1 (claw/skilllog.objectLines): its role, name, window class and automation ID in one sentence, under
+	prompts.LOG_HEAD, which also gives the model its instructions for it; or "". Only where what the add-on is for points at
+	one control, and where the user lets VisionClaw read NVDA's log. Never a value. Never a fault: it only helps."""
+	try:
+		import time as _time
+		from .claw import skilllog
+		feed = getattr(plugin, "nvdaLogFeed", None)
+		if feed is None:
+			return ""
+		entries = feed.recent()
+		if not entries:
+			return ""
+		program = onMain(lambda: _safe(lambda: api.getForegroundObject().appModule.appName) or "") or ""
+		return skilllog.objectLines(entries, program, _time.time(), purpose)
+	except Exception:
+		return ""
+
+
+def padLines(plugin, purpose):
+	"""What the user and the models wrote down before on the learning scratchpad of the program in front
+	(claw/scratchpad.Pads.forCoder): at most two lines that share most of the telling words of what the add-on is for,
+	under prompts.PAD_HEAD, which also gives the model its instructions for them; or "". Only where the user lets
+	VisionClaw keep scratchpads. Never a fault: it only helps."""
+	try:
+		from . import scratchtools
+		pads = getattr(plugin, "pads", None)
+		if pads is None or not scratchtools._keeping():
+			return ""
+		program = onMain(scratchtools.subjectNow) or ""
+		return pads.forCoder(program, purpose) if program else ""
+	except Exception:
+		return ""
 
 
 def accessLines(plugin, purpose):
@@ -2999,6 +3037,10 @@ def build(plugin):
 	# that (diagnosetools.py, claw/diagnose.py).
 	from . import diagnosetools
 	diagnosetools.register(add, plugin, text, onMain, confirm, mustAgree)
+	# NVDA's own log read in plain words, only when the user asks for exactly that; nothing typed or spoken is ever read
+	# from it (nvdalogtools.py, claw/nvdalog.py).
+	from . import nvdalogtools
+	nvdalogtools.register(add, plugin, text, onMain, confirm, mustAgree)
 	# What a sighted helper was needed for (docs/PLAN-ten-scenarios.md): one picture of a page or a chat looked at,
 	# a form that is only a picture filled in, an installer gone through page after page, a Word document
 	# formatted and its layout checked, a check that asks whether the user is a person made workable, a product's

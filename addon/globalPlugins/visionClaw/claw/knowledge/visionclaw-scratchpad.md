@@ -1,5 +1,6 @@
 <!-- Written on 2026-11-19 from VisionClaw's own code: claw/scratchpad.py and scratchtools.py (scratchpads), claw/worksheet.py
-and claw/orchestrator.py (what the models write down while they work), claw/diagnose.py and diagnosetools.py (VisionClaw's
+and claw/orchestrator.py (what the models write down while they work, how lines earn trust, carrying on after a stop, and
+the list of a task carried out), claw/diagnose.py and diagnosetools.py (VisionClaw's
 own logs and code). When the code changes, read it again and bring these up to date; do not write them from memory.
 Each section is short on purpose: one section is one answer, and it is given to the user word for word by the smallest
 models. Nothing may stand between this comment and the first heading but the title, or it becomes a section. -->
@@ -27,6 +28,26 @@ website, with the topics they are about, and used again there the next time.
 The last descriptions of the screen and of pictures, and the questions answered about them, are kept on the
 descriptions scratchpad. Ask about one later by pointing back at it: what was the phone number in the picture you
 described. Say: delete the descriptions scratchpad, to clear it.
+
+## Doing the things on the scratchpad's list, one at a time
+Say: do the next one, or do step 3 on my scratchpad. VisionClaw carries out that thing on the list as if you had asked
+for it, tells you how it understood it, and checks it off when it went well. A thing that did not go well stays on the
+list; say check off and its number when you did it yourself.
+
+## Carrying on after you stopped a request, continue where you left off
+When you stop a request in the middle with NVDA+Alt+X, VisionClaw keeps what its steps found, in memory only, for 30
+minutes. Say: carry on, or continue where you left off, and it goes on from the step where it stopped. What the steps
+before found may be out of date, and VisionClaw says so.
+
+## How lines on a scratchpad earn trust, and lines set aside
+Each line VisionClaw or a model wrote counts how often a request it was given to went well, and lines that helped come
+first. A line that went with requests that did not go well at least twice, and twice as often as not, is moved under
+Set aside in its file, where no model reads it. Move it back under Notes to use it again. Your own lines stay.
+
+## What VisionClaw learned here, and teaching it about a program
+Say: what have you learned here, to hear what was written down about the program, game or website you are in. Say:
+write on the scratchpad for this program that, then what to write, to teach VisionClaw about it. An add-on VisionClaw
+writes for this program is given the lines that fit it.
 
 ## Where the scratchpads are, and turning them off
 They are Markdown files in the folder scratchpads of VisionClaw's data, inside the add-on, so a portable copy carries

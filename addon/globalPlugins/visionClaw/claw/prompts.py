@@ -121,12 +121,48 @@ TRAINING_HELP = (
 	"makers of NVDA, and some of it for an older NVDA. Say where it is from. Where NVDA's own user guide or "
 	"commands say something else, they are right."
 )
+# For an answer made from lines of VisionClaw's scratchpads (claw/scratchpad.py): they were written down before, by the
+# user, by VisionClaw or by a model, and the screen may have changed since. The owner asked on 2026-11-19 that the skills
+# and system prompts take advantage of the scratchpads.
+PAD_HELP = (
+	"About scratchpads: A line from a scratchpad was written down before, by the user, by VisionClaw or by a model, and "
+	"what is on the screen may have changed since. A line a model wrote may be wrong. Where NVDA or the screen says "
+	"something else now, they are right."
+)
+# Measured on 2026-11-19 with Qwen3.5 4B (tests/live_scratch_ways.py): asked to say which scratchpad a line is from, it
+# did so 0 times in 8; asked to begin with it, 5 times in 8, before the answer. So plain code says it after the answer
+# (orchestrator._fromPads), and the model is not asked to.
+# For the model that writes an add-on, when lines of the learning scratchpad of the program it is for come with the
+# request (claw/scratchpad.Pads.forCoder). They begin with PAD_HEAD.
+CODE_PAD = (
+	"Lines VisionClaw wrote down while working in this program come with the request: write the names of its windows "
+	"and controls exactly as those lines write them, and use only what this add-on needs."
+)
+PAD_HEAD = "Written on VisionClaw's scratchpad for this program, with names exactly as they were found:"
+# For an answer made from lines of NVDA's own log (claw/nvdalog.py, docs/PLAN-nvda-log.md). The owner asked on 2026-11-19
+# that VisionClaw read NVDA's logs and that skills and system prompts be made for them.
+# For the model that writes an add-on, when the developer info NVDA logged about the object the user last checked with
+# NVDA+F1 comes with the request (claw/skilllog.objectLines, nvdatools.logLines). It begins with LOG_HEAD.
+CODE_LOG = (
+	"Facts NVDA logged about the object the user checked come with the request: write its window class, automation ID "
+	"and role exactly as those lines write them, and use only what this add-on needs."
+)
+LOG_HEAD = "From NVDA's log, the developer info of the object last checked with NVDA+F1:"
+NVDA_LOG_HELP = (
+	"About NVDA's log: Its lines say what NVDA did and what went wrong. Name the add-on or the part of NVDA a line is "
+	"from, say an error in plain words, and say when it happened. Never read out code, file paths, or the numbers of "
+	"threads and lines."
+)
 # How a line that was looked up begins when it is from the developer guides, from an add-on, and from the
 # training material the user had downloaded (claw/lookup.py, claw/training.py).
 _FOUND = (
 	("devGuide", re.compile(r"From NVDA's developer guides:")),
 	("addonHelp", re.compile(r"From (an add-on's help|the add-on\b)")),
 	("trainingHelp", re.compile(r"From (the NVDA wiki|AFB's|Hadley's)\b")),
+	# claw/scratchpad.noteSource, as look_up's passages and the answers from the scratchpads begin.
+	("padHelp", re.compile(r"From (your task scratchpad|the scratchpad of what was learned in|the descriptions scratchpad)\b")),
+	# claw/nvdalog.py and the orchestrator, as lines of NVDA's own log are given to a model.
+	("nvdaLogHelp", re.compile(r"From NVDA's log\b|NVDA's log says\b")),
 )
 # Which words ask for which kind. Plain code decides; nothing is added when nothing fits.
 CODE_KINDS = (
@@ -145,14 +181,15 @@ CODE_KINDS = (
 # each kind of add-on must be.
 GLOBAL = ("user", "speaking", "seeing", "addon")
 REQUESTS = ("quick", "detailed", "brief")
-CODE = tuple(name for name, _words in CODE_KINDS) + ("codeGuide",)
+CODE = tuple(name for name, _words in CODE_KINDS) + ("codeGuide", "codePad", "codeLog")
 # What an answer is told besides, by where the lines it is made from come from.
 ANSWERS = tuple(name for name, _begins in _FOUND)
 PARTS = GLOBAL + REQUESTS + CODE + ANSWERS
 DEFAULTS = {
 	"user": USER, "speaking": SPEAKING, "seeing": SEEING, "addon": ADDON, "quick": QUICK, "detailed": DETAILED,
 	"brief": BRIEF, "codeKey": CODE_KEY, "codeAuto": CODE_AUTO, "codeProgram": CODE_PROGRAM, "codeGuide": CODE_GUIDE,
-	"devGuide": DEV_GUIDE, "addonHelp": ADDON_HELP, "trainingHelp": TRAINING_HELP,
+	"devGuide": DEV_GUIDE, "addonHelp": ADDON_HELP, "trainingHelp": TRAINING_HELP, "padHelp": PAD_HELP, "codePad": CODE_PAD, "codeLog": CODE_LOG,
+	"nvdaLogHelp": NVDA_LOG_HELP,
 }
 # The user's own instructions are cut to this: they are read with every answer, by models with little room.
 OWN_CHARS = 500
@@ -253,12 +290,16 @@ def codeKinds(purpose):
 	return tuple(name for name, words in CODE_KINDS if words.search(str(purpose or "")))
 
 
-def coding(task, purpose="", guided=False):
+def coding(task, purpose="", guided=False, given=""):
 	"""The system prompt for writing, reviewing or repairing an add-on on the fly: the task's first line, who
 	the user is, the task's own rules, what the add-on must be for this user and for the kinds of add-on the
 	request asks for (purpose: the user's words), what holds for lines of the developer guides when some come
-	with the request (guided), the user's own instructions, and the language of what the add-on says."""
-	return _build(task, ("addon",) + codeKinds(purpose) + (("codeGuide",) if guided else ()), code=True)
+	with the request (guided), what holds for lines of the program's scratchpad when the message the model is
+	given has them (given), the user's own instructions, and the language of what the add-on says."""
+	scratched = PAD_HEAD in str(given or "")
+	logged = LOG_HEAD in str(given or "")
+	return _build(task, ("addon",) + codeKinds(purpose) + (("codeGuide",) if guided else ())
+		+ (("codePad",) if scratched else ()) + (("codeLog",) if logged else ()), code=True)
 
 
 def summary():

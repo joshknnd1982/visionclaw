@@ -117,6 +117,7 @@ class Sheet:
 		self.pad = scratchpad.Pad(scratchpad.REQUEST, clock=clock)
 		self.noteFrom = {}
 		self.lasting = None
+		self.given = []
 		self.closed = False
 		self.path = None
 		if folder:
@@ -149,13 +150,17 @@ class Sheet:
 		lasting scratchpads that are about it, at most scratchpad.FED_NOTES. A fault in the lasting ones is no fault."""
 		chosen = set(relevant(steps, index))
 		found = [note.text for note in self.pad.notes if self.noteFrom.get(note.text) in chosen]
+		lasting = []
 		if self.lasting is not None and len(found) < scratchpad.FED_NOTES:
 			try:
 				for note in self.lasting(stepQuery(steps[index])) or ():
-					if note.text not in found:
+					if note.text not in found and len(found) < scratchpad.FED_NOTES:
 						found.append(note.text)
+						lasting.append(note)
 			except Exception as e:
 				debuglog.error("scratchpad", "The scratchpads could not be read for a step", e)
+		# The lasting lines a step was given: how the request went is counted on them (scratchpad.Pads.judge).
+		self.given += [note for note in lasting if note not in self.given]
 		return found[:scratchpad.FED_NOTES]
 
 	def feed(self, steps, index):

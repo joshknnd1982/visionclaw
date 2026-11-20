@@ -70,7 +70,10 @@ _COMPUTER = re.compile(
 _SCRATCH = re.compile(
 	r"\bscratch[ -]?pads?\b|\b(your|visionclaw'?s?) (own )?(logs?|bugs?|errors?|code|corrections?|fix(es)?)\b"
 	r"|\b(fix|repair|correct|diagnose|debug)\w* (yourself|itself|your own code|visionclaw)\b|\blearn\w* on the fly\b"
-	r"|\bwrite (things )?down\b.{0,30}\b(you|models?|visionclaw)\b|\b(models?|visionclaw) (write|keep|take)s? (notes|things down)\b",
+	r"|\bwrite (things )?down\b.{0,30}\b(you|models?|visionclaw)\b|\b(models?|visionclaw) (write|keep|take)s? (notes|things down)\b"
+	# 1.18.0: carrying on after a stop, lines that earn trust or are set aside, and what was learned in a program.
+	r"|\b(carry on|continue|resume|pick up)\b.{0,30}\b(stopped|left off|stop (it|a request|visionclaw))\b|\bset aside\b"
+	r"|\b(lines?|notes?) (earn|gain|lose)s? trust\b|\bwhat (you|visionclaw) (have |has )?learn(ed|t)\b",
 	re.IGNORECASE)
 # A setting for one program, a request that follows another, a date in a calendar, and asking by voice: asked only
 # when the question names one of these.
@@ -119,6 +122,12 @@ _SIGHTED_HELP = re.compile(
 	r"swatch(es)?|(colou?r|size|storage) options?|seat ?maps?|(window|aisle) seats?|exit row|"
 	r"red (border|outline|text)|outlined in red|card numbers?|security codes?|cvv)\b"
 	r"|\b(knob|dial|fader)\b.{0,40}\b(percent|number|\d+)\b|\btype\b.{0,20}\b(password|pin)\b", re.IGNORECASE)
+# NVDA's own log as VisionClaw reads it (claw/nvdalog.py): asked only when the question names NVDA's log, its logging level,
+# or NVDA freezing or crashing.
+_NVDA_LOG = re.compile(
+	r"\bnvda'?s? (own )?(log|logs|log files?|logging)\b|\blogging level\b|\blog level\b|\blog viewer\b|\bnvda-old\b"
+	r"|\bnvda (froze|freez\w*|frozen|hangs?|hung|crash\w*)\b|\badd-?ons? (causing|breaking|crashing|freezing)\b"
+	r"|\bdev(eloper)? ?info\b|\bnvda remote\b.{0,30}\bconnect\w*", re.IGNORECASE)
 # Where each knowledge file belongs, and what it is called when an answer is taken from it, and, for some,
 # what a question or the program in front must name for the file to be asked. A file that is not listed is
 # NVDA's.
@@ -149,6 +158,7 @@ NOTES = {
 	"visionclaw-sighted-help": (
 		NVDA, "VisionClaw's notes on scanned forms, installers, pictures in a chat, documents, checks, shopping and seats",
 		_SIGHTED_HELP),
+	"visionclaw-nvdalog": (NVDA, "VisionClaw's notes on reading NVDA's own log", _NVDA_LOG),
 }
 # Written for people who write add-ons. Left out unless the question is about that.
 DEVELOPER_NOTES = frozenset(("addon-development", "objects-and-events", "nvda-inside", "guides"))

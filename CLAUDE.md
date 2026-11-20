@@ -1516,6 +1516,80 @@ keyboard and speech alone.
     sure, whole, and answer why-questions. A tool reads the part's own words, never the rest of the request.
   - **Deleting a scratchpad is always asked about**; all of them with `mustAgree`. A task scratchpad the user starts
     works whatever the setting says.
+- **The scratchpads are used the way cloud models use theirs, made small; plain code keeps the books** (1.18.0). The owner
+  said on 2026-11-19: "make visionclaw have the ability to use its scratchpads in all the various clever ways and adaptive
+  learning ways that big cloud AI models use theirs, just adapted down for smaller local models", then "update visionclaw
+  skills and system prompts to take advantage of the new scratchpads", and "create new visionclaw skills and new system
+  prompts that are useful for the end-user". What follows from it:
+  - **Lines earn trust from how the requests they were given to went** (`Note.trust`, `Pads.judge`): every lasting line
+    given to the model that chooses (`contextText(given=)`, `task.givenNotes`) or to a step (`worksheet.Sheet.given`) is
+    counted once per request by `planning.outcome`, written at its end ("used 3 times, 2 went well"), and weighs its
+    score by half to one and a half times (`rank`). A line with at least `MIN_BAD` requests that went badly and a trust
+    below `DOUBTFUL` by Laplace's rule is moved under "Set aside" in its file, never deleted; no model reads it. The
+    user's own lines are never set aside, and a line the user moves back under Notes starts over (`Pad.parse`). Lines of
+    the descriptions and of the task's list are not counted. Only finished requests count; a stopped one does not.
+  - **What did not work is kept in view**: a way of looking that found nothing where no next way answered and the
+    request went not well is written on the program's scratchpad by plain code (`_keepOnPads`), for the model that
+    chooses next time. Never a line about a step that changed something.
+  - **A stopped request is carried on** (`orchestrator.Stopped`, `_keepStopped`, `_carryOn`, `scratchpad.carryOn`): kept
+    in memory only, for `STOPPED_SECONDS`, only when its plan was made and steps were left; "carry on", "continue",
+    "continue where you left off" go on from the first step not done, the steps that were done are not run again, and
+    the user is told that what they found may be out of date. "Go on" and "keep going" alone stay with
+    `claw/followups.py`. Never write a stopped request to the disk.
+  - **The task scratchpad's list is carried out a thing at a time** (`scratchpad.doWish`, `itemOf`, `tickedText`;
+    `orchestrator._fromList`, `_tickOff`): "do the next one", "do step 3 on my scratchpad" make that thing's words the
+    request ("Understood as"); it is checked off only where `planning.outcome` is True, and the user is told what is
+    next; without the list named only while a task is open. A model never checks anything off.
+  - **The writer of an add-on gets the program's lines** (`Pads.forCoder`, `nvdatools.padLines`): at most
+    `CODER_NOTES` lines of the learning scratchpad of the program in front that cover `CODER_COVER` of the telling words
+    of what the add-on is for, never VisionClaw's lines about which way answered, under `prompts.PAD_HEAD`; then and only
+    then `prompts.CODE_PAD` is in its system prompt (`prompts.coding(given=)`). Not measured with the real coder.
+  - **An answer worded from scratchpad lines** gets `prompts.PAD_HELP` (`padHelp` in `_FOUND`), and plain code says after
+    it that it was written down before (`orchestrator._fromPads`). Measured with Qwen3.5 4B (`tests/live_scratch_ways.py`):
+    8 of 8 answers right with and without it; told to say where a line is from it did 0 times in 8, told to begin with
+    it 5 times in 8 but before the answer. Do not ask the model to say the source again.
+  - **"What have you learned here"** reads the learning scratchpad of the program in front (`scratchpad.LEARNED_HERE`):
+    only with VisionClaw's own past words and a place that means here; "learn about this program" stays `learn_app`.
+  - **Skills**: `what-was-learned-here`, `plan-a-job-on-a-scratchpad`, `earlier-descriptions`,
+    `teach-visionclaw-this-program`, each taking the place of `keep-a-scratchpad` where it fits so that neither is cut in
+    half (`skills.guide` shares the room); `stubborn-program`, `game` and `music-software` try the program's scratchpad
+    first. `tests/test_scratch_ways.py` checks which requests choose them.
+- **NVDA's own log is read by plain code, and never what was typed or spoken** (`claw/nvdalog.py`, `nvdalogtools.py`,
+  `nvdalogfeed.py`, `claw/skilllog.py`; the plan is `docs/PLAN-nvda-log.md`). The owner said on 2026-11-19: "I also want
+  visionclaw to have access to the various logs of nvda itself, info, debug, etcetera", "if nvda logging is disabled,
+  then such skills can't be used until user turns on some sort of nvda logging in nvda settings currently under
+  privacy", "visionclaw can query the various nvda logs to get all kinds of realtime info. this is for new visionclaw
+  skills, system prompts, future features", "info logs can give you much more info than that. make plans for info about
+  objects and other logged items", and "all existing skills and system prompts should be able to query the log". What
+  follows from it:
+  - **Read from NVDA's source, never from memory.** Every message text, field and level in `nvdalog.py` was read from
+    NVDA 2026.3.1's source (tag release-2026.3.1); NVDA's very last line is "NVDA exit" (nvda.pyw), not "Exiting".
+    Profile switches, app modules and add-ons loaded are written only at Debug, which is never read. For a newer NVDA,
+    read its source again.
+  - **Only the levels of `nvdalog.READ`** (Info, Debug warning, Warning, Error, Critical). Entries of `PRIVATE` (IO,
+    Debug, Debug unredacted) hold typed keys and speech: counted, never read out, given to a model or written to
+    VisionClaw's log. A password field's value and NVDA's configuration dump are never said; `objectFacts` never holds a
+    value. `tests/test_nvdalog.py` and `tests/test_skilllog.py` check it with private words in made-up logs.
+  - **When.** The job `nvda_log` only where `nvdalog.wish` finds it in the user's words (`planner._NEEDS`, `_SURE`).
+    While VisionClaw works on a request of the user, where the setting `useNvdaLog` is on (the default): what NVDA
+    logged during a step that failed or changed something is added to its result (`orchestrator._logged`), recent
+    trouble goes to the model that chooses for a question about it (`_logTrouble`, `nvdalog.asksTrouble`), and the
+    skills get their kinds (`_skillLog`). By itself only the watch, off unless the user turns on `nvdaLogWatch`
+    (`nvdalogfeed.Feed`): one sentence for each add-on or part of NVDA at most every `QUIET_SECONDS`, never about
+    VisionClaw's own errors, never while the microphone is open.
+  - **Logging off**: say so and where to turn it on (NVDA's settings, Privacy and Security, Logging level), and offer to
+    open that panel. VisionClaw never changes the logging level (`nvdatools._SKIP_KEYS` keeps `loggingLevel`).
+  - **Every skill names what it wants from the log** (`log:` in SKILL.md, `skills.LOG_KINDS`, equal to
+    `nvdalog.LOG_KINDS`); every built-in skill has "errors" among them. `skilllog.lines` gives at most `MAX_LINES` facts
+    of those kinds, logged in the last `RECENT_SECONDS` (errors: `ERRORS_SECONDS`), newest first, never VisionClaw's own,
+    each naming its add-on, with the skill's sentences to the steps of its jobs and to the answer; nothing when nothing
+    fits. A new skill gets a `log:` line.
+  - **Instructions**: `prompts.NVDA_LOG_HELP` (`nvdaLogHelp`) goes to an answer whose information has lines "From NVDA's
+    log"; `prompts.CODE_LOG` (`codeLog`) to the writer of an add-on when the developer info of the object last checked with
+    NVDA+F1 comes with it (`skilllog.objectLines`, `nvdatools.logLines`, under `prompts.LOG_HEAD`), only where what the
+    add-on is for points at one control. Neither was measured with a real model.
+  - **A model only explains one error, when asked**, said to be the model's and possibly wrong. Plain code says the rest.
+  - Tests never read the real log; `tests/test_nvda_stub.py` stands in for it.
 - **VisionClaw reads its own logs and corrects its own code only when the user asks** (`claw/diagnose.py`,
   `diagnosetools.py`). The owner said on 2026-11-19: "give visionclaw access to its own logs, so through the coding and
   vision model, a user can have visionclaw diagnose and fix its own bugs", and "visionclaw must only read its own logs
@@ -1634,6 +1708,10 @@ addon/
     checktools.py            a check that asks whether the user is a person: told, its box pressed, its squares said,
                              the squares the user names clicked
     shoptools.py             a product's options, a seat map, and the question before a button that buys is pressed
+    nvdalogtools.py          NVDA's own log as tools: the files, the level, the add-ons' names, the Privacy and Security
+                             panel opened; a place in the log and what was written after it
+    nvdalogfeed.py           NVDA's log while VisionClaw works, for its steps, its skills and a question about trouble;
+                             the watch that says an error in one sentence, where the user turned it on
     scratchtools.py          scratchpads as tools: a task scratchpad in the user's words, a question answered from
                              the scratchpads, which program or website the user is in, the lines given to look_up
     diagnosetools.py         VisionClaw's own log read, what went wrong said, and its own code corrected, only when the
@@ -1694,6 +1772,11 @@ addon/
       understand.py          the user's words understood as the plain words VisionClaw knows, by lines of Markdown
                              (understanding.md, and the user's own in the data folder); what is never changed
       understanding.md       VisionClaw's own lines of words that mean the same, by where they may stand
+      nvdalog.py             NVDA's own log as plain data: what the user's words ask of it, the entries, errors and the
+                             add-ons they come from, freezes, drivers, the run before, the session, developer info,
+                             input help, settings saved, NVDA Remote; never the levels that hold typed keys and speech
+      skilllog.py            what NVDA's log tells the skills: the kinds each skill names, a few recent lines; the
+                             developer info of the object last checked, for the writer of an add-on
       scratchpad.py          scratchpads: a task over several requests, what was learned in each program and website,
                              the descriptions; lines a model writes checked by plain code, found again by words, topics
                              and program; a long result given to a step by its parts about the step
@@ -2054,6 +2137,14 @@ A session is done only when its "Done when" line is true.
   in each program and website, the descriptions; the models write down what a long result holds for the next step and
   learn from it; VisionClaw reads its own log and corrects one function of its own code, only when asked, as data, never
   in its files. Measured with the real Qwen3.5 4B; not run inside NVDA.
+- [x] **3.69 Scratchpads used the way large models use theirs.** Lines that earn trust and are set aside, what did not
+  work kept in view, a stopped request carried on, the task's list carried out and checked off, the program's lines for
+  the add-on writer, instructions for answers from scratchpads, and skills that use them. Answers measured with the real
+  Qwen3.5 4B; not run inside NVDA.
+- [x] **3.70 NVDA's own log.** Read when asked: errors and their add-ons, freezes, drivers, the run before, the session,
+  developer info, input help, settings, NVDA Remote; while VisionClaw works, for a failed or changing step and a question
+  about trouble; every skill names what it wants from it; a watch for errors the user can turn on. Tested with made-up
+  logs and stand-ins; not run inside NVDA.
 - [ ] **3.5 Test inside NVDA.** Install the build in NVDA (ask the user first) and walk through
   `docs/TESTPLAN.md`. Fix what breaks. *Done when:* every item in the test plan is ticked by a real run.
 
@@ -2138,6 +2229,14 @@ python tests/test_stream_answers.py      a request's answer said a sentence at a
                                          nothing lost; where it is said whole instead
 python -u tests/live_stream.py MODELS VISIONID CODERID   the real model's answers said in pieces: when the first piece
                                          comes against the whole answer, and that the pieces are the answer; VC_ASK
+python tests/test_nvdalog.py             NVDA's own log from made-up logs: errors, add-ons, freezes, drivers, the run before, the
+                                         session, developer info, input help; nothing private gets through
+python tests/test_skilllog.py            every skill's log: line, the lines a skill gets, the instructions for them, a step told what
+                                         NVDA logged meanwhile, the watch
+python tests/test_scratch_ways.py         lines that earn trust and are set aside, a stopped request carried on, the task's list
+                                         carried out and checked off, the add-on writer's lines, the skills that use them
+python -u tests/live_scratch_ways.py MODELS VISIONID CODERID   a real model answers from scratchpad lines with and without
+                                         the instructions for them; plain code judges every answer
 python tests/test_scratchpad.py          scratchpads: the words, the files, topics, lines checked and found again, the work
                                          sheet's feed, the orchestrator writing down and keeping; the notes and skills
 python tests/test_diagnose.py            VisionClaw's own log read, a correction checked, put in place of a function of a

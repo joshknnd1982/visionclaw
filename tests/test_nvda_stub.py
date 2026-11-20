@@ -432,7 +432,7 @@ assert instance.dataDir == DATA and instance.portableSettings()["searchEngine"] 
 instance.controller._stopped.set()
 instance.controller._thread.join(5)
 registry = instance.orchestrator.registry
-assert len(registry.names()) == 120, registry.names()
+assert len(registry.names()) == 121, registry.names()
 # Lessons from searches that happened to find something misled; they are dropped when VisionClaw starts.
 assert instance.memory.all() == ["Tool set_setting: this form failed: {} (x). This form worked: {}."], instance.memory.all()
 assert set(planner.available(registry)) == set(planner.RECIPES), set(planner.RECIPES) - set(planner.available(registry))
@@ -5350,6 +5350,201 @@ diagnosetools.logsFolder = realLogsFolder
 shutil.rmtree(logsDir, ignore_errors=True)
 sys.modules["api"].getFocusObject = realFocusObject
 instance.clawAsk = realClawAsk
+
+# --- NVDA's own log, only when the user asks (nvdalogtools.py, claw/nvdalog.py) ---
+# A made-up nvda.log and nvda-old.log in a folder of the test's own: the real log of this computer is never read.
+
+from visionClaw import nvdalogtools  # noqa: E402
+from visionClaw.claw import nvdalog as logModule  # noqa: E402
+
+nvdaLogDir = tempfile.mkdtemp()
+nvdaLogPath = os.path.join(nvdaLogDir, "nvda.log")
+ADDON_DIR_CLOCK = os.path.join(nvdaLogDir, "addons", "clock")
+os.makedirs(os.path.join(ADDON_DIR_CLOCK, "globalPlugins", "clock"))
+SECRET = ("hunter2", "kb(desktop):p", "Speaking")
+
+
+def entryText(level, clock, message, codepath="core.main"):
+	return f"{level} - {codepath} ({clock}) - MainThread (1000):\n{message}\n"
+
+
+with open(nvdaLogPath, "w", encoding="utf-8") as f:
+	f.write(entryText("INFO", "09:00:00.100", "Starting NVDA version 2026.3.1 AMD64", "__main__")
+		+ entryText("INFO", "09:00:01.000", "Windows version: Windows 11 24H2")
+		+ entryText("INFO", "09:00:03.000", "NVDA initialized")
+		+ entryText("IO", "09:01:00.000", "Input: kb(desktop):p", "inputCore.InputManager.executeGesture")
+		+ entryText("IO", "09:01:00.100", "Speaking ['hunter2']", "speech.speech.speak")
+		+ entryText("ERROR", "09:02:00.000", "Error in script_sayTime\nTraceback (most recent call last):\n"
+			f"  File \"{os.path.join(ADDON_DIR_CLOCK, 'globalPlugins', 'clock', '__init__.py')}\", line 60, in speakTime\n"
+			"ValueError: invalid literal for int() with base 10: 'ten'", "external:globalPlugins.clock.GlobalPlugin.script_sayTime")
+		+ entryText("INFO", "09:06:00.000", "Starting freeze recovery after 10.5 seconds.", "watchdog.waitForFreezeRecovery")
+		+ entryText("INFO", "09:06:30.000", "Recovered from freeze after 40.2 seconds.", "watchdog.waitForFreezeRecovery")
+		+ entryText("INFO", "09:07:00.000", "Developer info for navigator object:\nname: 'Save'\nrole: BUTTON\nstates: FOCUSABLE\n"
+			"appModule: AppModule(appModules.notepad, appName='notepad', processID=4242)\nwindowClassName: 'Button'\n"
+			"UIA automationID: SaveButton\nUIA frameworkID: Win32", "globalCommands.GlobalCommands.script_navigatorObject_devInfo")
+		+ entryText("INFO", "09:08:00.000", "Input help: gesture kb(desktop):NVDA+shift+v, bound to script sayDate on "
+			"globalPlugins.clock.GlobalPlugin", "inputCore.InputManager._handleInputHelp")
+		+ entryText("INFO", "09:09:00.000", "Base configuration saved", "config.ConfigManager.save")
+		+ entryText("INFO", "09:10:00.000", "Successfully connected as leader", "_remoteClient.client.RemoteClient.onConnectedAsLeader"))
+with open(os.path.join(nvdaLogDir, "nvda-old.log"), "w", encoding="utf-8") as f:
+	f.write(entryText("INFO", "22:00:00.000", "Starting NVDA version 2026.3.1 AMD64", "__main__")
+		+ entryText("INFO", "22:00:01.000", "Windows version: Windows 11 24H2")
+		+ entryText("INFO", "22:00:02.000", "NVDA initialized")
+		+ entryText("CRITICAL", "23:59:59.500", "NVDA crashed! Minidump written to C:\\Temp\\nvda_crash.dmp", "watchdog._crashHandler")
+		+ entryText("INFO", "23:59:59.600", "Restarting due to crash", "watchdog._crashHandler"))
+logHandlerModule, globalVarsModule = sys.modules["logHandler"], sys.modules["globalVars"]
+
+
+class FakeFileHandler:
+	pass
+
+
+nvdaLevel = {"level": 100, "forced": False}
+realLogStandIn = logHandlerModule.log
+logHandlerModule.log = types.SimpleNamespace(getEffectiveLevel=lambda: nvdaLevel["level"])
+logHandlerModule.isLogLevelForced = lambda: nvdaLevel["forced"]
+logHandlerModule.FileHandler = FakeFileHandler
+logHandlerModule.logHandler = FakeFileHandler()
+logHandlerModule._getDefaultLogFilePath = lambda: nvdaLogPath
+globalVarsModule.appArgs.logFileName = nvdaLogPath
+hadGeneral = "general" in conf
+conf["general"] = {"loggingLevel": "OFF"}
+realAvailable = sys.modules["addonHandler"].getAvailableAddons
+sys.modules["addonHandler"].getAvailableAddons = lambda: [
+	types.SimpleNamespace(name="clock", manifest={"summary": "Clock and Calendar"}, path=ADDON_DIR_CLOCK)]
+panels, logQuestions = [], []
+realMainFrame = sys.modules["gui"].mainFrame
+sys.modules["gui"].mainFrame = types.SimpleNamespace(popupSettingsDialog=lambda *args: panels.append(args))
+instance.clawAsk = lambda question, choices: logQuestions.append((question, choices)) or 0
+realLast, instance.orchestrator.last = instance.orchestrator.last, None
+
+
+class LogRuntime(FakeRuntime):
+	"""The model that writes code says what one error means."""
+	asked = []
+
+	def oneModel(self):
+		return False
+
+	def chat(self, role, messages, maxTokens, **options):
+		system, user = messages[0]["content"], messages[1]["content"]
+		self.asked.append((role, system, user))
+		if system.startswith("You are VisionClaw, an assistant inside the NVDA screen reader. You read one error from NVDA's own log"):
+			return "The clock add-on could not turn the word ten into a number, so it could not say the time."
+		return super().chat(role, messages, maxTokens, **options)
+
+
+realRuntime, instance.runtime = instance.runtime, LogRuntime()
+logTask = taskModule.Task("a question about NVDA's log")
+
+
+def onLog(asked):
+	worked, result = registry.call(taskModule.Task(asked), "nvda_log", {"asked": asked})
+	assert worked, result
+	for word in SECRET:
+		assert word not in result, (word, result)
+	return result
+
+
+assert registry.get("nvda_log").looks and not registry.get("nvda_log").changes and registry.get("nvda_log").tell == "verbatim"
+# Nothing is read without words that ask for it.
+assert onLog("what time is it") == "VisionClaw reads NVDA's log only when you ask for exactly that, so nothing was read."
+# The level is Disabled: said, where it is turned on, and the offer to open that page; a yes opens it and changes nothing.
+said = onLog("check NVDA's log")
+question, choices = logQuestions[-1]
+assert question.startswith("NVDA's log is off: its logging level is Disabled") and question.endswith(
+	"Open NVDA's Privacy and Security settings now, at the Logging level combo box?") and choices == ["Yes, open them", "No, leave them"]
+assert said.startswith("NVDA's settings are open at Privacy and Security.") and len(panels) == 1
+assert [getattr(part, "__name__", str(part)) for part in panels[0]][1] == "PrivacyAndSecuritySettingsPanel"
+assert conf["general"]["loggingLevel"] == "OFF"  # VisionClaw never changes it
+instance.clawAsk = lambda question, choices: logQuestions.append((question, choices)) or 1
+assert onLog("why does nvda keep freezing") == "NVDA's settings were not opened, and nothing was changed." and len(panels) == 1
+# Secure mode: said, and nothing offered.
+globalVarsModule.appArgs.secure, asked = True, len(logQuestions)
+assert onLog("check NVDA's log").startswith("NVDA runs in secure mode") and len(logQuestions) == asked
+globalVarsModule.appArgs.secure = False
+# The level is Info: the log is read, and the add-on is named from the running NVDA.
+nvdaLevel["level"], conf["general"]["loggingLevel"] = 20, "INFO"
+said = onLog("check NVDA's log")
+assert said.startswith("NVDA's log of this run has one error.\nOf the 1 errors, 1 from Clock and Calendar (clock).\n1. Error in "
+	"script_sayTime. Once, at 09:02:00. From the add-on Clock and Calendar (clock), in its function speakTime."), said
+assert "2 entries of the levels that hold what you type" in said
+said = onLog("which add-on is causing errors")
+assert said.startswith("Errors in NVDA's log of this run that come from add-ons, the most first:\n1. Clock and Calendar (clock): 1 error.")
+# The run before crashed in no add-on's code, so nothing of it is said here.
+assert "In the run before" not in said, said
+assert onLog("did nvda freeze").startswith("NVDA's log of this run shows one time that NVDA stopped responding.")
+said = onLog("why did nvda crash")
+assert said.startswith("The run before this one was NVDA 2026.3.1, started at 22:00:00.\nNVDA crashed, at 23:59:59. It then restarted itself.")
+assert onLog("what is NVDA's logging level").startswith("NVDA's logging level is Info.")
+assert onLog("where is nvda's log file").startswith(f"NVDA's log of this run is the file {nvdaLogPath}.")
+said = onLog("when did nvda start")
+assert said.startswith("This run of NVDA, version 2026.3.1, started at 09:00:00, and was ready at 09:00:03.") and (
+	"The run before: NVDA crashed, at 23:59:59." in said), said
+assert onLog("what did the developer info say").startswith("The developer info NVDA wrote at 09:07:00 is for the button \"Save\", in the "
+	"program notepad.")
+assert onLog("what is its automation id in the developer info") == ("In the developer info NVDA wrote at 09:07:00, its automation ID "
+	"is SaveButton.")
+assert onLog("which keys did I try in input help") == ("Keys you tried in input help in this run, in order: 1.\n1. At 09:08:00: "
+	"NVDA+shift+v, which runs the command sayDate, of the add-on Clock and Calendar (clock).")
+assert onLog("when were my settings last saved").endswith("The last time NVDA saved its settings was at 09:09:00.")
+assert onLog("is nvda remote connected").startswith("NVDA Remote is connected, and this computer controls the other one.")
+# Asking to turn it on: where it is, and the offer; nothing is changed.
+instance.clawAsk = lambda question, choices: logQuestions.append((question, choices)) or 0
+said = onLog("turn on NVDA's debug logging")
+assert logQuestions[-1][0].startswith("VisionClaw never changes NVDA's logging level itself. It is Info now.") and len(panels) == 2
+assert conf["general"]["loggingLevel"] == "INFO" and nvdaLevel["level"] == 20
+# One error explained: the model that writes code is given that error alone, and its words are said to be its own.
+said = onLog("explain NVDA error 1")
+assert said.endswith("What the coder model says this error means, which may be wrong: The clock add-on could not turn the word ten "
+	"into a number, so it could not say the time."), said
+assert "in the main file of its folder globalPlugins/clock, line 60" in said
+role, system, user = LogRuntime.asked[-1]
+assert role == CODER and user.startswith("Error in NVDA's log: Error in script_sayTime") and not any(word in user for word in SECRET)
+# What is new since VisionClaw last read the log: only that.
+with open(nvdaLogPath, "a", encoding="utf-8") as f:
+	f.write(entryText("WARNING", "09:20:00.000", "Couldn't open specified or default audio device. There may be no audio devices.",
+		"nvwave.WavePlayer.open") + entryText("IO", "09:20:01.000", "Input: kb(desktop):p", "inputCore.InputManager.executeGesture"))
+said = onLog("anything new in nvda's log")
+assert said.startswith("What NVDA wrote to its log since VisionClaw last read it, at ") and "Error in script_sayTime" not in said
+assert "At 09:20:00: NVDA could not open the sound output device" in said and "1 entry of the levels that hold" in said, said
+# What NVDA wrote just now: the two minutes before the request.
+justNow = time.strftime("%H:%M:%S", time.localtime(time.time() - 30)) + ".000"
+with open(nvdaLogPath, "a", encoding="utf-8") as f:
+	f.write(entryText("INFO", justNow, "Loaded synthDriver espeak", "synthDriverHandler.setSynth"))
+said = onLog("what just happened in nvda")
+assert said == ("What NVDA wrote to its log in the 2 minutes before you asked, in order:\nAt "
+	f"{justNow[:8]}: NVDA loaded the speech synthesizer espeak."), said
+# For other parts of VisionClaw: a mark at the end of the log, and the readable entries written after it.
+position = nvdalogtools.mark()
+assert position["path"] == nvdaLogPath and position["offset"] == os.path.getsize(nvdaLogPath)
+assert nvdalogtools.since(position) == []
+with open(nvdaLogPath, "a", encoding="utf-8") as f:
+	f.write(entryText("IO", "09:30:00.000", "Speaking ['hunter2']", "speech.speech.speak")
+		+ entryText("ERROR", "09:30:01.000", "setSynth failed for sapi5", "synthDriverHandler.setSynth"))
+after = nvdalogtools.since(position)
+assert [entry.message for entry in after] == ["setSynth failed for sapi5"] and all(not entry.private for entry in after)
+assert logModule.troubleText(after) == "The speech synthesizer sapi5 could not be started."
+assert nvdalogtools.since(None) == [] and nvdalogtools.since({"path": "elsewhere.log", "offset": 0}) == []
+assert nvdalogtools.since({"path": nvdaLogPath, "offset": 10 ** 9}) == []
+assert [fact["kind"] for fact in nvdalogtools.factsSince()][:3] == ["started", "windows", "initialized"]
+# Nothing typed or spoken reached VisionClaw's own log or anything else it keeps.
+for folder, _dirs, names in os.walk(DATA):
+	for name in names:
+		with open(os.path.join(folder, name), encoding="utf-8", errors="ignore") as f:
+			kept = f.read()
+		assert "hunter2" not in kept and "kb(desktop):p" not in kept, os.path.join(folder, name)
+globalVarsModule.appArgs.logFileName = None
+assert nvdalogtools.mark() is None
+instance.runtime = realRuntime
+instance.orchestrator.last = realLast
+instance.clawAsk = realClawAsk
+sys.modules["gui"].mainFrame = realMainFrame
+sys.modules["addonHandler"].getAvailableAddons = realAvailable
+logHandlerModule.log = realLogStandIn
+if not hadGeneral:
+	del conf["general"]
+shutil.rmtree(nvdaLogDir, ignore_errors=True)
 
 instance.terminate()
 print("OK")

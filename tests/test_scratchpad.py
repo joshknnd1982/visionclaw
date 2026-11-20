@@ -290,7 +290,8 @@ from visionClaw.claw.knowledge import Knowledge  # noqa: E402
 from visionClaw.claw.skills import Skills  # noqa: E402
 
 sections = [(title, body) for title, body, source in Knowledge().everything() if source == "visionclaw-scratchpad"]
-assert len(sections) == 9, len(sections)
+# Nine sections in 1.17.0; four more in 1.18.0 (the list carried out, carrying on, trust, what was learned here).
+assert len(sections) == 13, len(sections)
 for title, body in sections:
 	assert len(body) <= 360 and "," in title, (title, len(body))
 	assert "for example" not in body.lower() and "look at" not in body.lower(), title
@@ -303,7 +304,9 @@ for question in ("How do I read the title of this window?", "What is browse mode
 	assert not gate.search(question), question
 # The skills for them are chosen by their words, and only for their own jobs.
 lib = Skills(tempfile.mkdtemp(prefix="vcskills-"), recipes=set(planner.RECIPES))
-assert "keep-a-scratchpad" in [s.slug for s in lib.choose("start a scratchpad for my taxes")]
+# A job planned on a scratchpad gets the skill made for it (1.18.0), which takes the place of the general one.
+assert "plan-a-job-on-a-scratchpad" in [s.slug for s in lib.choose("start a scratchpad for my taxes")]
+assert "keep-a-scratchpad" in [s.slug for s in lib.choose("what's on my scratchpad")]
 assert "fix-visionclaw" in [s.slug for s in lib.choose("why did my last request fail")]
 for request in ("what time is it", "turn off typing echo", "describe the screen"):
 	assert not {"keep-a-scratchpad", "fix-visionclaw"} & {s.slug for s in lib.choose(request)}, request

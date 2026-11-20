@@ -1,6 +1,6 @@
 # VisionClaw status
 
-Updated 2026-11-19, version 1.17.0.
+Updated 2026-11-19, version 1.18.0.
 
 ## What exists
 
@@ -3005,7 +3005,51 @@ What was built:
 Not yet run inside NVDA: none of this. The model's line on the request's scratchpad is asked only for a model that is
 not one of the very smallest, and was measured only with Qwen3.5 4B.
 
+## Scratchpads used the way large models use theirs, and NVDA's own log (1.18.0, 2026-11-19)
+
+The owner asked, after 1.17.0: "make visionclaw have the ability to use its scratchpads in all the various clever ways
+and adaptive learning ways that big cloud AI models use theirs, just adapted down for smaller local models"; to update
+the skills and system prompts for them and make new ones; then "I also want visionclaw to have access to the various
+logs of nvda itself", that skills cannot work while NVDA's logging is off, "info logs can give you much more info than
+that. make plans for info about objects and other logged items", "implement the plan as features", "all existing skills
+and system prompts should be able to query the log", and to combine that with updated system prompts.
+
+What was built:
+- Scratchpad lines earn trust from how the requests they were given to went (Laplace's rule, as for plans), and are set
+  aside, never deleted, when they do not help; the user's own lines never are. A way of looking that found nothing in a
+  program is written down. "Do the next one" carries out the next thing on the task scratchpad's list and checks it off
+  only when it went well. "Carry on" goes on with a stopped request from the step where it stopped (memory only, 30
+  minutes). "What have you learned here" reads the program's learning scratchpad. The writer of an add-on gets at most
+  two lines of the program's scratchpad that fit what the add-on is for. Four new skills; three skills changed.
+- NVDA's own log (`claw/nvdalog.py`, `nvdalogtools.py`, built by a helper agent from NVDA 2026.3.1's source): errors and
+  their add-ons, freezes, drivers, the run before, the session, developer info, input help, settings, NVDA Remote, the
+  level; nine new skills. While VisionClaw works: a failed or changing step is told what NVDA logged meanwhile, a question
+  about trouble gets recent trouble, and every skill names what it wants from the log (`log:`, `claw/skilllog.py`). A
+  watch that says an error in one sentence, off by default. The plan is `docs/PLAN-nvda-log.md`.
+- Four new instructions the user can rewrite: answers from scratchpads (`padHelp`), add-ons with a program's scratchpad
+  lines (`codePad`), answers from NVDA's log (`nvdaLogHelp`), add-ons with the developer info NVDA logged (`codeLog`).
+
+How it was tested:
+- Plain Python: all 65 test files of `tests/run_all.py` pass, among them the new `tests/test_scratch_ways.py` (whole
+  requests carried on after a stop and carried out from the list, with a scripted model), `tests/test_nvdalog.py` and
+  `tests/test_skilllog.py` (made-up logs with private words that must never get through).
+- With the real Qwen3.5 4B for both jobs: `tests/live_scratch_ways.py`, eight questions answered from scratchpad lines,
+  8 of 8 right without the new instruction and 8 of 8 with it. Told to say which scratchpad a line is from, the model did
+  it 0 times in 8; told to begin with it, 5 times in 8, but before the answer. So plain code says it after the answer.
+- `tests/eval_routing.py` on the eight request sets (555 requests): 526 right, exactly as 1.16.1 set by set, with no
+  request changing its job. The script's stand-in for the answer had not been brought up to date when the answer got two
+  more arguments in 1.16.0, so it failed at once; it was corrected.
+- Not measured with a real model: the skills' lines of NVDA's log, the add-on writer's lines of a scratchpad and of the
+  developer info, and the watch. Not run inside NVDA: none of 1.18.0, including opening NVDA's Privacy and Security panel
+  and reading the real nvda.log while NVDA writes it.
+
 ## Next session
+
+1.18.0: inside NVDA, with the owner's yes: press NVDA+F1 on a control, then ask "what did the developer info say"; ask
+"check NVDA's log" with the logging level at Info and at Disabled; turn on "Say when NVDA logs an error" and make an
+add-on fail; stop a long request with NVDA+Alt+X and say "carry on". Then measure the skills' lines of NVDA's log with a
+real model on requests that set them off, before and after.
+
 
 1.16.1: write a fourth held-out answer set before measuring the next change (the second and third are spent);
 then the misses listed in the section above, and "press Control and S together": a key said with "and", which plain

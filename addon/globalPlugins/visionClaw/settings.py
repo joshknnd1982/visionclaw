@@ -137,6 +137,14 @@ class VisionClawPanel(gui.settingsDialogs.SettingsPanel):
 			# learn from it, and descriptions are not kept; a task scratchpad the user starts is kept either way.
 			_("Let the models keep scratch&pads: write down what they find while they work, learn from it in each program "
 				"and website, and keep the last descriptions"), "scratchpads")
+		self.useNvdaLog = checkbox(
+			# Translators: Checkbox in settings. VisionClaw reads only the errors, warnings and information NVDA logs, never
+			# what was typed or spoken.
+			_("Read NVDA's &log while VisionClaw works: errors, drivers that fell back and freezes, never what you typed "
+				"or what was spoken"), "useNvdaLog")
+		self.nvdaLogWatch = checkbox(
+			# Translators: Checkbox in settings. When it is on, VisionClaw says one sentence when NVDA logs an error.
+			_("Say when NVDA logs an &error"), "nvdaLogWatch")
 		self.statusUpdates = helper.addLabeledControl(
 			# Translators: Label of the choice of when VisionClaw says by itself how far a long request, description or
 			# answer is.
@@ -270,6 +278,8 @@ class VisionClawPanel(gui.settingsDialogs.SettingsPanel):
 		c["speakProgress"] = self.speakProgress.GetValue()
 		c["streamAnswers"] = self.streamAnswers.GetValue()
 		c["scratchpads"] = self.scratchpads.GetValue()
+		c["useNvdaLog"] = self.useNvdaLog.GetValue()
+		c["nvdaLogWatch"] = self.nvdaLogWatch.GetValue()
 		c["statusUpdates"] = busy.CHOICES[max(0, self.statusUpdates.GetSelection())]
 		c["ownVoice"] = self.ownVoice.GetValue()
 		c["readAhead"] = self.readAhead.GetValue()

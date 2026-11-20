@@ -661,6 +661,15 @@ def makeRegistry(rt, state):
 		"VisionClaw's function _readAhead is corrected, and the correction is used from now on.",
 		"Correcting VisionClaw's own code",
 		{"asked": text("what the user asked for, in their own words", maxLength=300, auto=True)}, changes=True, tell=V)
+	# NVDA's own log (nvdalogtools.py): the stand-in reads nothing.
+	simple("nvda_log",
+		"read NVDA's own log, only when the user asks: its errors and which add-on they come from, freezes, trouble with the "
+		"speech synthesizer, the sound or the braille display, how NVDA ended last time, what NVDA wrote just now, when NVDA "
+		"started, the developer info of an object, keys tried in input help, settings saved or put back, NVDA Remote, Java and "
+		"UI Automation, and NVDA's logging level",
+		"NVDA's log of this run has one error.\nOf the 1 errors, 1 from Clock and Calendar (clock).\n1. Error in script_sayTime. "
+		"Once, at 09:02:00. From the add-on Clock and Calendar (clock), in its function speakTime.", "Reading NVDA's own log",
+		{"asked": text("what the user asked for, in their own words", maxLength=300, auto=True)}, looks=True, tell=V)
 	simple("own_fixes",
 		"say which corrections VisionClaw made of its own code, or undo one, only when the user asks",
 		"VisionClaw has made no corrections of its own code.", "VisionClaw's corrections of its own code",

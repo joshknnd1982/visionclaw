@@ -188,6 +188,12 @@ confspec = {
 	# whether descriptions are kept on the descriptions scratchpad (claw/scratchpad.py). A task scratchpad the user
 	# starts is kept either way.
 	"scratchpads": "boolean(default=True)",
+	# Whether VisionClaw reads NVDA's own log while it works: what NVDA logged during a step that failed or changed
+	# something, and recent trouble for a question about it (claw/nvdalog.py). Errors, warnings and information only.
+	"useNvdaLog": "boolean(default=True)",
+	# Whether VisionClaw says by itself, in one sentence, when NVDA logs an error (nvdalogfeed.Watch). Off unless the
+	# user turns it on.
+	"nvdaLogWatch": "boolean(default=False)",
 	# After how many seconds of quiet VisionClaw says how far a long request or description is, or never
 	# (claw/busy.py).
 	"statusUpdates": 'option("10", "15", "30", "60", "off", default="15")',
@@ -206,6 +212,10 @@ confspec = {
 	"promptDevGuide": 'string(default="")',
 	"promptAddonHelp": 'string(default="")',
 	"promptTrainingHelp": 'string(default="")',
+	"promptPadHelp": 'string(default="")',
+	"promptCodePad": 'string(default="")',
+	"promptNvdaLogHelp": 'string(default="")',
+	"promptCodeLog": 'string(default="")',
 	"promptQuick": 'string(default="")',
 	"promptDetailed": 'string(default="")',
 	"promptBrief": 'string(default="")',
@@ -273,7 +283,8 @@ PROMPT_KEYS = {
 	"user": "promptUser", "speaking": "promptSpeaking", "seeing": "promptSeeing", "addon": "promptAddon",
 	"codeKey": "promptCodeKey", "codeAuto": "promptCodeAuto", "codeProgram": "promptCodeProgram",
 	"codeGuide": "promptCodeGuide", "devGuide": "promptDevGuide", "addonHelp": "promptAddonHelp",
-	"trainingHelp": "promptTrainingHelp",
+	"trainingHelp": "promptTrainingHelp", "padHelp": "promptPadHelp", "codePad": "promptCodePad",
+	"nvdaLogHelp": "promptNvdaLogHelp", "codeLog": "promptCodeLog",
 	"quick": "promptQuick", "detailed": "promptDetailed", "brief": "promptBrief",
 }
 
@@ -640,6 +651,13 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		self._busy = 0
 		self._lastUse = time.monotonic()
 		self._stopped = threading.Event()
+		# NVDA's own log, read while VisionClaw works on a request, and watched for errors where the user wants that
+		# (nvdalogfeed.py, claw/skilllog.py, docs/PLAN-nvda-log.md). The watch ends when NVDA closes (_stopped).
+		from . import nvdalogfeed
+		self.nvdaLogFeed = nvdalogfeed.Feed(lambda: conf()["useNvdaLog"], lambda: conf()["nvdaLogWatch"], _speak,
+			self._stopped, lambda: self.voice.listening())
+		self.orchestrator.nvdaLog = self.nvdaLogFeed
+		self.nvdaLogFeed.startWatch()
 		# True after the memory was given back because Windows ran low.
 		self._freedForMemory = False
 		self.labels = labels.LabelStore(os.path.join(DATA_DIR, "labels.json"))
@@ -961,9 +979,13 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			("codeAuto", _("Add-ons that work by themselves")),
 			("codeProgram", _("Add-ons for one program or game")),
 			("codeGuide", _("Add-ons written with lines from the developer guides")),
+			("codePad", _("Add-ons written with lines from a program's scratchpad")),
+			("codeLog", _("Add-ons written with the developer info NVDA logged about an object")),
 			("devGuide", _("Answers taken from the developer guides")),
 			("addonHelp", _("Answers about an installed add-on")),
 			("trainingHelp", _("Answers taken from downloaded training material")),
+			("padHelp", _("Answers taken from VisionClaw's scratchpads")),
+			("nvdaLogHelp", _("Answers taken from NVDA's own log")),
 		]
 		values = {part: prompts.part(part) if prompts.isCustom(part) else "" for part in prompts.PARTS}
 		values["own"] = c["ownInstructions"]

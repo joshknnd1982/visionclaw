@@ -11,6 +11,8 @@
 #   when: photo, picture, selfie            the words that start it, separated by commas
 #   uses: describe                          the recipes it is for (planner.RECIPES), separated by commas
 #   instead of: another-skill               optional: skills that are not used when this one is, by folder name
+#   log: errors, objects                    optional: what the skill wants from NVDA's own log (LOG_KINDS), given with
+#                                           its sentences where NVDA logged it in the last minutes (claw/skilllog.py)
 #   steps:                                  optional: a fixed list of recipes, each with the words it is given
 #   - where_am_i
 #   - describe: say what this window shows
@@ -90,11 +92,24 @@ class SkillError(Exception):
 	"""A skill that cannot be read or saved. The message says why, in plain words."""
 
 
+# What a skill may want from NVDA's own log (log: in SKILL.md), in the words a person uses for them. Plain code finds each
+# in what NVDA logged in the last minutes (claw/skilllog.py); the owner asked on 2026-11-19 that every skill and system
+# prompt be able to query NVDA's log.
+LOG_KINDS = ("errors", "add-ons", "speech", "audio", "braille", "freezes", "session", "settings", "objects", "input help",
+	"remote")
+
+
+def logKinds(text):
+	"""The kinds of a skill's log: line, in order, each once, lower case. Unknown kinds are kept, so check() names them."""
+	parts = text if isinstance(text, (list, tuple)) else str(text or "").split(",")
+	return tuple(dict.fromkeys(" ".join(str(part).split()).lower() for part in parts if str(part).strip()))
+
+
 class Skill:
 	"""One skill. slug: its folder name. source: YOURS or OURS. on: whether it is used."""
 
 	def __init__(self, name, description="", when=(), uses=(), steps=(), instructions="", slug="", source=YOURS,
-			path="", instead=()):
+			path="", instead=(), log=()):
 		self.name = " ".join(str(name or "").split())[:NAME_CHARS]
 		self.description = " ".join(str(description or "").split())[:DESCRIPTION_CHARS]
 		self.when = _phrases(when)
@@ -102,6 +117,8 @@ class Skill:
 		# The folder names of skills that say the opposite for the same words: where this one fits, they are not
 		# used. A hand on the mouse is not helped by being told to use the keyboard instead.
 		self.instead = tuple(slugOf(name) for name in _names(instead))
+		# What the skill wants from NVDA's own log, by LOG_KINDS (claw/skilllog.py); nothing when it names nothing.
+		self.log = logKinds(log)
 		self.steps = tuple(
 			(recipe, " ".join(str(words or "").split())[:STEP_WORDS_CHARS]) for recipe, words in steps)[:MAX_STEPS]
 		self.instructions = str(instructions or "").strip()[:INSTRUCTION_CHARS]
@@ -167,7 +184,8 @@ def parse(text, slug="", source=YOURS, path=""):
 		raise SkillError("The skill has no name.")
 	return Skill(
 		head.get("name"), head.get("description", ""), head.get("when", ""), head.get("uses", ""),
-		head.get("steps", ()), "\n".join(body).strip(), slug, source, path, head.get("instead of", head.get("instead", "")))
+		head.get("steps", ()), "\n".join(body).strip(), slug, source, path, head.get("instead of", head.get("instead", "")),
+		head.get("log", ""))
 
 
 def _head(lines):
@@ -210,6 +228,8 @@ def toText(skill):
 		lines.append(f"uses: {', '.join(skill.uses)}")
 	if skill.instead:
 		lines.append(f"instead of: {', '.join(skill.instead)}")
+	if skill.log:
+		lines.append(f"log: {', '.join(skill.log)}")
 	if skill.steps:
 		lines.append("steps:")
 		lines += [f"- {recipe}: {words}" if words else f"- {recipe}" for recipe, words in skill.steps]
@@ -237,6 +257,10 @@ def check(skill, recipes):
 			problems.append(f"One of its steps is \"{recipe}\", which is not something VisionClaw can do.")
 	if not skill.instructions and not skill.steps:
 		problems.append("It says nothing about how the job is done, and it has no steps.")
+	for kind in skill.log:
+		if kind not in LOG_KINDS:
+			problems.append(f"It asks NVDA's log for \"{kind}\", which VisionClaw does not read there. It can ask for: "
+				+ ", ".join(LOG_KINDS) + ".")
 	return problems
 
 

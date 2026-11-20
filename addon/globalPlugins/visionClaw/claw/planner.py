@@ -13,7 +13,7 @@ import re
 
 from . import computer, controls, dates, debuglog, direct, gamepad, guide, memories, partners, places, pointer, policy, profiles, router, touch, understand
 from . import docformat, focus, humancheck, images, paper, seats, shopping, versions, wizard
-from . import diagnose, scratchpad
+from . import diagnose, nvdalog, scratchpad
 from .llm import LLMError, clip, uncut
 from .task import Step
 from .tools import ANSWER
@@ -413,6 +413,15 @@ RECIPES = {
 		"open VisionClaw's own debug log, the file that records what VisionClaw did and every error, to find "
 		"out why something went wrong",
 		("show_log",)),
+	# NVDA's own log (claw/nvdalog.py): only when the user asks for exactly that, read by plain code; nothing typed or
+	# spoken is ever read from it.
+	"nvda_log": (
+		"read NVDA's own log and say what it shows",
+		"read NVDA's own log when the user asks: its errors and which add-on they come from, freezes, trouble with the speech "
+		"synthesizer, the sound or the braille display, how NVDA ended last time, what NVDA wrote just now, when NVDA started, "
+		"the developer info of an object, keys tried in input help, settings saved or put back, NVDA Remote, Java and UI "
+		"Automation, NVDA's logging level and where to turn it on",
+		("nvda_log",)),
 	# What the user asks VisionClaw to remember, kept as Markdown files (claw/memories.py), and the user's
 	# library of documents that questions are also answered from (claw/library.py).
 	"remember": (
@@ -642,6 +651,10 @@ _MODE_SWITCH = (
 # Words that point to a recipe. Checked in this order; the first that matches is the hint given to the model,
 # and the choice when the model fails.
 _HINTS = (
+	# NVDA's own log, only where the words name NVDA's log, NVDA's errors, freezes or crashes, an add-on causing trouble or
+	# NVDA's logging level (claw/nvdalog.py). Before VisionClaw's own log, whose "why did that error happen" would otherwise
+	# take "why did that error happen in NVDA's log", and before the settings, which "turn on" would otherwise set off.
+	("nvda_log", lambda part: nvdalog.wish(part) is not None),
 	# VisionClaw's own logs and code, only where the words ask for exactly that (claw/diagnose.py). Before the log being
 	# opened, which "your log" would otherwise set off, and before everything a word like "fix" sets off.
 	("own_fixes", lambda part: (diagnose.wish(part) or {}).get("do") in (diagnose.FIXES, diagnose.REMOVE)),
@@ -1099,7 +1112,9 @@ _ANSWERS = (
 	"explain_keys", "nvda_question", "work_through", "coach", "addon_question", "jaws_help", "voice_info", "own_voice",
 	"program_settings", "web_page", "explore_page", "form_trouble", "classic_speech", "controller_info", "mouse_way", "human_check",
 	# "Why did my last request fail", "what did you write on the scratchpad about the mixer": answered by these jobs.
-	"own_errors", "ask_scratchpad", "scratchpad", "own_fixes")
+	"own_errors", "ask_scratchpad", "scratchpad", "own_fixes",
+	# "Why did NVDA crash", "how do I turn on NVDA's log": answered from NVDA's log and where its level is set.
+	"nvda_log")
 
 
 _TURNED_THING = re.compile(r"\b(knobs?|dials?|faders?|sliders?|rotary)\b", re.IGNORECASE)
@@ -1263,6 +1278,8 @@ _WHOLE = ("learn_app", "write_addon", "add_skill", "add_fix", "work_through", "t
 	# A scratchpad's things to do are said with commas and "then": "start a scratchpad for my game: install it, then set
 	# the volume". VisionClaw's own errors are told in clauses too.
 	"scratchpad", "ask_scratchpad", "own_errors", "fix_self", "own_fixes",
+	# "Check NVDA's log, which add-on is causing the errors" is one question about NVDA's log.
+	"nvda_log",
 	# One question about the control the user is on, in several clauses: "what's the focused control and what does it
 	# do" was split by the model and "what does it do" looked up alone (tests/eval/requests5.json, 2026-11-19).
 	# claw/focus.py takes no request that also asks for something to be done.
@@ -1655,13 +1672,16 @@ _NEEDS = {
 	"ask_scratchpad": lambda part: True if scratchpad.asksFrom(part) else None,
 	"own_errors": lambda part: True if (diagnose.wish(part) or {}).get("do") in (diagnose.ERRORS, diagnose.WHY) else None,
 	"fix_self": lambda part: True if (diagnose.wish(part) or {}).get("do") == diagnose.FIX else None,
-	"own_fixes": lambda part: True if (diagnose.wish(part) or {}).get("do") in (diagnose.FIXES, diagnose.REMOVE) else None}
+	"own_fixes": lambda part: True if (diagnose.wish(part) or {}).get("do") in (diagnose.FIXES, diagnose.REMOVE) else None,
+	# NVDA's own log, likewise only where plain code finds it in the words (claw/nvdalog.py).
+	"nvda_log": nvdalog.wish}
 # Recipes the words point to that can hardly mean anything else: locking and shutting down, the Recycle Bin, the
 # computer's own volume. Where the words point to one of them, it is taken, whatever a model chose. Each of
 # their tools asks the user before it changes anything.
 _SURE = ("power", "windows_part", "read_place", "empty_bin", "recycle_bin", "system_volume", "file_task", "pick_date", "work_through",
 	"teach_words", "step_through", "fill_blank", "format_document", "check_layout", "human_check", "pick_seat", "pick_option",
-	"look_picture", "about_focus", "version_info", "scratchpad", "ask_scratchpad", "own_errors", "fix_self", "own_fixes")
+	"look_picture", "about_focus", "version_info", "scratchpad", "ask_scratchpad", "own_errors", "fix_self", "own_fixes",
+	"nvda_log")
 
 
 # Words that only ask something, at the start: a question, or "tell me". Asked of nothing on the screen and fitting no

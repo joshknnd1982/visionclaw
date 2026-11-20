@@ -36,7 +36,7 @@ from .learn import _keysIn
 from .llm import clip, uncut
 from .memory import words
 from .planning import alike, bm25
-from .prompts import IDENTITY
+from .prompts import IDENTITY, PAD_HEAD
 
 FOLDER = "scratchpads"
 TASKS = "tasks"
@@ -72,6 +72,16 @@ _ASKS = words("about write wrote written note noted notes anything something say
 # A line that scores less than this share of the best one is left out: a small model reads a few lines that fit better
 # than many that only share a word.
 RELATIVE = 0.5
+# Lines earn trust from how the requests they were given to went (Note.trust, Pads.judge): a line given at least MIN_BAD
+# times to a request that did not go well, and trusted less than DOUBTFUL by Laplace's rule, is set aside. With no
+# success, that is the second request that did not go well (1/4); with one success, the third (2/5 is still kept, 2/6
+# is not). A line's score is weighed by its trust, between half and one and a half times.
+MIN_BAD = 2
+DOUBTFUL = 0.34
+# The lines of a program's learning scratchpad given to the model that writes an add-on for it: few, and only those
+# that share enough of the telling words of what the add-on is for (forCoder). It copies what it is given.
+CODER_NOTES = 2
+CODER_COVER = 0.5
 
 # The topics a line is about, read by plain code from its words, and from the program it was written in. The owner's
 # list of 2026-11-19, as a blind person says them: what a line is about is told by the words that name it.
@@ -152,6 +162,13 @@ _ABOUT_FEATURE = re.compile(
 	rf"^\W*(how (do|can|could|should|would|does) (i|you|we|visionclaw)\b|what (is|are) (a |an )?{_PAD}\b"
 	rf"|what does (a |the )?{_PAD} do\b|(explain|tell me about) (the |a |your )?{_PAD}s?\b|why\b)", re.IGNORECASE)
 # A question that points back at what VisionClaw described, saw or said before: asked of the descriptions scratchpad.
+# "What have you learned here": the learning scratchpad of the program or website the user is in, without the word
+# scratchpad (1.18.0). Only with past words of VisionClaw's own and a place that means here; "learn about this program"
+# is learn_app, and "what do you know about this program" is a question for look_up, which reads the scratchpads too.
+LEARNED_HERE = re.compile(
+	r"\bwhat (?:have|did|has) (?:you|visionclaw) (?:learned|learnt|learn|found out|find out|written down|write down|noted)\b"
+	r".{0,24}\b(?:here|in this (?:program|app|application|game|web ?site|site|page)|about this (?:program|app|application|game|"
+	r"web ?site|site|page)|on this (?:web ?site|site|page))\b", re.IGNORECASE)
 POINTS_BACK = re.compile(
 	r"\b(you|visionclaw) (just )?(described|saw|looked at)\b"
 	r"|\b(the|that|your|last|earlier|previous|first|second) (description|screenshot)\b"
@@ -270,6 +287,8 @@ def wish(text):
 		if _QUESTION.search(low):
 			return {"do": SEARCH, "pad": pad, "query": _query(said)}
 		return {"do": SHOW, "pad": pad}
+	if LEARNED_HERE.search(low):
+		return {"do": SHOW, "pad": LEARNING}
 	if hasTask():
 		if _NEXT.search(low):
 			return {"do": NEXT, "pad": TASK}
@@ -306,6 +325,75 @@ def asks(part):
 	return found is not None and found["do"] != SEARCH
 
 
+# --- A request that was stopped, carried on; and the task scratchpad's list, carried out a thing at a time ---
+
+# How long a stopped request is kept in memory to be carried on (orchestrator.Stopped). Never written to the disk.
+STOPPED_SECONDS = 30 * 60
+_STOPPED_AT = r"(?:(?:from )?where you (?:left off|stopped|were)|what you were doing|the (?:task|request|job) you were doing)"
+_CARRY_ON = re.compile(
+	_POLITE + r"(?:(?:ok|okay|right|now|alright)\W+)?(?:"
+	r"(?:carry on|continue|resume)(?:\s+with\s+(?:it|that|the (?:task|request|job)))?(?:\s+(?:with\s+)?" + _STOPPED_AT + r")?"
+	# "Go on" and "keep going" alone ask for more of the same (claw/followups.py); only with where VisionClaw stopped
+	# do they ask for the stopped request.
+	r"|(?:go on|keep going|pick up|finish|go back to)\s+(?:with\s+)?" + _STOPPED_AT +
+	r")(?:\s+please)?\W*$", re.IGNORECASE)
+_DO_ITEM = re.compile(
+	_POLITE + r"(?:(?:ok|okay|right|now|alright)\W+)?(?:let'?s\s+)?(?:do|carry out|work on|start on|go ahead with|tackle|"
+	r"get on with)\s+(?:the\s+)?(?:next (?:one|thing|step|item|task)|(?:step|item|thing|number)\s+(?P<number>\d{1,2})"
+	r"|(?P<place>first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|last) (?:one|thing|step|item))"
+	r"(?P<list>\s+(?:on|from|of|in)\s+(?:the\s+|my\s+|your\s+)?(?:task\s+)?(?:scratch[ -]?pad|list|to-?do list|to-?dos?))?"
+	r"(?:\s+(?:now|please))?\W*$", re.IGNORECASE)
+
+
+def carryOn(text):
+	"""Whether the whole request asks VisionClaw to carry on with the request that was stopped: "carry on", "continue
+	where you left off", "pick up where you stopped". Plain code; the orchestrator decides whether one was stopped."""
+	return bool(_CARRY_ON.match(" ".join(str(text or "").split())))
+
+
+def doWish(text):
+	"""Whether the whole request asks for a thing on the open task scratchpad's list to be carried out: "do the next
+	one", "do step 3 on my scratchpad", "let's do the second thing on the list". {"number": n} with None for the next
+	thing not done, or None. Without the scratchpad or the list named, only while a task scratchpad is open."""
+	found = _DO_ITEM.match(" ".join(str(text or "").split()))
+	if not found or (not found.group("list") and not hasTask()):
+		return None
+	if found.group("number"):
+		return {"number": int(found.group("number"))}
+	if found.group("place"):
+		return {"number": _NUMBERS[found.group("place").lower()]}
+	return {"number": None}
+
+
+def itemOf(pad, number):
+	"""(number, text) of the thing on the list that number means (None: the next not done; -1: the last), or
+	(None, sentence) that says why there is none."""
+	if pad is None:
+		return None, "No task scratchpad is open. To start one, say: start a scratchpad for, then the task."
+	if not pad.todo:
+		return None, f"Nothing is on the list of the scratchpad {pad.title}. To add something, say: add, then what to do, to the scratchpad."
+	if number is None:
+		found, text = pad.nextItem()
+		return (found, text) if found is not None else (None, f"Everything on the scratchpad {pad.title} is done.")
+	if number == -1:
+		number = len(pad.todo)
+	if not 1 <= number <= len(pad.todo):
+		return None, f"{pad.title} has {len(pad.todo)} things on its list, so there is no number {number}."
+	return number, pad.todo[number - 1][0]
+
+
+def tickedText(pad, number, text, went):
+	"""What the user is told after a thing on the list was carried out: checked off where the request went well, and
+	what is next; else that it stays on the list."""
+	if went and pad is not None:
+		found, after = pad.nextItem()
+		return (f"Checked off {number}, {text}, on the scratchpad {pad.title}. "
+			+ (f"Next: {found}, {after}." if found is not None else "Everything on its list is done."))
+	why = ("because the scratchpad could not be found" if went else
+		"because you said no to a step" if went is None else "because it did not go as it should")
+	return f"Number {number} on the scratchpad is not checked off, {why}. Say check off {number} if it is done."
+
+
 def asksFrom(part):
 	"""For the planner: whether the words ask a question to be answered from the scratchpads."""
 	found = wish(part)
@@ -323,9 +411,9 @@ def topicsOf(text, program=""):
 class Note:
 	"""One line of a scratchpad. by: who wrote it; program: where it was written; source: what it was made from."""
 
-	__slots__ = ("text", "by", "program", "source", "topics", "when", "pad")
+	__slots__ = ("text", "by", "program", "source", "topics", "when", "pad", "good", "bad")
 
-	def __init__(self, text, by=BY_YOU, program="", source="", topics=None, when=None):
+	def __init__(self, text, by=BY_YOU, program="", source="", topics=None, when=None, good=0, bad=0):
 		# The line keeps its own full stop; only spaces and a list mark are taken off.
 		self.text = " ".join(str(text or "").split()).strip(" -*")
 		self.by = by
@@ -335,9 +423,22 @@ class Note:
 		self.when = when if when is not None else time.time()
 		# Which scratchpad it is on, as (kind, title), once it is found there (Pad.lines).
 		self.pad = ("", "")
+		# How often a request it was given to went well, and how often not (Pads.judge).
+		self.good = max(0, int(good or 0))
+		self.bad = max(0, int(bad or 0))
+
+	def trust(self):
+		"""How far the line can be trusted, by how the requests it was given to went: Laplace's rule of succession,
+		(good + 1) / (good + bad + 2), as for plans (claw/planning.py). A line never used is 0.5."""
+		return (self.good + 1) / (self.good + self.bad + 2)
+
+	def doubtful(self):
+		"""Whether the line is set aside: it was given at least MIN_BAD times to a request that did not go well, and is
+		trusted less than DOUBTFUL. The user's own lines never are: they are the user's to change."""
+		return self.by != BY_YOU and self.bad >= MIN_BAD and self.trust() < DOUBTFUL
 
 	def line(self):
-		"""The line as it is written in the file: the note, then who wrote it, where, about what and when."""
+		"""The line as it is written in the file: the note, then who wrote it, where, about what, how it went, and when."""
 		said = [f"by {self.by}"]
 		if self.program:
 			said.append(f"in {self.program}")
@@ -345,6 +446,9 @@ class Note:
 			said.append(f"from {self.source}")
 		if self.topics:
 			said.append("about " + ", ".join(sorted(self.topics)))
+		used = self.good + self.bad
+		if used:
+			said.append(f"used {used} {'time' if used == 1 else 'times'}, {self.good} went well")
 		said.append(time.strftime("%Y-%m-%d %H:%M", time.localtime(self.when)))
 		return f"- {self.text} ({'; '.join(said)})"
 
@@ -352,6 +456,7 @@ class Note:
 _LINE = re.compile(r"^\s*[-*]\s+(.*?)\s*(?:\((by [^()]*)\))?\s*$")
 _TODO = re.compile(r"^\s*(?:\d+[.)]|[-*])\s*\[( |x|X)\]\s*(.+?)\s*$")
 _WHEN = re.compile(r"\b(\d{4}-\d{2}-\d{2} \d{2}:\d{2})\b")
+_USED = re.compile(r"^used (\d+) times?, (\d+) went well$")
 
 
 def parseNote(raw):
@@ -362,9 +467,10 @@ def parseNote(raw):
 	text, said = found.group(1), found.group(2) or ""
 	if not said:
 		return Note(text, BY_YOU)
-	by, program, source, topics, when = BY_YOU, "", "", set(), None
+	by, program, source, topics, when, good, bad = BY_YOU, "", "", set(), None, 0, 0
 	for piece in said.split(";"):
 		piece = piece.strip()
+		used = _USED.match(piece)
 		if piece.startswith("by "):
 			by = piece[3:]
 		elif piece.startswith("in "):
@@ -373,12 +479,16 @@ def parseNote(raw):
 			source = piece[5:]
 		elif piece.startswith("about "):
 			topics = {t.strip() for t in piece[6:].split(",") if t.strip()}
+		elif used:
+			# The user may have changed the numbers by hand: more that went well than were used counts as all.
+			good = min(int(used.group(2)), int(used.group(1)))
+			bad = int(used.group(1)) - good
 		elif _WHEN.search(piece):
 			try:
 				when = time.mktime(time.strptime(_WHEN.search(piece).group(1), "%Y-%m-%d %H:%M"))
 			except (ValueError, OverflowError):
 				when = None
-	return Note(text, by, program, source, topics or None, when)
+	return Note(text, by, program, source, topics or None, when, good, bad)
 
 
 def passages(text, size=PASSAGE_CHARS):
@@ -407,7 +517,8 @@ def rank(query, notes, program="", limit=FED_NOTES):
 	"""The notes about a question or a step, the best first, at most limit. A note must share a telling word with the
 	question; one from another program, or one that shares no topic with the question, must cover enough of it. BM25
 	over words, half again over concepts (claw/concepts.py), and the topics and the program besides."""
-	notes = [note for note in notes if note.text]
+	# A line that did not help is not given again; the user finds it under "Set aside" in its file.
+	notes = [note for note in notes if note.text and not note.doubtful()]
 	# Words that only ask ("what did you write about") say nothing of what is meant.
 	asked = (words(query) - _ASKS) or words(query)
 	if not notes or not asked:
@@ -431,6 +542,8 @@ def rank(query, notes, program="", limit=FED_NOTES):
 		if not sameTopic and cover < COVER:
 			continue
 		score = plain[at] + 0.5 * wide[at] + TOPIC_WEIGHT * len(wanted & note.topics) + (PROGRAM_WEIGHT if sameProgram else 0)
+		# What helped before comes first, what did not help comes later: half to one and a half times the score.
+		score *= 0.5 + note.trust()
 		scored.append((score, note.when, at))
 	scored.sort(key=lambda entry: (-round(entry[0], 6), -entry[1]))
 	best = scored[0][0] if scored else 0
@@ -536,6 +649,8 @@ class Pad:
 		self.notes = []
 		self.done = []
 		self.descriptions = []
+		# Lines that did not help (Note.doubtful): kept in the file under "Set aside", never given to a model.
+		self.aside = []
 		self._clock = clock
 
 	# What is on it.
@@ -560,6 +675,24 @@ class Pad:
 		del self.notes[:-limit]
 		self.changed = self._clock()
 		return replaced
+
+	def judge(self, text, good):
+		"""How a request went that the line text was given to: counted on the line. A line that is now doubtful is moved
+		under "Set aside", where no model reads it and the user can move it back. Returns the line, or None when it is
+		no longer on the scratchpad (the user may have deleted it)."""
+		for at, note in enumerate(self.notes):
+			if note.text != text:
+				continue
+			if good:
+				note.good += 1
+			else:
+				note.bad += 1
+			if note.doubtful():
+				del self.notes[at]
+				self.aside.append(note)
+				del self.aside[:-MAX_NOTES]
+			return note
+		return None
 
 	def lines(self):
 		"""Everything on the scratchpad that a question may be answered from, as notes that know which scratchpad they
@@ -605,6 +738,11 @@ class Pad:
 		if self.kind != DESCRIBED:
 			lines += ["", "## Notes", ""]
 			lines += [note.line() for note in self.notes] or ["Nothing yet."]
+		if self.aside and self.kind in (TASK, LEARNING):
+			lines += ["", "## Set aside", "",
+				"Lines that were given to requests that did not go well. The models no longer read them. To use one again, "
+				"move it up under Notes, where it starts over.", ""]
+			lines += [note.line() for note in self.aside]
 		if self.kind == TASK:
 			lines += ["", "## Done so far", ""]
 			lines += [note.line() for note in self.done] or ["Nothing yet."]
@@ -670,12 +808,16 @@ class Pad:
 				found = _TODO.match(line)
 				if found:
 					pad.todo.append([_clean(found.group(2)), found.group(1).lower() == "x"])
-			elif section in ("notes", "done so far"):
+			elif section in ("notes", "done so far", "set aside"):
 				if line.strip().lower() in ("nothing yet.", ""):
 					continue
 				note = parseNote(line)
-				if note is not None:
-					(pad.notes if section == "notes" else pad.done).append(note)
+				if note is None:
+					continue
+				if section == "notes" and note.doubtful():
+					# Only the user moves a line that was set aside back under Notes: it starts over.
+					note.good = note.bad = 0
+				{"notes": pad.notes, "done so far": pad.done, "set aside": pad.aside}[section].append(note)
 		pad.descriptions = [tuple([d[0], d[1], d[2], d[3], [tuple(pair) for pair in d[4]]]) for d in pad.descriptions]
 		return pad
 
@@ -891,9 +1033,10 @@ class Pads:
 				found += self.descriptions().lines()
 			return rank(query, found, program, limit)
 
-	def contextText(self, request, program=""):
+	def contextText(self, request, program="", given=None):
 		"""What the model that chooses is told of the scratchpads: the open task, what is next on it, and the few lines
-		that are about the request. "" when nothing is."""
+		that are about the request. "" when nothing is. given: a list the lines are added to, so that how the request
+		went can be counted on them (judge)."""
 		parts = []
 		pad = self.active()
 		if pad is not None:
@@ -903,7 +1046,63 @@ class Pads:
 		lines = self.notesFor(request, program, CONTEXT_NOTES)
 		if lines:
 			parts.append("Written on VisionClaw's scratchpads before, which may help:\n" + "\n".join(f"- {note.text}" for note in lines))
+			if given is not None:
+				given.extend(lines)
 		return "\n".join(parts)
+
+	# Learning from how it went.
+
+	def judge(self, given, good):
+		"""How a request went, counted on every line of the lasting scratchpads it was given (Note.trust): each line once,
+		however often it was given. Lines that are now doubtful are set aside in their file. Returns those lines. Lines
+		of the descriptions and the task's list are not counted: they say what happened, not how to do something."""
+		aside = []
+		with self._lock:
+			chosen = {}
+			for note in given or ():
+				kind, title = getattr(note, "pad", ("", ""))
+				if kind in (TASK, LEARNING) and title:
+					texts = chosen.setdefault((kind, title), [])
+					if note.text not in texts:
+						texts.append(note.text)
+			for (kind, title), texts in chosen.items():
+				if kind == LEARNING:
+					pad = self.learning(title)
+				else:
+					pad = next((found for found in self._all(TASK) if found.title == title), None)
+				if pad is None or not pad.path or not os.path.isfile(pad.path):
+					continue
+				counted = [pad.judge(text, good) for text in texts]
+				if any(note is not None for note in counted):
+					aside += [note for note in counted if note is not None and note in pad.aside]
+					self._write(pad)
+		return aside
+
+	def forCoder(self, program, purpose, limit=CODER_NOTES):
+		"""What the model that writes an add-on for a program is given of that program's learning scratchpad: at most limit
+		lines that the user or a model wrote, each sharing at least CODER_COVER of the telling words of what the add-on is
+		for, under prompts.PAD_HEAD; "" when none does. Never lines of other programs, and never VisionClaw's own lines
+		about which way answered a request: they say nothing about the program's windows and controls."""
+		pad = self.learning(program)
+		if pad is None or not pad.notes:
+			return ""
+		asked = words(purpose) - _ASKS
+		if not asked:
+			return ""
+		mine = [note for note in pad.notes if note.by != BY_VISIONCLAW]
+		chosen = [note for note in rank(purpose, mine, program, len(mine))
+			if len(asked & words(note.text)) / len(asked) >= CODER_COVER][:limit]
+		return "\n".join([PAD_HEAD] + [f"- {note.text}" for note in chosen]) if chosen else ""
+
+	def tick(self, title, number):
+		"""Number on the list of the task scratchpad title checked off. Returns the scratchpad, or None."""
+		with self._lock:
+			pad = next((found for found in self._all(TASK) if found.title == title), None)
+			if pad is None or not 1 <= number <= len(pad.todo):
+				return None
+			pad.todo[number - 1][1] = True
+			self.save(pad)
+			return pad
 
 	def search(self, query, program="", which=TASK, limit=6):
 		"""The lines of the scratchpads that answer a question, with where each is from."""

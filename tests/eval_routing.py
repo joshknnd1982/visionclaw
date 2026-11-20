@@ -49,7 +49,7 @@ class Planner(orchestrator.Orchestrator):
 	def _nextWays(self, llm, task, request, params):
 		return
 
-	def _answer(self, llm, task, request, params):
+	def _answer(self, llm, task, request, params, spoken=None, taken=None):
 		return ""
 
 

@@ -23,9 +23,21 @@ chat apps, and names for unlabelled buttons.
 > [docs/STATUS.md](docs/STATUS.md) for exactly what was tested.
 
 <!-- news: written by tools/write_help.py from manifest.ini; do not change it by hand -->
-This README is for VisionClaw 1.17.0.
+This README is for VisionClaw 1.18.0.
 
-## What is new in 1.17.0
+## What is new in 1.18.0
+
+- The scratchpads are used the way large AI models use theirs, made small. Every line VisionClaw or a model wrote counts how often the requests it was given to went well, as in "used 3 times, 2 went well"; lines that helped come first, and a line that keeps going with requests that did not go well is moved under Set aside in its file, where no model reads it. Move it back under Notes to use it again. Your own lines are never set aside. A way of looking that found nothing in a program is written down too, so that the next time another way is chosen first.
+- With a task scratchpad open, say "do the next one", "do step 3 on my scratchpad" or "let's do the second thing": VisionClaw carries out that thing on the list, tells you how it understood it, and checks it off when it went well, with what is next.
+- Stopped a request in the middle with NVDA+Alt+X? Say "carry on" or "continue where you left off" within 30 minutes, and VisionClaw goes on from the step where it stopped, without doing the earlier steps again. It is kept in memory only.
+- Say "what have you learned here" in a program, game or website to hear what VisionClaw wrote down about it. Four new skills use the scratchpads: "What VisionClaw learned here", "Plan a job on a scratchpad", "What was described before" and "Teach VisionClaw about this program"; the skills for stubborn programs, games and music software try first what the program's scratchpad says.
+- NVDA's own log, read when you ask: say "check NVDA's log", "which add-on is causing errors", "did NVDA freeze", "why did NVDA crash", "what just happened in NVDA", "what did the developer info say", "compare the last two objects I checked", "which keys did I try in input help", "when did NVDA start" or "is NVDA Remote connected". Nothing you typed or NVDA said is ever read, and if NVDA's logging is off, VisionClaw offers to open NVDA's Privacy and Security settings, where you turn it on; it never changes the level itself. Nine new skills are about NVDA's log.
+- NVDA's log while VisionClaw works: when a step fails or changes something, what NVDA logged meanwhile is said, with the add-on it came from; and "why did speech stop" or "why is NVDA slow" is given what NVDA logged in the last minutes. Turn it off with the new setting "Read NVDA's log while VisionClaw works". The new setting "Say when NVDA logs an error", off by default, says one sentence when NVDA logs an error or was frozen.
+- Every skill can ask NVDA's log: each names what it wants (errors, add-ons, speech, audio, braille, freezes, session, settings, objects, input help, remote), and what NVDA logged of those in the last minutes goes with its sentences. Press NVDA+F1 on a control before asking for an add-on for "this button", and the add-on is written with the window class and automation ID NVDA logged. When VisionClaw writes an add-on for a program, the lines of that program's scratchpad that fit go with it too.
+- Four new instructions in How VisionClaw answers in the settings: answers taken from VisionClaw's scratchpads, add-ons written with lines from a program's scratchpad, answers taken from NVDA's own log, and add-ons written with the developer info NVDA logged about an object. An answer made from scratchpad lines is followed by one sentence that says so.
+- Measured with Qwen3.5 4B for both jobs: on the eight sets of 555 requests that measure which job is chosen, 526 right, the same as 1.16.1, with no request changing its job; asked eight questions answered from scratchpad lines, it was right eight times with the new instruction, as without it. The skills' lines of NVDA's log, the add-on writer's lines and the watch were tested with plain Python, made-up logs and stand-ins only. None of this has run inside NVDA yet.
+
+## What was new in 1.17.0
 
 - Scratchpads, as cloud AI assistants keep them: Markdown files on which VisionClaw and its models write down what they find, and look it up again. For a task you do over several requests, press NVDA+Alt+C and say "start a scratchpad for setting up my game: install it, set the volume, then learn the keys". While it is open, VisionClaw reads it with every request and writes down what each request did. Say "what's next" or "where was I", "check off step 2", "write on the scratchpad that the volume slider is the third control", "add buy batteries to the to-do list on my scratchpad", "read my scratchpad", "open my scratchpad", and "close the scratchpad" when the task is done.
 - The models write down what they find while they work. When a step finds out something long, such as a window's list of items or a web page, the model writes down in one sentence the fact the next step needs, and plain code keeps it only when its names, numbers and keys are in what was found. A long result is now given to a step by its parts about that step, not cut off after its beginning.
@@ -35,15 +47,6 @@ This README is for VisionClaw 1.17.0.
 - VisionClaw reads its own log only when you ask: say "what errors are in your log", "why did my last request fail" or "diagnose your last error". You hear each error, when and how often, and where in VisionClaw's code, and the model that writes code says in plain words what went wrong, which may be wrong.
 - VisionClaw corrects a bug in its own code only when you ask: say "fix that bug in your code". The model that writes code writes the one function where the error happened again, plain code checks it, the model that sees reads it, and you are always asked first. VisionClaw's own files are never changed: the correction is used at once and whenever VisionClaw starts, for this version only, and turns itself off if it fails. Say "undo that" to take it back, and "which fixes did you make to your own code" to hear them.
 - Measured with Qwen3.5 4B for both jobs: from six long results, it wrote down the fact the next step needs six times, all kept by plain code; it said rightly that the one error in the owner's log was harmless; given three functions with a real bug, its corrections passed plain code's checks three times and none of them raised its error again when run, though two did something other than intended, which is why you are always asked. Not yet run inside NVDA.
-
-## What was new in 1.16.1
-
-- On a web page, ask what it says in your own words. Press NVDA+Alt+C and say "what's the delivery charge here" or "do they ship abroad": a question about the shop, the company or "here" is read from the page in front, not looked up in NVDA's help.
-- Ask what a key does, as in "what happens if I press NVDA+F12", and VisionClaw looks it up and never presses the key. Before, it could ask you what you meant, and its first choice pressed the key.
-- Numbers, names and keys in an answer are copied whole. A setting of the engine against repetition counted the words that were looked up too, and made the model drop or split what it copied: "within 30 for a full refund", "build 26 100". It is now off for the answer worded from what was looked up.
-- When a model's answer names a key that nothing VisionClaw looked up has, such as a "Jump key" that no keyboard has, you hear the words that were found instead.
-- "How many cells does my braille display have" is answered from NVDA, "what time have you got" says the time, and "any new downloaded files" lists your Downloads folder.
-- Measured with Qwen3.5 4B for both jobs, on requests carried out from start to finish with stand-ins for NVDA: on a held-out set written before these changes, 22 of 30 answers right before and 27 after; on one written before the change to copying, 6 of 14 before it and 8 after; on the set the changes were made from, 26 of 32 before and 30 to 31 after. Of the 555 requests of the eight sets that measure which job is chosen, none changed its job. Not yet run inside NVDA.
 
 How to use each of these is explained in its own part of this README, further down.
 <!-- /news -->
@@ -239,6 +242,40 @@ each program and website, and keep the last descriptions**, on by default. Turne
 no description is kept; a task scratchpad you start yourself is kept either way. A model that is one of the very
 smallest is never asked to write a line down.
 
+## Scratchpads that learn, the way large AI models use theirs
+
+The large AI models in the cloud get through long jobs by keeping notes, a to-do list they tick off, and what did and
+did not work. VisionClaw does the same with small models on your own computer: plain code keeps the books, and a model
+at most writes one short line, which plain code checks.
+
+- **Lines earn trust.** Every line VisionClaw or a model wrote on a scratchpad counts how often a request it was given
+  to went well; the end of the line says so, as in "used 3 times, 2 went well". Lines that helped are given first. A
+  line that went with requests that did not go well at least twice, and twice as often as not, is moved under **Set
+  aside** in its file, where no model reads it. Move it back under Notes to use it again; it then starts over. Your own
+  lines are never set aside.
+- **What did not work is written down too.** When a way of looking found nothing in a program and no other way
+  answered, a line on that program's scratchpad says so, and the model that chooses is told it the next time.
+- **Do the next thing on the list.** With a task scratchpad open, say "do the next one", "do step 3 on my scratchpad"
+  or "let's do the second thing". VisionClaw carries out that thing as if you had asked for it, says how it understood
+  it, and checks it off when it went well, with what is next. A thing that did not go well stays on the list; say
+  "check off 3" when you did it yourself.
+- **Carry on after you stop.** When you stop a request in the middle with NVDA+Alt+X, VisionClaw keeps what its steps
+  found, in memory only, for 30 minutes. Say "carry on" or "continue where you left off", and it goes on from the step
+  where it stopped, and tells you that what the steps before found may be out of date. Nothing of it is written to the
+  disk.
+- **What VisionClaw learned here.** In a program, game or website, say "what have you learned here" to hear the lines
+  on its scratchpad.
+- **Add-ons know the program.** When VisionClaw writes an add-on for the program in front, the lines on that program's
+  scratchpad that share most of the words of what the add-on is for go with the request, at most two, with the
+  instruction to write the names of windows and controls exactly as they are written there.
+- **Answers say where a line is from.** An answer made from a line of a scratchpad is told that the line was written
+  down before, that a line a model wrote may be wrong, and that what NVDA or the screen says now is right. Both new
+  instructions can be rewritten in **How VisionClaw answers** in the settings: "Answers taken from VisionClaw's
+  scratchpads" and "Add-ons written with lines from a program's scratchpad".
+- **Skills that use the scratchpads**: "What VisionClaw learned here", "Plan a job on a scratchpad", "What was described
+  before" and "Teach VisionClaw about this program" are new; "Make a stubborn program usable", "Play a game the screen
+  reader cannot read" and "Music and audio software" now try first what the program's scratchpad says.
+
 ## VisionClaw's own log and its own bugs, only when you ask
 
 VisionClaw keeps its own log (see Your settings). **Only when you ask**, it reads that log, says what went wrong, and
@@ -264,6 +301,50 @@ a model planned.
 
 Some functions cannot be corrected while VisionClaw runs: those it makes while it starts, as most of its tools, and the
 parts that install it, carry its data or correct its own code. You are told so, and nothing is changed.
+
+## NVDA's own log
+
+VisionClaw can read NVDA's own log for you, but only when you ask. Say: check NVDA's log, which add-on is causing
+errors, did NVDA freeze, why did NVDA crash, or what just happened in NVDA. VisionClaw tells you each error once, with
+how often and when, and which installed add-on it came from. It tells you how long NVDA was frozen and where it was
+working, what happened to the speech synthesizer, the sound and the braille display, and how NVDA ended last time. You
+can also ask when NVDA started, what the developer info said after NVDA+f1, "compare the last two objects I checked",
+which keys you tried in input help and which add-on a key belongs to, when your settings were last saved, and whether
+NVDA Remote is connected. Plain code reads the log. Only when you ask what one error means, as in "explain NVDA error 2",
+does the model explain it, and VisionClaw says that this explanation may be wrong.
+
+At the levels Input/output and Debug, NVDA's log holds every key you type and everything NVDA says. VisionClaw only
+counts those lines: it never reads them out, never gives them to a model and never writes them to its own log, and
+nothing is sent anywhere. The value of a password field in the developer info is never said. If NVDA's logging is off,
+VisionClaw says so and offers to open NVDA's settings at the category Privacy and Security, where the combo box Logging
+level is. Info is enough for everything except NVDA's debug warnings, and NVDA+control+g opens NVDA's settings.
+VisionClaw never changes the logging level itself; a level above Info makes NVDA ask its own question first.
+
+### NVDA's log while VisionClaw works, and in every skill
+
+- **A step that went wrong says why.** When one of VisionClaw's steps fails, or changes something, what NVDA logged
+  meanwhile is added in plain words: an error with the add-on it came from, a speech or braille driver that fell back,
+  a freeze. So you hear why, and a change is not said to have worked when NVDA logged that it did not.
+- **A question about trouble is given recent trouble.** Ask "why did speech stop" or "why is NVDA slow", and the model
+  that chooses what to do is told the errors, freezes and driver fallbacks NVDA logged in the last minutes.
+- **Every skill can ask NVDA's log.** Each skill names in its file what it wants from the log (the line `log:`): errors,
+  add-ons, speech, audio, braille, freezes, session, settings, objects, input help or remote. When a skill is used, the
+  facts of those kinds that NVDA logged in the last minutes, at most three, newest first, go with its sentences to its
+  steps and to the answer, each naming the add-on it came from. When nothing of those kinds was logged, nothing is
+  added. "NVDA stopped talking" asks for speech, audio, freezes, add-ons and the session; "A button with no label" for
+  objects; "Make a key do something else" for input help. Your own skills can have a `log:` line too.
+- **Add-ons for a control you checked.** Press NVDA+F1 on a control, then within ten minutes ask VisionClaw for an add-on
+  for "this button" or another control: the role, name, window class and automation ID NVDA logged about it go with the
+  request, with the instruction to copy them exactly. Never its value.
+- **Say when NVDA logs an error**, a setting that is off until you turn it on: VisionClaw then says one sentence when NVDA
+  logs an error, naming the add-on it came from, and when NVDA was frozen for a while, at most once a minute for each,
+  never about VisionClaw's own errors and never while the microphone is open. Say "check NVDA's log" to hear more.
+- **New instructions** in How VisionClaw answers, which you can rewrite: "Answers taken from NVDA's own log" and "Add-ons
+  written with the developer info NVDA logged about an object".
+- **Skills for the log**: "NVDA's errors from its own log", "An add-on causing trouble in NVDA", "NVDA froze or stopped
+  responding", "NVDA crashed or closed by itself", "NVDA's logging level and a log for a bug report", "What just happened
+  in NVDA", "What NVDA's developer info says about an object", "Which command a key runs, and whose it is", and "Speech or
+  braille trouble in NVDA's log". The plan these follow is `docs/PLAN-nvda-log.md`. None of this has run inside NVDA yet.
 
 ## Install
 
@@ -1866,6 +1947,9 @@ NVDA menu, Preferences, Settings, VisionClaw. In the order you meet them:
   speech stutters on a slow computer, and each answer and description is spoken whole once the model has finished.
 - **Let the models keep scratchpads: write down what they find while they work, learn from it in each program and
   website, and keep the last descriptions**: on by default; see Scratchpads.
+- **Read NVDA's log while VisionClaw works: errors, drivers that fell back and freezes, never what you typed or what was
+  spoken**: on by default; see NVDA's own log.
+- **Say when NVDA logs an error**: off by default; see NVDA's own log.
 - **Status updates while VisionClaw takes long, as with a large model or high thinking**: after 10, 15, 30 or 60
   seconds of quiet, and as often while it lasts; or never, and you press NVDA+Alt+P when you want to know. The
   suggested choice is 15 seconds.

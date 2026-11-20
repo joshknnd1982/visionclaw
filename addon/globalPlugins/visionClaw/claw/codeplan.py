@@ -783,7 +783,7 @@ def writePiece(llm, task, piece, number, params, coder, reviewer, notesFor=None,
 		return
 	notes = _notes(notesFor, piece)
 	asked = question(piece, notes)
-	system = prompts.coding(PIECE_SYSTEM, piece.action)
+	system = prompts.coding(PIECE_SYSTEM, piece.action, given=asked)
 	_say(sheet, number, piece, asked=asked)
 	user = asked
 	reviews = params.codeReviews
@@ -937,7 +937,7 @@ def fixMethod(llm, task, purpose, source, problems_, notes, params, coder, revie
 	for _attempt in range(params.codeRepairs + 1):
 		task.check()
 		try:
-			answer = llm.text(coder, prompts.coding(_METHOD_SYSTEM, purpose), user, maxTokens=params.codeTokens,
+			answer = llm.text(coder, prompts.coding(_METHOD_SYSTEM, purpose, given=user), user, maxTokens=params.codeTokens,
 				reasoning=params.reasoning, temperature=0, code=True)
 		except LLMError:
 			break

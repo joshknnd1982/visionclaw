@@ -1,0 +1,1361 @@
+{
+ "label": "route-requests2-1.18.0",
+ "models": {
+  "backend": "auto",
+  "visionModel": "qwen3.5-4b",
+  "coderModel": "qwen3.5-4b-coder"
+ },
+ "stepwise": "auto",
+ "rows": [
+  {
+   "request": "please speak slower",
+   "expect": [
+    [
+     "change_setting"
+    ]
+   ],
+   "got": [
+    "change_setting"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 5.0,
+   "state": "done"
+  },
+  {
+   "request": "nvda keeps saying every word I type, make it stop",
+   "expect": [
+    [
+     "change_setting"
+    ]
+   ],
+   "got": [
+    "change_setting"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  },
+  {
+   "request": "can you make nvda read all the punctuation",
+   "expect": [
+    [
+     "change_setting"
+    ]
+   ],
+   "got": [
+    "change_setting"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  },
+  {
+   "request": "lower nvda's pitch a little",
+   "expect": [
+    [
+     "change_setting"
+    ]
+   ],
+   "got": [
+    "change_setting"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  },
+  {
+   "request": "turn the speech volume up",
+   "expect": [
+    [
+     "change_setting"
+    ]
+   ],
+   "got": [
+    "change_setting"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.7,
+   "state": "done"
+  },
+  {
+   "request": "I want to hear line numbers in word only",
+   "expect": [
+    [
+     "change_setting"
+    ]
+   ],
+   "got": [
+    "change_setting"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  },
+  {
+   "request": "what is today's date",
+   "expect": [
+    [
+     "do_command"
+    ]
+   ],
+   "got": [
+    "do_command"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 7.2,
+   "state": "done"
+  },
+  {
+   "request": "what time is it right now",
+   "expect": [
+    [
+     "do_command"
+    ]
+   ],
+   "got": [
+    "do_command"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.7,
+   "state": "done"
+  },
+  {
+   "request": "is my battery low",
+   "expect": [
+    [
+     "do_command",
+     "computer_info"
+    ]
+   ],
+   "got": [
+    "do_command"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  },
+  {
+   "request": "say what's focused",
+   "expect": [
+    [
+     "do_command",
+     "where_am_i"
+    ]
+   ],
+   "got": [
+    "about_focus"
+   ],
+   "verdict": "wrong",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  },
+  {
+   "request": "read the whole window to me",
+   "expect": [
+    [
+     "do_command",
+     "read_text"
+    ]
+   ],
+   "got": [
+    "read_text"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  },
+  {
+   "request": "open nvda's speech viewer",
+   "expect": [
+    [
+     "do_command"
+    ]
+   ],
+   "got": [
+    "open_thing"
+   ],
+   "verdict": "wrong",
+   "asked": [],
+   "seconds": 0.7,
+   "state": "done"
+  },
+  {
+   "request": "how do I find text in a document",
+   "expect": [
+    [
+     "explain_keys",
+     "nvda_question"
+    ]
+   ],
+   "got": [
+    "explain_keys"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  },
+  {
+   "request": "what's the key for the elements list",
+   "expect": [
+    [
+     "explain_keys",
+     "nvda_question"
+    ]
+   ],
+   "got": [
+    "explain_keys"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  },
+  {
+   "request": "how would I copy a file in file explorer",
+   "expect": [
+    [
+     "explain_keys",
+     "nvda_question"
+    ]
+   ],
+   "got": [
+    "explain_keys"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.7,
+   "state": "done"
+  },
+  {
+   "request": "which key moves to the next link",
+   "expect": [
+    [
+     "explain_keys",
+     "nvda_question"
+    ]
+   ],
+   "got": [
+    "explain_keys"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.7,
+   "state": "done"
+  },
+  {
+   "request": "how do I turn on screen curtain",
+   "expect": [
+    [
+     "explain_keys",
+     "nvda_question"
+    ]
+   ],
+   "got": [
+    "explain_keys"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  },
+  {
+   "request": "what is the review cursor",
+   "expect": [
+    [
+     "nvda_question",
+     "explain_keys"
+    ]
+   ],
+   "got": [
+    "nvda_question"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  },
+  {
+   "request": "why does nvda say clickable all the time",
+   "expect": [
+    [
+     "nvda_question",
+     "explain_keys"
+    ]
+   ],
+   "got": [
+    "nvda_question"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  },
+  {
+   "request": "what's on my screen right now",
+   "expect": [
+    [
+     "describe"
+    ]
+   ],
+   "got": [
+    "describe"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.5,
+   "state": "done"
+  },
+  {
+   "request": "describe the image on this page",
+   "expect": [
+    [
+     "describe"
+    ]
+   ],
+   "got": [
+    "describe"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  },
+  {
+   "request": "is the light in this photo green or red",
+   "expect": [
+    [
+     "describe"
+    ]
+   ],
+   "got": [
+    "describe"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  },
+  {
+   "request": "what does the error message say",
+   "expect": [
+    [
+     "read_text",
+     "describe"
+    ]
+   ],
+   "got": [
+    "read_text"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  },
+  {
+   "request": "click save",
+   "expect": [
+    [
+     "click"
+    ]
+   ],
+   "got": [
+    "click"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.5,
+   "state": "done"
+  },
+  {
+   "request": "press the next button",
+   "expect": [
+    [
+     "click"
+    ]
+   ],
+   "got": [
+    "click"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.5,
+   "state": "done"
+  },
+  {
+   "request": "right-click the file called budget",
+   "expect": [
+    [
+     "click"
+    ]
+   ],
+   "got": [
+    "click"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  },
+  {
+   "request": "hit enter",
+   "expect": [
+    [
+     "press_keys"
+    ]
+   ],
+   "got": [
+    "press_keys"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.5,
+   "state": "done"
+  },
+  {
+   "request": "press control z",
+   "expect": [
+    [
+     "press_keys"
+    ]
+   ],
+   "got": [
+    "press_keys"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  },
+  {
+   "request": "do shift f10 here",
+   "expect": [
+    [
+     "press_keys"
+    ]
+   ],
+   "got": [
+    "press_keys"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.5,
+   "state": "done"
+  },
+  {
+   "request": "type thank you very much",
+   "expect": [
+    [
+     "type_text"
+    ]
+   ],
+   "got": [
+    "type_text"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.5,
+   "state": "done"
+  },
+  {
+   "request": "put dear sir at the top of this letter",
+   "expect": [
+    [
+     "type_text"
+    ]
+   ],
+   "got": [
+    "type_text"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.5,
+   "state": "done"
+  },
+  {
+   "request": "search the web for nvda add-ons",
+   "expect": [
+    [
+     "search_web"
+    ]
+   ],
+   "got": [
+    "search_web"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.7,
+   "state": "done"
+  },
+  {
+   "request": "open amazon.com in firefox",
+   "expect": [
+    [
+     "open_website"
+    ]
+   ],
+   "got": [
+    "open_website"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.8,
+   "state": "done"
+  },
+  {
+   "request": "summarize this article",
+   "expect": [
+    [
+     "web_page"
+    ]
+   ],
+   "got": [
+    "web_page"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.5,
+   "state": "done"
+  },
+  {
+   "request": "go to the search box on this page",
+   "expect": [
+    [
+     "go_to",
+     "fill_field"
+    ]
+   ],
+   "got": [
+    "go_to"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.5,
+   "state": "done"
+  },
+  {
+   "request": "go forward a page",
+   "expect": [
+    [
+     "page_navigate"
+    ]
+   ],
+   "got": [
+    "page_navigate"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.5,
+   "state": "done"
+  },
+  {
+   "request": "what are the landmarks on this site",
+   "expect": [
+    [
+     "explore_page"
+    ]
+   ],
+   "got": [
+    "explore_page"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.5,
+   "state": "done"
+  },
+  {
+   "request": "open file explorer",
+   "expect": [
+    [
+     "open_thing"
+    ]
+   ],
+   "got": [
+    "open_thing"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  },
+  {
+   "request": "launch notepad please",
+   "expect": [
+    [
+     "open_thing"
+    ]
+   ],
+   "got": [
+    "open_thing"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  },
+  {
+   "request": "open my documents folder",
+   "expect": [
+    [
+     "open_thing"
+    ]
+   ],
+   "got": [
+    "open_thing"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  },
+  {
+   "request": "bring up task view",
+   "expect": [
+    [
+     "windows_part"
+    ]
+   ],
+   "got": [
+    "windows_part"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  },
+  {
+   "request": "open quick settings for me",
+   "expect": [
+    [
+     "windows_part"
+    ]
+   ],
+   "got": [
+    "windows_part"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  },
+  {
+   "request": "what's showing in the notification area",
+   "expect": [
+    [
+     "read_place"
+    ]
+   ],
+   "got": [
+    "read_place"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  },
+  {
+   "request": "is steam in my system tray",
+   "expect": [
+    [
+     "read_place"
+    ]
+   ],
+   "got": [
+    "read_place"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  },
+  {
+   "request": "is the recycle bin empty",
+   "expect": [
+    [
+     "recycle_bin"
+    ]
+   ],
+   "got": [
+    "recycle_bin"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  },
+  {
+   "request": "empty the trash please",
+   "expect": [
+    [
+     "empty_bin"
+    ]
+   ],
+   "got": [
+    "empty_bin"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  },
+  {
+   "request": "turn my computer volume down",
+   "expect": [
+    [
+     "system_volume"
+    ]
+   ],
+   "got": [
+    "system_volume"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  },
+  {
+   "request": "my laptop is way too quiet",
+   "expect": [
+    [
+     "system_volume"
+    ]
+   ],
+   "got": [
+    "system_volume"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  },
+  {
+   "request": "switch to notepad",
+   "expect": [
+    [
+     "window"
+    ]
+   ],
+   "got": [
+    "window"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.5,
+   "state": "done"
+  },
+  {
+   "request": "minimize everything",
+   "expect": [
+    [
+     "window"
+    ]
+   ],
+   "got": [
+    "window"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  },
+  {
+   "request": "what's in my downloads",
+   "expect": [
+    [
+     "files"
+    ]
+   ],
+   "got": [
+    "files"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  },
+  {
+   "request": "find the file called invoice",
+   "expect": [
+    [
+     "files"
+    ]
+   ],
+   "got": [
+    "files"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  },
+  {
+   "request": "move report.docx to my desktop",
+   "expect": [
+    [
+     "file_task"
+    ]
+   ],
+   "got": [
+    "file_task"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  },
+  {
+   "request": "how much ram does this computer have",
+   "expect": [
+    [
+     "computer_info"
+    ]
+   ],
+   "got": [
+    "computer_info"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.5,
+   "state": "done"
+  },
+  {
+   "request": "put the computer to sleep",
+   "expect": [
+    [
+     "power"
+    ]
+   ],
+   "got": [
+    "power"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  },
+  {
+   "request": "restart windows",
+   "expect": [
+    [
+     "power"
+    ]
+   ],
+   "got": [
+    "power"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.0,
+   "state": "done"
+  },
+  {
+   "request": "which synthesizer is nvda using",
+   "expect": [
+    [
+     "nvda_info"
+    ]
+   ],
+   "got": [
+    "nvda_info"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.5,
+   "state": "done"
+  },
+  {
+   "request": "change my braille display to the focus 40",
+   "expect": [
+    [
+     "switch_driver"
+    ]
+   ],
+   "got": [
+    "switch_driver"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  },
+  {
+   "request": "undo the last change",
+   "expect": [
+    [
+     "undo_change"
+    ]
+   ],
+   "got": [
+    "undo_change"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.5,
+   "state": "done"
+  },
+  {
+   "request": "remember that I like short answers",
+   "expect": [
+    [
+     "remember"
+    ]
+   ],
+   "got": [
+    "remember"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.5,
+   "state": "done"
+  },
+  {
+   "request": "what do you know about me",
+   "expect": [
+    [
+     "memories"
+    ]
+   ],
+   "got": [
+    "memories"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.5,
+   "state": "done"
+  },
+  {
+   "request": "make a skill for reading recipes slowly",
+   "expect": [
+    [
+     "add_skill"
+    ]
+   ],
+   "got": [
+    "add_skill"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  },
+  {
+   "request": "write me an add-on that says the time every hour",
+   "expect": [
+    [
+     "write_addon"
+    ]
+   ],
+   "got": [
+    "write_addon"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.7,
+   "state": "done"
+  },
+  {
+   "request": "the add-on you made doesn't work, fix it",
+   "expect": [
+    [
+     "fix_addon"
+    ]
+   ],
+   "got": [
+    "fix_addon"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.8,
+   "state": "done"
+  },
+  {
+   "request": "give this game a hotkey that clicks the attack button",
+   "expect": [
+    [
+     "make_hotkey"
+    ]
+   ],
+   "got": [
+    "make_hotkey"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.8,
+   "state": "done"
+  },
+  {
+   "request": "check this web page for accessibility problems",
+   "expect": [
+    [
+     "check_access"
+    ]
+   ],
+   "got": [
+    "check_access"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.7,
+   "state": "done"
+  },
+  {
+   "request": "this button has no label, name it play",
+   "expect": [
+    [
+     "name_button"
+    ]
+   ],
+   "got": [
+    "name_button"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 1.1,
+   "state": "done"
+  },
+  {
+   "request": "drag the volume slider down",
+   "expect": [
+    [
+     "drag",
+     "work_control"
+    ]
+   ],
+   "got": [
+    "drag"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  },
+  {
+   "request": "scroll to the bottom of this list",
+   "expect": [
+    [
+     "scroll"
+    ]
+   ],
+   "got": [
+    "scroll"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.5,
+   "state": "done"
+  },
+  {
+   "request": "switch pointer mode on so I can move the mouse",
+   "expect": [
+    [
+     "keyboard_mouse"
+    ]
+   ],
+   "got": [
+    "keyboard_mouse"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.5,
+   "state": "done"
+  },
+  {
+   "request": "swipe up on the screen",
+   "expect": [
+    [
+     "gesture",
+     "touch"
+    ]
+   ],
+   "got": [
+    "gesture"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  },
+  {
+   "request": "aim a bit to the left",
+   "expect": [
+    [
+     "turn_view"
+    ]
+   ],
+   "got": [
+    "turn_view"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  },
+  {
+   "request": "what do the triggers on my controller do",
+   "expect": [
+    [
+     "controller_info"
+    ]
+   ],
+   "got": [
+    "controller_info"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.5,
+   "state": "done"
+  },
+  {
+   "request": "can I speak my requests to you",
+   "expect": [
+    [
+     "voice_info",
+     "get_voice"
+    ]
+   ],
+   "got": [
+    "voice_info"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  },
+  {
+   "request": "check for visionclaw updates",
+   "expect": [
+    [
+     "update_visionclaw"
+    ]
+   ],
+   "got": [
+    "update_visionclaw"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  },
+  {
+   "request": "which models do you have installed",
+   "expect": [
+    [
+     "visionclaw_models"
+    ]
+   ],
+   "got": [
+    "visionclaw_models"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.5,
+   "state": "done"
+  },
+  {
+   "request": "open your log file",
+   "expect": [
+    [
+     "visionclaw_log"
+    ]
+   ],
+   "got": [
+    "visionclaw_log"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  },
+  {
+   "request": "learn about this program from the internet",
+   "expect": [
+    [
+     "learn_app"
+    ]
+   ],
+   "got": [
+    "learn_app"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.7,
+   "state": "done"
+  },
+  {
+   "request": "delete your notes about this game",
+   "expect": [
+    [
+     "forget_notes"
+    ]
+   ],
+   "got": [
+    "forget_notes"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.7,
+   "state": "done"
+  },
+  {
+   "request": "I can't figure out how to attach a file here",
+   "expect": [
+    [
+     "work_through",
+     "explain_keys"
+    ]
+   ],
+   "got": [
+    "work_through"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  },
+  {
+   "request": "choose the 21st of december in the date picker",
+   "expect": [
+    [
+     "pick_date"
+    ]
+   ],
+   "got": [
+    "pick_date"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.0,
+   "state": "done"
+  },
+  {
+   "request": "turn off sound effects in this program",
+   "expect": [
+    [
+     "set_control"
+    ]
+   ],
+   "got": [
+    "set_control"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.0,
+   "state": "done"
+  },
+  {
+   "request": "what control am I on",
+   "expect": [
+    [
+     "where_am_i",
+     "object_facts"
+    ]
+   ],
+   "got": [
+    "about_focus"
+   ],
+   "verdict": "wrong",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  },
+  {
+   "request": "what can the clock add-on do",
+   "expect": [
+    [
+     "addon_question"
+    ]
+   ],
+   "got": [
+    "addon_question"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  },
+  {
+   "request": "what's insert f7 from jaws in nvda",
+   "expect": [
+    [
+     "jaws_help",
+     "explain_keys"
+    ]
+   ],
+   "got": [
+    "jaws_help"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  },
+  {
+   "request": "open notepad then type my grocery list",
+   "expect": [
+    [
+     "open_thing"
+    ],
+    [
+     "type_text"
+    ]
+   ],
+   "got": [
+    "open_thing",
+    "type_text"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.5,
+   "state": "done"
+  },
+  {
+   "request": "turn off the typing echo and make nvda speak faster",
+   "expect": [
+    [
+     "change_setting"
+    ],
+    [
+     "change_setting"
+    ]
+   ],
+   "got": [
+    "change_setting",
+    "change_setting"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.9,
+   "state": "done"
+  },
+  {
+   "request": "what time is it and how much battery is left",
+   "expect": [
+    [
+     "do_command"
+    ],
+    [
+     "do_command"
+    ]
+   ],
+   "got": [
+    "do_command",
+    "do_command"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 1.3,
+   "state": "done"
+  }
+ ]
+}
