@@ -196,13 +196,14 @@ def _readOld(path, check=None):
 	return entries
 
 
-def openPanel():
-	"""NVDA's settings at the category Privacy and Security, as NVDA's own menu opens it, on NVDA's main thread. Changes
-	nothing."""
-	import gui
-	import wx
+def openPanel(cancel=None):
+	"""NVDA's settings at the category Privacy and Security, as NVDA's own menu opens it, with the focus put on the
+	Logging level combo box, not on the page's first control (focustools.py). Changes nothing. Worker thread: returns
+	whether the focus is on the combo box."""
 	from gui.settingsDialogs import NVDASettingsDialog, PrivacyAndSecuritySettingsPanel
-	wx.CallAfter(gui.mainFrame.popupSettingsDialog, NVDASettingsDialog, PrivacyAndSecuritySettingsPanel)
+	from . import focustools
+	return focustools.openSettingsAt(NVDASettingsDialog, PrivacyAndSecuritySettingsPanel,
+		lambda panel: getattr(panel, "_logLevelCombo", None), cancel)
 
 
 def _reasoning(task):
@@ -246,7 +247,7 @@ def explanation(plugin, task, problem, names, asked):
 def register(add, plugin, text, onMain, confirm, mustAgree):
 	"""The tool for NVDA's own log."""
 
-	def offer(said, state):
+	def offer(said, state, task=None):
 		"""Where NVDA's log is off or the user asks to change its level: what is so, and the offer to open NVDA's
 		Privacy and Security settings, which changes nothing. Asked directly: an offer is always the user's to take."""
 		if not nvdalog.canOffer(state):
@@ -258,12 +259,19 @@ def register(add, plugin, text, onMain, confirm, mustAgree):
 		if plugin.clawAsk(question, [_("Yes, open them"), _("No, leave them")]) != 0:
 			# Translators: Said when the user did not want NVDA's settings opened.
 			return _("NVDA's settings were not opened, and nothing was changed.")
-		openPanel()
-		debuglog.log("nvdalog", "NVDA's Privacy and Security settings were opened at the user's yes.")
-		# Translators: Said after VisionClaw opened NVDA's Privacy and Security settings for the user.
+		atCombo = openPanel(getattr(task, "cancel", None))
+		debuglog.log("nvdalog", "NVDA's Privacy and Security settings were opened at the user's yes; the focus is "
+			+ ("on the Logging level combo box." if atCombo else "not on the Logging level combo box."))
+		if atCombo:
+			# Translators: Said after VisionClaw opened NVDA's Privacy and Security settings with the focus on the combo box.
+			return _(
+				"NVDA's settings are open at Privacy and Security, and the focus is on the Logging level combo box. Choose "
+				"with the arrow keys, Info is enough, then press Enter. VisionClaw changed nothing itself.")
+		# Translators: Said when NVDA's settings were opened but the focus could not be put on the Logging level combo box.
 		return _(
-			"NVDA's settings are open at Privacy and Security. Press Tab until you reach the Logging level combo box, choose "
-			"with the arrow keys, Info is enough, then press Enter. VisionClaw changed nothing itself.")
+			"NVDA's settings were opened at Privacy and Security, but VisionClaw could not put the focus on the Logging level "
+			"combo box. Press Tab until NVDA says Logging level, choose with the arrow keys, Info is enough, then press Enter. "
+			"VisionClaw changed nothing itself.")
 
 	def nvdaLog(task, asked):
 		# The part's own words decide, never the rest of the request: only what the user asked for is read.
@@ -276,9 +284,9 @@ def register(add, plugin, text, onMain, confirm, mustAgree):
 		debuglog.log("nvdalog", f"Asked of NVDA's log: {do}. Level {nvdalog.levelName(state)}, forced {state.get('forced')}, "
 			f"secure {state.get('secure')}, a file {'is' if state.get('file') else 'is not'} named.")
 		if do == nvdalog.LEVEL:
-			return offer(nvdalog.levelText(state), state) if nvdalog.isOff(state) else nvdalog.levelText(state)
+			return offer(nvdalog.levelText(state), state, task) if nvdalog.isOff(state) else nvdalog.levelText(state)
 		if do == nvdalog.SETTINGS:
-			return offer(nvdalog.settingsText(state), state)
+			return offer(nvdalog.settingsText(state), state, task)
 		if do == nvdalog.WHERE:
 			return nvdalog.locationText(state)
 		names, modules = _safe(lambda: onMain(addonsKnown), ({}, {})) or ({}, {})
@@ -290,10 +298,10 @@ def register(add, plugin, text, onMain, confirm, mustAgree):
 			said = nvdalog.lastRunText(old, names, modules)
 			_logged(old, "the run before")
 			if nvdalog.isOff(state):
-				return offer(said + "\n" + nvdalog.offText(state), state)
+				return offer(said + "\n" + nvdalog.offText(state), state, task)
 			return said
 		if nvdalog.isOff(state) or not os.path.isfile(current):
-			return offer(nvdalog.offText(state), state)
+			return offer(nvdalog.offText(state), state, task)
 		stretch = ""
 		if do == nvdalog.RECENT and want.get("since") == nvdalog.SINCE_READ and _lastRead.get("path") == current:
 			start = _lastRead.get("offset")

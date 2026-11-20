@@ -68,3 +68,13 @@ correction is used while NVDA runs and whenever VisionClaw starts.
 Say: undo that, right after a correction, or remove the corrections to your own code. Say: which fixes did you make to
 your own code. A correction that fails by itself turns itself off. An update of VisionClaw puts it aside, and a report of
 each is in the folder ownfixes of VisionClaw's data.
+
+## Saying what VisionClaw did wrong, and it corrects itself
+Right after VisionClaw did something wrong, say so: the focus landed on the wrong control, or you read the line above
+instead of mine. Plain code finds that request and the parts of VisionClaw's code it used, the model that writes code
+chooses one and corrects it, and VisionClaw always asks you first. Nobody knows it works until you ask again.
+
+## Why VisionClaw did something wrong, and when it cannot correct it
+Ask why it happened, and VisionClaw says what that request did and which parts of its code fit your words; say fix that
+bug to have one corrected. When it cannot correct something, it says why, names the part of its code that would need
+it, and writes a report for its developer in the folder ownfixes of VisionClaw's data.

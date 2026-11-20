@@ -21,7 +21,7 @@ import addonHandler
 import api
 import config
 
-from . import deepquery, fixruntime, mousetools
+from . import deepquery, fixruntime, focustools, mousetools
 from .claw import computer, controls, dragcontrol, policy, prompts, target
 from .claw.catalog import VISION
 from .claw.llm import uncut
@@ -172,8 +172,12 @@ def register(add, plugin, text, onMain, confirm, screen):
 						if not onMain(deepquery.turn, obj, direction, dragcontrol.STEP)[0]:
 							break
 				else:
-					# The keyboard: the control takes the focus, and the arrow keys turn it as they do for any slider.
-					onMain(lambda: obj.setFocus())
+					# The keyboard: the control takes the focus, and the arrow keys turn it as they do for any slider. The
+					# keys are pressed only when the focus really is on it: elsewhere they would change something else.
+					if not focustools.focusOn(obj, onMain, getattr(task, "cancel", None)):
+						now = focustools.focusName(onMain)
+						return (f"{name}{where} did not take the focus, so no key was pressed and nothing was changed."
+							+ (f" The focus is on {now}." if now else ""))
 					time.sleep(0.2)
 					key = "end" if steps >= dragcontrol.MAX_END_STROKES and direction > 0 else (
 						"home" if steps >= dragcontrol.MAX_END_STROKES else "upArrow" if direction > 0 else "downArrow")
@@ -187,11 +191,16 @@ def register(add, plugin, text, onMain, confirm, screen):
 			return f"{name}{where} was turned, but it shows no value VisionClaw can read, so whether it changed is not known."
 		# Anything else NVDA knows: a list to choose from, a field. The focus is put on it, which is as far as plain
 		# code can go without guessing, and the user is told the keys.
-		onMain(lambda: obj.setFocus())
+		focused = focustools.focusOn(obj, onMain, getattr(task, "cancel", None))
 		shown = onMain(valueOf, obj)
-		return (
-			f"{name}{where} is not a control that is simply on or off or turned up or down"
-			+ (f"; it shows {shown}" if shown else "") + ". The focus is on it now: the arrow keys change it, and NVDA says each choice.")
+		about = (f"{name}{where} is not a control that is simply on or off or turned up or down"
+			+ (f"; it shows {shown}" if shown else "") + ".")
+		if focused:
+			return f"{about} The focus is on it now: the arrow keys change it, and NVDA says each choice."
+		# Said only as it is: the program did not let the focus move there.
+		now = focustools.focusName(onMain)
+		return (f"{about} VisionClaw could not put the focus on it" + (f"; the focus is on {now}" if now else "")
+			+ ". Move to it with Tab or the arrow keys, and NVDA says when you are there.")
 
 	def setSeen(task, wish):
 		"""Set a control that is only in the window's picture. Returns the sentence for the user."""

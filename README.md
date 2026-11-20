@@ -23,9 +23,14 @@ chat apps, and names for unlabelled buttons.
 > [docs/STATUS.md](docs/STATUS.md) for exactly what was tested.
 
 <!-- news: written by tools/write_help.py from manifest.ini; do not change it by hand -->
-This README is for VisionClaw 1.19.0.
+This README is for VisionClaw 1.20.0.
 
-## What is new in 1.19.0
+## What is new in 1.20.0
+
+- The focus is put where you need it, and checked. Ask "check NVDA's log" while NVDA's logging is off and say yes: NVDA's settings now open with the focus on the Logging level combo box, not on "Make screen black". Say "customise VisionClaw's voice": NVDA's Speech settings open on the Voice combo box. When VisionClaw moves the focus to a control of a program, it says so only when NVDA's focus really is there, and presses no arrow key otherwise; you hear where the focus is instead.
+- VisionClaw tries to correct what it just did wrong when you tell it, even when nothing went into its log. Right after it does something wrong, say what went wrong, as: "the focus landed on Make screen black instead of the Logging level combo box", or "you read the line above instead of the line I am on". VisionClaw finds the part of its own code that request used, the model that writes code corrects it, plain code checks it, and you are always asked first. Then ask for the same thing again, and say "undo that" if it is worse. Ask "why did the focus go to the wrong control" to hear what happened without a correction. When it cannot correct something, it says why and writes a report in the folder ownfixes. Measured with Qwen3.5 4B on five made-up cases: it found the right part of its code five times, but only three corrections did what was intended, and the focus bug itself was not corrected by it, so treat every correction as a try.
+
+## What was new in 1.19.0
 
 - A whole program made accessible, window after window. In the program, press NVDA+Alt+C and say "make every window of this program accessible", or "learn all about this window, make a plan to fix its accessibility issues, then fix them". VisionClaw learns the window in front with its deep inspection, names controls without a name from their pictures, plans the fixes for every window of the program it knows, asks you once, and makes them all in the program's one fixes add-on; then it says what is left. To learn and plan without changing anything, say "learn this window" or "learn this window and make a plan to fix it"; later say "make the planned fixes for this program".
 - Two, twenty or a hundred windows belong to one program. VisionClaw knows a window again by its window class and its title without the document's name, so "Untitled - Notepad" and "notes.txt - Notepad" are one window, and keeps every window on the program's map. A fix found in several windows is one step of the plan and works in all of them. Ask "which windows of this program have you learned", "what's the plan for this program" or "what's left to fix in this program": every window and every step is said.
@@ -33,18 +38,6 @@ This README is for VisionClaw 1.19.0.
 - It uses VisionClaw's memory, scratchpads, NVDA's log and its instructions: steps about what you asked VisionClaw to remember about the program come first; a control named in one window keeps its name in the others without asking a model; the program's scratchpad gets a line of what VisionClaw knows of it; recent errors, freezes and developer info from NVDA's log are said after a window is learned; and "what problems did you find in the windows of this program" is answered from the map, with new instructions you can rewrite in How VisionClaw answers: "Answers about the windows of a program VisionClaw is making accessible". A new skill, "Make a whole program accessible", goes with it.
 - The map and the plan are two new sections of the program's access notes, the Markdown file in the folder access of VisionClaw's data; the file is yours. A program's fixes add-on now holds up to 80 fixes, at most 8 of them for being told of changes.
 - Tested with plain Python and with stand-ins for NVDA; not yet run inside NVDA or with a real model.
-
-## What was new in 1.18.0
-
-- The scratchpads are used the way large AI models use theirs, made small. Every line VisionClaw or a model wrote counts how often the requests it was given to went well, as in "used 3 times, 2 went well"; lines that helped come first, and a line that keeps going with requests that did not go well is moved under Set aside in its file, where no model reads it. Move it back under Notes to use it again. Your own lines are never set aside. A way of looking that found nothing in a program is written down too, so that the next time another way is chosen first.
-- With a task scratchpad open, say "do the next one", "do step 3 on my scratchpad" or "let's do the second thing": VisionClaw carries out that thing on the list, tells you how it understood it, and checks it off when it went well, with what is next.
-- Stopped a request in the middle with NVDA+Alt+X? Say "carry on" or "continue where you left off" within 30 minutes, and VisionClaw goes on from the step where it stopped, without doing the earlier steps again. It is kept in memory only.
-- Say "what have you learned here" in a program, game or website to hear what VisionClaw wrote down about it. Four new skills use the scratchpads: "What VisionClaw learned here", "Plan a job on a scratchpad", "What was described before" and "Teach VisionClaw about this program"; the skills for stubborn programs, games and music software try first what the program's scratchpad says.
-- NVDA's own log, read when you ask: say "check NVDA's log", "which add-on is causing errors", "did NVDA freeze", "why did NVDA crash", "what just happened in NVDA", "what did the developer info say", "compare the last two objects I checked", "which keys did I try in input help", "when did NVDA start" or "is NVDA Remote connected". Nothing you typed or NVDA said is ever read, and if NVDA's logging is off, VisionClaw offers to open NVDA's Privacy and Security settings, where you turn it on; it never changes the level itself. Nine new skills are about NVDA's log.
-- NVDA's log while VisionClaw works: when a step fails or changes something, what NVDA logged meanwhile is said, with the add-on it came from; and "why did speech stop" or "why is NVDA slow" is given what NVDA logged in the last minutes. Turn it off with the new setting "Read NVDA's log while VisionClaw works". The new setting "Say when NVDA logs an error", off by default, says one sentence when NVDA logs an error or was frozen.
-- Every skill can ask NVDA's log: each names what it wants (errors, add-ons, speech, audio, braille, freezes, session, settings, objects, input help, remote), and what NVDA logged of those in the last minutes goes with its sentences. Press NVDA+F1 on a control before asking for an add-on for "this button", and the add-on is written with the window class and automation ID NVDA logged. When VisionClaw writes an add-on for a program, the lines of that program's scratchpad that fit go with it too.
-- Four new instructions in How VisionClaw answers in the settings: answers taken from VisionClaw's scratchpads, add-ons written with lines from a program's scratchpad, answers taken from NVDA's own log, and add-ons written with the developer info NVDA logged about an object. An answer made from scratchpad lines is followed by one sentence that says so.
-- Measured with Qwen3.5 4B for both jobs: on the eight sets of 555 requests that measure which job is chosen, 526 right, the same as 1.16.1, with no request changing its job; asked eight questions answered from scratchpad lines, it was right eight times with the new instruction, as without it. The skills' lines of NVDA's log, the add-on writer's lines and the watch were tested with plain Python, made-up logs and stand-ins only. None of this has run inside NVDA yet.
 
 How to use each of these is explained in its own part of this README, further down.
 <!-- /news -->
@@ -302,6 +295,26 @@ a model planned.
 Some functions cannot be corrected while VisionClaw runs: those it makes while it starts, as most of its tools, and the
 parts that install it, carry its data or correct its own code. You are told so, and nothing is changed.
 
+### What VisionClaw did wrong, corrected when you tell it
+
+VisionClaw can also try to correct what it did wrong when nothing was written to its log. Right after VisionClaw does
+something you did not expect, say what went wrong in your own words, such as: you put the focus on Make screen black
+instead of the Logging level combo box, or you read the line above instead of the line I am on. VisionClaw takes the
+request you made just before, finds the parts of its own code that request used, and keeps the few that fit your words
+best. The model that writes code chooses one of them and writes a correction. Plain code checks it, also that every name
+it uses exists in the running NVDA, the other model reads it, and VisionClaw always asks you before it is used, telling
+you which part it chose and what the correction changes. VisionClaw's own files stay as they are. Nobody knows whether a
+correction works until you try it, so ask for the same thing again, and say undo that if it is worse or no better.
+
+To hear what happened without a correction, ask why, as: why did the focus go to the wrong control. VisionClaw tells you
+what that request did and which parts of its code fit your words; then say fix that bug to have one corrected. When
+VisionClaw cannot correct something by itself, it says why, names the part of its code that would need the correction,
+and writes a report in the folder ownfixes of VisionClaw's data that you can give to VisionClaw's developer. Only the
+last few requests are kept for this, in memory while NVDA runs, and a complaint more than 30 minutes after a request is
+not acted on. On made-up cases tried with a small model, VisionClaw found the right part of its code every time, but its
+corrections did what was intended only three times in five, and the focus bug that started this was not corrected by
+it, so treat every correction as a try.
+
 ## NVDA's own log
 
 VisionClaw can read NVDA's own log for you, but only when you ask. Say: check NVDA's log, which add-on is causing
@@ -316,8 +329,8 @@ does the model explain it, and VisionClaw says that this explanation may be wron
 At the levels Input/output and Debug, NVDA's log holds every key you type and everything NVDA says. VisionClaw only
 counts those lines: it never reads them out, never gives them to a model and never writes them to its own log, and
 nothing is sent anywhere. The value of a password field in the developer info is never said. If NVDA's logging is off,
-VisionClaw says so and offers to open NVDA's settings at the category Privacy and Security, where the combo box Logging
-level is. Info is enough for everything except NVDA's debug warnings, and NVDA+control+g opens NVDA's settings.
+VisionClaw says so and offers to open NVDA's settings at the category Privacy and Security, with the focus on the combo
+box Logging level, and tells you if it could not put the focus there. Info is enough for everything except NVDA's debug warnings, and NVDA+control+g opens NVDA's settings.
 VisionClaw never changes the logging level itself; a level above Info makes NVDA ask its own question first.
 
 ### NVDA's log while VisionClaw works, and in every skill
@@ -746,10 +759,20 @@ Plain code ranks the things in the window by your own words, with the words menu
 (attach and insert, save and export, settings and options). A model is asked only to choose among the few that
 were found, and only where plain code is not sure.
 
+## The focus, put where you need it and checked
+
+When VisionClaw opens a window for you or moves the focus to a control, it puts the focus on the control you need and
+then checks where NVDA's focus really is. NVDA's settings for the logging level open on the Logging level combo box, not
+on the first control of the page; NVDA's Speech settings for VisionClaw's own voice open on the Voice combo box. When
+VisionClaw moves the focus to a control of a program, as in "set the output device in this program", it says the focus
+is there only when NVDA says so, and it presses no arrow key for a control that did not take the focus: the key would
+change something else. Otherwise you hear where the focus is, and how to get to the control yourself.
+
 ## A voice of its own
 
-*"Customise VisionClaw's voice."* NVDA's own Speech settings open, and whatever you choose there, the
-synthesizer, the voice, its rate, pitch and volume, is used for what VisionClaw says and for nothing else. While
+*"Customise VisionClaw's voice."* NVDA's own Speech settings open with the focus on the Voice combo box, and whatever
+you choose there, the synthesizer, the voice, its rate, pitch and volume, is used for what VisionClaw says and for nothing
+else. While
 that window is open NVDA itself speaks with that voice, so that you hear what you choose; when you close it, your
 own voice is back. *"Turn off your own voice"* makes VisionClaw speak like NVDA again and keeps the voice for
 later; *"remove VisionClaw's voice"* deletes it after a question. There is also a command without a key, under

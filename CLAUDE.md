@@ -1584,6 +1584,20 @@ keyboard and speech alone.
     chooses (`orchestrator.programMap`), the skill `whole-program-accessible` and the notes `visionclaw-program-access.md`.
   - Tests never run the Follower's timer; `tests/test_nvda_stub.py` calls its `_learn` with a stand-in window. Not run
     inside NVDA.
+- **The focus is put where the user needs it, and checked, never assumed** (`focustools.py`). The owner found on
+  2026-11-19, testing 1.18.0, that NVDA's settings opened for the logging level with the focus on "Make screen black
+  (immediate effect)", and said: "fix this bug. and fix any other similar focus task bugs too." What follows from it:
+  - **A page of NVDA's settings is opened as NVDA's menu opens it, then the focus is put on the control the user needs**
+    (`focustools.openSettingsAt` from a worker thread, `openAt` on the main thread): the Logging level combo box
+    (`_logLevelCombo`), the Voice combo box for VisionClaw's own voice (`voicePanel.voiceList`, else `rateSlider`). Read
+    from NVDA 2026.3.1's `gui/settingsDialogs.py`: opened at a category, NVDA focuses the page's first control; a window
+    already open is only brought to the front, so the page is changed through its `catListCtrl`. Read it again for a
+    newer NVDA; never guess a control's name.
+  - **A control of a program is focused with `focustools.focusOn`**, which checks NVDA's focus afterwards. Nothing says
+    "the focus is on it", and no key is pressed for that control, unless NVDA's focus is there (`controltools`).
+  - **What the user is told says where the focus really is**, and how to get to the control where it could not be put.
+  - A new place that opens a window at a control, or moves the focus, uses `focustools`, with a case in
+    `tests/test_focustools.py` or `tests/test_nvda_stub.py`.
 - **NVDA's own log is read by plain code, and never what was typed or spoken** (`claw/nvdalog.py`, `nvdalogtools.py`,
   `nvdalogfeed.py`, `claw/skilllog.py`; the plan is `docs/PLAN-nvda-log.md`). The owner said on 2026-11-19: "I also want
   visionclaw to have access to the various logs of nvda itself, info, debug, etcetera", "if nvda logging is disabled,
@@ -1639,6 +1653,20 @@ keyboard and speech alone.
     put in place of the function while NVDA runs and at start-up (`Fixes.apply`), for the version it was made for and
     while the function is as it was (`digest`); the function that takes its place turns the correction off when it fails
     itself (`guarded`; `PASSED_ON` is no failure). Undone with `undo_change` (`ownfix:` entries) or in words.
+  - **A complaint about what VisionClaw just did is a request to correct it** (`diagnose.complaintOf`, `wish`;
+    `diagnosetools.fixComplaint`, `whyComplaint`). The owner said on 2026-11-19: "visionclaw must be able to fix such
+    focus and other bugs by itself using its AI models and skills, when I complain about a problem like this." Plain code
+    reads the complaint (narrow: something went wrong, and VisionClaw, "you", "it" or the focus did it; a request to do
+    something else, a correction "no, I meant", and VisionClaw's own add-ons are no complaint), takes the last request
+    from the orchestrator's memory (`Orchestrator.recent`, the last four, never written to the disk) or the log, finds
+    the module-level functions that request's tools call (`findCode`, two levels, `refusal` left out), and ranks them by
+    the complaint's words; the model that writes code chooses one by its number (a very small model is never offered
+    "none"), and writes it again with facts of the running NVDA about the names it uses (`namesFacts`). `checkFix` and
+    `unknownNames` refuse a correction that uses a name the running program does not have. Always asked (`mustAgree`);
+    never said to be fixed; the user is asked to try again and to say "undo that". Where nothing passes, a report in
+    `ownfixes`. Measured on 2026-11-19 with Qwen3.5 4B (`tests/live_selffix.py`): the right function chosen 5 of 5,
+    corrections that did what was intended 3 of 5, the focus bug not corrected (also not by Qwen3 14B). Do not loosen the
+    question to the user.
   - **Never corrected** (`refusal`): a function made inside another (most tools), one that runs only at start or close,
     a class inside a class, and the files of `NEVER` (what installs, carries the data, logs, and corrects itself).
   - Measured with Qwen3.5 4B: corrections of three functions with a real bug passed the checks 3 of 3 and the errors
@@ -1738,6 +1766,8 @@ addon/
     checktools.py            a check that asks whether the user is a person: told, its box pressed, its squares said,
                              the squares the user names clicked
     shoptools.py             a product's options, a seat map, and the question before a button that buys is pressed
+    focustools.py            the focus put where the user needs it and checked: a page of NVDA's settings opened at
+                             its control, a program's control focused only where NVDA's focus really goes
     nvdalogtools.py          NVDA's own log as tools: the files, the level, the add-ons' names, the Privacy and Security
                              panel opened; a place in the log and what was written after it
     nvdalogfeed.py           NVDA's log while VisionClaw works, for its steps, its skills and a question about trouble;
@@ -2268,6 +2298,8 @@ python tests/test_stream_answers.py      a request's answer said a sentence at a
                                          nothing lost; where it is said whole instead
 python -u tests/live_stream.py MODELS VISIONID CODERID   the real model's answers said in pieces: when the first piece
                                          comes against the whole answer, and that the pieces are the answer; VC_ASK
+python tests/test_focustools.py          a settings page opened at its control, also when the window shows another page;
+                                         a program's focus checked before it is said or a key is pressed
 python tests/test_nvdalog.py             NVDA's own log from made-up logs: errors, add-ons, freezes, drivers, the run before, the
                                          session, developer info, input help; nothing private gets through
 python tests/test_skilllog.py            every skill's log: line, the lines a skill gets, the instructions for them, a step told what

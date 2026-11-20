@@ -13,7 +13,7 @@
 import time
 
 from . import agent, consensus, debuglog, followups, lookup, pageview, planner, planning, policy, prompts, shapes
-from . import corrections, nvdalog, scratchpad, sentences, skilllog, understand, worksheet
+from . import corrections, diagnose, nvdalog, scratchpad, sentences, skilllog, understand, worksheet
 from . import memories as memoriesModule
 from . import skills as skillsModule
 from . import task as taskModule
@@ -169,6 +169,10 @@ class Orchestrator:
 		self.last = None
 		# The request before, as the user said it, for a correction of it (claw/corrections.py). Only while NVDA runs.
 		self.lastSaid = ""
+		# What the last few requests did, the oldest first: each request with its steps, their tools and results, and its
+		# answer, for a complaint about one of them ("you put the focus on the wrong control", claw/diagnose.py). Kept
+		# so that it works with VisionClaw's log switched off. Only while NVDA runs, never written to the disk.
+		self.recent = []
 		# A request the user stopped in the middle, kept so that "carry on" goes on from the step where it stopped
 		# (Stopped). Only while NVDA runs, never written to the disk, and only for scratchpad.STOPPED_SECONDS.
 		self.stopped = None
@@ -266,6 +270,10 @@ class Orchestrator:
 					self.lastSaid = getattr(task, "original", "") or task.request
 				except Exception as e:
 					debuglog.error("followups", "The request could not be kept for the next one", e)
+			try:
+				self.recent = (list(getattr(self, "recent", None) or []) + [diagnose.record(task, self.clock())])[-diagnose.RECENT:]
+			except Exception as e:
+				debuglog.error("diagnose", "What the request did could not be kept for a complaint about it", e)
 			self._keepOnPads(task)
 		return task
 

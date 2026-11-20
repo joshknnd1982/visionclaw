@@ -4400,6 +4400,7 @@ from visionClaw.claw import controls  # noqa: E402
 
 controltools._SETTLE = 0
 focused = []
+focusNow = [None]
 
 
 class Ctl:
@@ -4411,6 +4412,8 @@ class Ctl:
 		self.location = types.SimpleNamespace(left=10, top=10, width=100, height=20)
 		self.children = []
 		self.pressed = 0
+		# Whether the program lets the focus move to it (1.18.1: VisionClaw checks before it says so).
+		self.takesFocus = True
 
 	def has(self, state):
 		return any(one.name == state for one in self.states)
@@ -4424,6 +4427,8 @@ class Ctl:
 
 	def setFocus(self):
 		focused.append(self.name)
+		if self.takesFocus:
+			focusNow[0] = self
 
 
 class Dialog(Ctl):
@@ -4489,9 +4494,18 @@ assert worked and result == "Volume did not change. It shows 0. It may be at its
 # A wish that does not fit the kind of control, and a kind plain code does not set: said, with a keyboard way.
 worked, result = registry.call(taskModule.Task("x"), "set_control", {"asked": "turn the volume off in this program"})
 assert not worked and "turned up or down, not one that is on or off" in result, result
+realFocusObject, apiStub.getFocusObject = apiStub.getFocusObject, lambda: focusNow[0]
 worked, result = registry.call(taskModule.Task("x"), "set_control", {"asked": "turn the output device up in this program"})
 assert worked and result.startswith("Output device is not a control that is simply on or off or turned up or down; it shows Speakers.") and (
 	focused == ["Output device"]), result
+assert result.endswith("The focus is on it now: the arrow keys change it, and NVDA says each choice."), result
+# 1.18.1: a program that does not let the focus move there: said as it is, with where the focus is, never "it is on it".
+dialog.pages["General"][2].takesFocus = False
+focusNow[0] = Ctl("Play", "BUTTON")
+worked, result = registry.call(taskModule.Task("x"), "set_control", {"asked": "turn the output device up in this program"})
+assert worked and "VisionClaw could not put the focus on it; the focus is on Play." in result and "The focus is on it now" not in result, result
+dialog.pages["General"][2].takesFocus = True
+apiStub.getFocusObject = realFocusObject
 # No such control anywhere: every other page was looked at, the page that was shown is shown again, and it is said.
 worked, result = registry.call(taskModule.Task("x"), "set_control", {"asked": "Turn the equalizer down"})
 assert not worked and result.startswith(
@@ -5173,6 +5187,12 @@ instance.clawAsk = lambda question, choices: questions.append(question) or 1
 worked, result = registry.call(task, "own_voice", {"asked": "customise VisionClaw's voice"})
 assert worked and result == "You said no, so nothing was changed." and list(profiled.listProfiles()) == [] and openedSettings == []
 assert "NVDA's Speech settings will open" in questions[0] and "VisionClaw voice" in questions[0], questions[0]
+# 1.18.1: NVDA's Speech settings open with the focus on the Voice combo box, else the rate slider, not the page's first
+# control (focustools.openAt finds it once the window is there).
+voicePage = types.SimpleNamespace(voicePanel=types.SimpleNamespace(voiceList="the Voice combo box", rateSlider="the rate"))
+assert ownvoice._voiceControl(voicePage) == "the Voice combo box"
+voicePage.voicePanel.voiceList = None
+assert ownvoice._voiceControl(voicePage) == "the rate" and ownvoice._voiceControl(types.SimpleNamespace()) is None
 # A yes: the profile is made, tied to VisionClaw's own trigger, turned on by hand, and NVDA's Speech settings open.
 instance.clawAsk = lambda question, choices: questions.append(question) or 0
 worked, result = registry.call(task, "own_voice", {"asked": "customise VisionClaw's voice"})
@@ -5453,6 +5473,89 @@ assert worked and result == "VisionClaw's correction of slug is undone; the func
 assert padModule.slug("a" * 70) == "a" * 60 and all(c["setting"] != pending["setting"] for c in instance.changes.pending())
 worked, result = registry.call(selfTask, "own_fixes", {"asked": "undo the fix you made to your code"})
 assert worked and result == "No correction of VisionClaw's own code is in use, so there is nothing to undo.", result
+
+# A complaint about what VisionClaw just did, with no error in the log (diagnosetools.fixComplaint): the request is taken
+# from what the orchestrator keeps in memory, the code its tool used is found in the running add-on without running it,
+# the model chooses among the few by number and corrects it, the user is always asked, and "undo that" puts it back.
+# The orchestrator keeps what each request did, in memory only.
+assert [item["request"] for item in orch.recent] == ["Make NVDA speak a little faster"] and "set_setting" in [
+	step["tool"] for step in orch.recent[-1]["steps"]], orch.recent
+CORRECTED_PATH = (
+	'def _path(self, kind, name=""):\n\tif kind == DESCRIBED:\n\t\treturn os.path.join(self.folder, DESCRIPTIONS_FILE)\n'
+	'\treturn os.path.join(self.folder, TASKS, f"{slug(name)}.md")\n')
+
+
+class ComplaintRuntime(SelfRuntime):
+	"""The model that writes code chooses Pads._path from the list by its number, and corrects it."""
+
+	def chat(self, role, messages, maxTokens, **options):
+		system, user = messages[0]["content"], messages[1]["content"]
+		if "Give the number of the function" in system:
+			self.asked.append((role, "choose", user))
+			listed = [line.split(".")[0] for line in user.splitlines() if line[:1].isdigit() and " Pads._path in claw/scratchpad.py" in line]
+			return json.dumps({"number": int(listed[0]) if listed else 0})
+		if system.startswith("You correct what one function of VisionClaw does wrong"):
+			self.asked.append((role, "correct", user))
+			return "```python\n" + CORRECTED_PATH + "```"
+		return super().chat(role, messages, maxTokens, **options)
+
+
+instance.runtime = ComplaintRuntime()
+realRecent = instance.orchestrator.recent
+garden = types.SimpleNamespace(
+	request="start a scratchpad for my garden", original="start a scratchpad for my garden", answer="Started the task scratchpad my garden.",
+	state="done", steps=[types.SimpleNamespace(tool="scratchpad", title="Keeping a scratchpad", status="done",
+		result="Started the task scratchpad my garden.")])
+instance.orchestrator.recent = [diagModule.record(garden, instance.orchestrator.clock())]
+complained = "you put the file of my new scratchpad in the learned folder instead of the tasks folder"
+assert diagModule.wish(complained)["complaint"] == complained and planner.hint(complained) == "fix_self"
+padQuestions.clear()
+learnedPath = instance.pads._path(padModule.LEARNING, "REAPER")
+worked, result = registry.call(selfTask, "fix_self", {"asked": complained})
+assert worked and result.startswith("VisionClaw put a correction of its function Pads._path in place."), result
+assert "Nobody knows yet whether it does what you wanted: ask for the same thing again, \"start a scratchpad for my garden\"" in result
+assert "say undo that" in result and "is corrected" not in result
+question = padQuestions[0]
+assert question.startswith(f"You said: \"{complained}\" That is about your request \"start a scratchpad for my garden\". "), question
+assert "the coder model chose Pads._path in the file claw/scratchpad.py as the one that did it, which may be wrong." in question
+assert "The coder model wrote a correction of it." in question and "nobody knows yet whether it does what you wanted" in question
+chose = [user for role, what, user in ComplaintRuntime.asked if what == "choose"][-1]
+assert chose.startswith(f"The user said: \"{complained}\"") and "The step scratchpad (Keeping a scratchpad) ended as done" in chose
+fixAsked = [user for role, what, user in ComplaintRuntime.asked if what == "correct"][-1]
+assert f"What the user says went wrong: \"{complained}\"" in fixAsked and "def _path(self, kind, name=\"\"):" in fixAsked
+assert instance.pads._path(padModule.LEARNING, "REAPER").endswith(os.path.join("tasks", "reaper.md"))
+worked, result = registry.call(selfTask, "own_fixes", {"asked": "which fixes did you make to your own code"})
+assert f"for what you said was wrong: {complained}." in result and "It is in use." in result, result
+worked, result = registry.call(selfTask, "undo_change", {"what": "undo that"})
+assert worked and result == "VisionClaw's correction of Pads._path is undone; the function works as it was written again.", result
+assert instance.pads._path(padModule.LEARNING, "REAPER") == learnedPath
+# Asked why: what happened is said, with the parts of the code that fit the words, and nothing is corrected.
+worked, result = registry.call(selfTask, "own_errors", {
+	"asked": "why did you put my scratchpad's file in the learned folder instead of the tasks folder"})
+assert worked and "That is about your request \"start a scratchpad for my garden\"." in result, result
+assert "VisionClaw's log has no error from that request" in result and "Pads._path in the file claw/scratchpad.py" in result
+assert result.endswith("To have VisionClaw try to correct it, say: fix that bug.") and instance.pads._path(padModule.LEARNING, "REAPER") == learnedPath
+# Words that fit no code it used: nothing is changed, the function it would need is named, and a report is written.
+worked, result = registry.call(selfTask, "fix_self", {"asked": "you said the weather is sunny instead of rainy"})
+assert worked and "VisionClaw could not correct this by itself: plain code found no function of VisionClaw's code that fits your " \
+	"words among the" in result and "The function it would need to correct is register.scratchpadTool in the file scratchtools.py." in result, result
+assert "in the file report-" in result and result.endswith("Nothing was changed.")
+assert any(name.startswith("report-") and name.endswith(".md") for name in os.listdir(os.path.join(DATA, "ownfixes")))
+# Too long ago: VisionClaw cannot be sure which request is meant.
+instance.orchestrator.recent = [diagModule.record(garden, instance.orchestrator.clock() - diagModule.COMPLAINT_SECONDS - 60)]
+worked, result = registry.call(selfTask, "fix_self", {"asked": complained})
+assert worked and "was more than 30 minutes ago" in result and result.endswith("Nothing was changed."), result
+# A complaint about a request that has an error in the log: the function where the error happened is corrected.
+taxes = types.SimpleNamespace(request="start a scratchpad for my taxes", original="start a scratchpad for my taxes", answer="",
+	state="failed", steps=[])
+instance.orchestrator.recent = [diagModule.record(taxes, instance.orchestrator.clock())]
+padQuestions.clear()
+worked, result = registry.call(selfTask, "fix_self", {"asked": "you didn't start the scratchpad for my taxes"})
+assert worked and result.startswith("VisionClaw's function slug is corrected"), result
+assert padQuestions[0].startswith("VisionClaw found this error: A scratchpad's file name could not be made.")
+worked, result = registry.call(selfTask, "undo_change", {"what": "undo that"})
+assert worked and padModule.slug("a" * 70) == "a" * 60, result
+instance.orchestrator.recent = realRecent
 instance.runtime = realRuntime
 diagnosetools.logsFolder = realLogsFolder
 shutil.rmtree(logsDir, ignore_errors=True)
@@ -5522,7 +5625,54 @@ sys.modules["addonHandler"].getAvailableAddons = lambda: [
 	types.SimpleNamespace(name="clock", manifest={"summary": "Clock and Calendar"}, path=ADDON_DIR_CLOCK)]
 panels, logQuestions = [], []
 realMainFrame = sys.modules["gui"].mainFrame
-sys.modules["gui"].mainFrame = types.SimpleNamespace(popupSettingsDialog=lambda *args: panels.append(args))
+
+
+class _Control:
+	"""A control of a stand-in settings page: whether it is shown and enabled, and whether it got the focus."""
+
+	def __init__(self, enabled=True):
+		self.enabled, self.focused = enabled, 0
+
+	def IsShown(self):
+		return True
+
+	def IsEnabled(self):
+		return self.enabled
+
+	def SetFocus(self):
+		self.focused += 1
+
+
+class PrivacyAndSecuritySettingsPanel:
+	"""Stands in for NVDA's page: its first control is the screen curtain, its combo box _logLevelCombo."""
+
+	def __init__(self):
+		self.screenCurtain, self._logLevelCombo = _Control(), _Control()
+
+
+class _SettingsWindow:
+	"""Stands in for NVDA's settings window, open at the page it was asked for, with the focus on the page's first
+	control, as NVDA's own postInit puts it there."""
+
+	def __init__(self, panelClass):
+		self.categoryClasses = [panelClass]
+		self.currentCategory = panelClass()
+		self.currentCategory.screenCurtain.SetFocus()
+
+	def IsShown(self):
+		return True
+
+
+settingsWindows = []
+realSettingsDialog = sys.modules["gui.settingsDialogs"].NVDASettingsDialog
+realPrivacyPanel = getattr(sys.modules["gui.settingsDialogs"], "PrivacyAndSecuritySettingsPanel", None)
+realCallLater, realTopLevel = sys.modules["wx"].CallLater, getattr(sys.modules["wx"], "GetTopLevelWindows", None)
+sys.modules["gui.settingsDialogs"].NVDASettingsDialog = _SettingsWindow
+sys.modules["gui.settingsDialogs"].PrivacyAndSecuritySettingsPanel = PrivacyAndSecuritySettingsPanel
+sys.modules["wx"].CallLater = lambda ms, fn, *args: fn(*args)
+sys.modules["wx"].GetTopLevelWindows = lambda: list(settingsWindows)
+sys.modules["gui"].mainFrame = types.SimpleNamespace(
+	popupSettingsDialog=lambda *args: panels.append(args) or settingsWindows.append(_SettingsWindow(args[1])))
 instance.clawAsk = lambda question, choices: logQuestions.append((question, choices)) or 0
 realLast, instance.orchestrator.last = instance.orchestrator.last, None
 
@@ -5562,11 +5712,23 @@ said = onLog("check NVDA's log")
 question, choices = logQuestions[-1]
 assert question.startswith("NVDA's log is off: its logging level is Disabled") and question.endswith(
 	"Open NVDA's Privacy and Security settings now, at the Logging level combo box?") and choices == ["Yes, open them", "No, leave them"]
-assert said.startswith("NVDA's settings are open at Privacy and Security.") and len(panels) == 1
+assert said.startswith("NVDA's settings are open at Privacy and Security, and the focus is on the Logging level combo "
+	"box.") and len(panels) == 1, said
 assert [getattr(part, "__name__", str(part)) for part in panels[0]][1] == "PrivacyAndSecuritySettingsPanel"
+# 1.18.1: the focus is put on the Logging level combo box, after NVDA put it on the page's first control.
+page = settingsWindows[-1].currentCategory
+assert page._logLevelCombo.focused == 1 and page.screenCurtain.focused == 1
 assert conf["general"]["loggingLevel"] == "OFF"  # VisionClaw never changes it
+# Where the combo box cannot take the focus, that is said, and the way to it.
+settingsWindows.clear()
+sys.modules["gui"].mainFrame = types.SimpleNamespace(popupSettingsDialog=lambda *args: panels.append(args) or (
+	settingsWindows.append(_SettingsWindow(args[1])), setattr(settingsWindows[-1].currentCategory._logLevelCombo, "enabled", False)))
+said = onLog("check NVDA's log")
+assert said.startswith("NVDA's settings were opened at Privacy and Security, but VisionClaw could not put the focus on the "
+	"Logging level combo box. Press Tab until NVDA says Logging level"), said
+assert settingsWindows[-1].currentCategory._logLevelCombo.focused == 0 and len(panels) == 2
 instance.clawAsk = lambda question, choices: logQuestions.append((question, choices)) or 1
-assert onLog("why does nvda keep freezing") == "NVDA's settings were not opened, and nothing was changed." and len(panels) == 1
+assert onLog("why does nvda keep freezing") == "NVDA's settings were not opened, and nothing was changed." and len(panels) == 2
 # Secure mode: said, and nothing offered.
 globalVarsModule.appArgs.secure, asked = True, len(logQuestions)
 assert onLog("check NVDA's log").startswith("NVDA runs in secure mode") and len(logQuestions) == asked
@@ -5600,7 +5762,7 @@ assert onLog("is nvda remote connected").startswith("NVDA Remote is connected, a
 # Asking to turn it on: where it is, and the offer; nothing is changed.
 instance.clawAsk = lambda question, choices: logQuestions.append((question, choices)) or 0
 said = onLog("turn on NVDA's debug logging")
-assert logQuestions[-1][0].startswith("VisionClaw never changes NVDA's logging level itself. It is Info now.") and len(panels) == 2
+assert logQuestions[-1][0].startswith("VisionClaw never changes NVDA's logging level itself. It is Info now.") and len(panels) == 3
 assert conf["general"]["loggingLevel"] == "INFO" and nvdaLevel["level"] == 20
 # One error explained: the model that writes code is given that error alone, and its words are said to be its own.
 said = onLog("explain NVDA error 1")
@@ -5648,6 +5810,12 @@ instance.runtime = realRuntime
 instance.orchestrator.last = realLast
 instance.clawAsk = realClawAsk
 sys.modules["gui"].mainFrame = realMainFrame
+sys.modules["gui.settingsDialogs"].NVDASettingsDialog = realSettingsDialog
+if realPrivacyPanel is not None:
+	sys.modules["gui.settingsDialogs"].PrivacyAndSecuritySettingsPanel = realPrivacyPanel
+sys.modules["wx"].CallLater = realCallLater
+if realTopLevel is not None:
+	sys.modules["wx"].GetTopLevelWindows = realTopLevel
 sys.modules["addonHandler"].getAvailableAddons = realAvailable
 logHandlerModule.log = realLogStandIn
 if not hadGeneral:

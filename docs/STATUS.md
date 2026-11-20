@@ -1,6 +1,6 @@
 # VisionClaw status
 
-Updated 2026-11-19, version 1.19.0.
+Updated 2026-11-19, version 1.20.0.
 
 ## What exists
 
@@ -3089,6 +3089,33 @@ How it was tested:
   the evaluation requests; so routing with the real model cannot have changed, but it was not run. The new instruction
   for answers from the map was not measured. Not run inside NVDA: none of it, including the foreground event, the timer
   of the Follower, and a real program's windows.
+
+## The focus put where it is needed, and VisionClaw correcting itself from a complaint (1.20.0, 2026-11-19)
+
+The owner, testing 1.18.0 inside NVDA: after "check NVDA's log" with logging off and a yes, NVDA's settings opened with
+the focus on "Make screen black (immediate effect)" instead of the Logging level combo box. "fix this bug. and fix any
+other similar focus task bugs too." Then: VisionClaw "must be able to fix such focus and other bugs by itself using its
+AI models and skills, when I complain about a problem like this", and to coordinate the release with the other sessions
+(the accessibility fixer released 1.19.0 first; this is 1.20.0; the session on placing the user takes 1.21.0).
+
+What was built:
+- `focustools.py`: a page of NVDA's settings opened as NVDA's menu opens it, then the focus put on the control the user
+  needs, also when the window was open at another page; the Logging level combo box, and the Voice combo box for
+  VisionClaw's own voice. A program's control focused only where NVDA's focus really goes: `controltools` no longer says
+  "The focus is on it now" unchecked, and presses no arrow key for a control that did not take the focus.
+- A correction of VisionClaw's own code from the user's complaint, with no error in the log (built by a helper agent):
+  `diagnose.complaintOf`, `diagnosetools.fixComplaint`, `Orchestrator.recent`, `unknownNames`.
+
+How it was tested:
+- Plain Python: `tests/test_focustools.py` (stand-ins for NVDA's settings window and its pages), `tests/test_nvda_stub.py`
+  (the log's offer opens the stand-in page and the combo box gets the focus; a disabled one is said; a named control
+  that refuses the focus is said, with where the focus is), `tests/test_diagnose.py` (complaints both ways).
+- With the real Qwen3.5 4B, `tests/live_selffix.py`, five complaints written before any run, run against stand-ins: read
+  as complaints 5 of 5, the right function chosen 5 of 5, corrections that did what was intended 3 of 5. The focus bug
+  itself, run against the real old `openPanel`, was not corrected: the model made up `gui.mainFrame.getFocus()`, and
+  after `unknownNames` was added it was refused three times, so the user gets a report. Qwen3 14B as the writer: the
+  same 3 of 5, and the focus bug not corrected either.
+- Not run inside NVDA: the focus fix (its first real test is the owner's own steps again) and the self-fix.
 
 ## Next session
 

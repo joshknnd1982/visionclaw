@@ -290,8 +290,9 @@ from visionClaw.claw.knowledge import Knowledge  # noqa: E402
 from visionClaw.claw.skills import Skills  # noqa: E402
 
 sections = [(title, body) for title, body, source in Knowledge().everything() if source == "visionclaw-scratchpad"]
-# Nine sections in 1.17.0; four more in 1.18.0 (the list carried out, carrying on, trust, what was learned here).
-assert len(sections) == 13, len(sections)
+# Nine sections in 1.17.0; four more in 1.18.0 (the list carried out, carrying on, trust, what was learned here); two
+# more for a correction from what the user says VisionClaw did wrong, and why it did it.
+assert len(sections) == 15, len(sections)
 for title, body in sections:
 	assert len(body) <= 360 and "," in title, (title, len(body))
 	assert "for example" not in body.lower() and "look at" not in body.lower(), title

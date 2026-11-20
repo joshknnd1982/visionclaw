@@ -159,12 +159,23 @@ def customise(say=None):
 		log.info(f"VisionClaw: made the configuration profile {name!r} for its own voice")
 	conf.manualActivateProfile(name)
 	try:
-		gui.mainFrame.popupSettingsDialog(NVDASettingsDialog, SpeechSettingsPanel)
+		# Opened as NVDA's menu opens it, then the focus is put on the Voice combo box, or the rate where the synthesizer
+		# has no voices, instead of the page's first control (focustools.py).
+		from . import focustools
+		focustools.openAt(NVDASettingsDialog, SpeechSettingsPanel, _voiceControl)
 	except Exception:
 		conf.manualActivateProfile(None)
 		raise
 	wx.CallLater(FIRST_LOOK_MS, _watch, name, say or ui.message)
 	return OPENED
+
+
+def _voiceControl(panel):
+	"""The control of NVDA's Speech settings for choosing a voice: the Voice combo box, else the rate slider, as NVDA names
+	them (gui/settingsDialogs.py: SpeechSettingsPanel.voicePanel, AutoSettingsMixin's f"{setting.id}List" and
+	f"{setting.id}Slider"); None where neither is there."""
+	voices = getattr(panel, "voicePanel", None)
+	return getattr(voices, "voiceList", None) or getattr(voices, "rateSlider", None)
 
 
 def _watch(name, say):
