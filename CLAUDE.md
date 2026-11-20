@@ -1018,6 +1018,10 @@ keyboard and speech alone.
   gets that job (`planner.fitted`): "turn around in the game".
 - **A skill's own steps run only when the request asks nothing more** (`skills.planned`, `_asksMore`): "I'm lost, how
   do I print this" asks how to print. **One job told in clauses is not split** (`planner._WHOLE`, `_COMPLAINT`).
+  A how-question or a why-question never runs a skill's own steps, even where its words are all in it
+  (`planner.asksHowOrWhy`, in `orchestrator.run`): "how do I print this" would otherwise press Control+P. A skill with
+  steps gets only words that ask for the thing itself; `tests/test_everyday_skills.py` fails when a known or
+  evaluation request would run new steps.
 - **Which model fits what the user wants to do is suggested by plain code, and the user decides** (`claw/advice.py`,
   the job `model_advice`). The owner said on 2026-11-19: "visionclaw should suggest what kind of switch I should make,
   then let the final decision up to me", "according to user reviews". A suggestion stands on the purpose read from the
@@ -2298,11 +2302,14 @@ A session is done only when its "Done when" line is true.
   examples; add a `learn` command that studies a topic and stores notes. *Done when:* a question about an NVDA
   feature is answered with a quote from the user guide.
 - [x] **4.3 Skills.** SmallClaw-style `SKILL.md` files (starting words, the jobs they are for, plain sentences,
-  and optional fixed steps), 58 built in for what blind people do at a computer, seven of them for the add-ons
+  and optional fixed steps), 99 built in for what blind people do at a computer, seven of them for the add-ons
   the models write (`claw/skills/`), chosen by
   plain code from the request's words, their sentences given to the forms, the vision model, the coder and the
   answer of their jobs; a skill with steps runs them as its plan. The user makes, changes, turns off, deletes and
   imports skills in the skills window (NVDA+Alt+I) or in words, and opens the skills folder with a button.
+  Fifteen for everyday tasks (chat apps, the calendar, proofreading, music and videos, printing, a download, no
+  sound, starting the day, social media, Windows updates, banking safely, a book, remote help, copy and paste, the
+  clipboard), six of them with steps; checked by `tests/test_everyday_skills.py`.
 
 ### Phase 5 — Quality with real models
 - [x] **5.1 Evaluation set.** Three sets (137, 88 and 65 requests) in `tests/eval/`, each written before it was run,

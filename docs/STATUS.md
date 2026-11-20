@@ -3154,6 +3154,28 @@ How it was tested:
 - Not measured: `CODE_FOCUS` with a real coder. Not run inside NVDA: the focus, the tabs, the overlay opened at an item,
   the web page's focus mode, the end-of-request sentence, the offers' timing.
 
+## Skills for everyday tasks (after 1.19.0, 2026-11-19; not released yet)
+
+The owner asked, after 1.19.0: "make more complex skills for other common end-user tasks", and to add to VisionClaw's
+parser and orchestrator where needed.
+
+What was built: fifteen skills (99 in all with those of 1.21.0): chat apps, the calendar, writing and proofreading, music and videos,
+printing, a download, no sound, starting the day, social media, Windows updates, banking safely, a book, remote help,
+copy and paste, what is on the clipboard. Six carry out steps of their own when the user says their words and nothing
+more: printing (Control+P after a question, then where the user is), a download (the newest files in Downloads), no
+sound (the computer's volume, then the Sound settings page), start my day (time, date, battery, notifications),
+Windows updates (the page opened and described), the clipboard (NVDA's command that reads it). One change to the
+orchestrator: a how-question or a why-question never runs a skill's steps (`planner.asksHowOrWhy`); "how do I print
+this" would otherwise have pressed Control+P. No other change to the parser was needed: every step's words are read by
+plain code that was there already, which the test checks.
+
+How it was tested: `tests/test_skills.py` checks every skill as before; `tests/test_everyday_skills.py` checks that each
+is chosen first for the words of its task and for nothing everyday besides, that every step's words find the right NVDA
+command among NVDA's real commands or are read by plain code, that none of 867 known and evaluation requests runs the
+new steps (three first tries did: "Open my downloads folder", "what did I download today" and "Print Name" on a form,
+and their words were narrowed), and carries out "start my day" with a scripted model. All of `tests/run_all.py` passes.
+Not measured with a real model and not run inside NVDA.
+
 ## Next session
 
 1.18.0: inside NVDA, with the owner's yes: press NVDA+F1 on a control, then ask "what did the developer info say"; ask

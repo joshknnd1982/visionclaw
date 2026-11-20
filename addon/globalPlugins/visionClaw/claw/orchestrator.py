@@ -331,6 +331,11 @@ class Orchestrator:
 		task.skills = self._chooseSkills(task, request)
 		task.plans = self.plans
 		ownPlan = skillsModule.planned(task.skills, request)
+		if ownPlan is not None and planner.asksHowOrWhy(request):
+			# "How do I print this" asks how; it is answered with keys, and nothing is done (planner._HOW), also where
+			# a skill's own words are in it: its steps would press keys that nobody asked to be pressed.
+			debuglog.log("skills", f"{request!r} asks how or why, so the steps of the skill {ownPlan.slug} are not run.")
+			ownPlan = None
 		found = self._skillPlan(task, ownPlan, request) if ownPlan is not None else None
 		if found is not None:
 			steps, how, recipes = found

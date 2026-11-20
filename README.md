@@ -1863,9 +1863,50 @@ before you say yes.
 ## Skills
 
 A skill tells VisionClaw how a kind of job is done well for a blind person: describing a photo, web forms,
-email, braille, games, NVDA for a beginner, stubborn controls, and many more; 66 come with VisionClaw. VisionClaw chooses skills from
+email, braille, games, NVDA for a beginner, stubborn controls, and many more; 99 come with VisionClaw. VisionClaw chooses skills from
 the words of your request, by plain code, at most two at a time; an everyday word alone does not start one. A
 skill never holds code, and every change is still asked about.
+
+### Skills for everyday tasks
+
+Fifteen skills are for things people do every day. Each says how the job is done well with the keyboard, speech
+and braille, and some carry out their own steps when you say their words and nothing more:
+
+- **Chat apps**: *read my unread messages in WhatsApp*, *reply to the last message*, also Teams chat, Slack,
+  Discord, Messenger and Telegram. The newest first, who sent each and when; a reply is typed only in your words and
+  never sent by itself.
+- **Your calendar**: *what's on my calendar today*, *add an appointment with the dentist on Friday*. In time order,
+  exactly as shown; what is missing is asked for, and what will be saved is said first.
+- **Writing and proofreading**: *proofread what I wrote*, *are there spelling mistakes in this email*, *word count*.
+  Read back a sentence or a paragraph at a time; nothing is changed without a question.
+- **Music, podcasts and videos**: *pause the video*, *skip to the next song in Spotify*, *what is playing*. The
+  player's own keys first; the computer's volume only when you ask, and never muted.
+- **Printing**: say *print this*, *print the page* or *print the document*: VisionClaw presses Control+P after a
+  question, then says the printer, pages, copies and the button that prints, which is pressed only after a yes.
+- **A download**: say *where did my download go* or *what did I just download*: the newest files in your Downloads
+  folder, newest first.
+- **No sound**: say *no sound* or *can't hear anything*: the computer's volume, then the Sound settings page, with how
+  to choose another output device by keyboard.
+- **Start my day**: say *start my day*, *morning briefing* or *what did I miss*: the time, the date, the battery and
+  the notifications waiting; Escape closes the notification center.
+- **Social media**: *read the next post on Facebook*, *what are the comments on this post*. Who wrote it, when, its
+  text, then its pictures; a lasting fix for keys from post to post where the feed has none; nothing is liked,
+  shared or posted unless you ask.
+- **Windows updates**: say *windows update* or *check for windows updates*: the Windows Update page is opened and what
+  it says is read; its buttons and a restart only after a yes.
+- **Banking safely**: *what's my account balance*, *help me pay a bill on my bank's website*. Amounts and payees read
+  exactly; VisionClaw never types a password, card number or code; a payment only after the total and payee are read
+  and you say yes.
+- **Reading a book**: *read this book from the start*, *go to the next chapter*. NVDA's say all, stopped by any key;
+  never a whole book in one answer.
+- **Remote help**: *how do I get remote help with NVDA*. NVDA's remote access or its add-on, from their own help;
+  a connection key or password is never typed for you.
+- **Copy and paste**: *copy this text*, *copy the link of this page*, *open clipboard history*. What is copied and
+  where it is pasted is said first.
+- **What is on the clipboard**: say *what did I copy* or *what's on my clipboard*: NVDA's own command reads it.
+
+A question about how or why, such as *how do I print this*, is answered with the keys, and none of these steps are
+carried out: a skill's own steps run only when you ask for the thing itself.
 
 - **Make your own in words**: "make a new skill: when I ask about recipes, read the ingredients first". What the
   skill says is your own words.

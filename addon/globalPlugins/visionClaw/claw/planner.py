@@ -1161,6 +1161,12 @@ _OPENS_INSIDE = re.compile(
 _CHOOSES_INSIDE = re.compile(r"^\s*(?:please\s+)?(?:select|choose|pick|activate)\s+(?:the|a|an|my|this)\s+\S", re.IGNORECASE)
 
 
+def asksHowOrWhy(request):
+	"""Whether a request is a how-question or a why-question (_HOW, _WHY): it is answered, and nothing is done."""
+	said = computer.own(request)
+	return bool(_HOW.search(said) or _WHY.search(said))
+
+
 def hint(part, before=None):
 	"""The recipe a part's words point to, or OTHER. before: the recipe of the part before it, or None."""
 	text = part.lower()
