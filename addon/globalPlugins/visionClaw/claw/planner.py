@@ -14,6 +14,7 @@ import re
 from . import computer, controls, dates, debuglog, direct, gamepad, guide, memories, partners, places, pointer, policy, profiles, router, touch, understand
 from . import docformat, focus, humancheck, images, paper, seats, shopping, versions, wizard
 from . import diagnose, nvdalog, scratchpad
+from . import appaccess
 from .llm import LLMError, clip, uncut
 from .task import Step
 from .tools import ANSWER
@@ -209,6 +210,18 @@ RECIPES = {
 		"reads a control by its name, keys that move between posts, results or other items, a name for a control "
 		"that has none, or being told when a part of it changes",
 		("check_access", "add_fix")),
+	# A whole program made accessible, one window after another (claw/appaccess.py): plain code reads it from the words.
+	"program_access": (
+		"learn this window of the program and plan the fixes for all its windows",
+		"learn the window of the program or the web page the user is in, as one of all the windows of that program, and "
+		"plan the fixes for every accessibility problem of the whole program; or say which of its windows are known or what "
+		"the plan is, keep or stop learning its windows as the user moves to them, or forget them",
+		("learn_program",)),
+	"fix_program": (
+		"make the planned fixes for every window of this program",
+		"make a whole program or website accessible: learn the window the user is in, then make every fix planned for all "
+		"of its windows, with one add-on; also carrying out the plan made before",
+		("learn_program", "fix_program")),
 	"addon_question": (
 		"answer a question about an installed add-on",
 		"say what one add-on installed in NVDA does, whether it is on, which keys it has, or how to use it; or "
@@ -664,6 +677,11 @@ _HINTS = (
 	# that points back at a description, while descriptions are kept (claw/scratchpad.py).
 	("ask_scratchpad", scratchpad.asksFrom),
 	("scratchpad", scratchpad.asks),
+	# A whole program made accessible window after window (claw/appaccess.py), only where its words say the whole program,
+	# every window, this window too, the plan, or learning the windows. Before the inspection of one window and the notes
+	# from the internet, which "fix", "accessible" and "learn" would otherwise set off.
+	("fix_program", appaccess.makes),
+	("program_access", lambda part: appaccess.wish(part) is not None),
 	# The jobs of docs/PLAN-ten-scenarios.md. Each has a function that reads what is asked from the user's own
 	# words and gives None where they do not ask for it, so these rows name a job only where the words do.
 	("step_through", lambda part: wizard.wish(part) is not None),
@@ -1280,6 +1298,8 @@ _WHOLE = ("learn_app", "write_addon", "add_skill", "add_fix", "work_through", "t
 	"scratchpad", "ask_scratchpad", "own_errors", "fix_self", "own_fixes",
 	# "Check NVDA's log, which add-on is causing the errors" is one question about NVDA's log.
 	"nvda_log",
+	# "Learn all about this window, make a plan to fix its issues, then fix them" is one job for the whole program.
+	"program_access", "fix_program",
 	# One question about the control the user is on, in several clauses: "what's the focused control and what does it
 	# do" was split by the model and "what does it do" looked up alone (tests/eval/requests5.json, 2026-11-19).
 	# claw/focus.py takes no request that also asks for something to be done.
@@ -1458,9 +1478,17 @@ def split(llm, role, request, note=""):
 	# button was clicked that nobody asked for (measured with Qwen3.5 9B on 2026-11-18).
 	if guide.asks(request):
 		return [request]
+	# A whole program made accessible is one job in several clauses ("learn this window, make a plan, then fix the issues"),
+	# unless a clause asks for something else: "learn this window and then open Notepad" is two (claw/appaccess.py).
+	whole = hint(request)
+	if whole in ("program_access", "fix_program"):
+		parts = plainSplit(request)
+		if not parts or all(appaccess.belongs(part) for part in parts):
+			return [request]
+		whole = None
 	# One job told in several clauses: "find out about this game online and take notes" is learning about it, and
 	# split at "and take" each half went to learning (measured on the held-out set on 2026-11-18).
-	if hint(request) in _WHOLE:
+	if whole in _WHOLE:
 		return [request]
 	# "NVDA keeps saying every word I type, make it stop": what is wrong, then what to do about it. One request;
 	# split, each half changed the setting (measured on the second held-out set on 2026-11-18).
@@ -1674,14 +1702,17 @@ _NEEDS = {
 	"fix_self": lambda part: True if (diagnose.wish(part) or {}).get("do") == diagnose.FIX else None,
 	"own_fixes": lambda part: True if (diagnose.wish(part) or {}).get("do") in (diagnose.FIXES, diagnose.REMOVE) else None,
 	# NVDA's own log, likewise only where plain code finds it in the words (claw/nvdalog.py).
-	"nvda_log": nvdalog.wish}
+	"nvda_log": nvdalog.wish,
+	# A whole program made accessible: only where plain code finds it in the words (claw/appaccess.py).
+	"program_access": appaccess.wish,
+	"fix_program": lambda part: True if appaccess.makes(part) else None}
 # Recipes the words point to that can hardly mean anything else: locking and shutting down, the Recycle Bin, the
 # computer's own volume. Where the words point to one of them, it is taken, whatever a model chose. Each of
 # their tools asks the user before it changes anything.
 _SURE = ("power", "windows_part", "read_place", "empty_bin", "recycle_bin", "system_volume", "file_task", "pick_date", "work_through",
 	"teach_words", "step_through", "fill_blank", "format_document", "check_layout", "human_check", "pick_seat", "pick_option",
 	"look_picture", "about_focus", "version_info", "scratchpad", "ask_scratchpad", "own_errors", "fix_self", "own_fixes",
-	"nvda_log")
+	"nvda_log", "program_access", "fix_program")
 
 
 # Words that only ask something, at the start: a question, or "tell me". Asked of nothing on the screen and fitting no
@@ -1735,7 +1766,7 @@ def quickTriage(request):
 		"kind": recipes[0],
 		"complexity": complexity(recipes),
 		"needs_vision": any(r in ("describe", "click", "make_hotkey", "read_text", "fix_access", "check_access", "touch", "pressure",
-			"look_picture", "human_check") for r in recipes),
+			"look_picture", "human_check", "program_access", "fix_program") for r in recipes),
 		"needs_code": "write_addon" in recipes,
 	}
 

@@ -128,6 +128,12 @@ _NVDA_LOG = re.compile(
 	r"\bnvda'?s? (own )?(log|logs|log files?|logging)\b|\blogging level\b|\blog level\b|\blog viewer\b|\bnvda-old\b"
 	r"|\bnvda (froze|freez\w*|frozen|hangs?|hung|crash\w*)\b|\badd-?ons? (causing|breaking|crashing|freezing)\b"
 	r"|\bdev(eloper)? ?info\b|\bnvda remote\b.{0,30}\bconnect\w*", re.IGNORECASE)
+# A whole program made accessible window after window (claw/appaccess.py): asked only when the question names the windows
+# of a program, the plan, or a whole program made accessible.
+_PROGRAM_MAP = re.compile(
+	r"\b(every|each|all|other|new|its|program'?s?|app'?s?)\s+(windows?|dialogs?|screens?)\b|\b(windows?|dialogs?) of (this|the|a|my) "
+	r"(program|app|application|game)\b|\b(whole|entire) (program|app|application|game)\b|\b(accessibility )?plan\b"
+	r"|\blearn\w* (this|the|a|each|every|new|other) (window|dialog|screen)s?\b|\bplanned fix(es)?\b", re.IGNORECASE)
 # Where each knowledge file belongs, and what it is called when an answer is taken from it, and, for some,
 # what a question or the program in front must name for the file to be asked. A file that is not listed is
 # NVDA's.
@@ -159,6 +165,8 @@ NOTES = {
 		NVDA, "VisionClaw's notes on scanned forms, installers, pictures in a chat, documents, checks, shopping and seats",
 		_SIGHTED_HELP),
 	"visionclaw-nvdalog": (NVDA, "VisionClaw's notes on reading NVDA's own log", _NVDA_LOG),
+	"visionclaw-program-access": (
+		NVDA, "VisionClaw's notes on making a whole program accessible, window after window", _PROGRAM_MAP),
 }
 # Written for people who write add-ons. Left out unless the question is about that.
 DEVELOPER_NOTES = frozenset(("addon-development", "objects-and-events", "nvda-inside", "guides"))

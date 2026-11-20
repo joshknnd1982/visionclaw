@@ -2989,6 +2989,9 @@ def build(plugin):
 	# Deep inspection, lasting fixes for a website or program, and questions about installed add-ons.
 	from . import accesstools
 	accesstools.register(plugin, add, text, registry)
+	# A whole program made accessible window after window: learned, planned and fixed (appaccesstools.py, claw/appaccess.py).
+	from . import appaccesstools
+	appaccesstools.register(plugin, add, text)
 	# A newer version of VisionClaw itself, when the user asks for it in words.
 	from . import updater
 	updater.register(plugin, add, text)

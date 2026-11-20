@@ -20,7 +20,9 @@ import re
 
 JUMP, PRESS, READ, NAME, WATCH = "jump", "press", "read", "name", "watch"
 KINDS = (JUMP, PRESS, READ, NAME, WATCH)
-MAX_FIXES = 40
+# A program made accessible window after window (claw/appaccess.py) gathers the fixes of all its windows in its one
+# add-on, so it has room for more than one window needs. Names need no keys; the keys run out first (_SINGLE_KEYS).
+MAX_FIXES = 80
 MARK = "# VisionClaw fixes add-on"
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _PARTS = (

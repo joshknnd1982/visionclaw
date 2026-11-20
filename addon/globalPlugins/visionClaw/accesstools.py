@@ -1118,6 +1118,11 @@ def register(plugin, add, text, registry=None):
 				or not onMain(_samePlace, found)):
 			found = task.access = inspect(plugin, task, target, depth)
 			found.deep = depth == "deep"
+			if found.deep:
+				# A window of a program the user asked VisionClaw to make accessible joins the program's map
+				# (appaccesstools.py). Never a fault.
+				from . import appaccesstools
+				appaccesstools.record(plugin, found)
 		step = task.steps[task.current] if 0 <= task.current < len(task.steps) else None
 		if step is None or step.recipe in (None, "check_access"):
 			# This report is told to the user. A number they say later means a problem of this report.

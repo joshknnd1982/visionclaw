@@ -153,6 +153,14 @@ NVDA_LOG_HELP = (
 	"from, say an error in plain words, and say when it happened. Never read out code, file paths, or the numbers of "
 	"threads and lines."
 )
+# For an answer made from what VisionClaw learned about the windows of a program it is making accessible, and the plan to
+# fix them (claw/appaccess.py, appaccesstools.passages). The owner asked on 2026-11-19 that the work on a whole program
+# use system prompts and retrieval like the rest. Not measured with a real model.
+PROGRAM_HELP = (
+	"About a program's windows and its plan: These lines are what VisionClaw found when it inspected the windows of this "
+	"program on this computer, and the program may have changed since. Say which window a line is about. A step that is "
+	"made is in the program's fixes add-on; a step to make is not done yet, and nothing is made without the user's yes."
+)
 # How a line that was looked up begins when it is from the developer guides, from an add-on, and from the
 # training material the user had downloaded (claw/lookup.py, claw/training.py).
 _FOUND = (
@@ -163,6 +171,8 @@ _FOUND = (
 	("padHelp", re.compile(r"From (your task scratchpad|the scratchpad of what was learned in|the descriptions scratchpad)\b")),
 	# claw/nvdalog.py and the orchestrator, as lines of NVDA's own log are given to a model.
 	("nvdaLogHelp", re.compile(r"From NVDA's log\b|NVDA's log says\b")),
+	# appaccesstools.passages, as the lines of a program's map are given to look_up.
+	("programHelp", re.compile(r"From what VisionClaw learned about the (?:windows|pages) of\b")),
 )
 # Which words ask for which kind. Plain code decides; nothing is added when nothing fits.
 CODE_KINDS = (
@@ -189,7 +199,7 @@ DEFAULTS = {
 	"user": USER, "speaking": SPEAKING, "seeing": SEEING, "addon": ADDON, "quick": QUICK, "detailed": DETAILED,
 	"brief": BRIEF, "codeKey": CODE_KEY, "codeAuto": CODE_AUTO, "codeProgram": CODE_PROGRAM, "codeGuide": CODE_GUIDE,
 	"devGuide": DEV_GUIDE, "addonHelp": ADDON_HELP, "trainingHelp": TRAINING_HELP, "padHelp": PAD_HELP, "codePad": CODE_PAD, "codeLog": CODE_LOG,
-	"nvdaLogHelp": NVDA_LOG_HELP,
+	"nvdaLogHelp": NVDA_LOG_HELP, "programHelp": PROGRAM_HELP,
 }
 # The user's own instructions are cut to this: they are read with every answer, by models with little room.
 OWN_CHARS = 500

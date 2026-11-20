@@ -432,7 +432,7 @@ assert instance.dataDir == DATA and instance.portableSettings()["searchEngine"] 
 instance.controller._stopped.set()
 instance.controller._thread.join(5)
 registry = instance.orchestrator.registry
-assert len(registry.names()) == 121, registry.names()
+assert len(registry.names()) == 123, registry.names()
 # Lessons from searches that happened to find something misled; they are dropped when VisionClaw starts.
 assert instance.memory.all() == ["Tool set_setting: this form failed: {} (x). This form worked: {}."], instance.memory.all()
 assert set(planner.available(registry)) == set(planner.RECIPES), set(planner.RECIPES) - set(planner.available(registry))
@@ -3042,6 +3042,114 @@ sys.modules["api"].getFocusObject = lambda: recordButton
 worked, result = registry.call(taskModule.Task("test"), "check_access", {"target": "control", "depth": "deep"})
 assert worked and "A sighted person works it like this: press and hold. That comes from its own name." in result, result
 assert "Ask VisionClaw to press and hold it by name" in result, result
+
+# --- A whole program made accessible, window after window (appaccesstools.py, claw/appaccess.py) ---
+
+from visionClaw import appaccesstools  # noqa: E402
+from visionClaw.claw import accessnotes, appaccess, lookup  # noqa: E402
+
+closeIcon = thing("BUTTON", "", ["FOCUSABLE"], box=(700, 10, 730, 40), autoId="closeBtn")
+gearIcon = thing("BUTTON", "", ["FOCUSABLE"], box=(650, 10, 680, 40))
+gearIcon.windowControlID = 1007
+prefs = thing("DIALOG", "Preferences", box=(0, 0, 800, 600), children=[closeIcon, gearIcon, okButton])
+effects = thing("DIALOG", "Effects", box=(0, 0, 800, 600), children=[
+	thing("BUTTON", "", ["FOCUSABLE"], box=(700, 10, 730, 40), autoId="closeBtn"), thing("BUTTON", "Reverb", ["FOCUSABLE"]), okButton])
+sys.modules["api"].getForegroundObject = lambda: prefs
+sys.modules["api"].getFocusObject = lambda: okButton
+instance.runtime = types.SimpleNamespace(
+	describe=lambda image, prompt, maxTokens, cancel=None: "none", unloadIdle=lambda *args: None,
+	chat=lambda *args, **kwargs: '{"name": "Gear"}', oneModel=lambda: True)
+instance._grab = lambda box: "picture"
+questions = []
+instance.clawAsk = lambda question, choices: questions.append(question) or 0
+assert registry.get("learn_program").looks and registry.get("fix_program").changes
+assert registry.get("learn_program").tell == registry.get("fix_program").tell == "verbatim"
+# Learning the window in front: every problem, its steps in the plan, the program it belongs to, and nothing made yet.
+worked, result = registry.call(taskModule.Task("test"), "learn_program", {"asked": "learn this window"})
+assert worked and result.startswith("Learned the dialog Preferences of the program mixer.\nFound 1 problem in it:\n1. 2 buttons have "
+	"no name"), result
+assert "- To make: Buttons without a name are called close. In the window Preferences." in result, result
+assert "- To make: Buttons without a name are called Gear, a guess from a picture that can be wrong. In the window Preferences." in result
+assert "It is the first window of the program mixer that VisionClaw has learned." in result
+assert "To make the 2 fixes still to make, say: make the planned fixes for this program." in result, result
+assert result.endswith("When you move to another window of it, VisionClaw learns that one too, and tells you."), result
+assert questions == [] and instance.helpers.store.source("fixes_mixer") is None
+assert appaccesstools.isFollowed(instance, {"app": "mixer"})
+mapFile = accesstools.accessNotes(instance).text({"app": "mixer"})
+assert "## Windows and pages learned" in mapFile and "## The plan to fix it" in mapFile and "Preferences, a dialog." in mapFile, mapFile
+# The name read from the gear's picture is kept, so that the same control is named again without a model.
+assert accesstools.accessNotes(instance).knownName({"app": "mixer"}, accessnotes.keyOf(
+	{"role": "BUTTON", "controlId": 1007, "windowClass": "JUCE_1a"})) == "Gear"
+# A second window of the same program: it belongs to it, and the close button found in both is one step of the plan.
+sys.modules["api"].getForegroundObject = lambda: effects
+worked, result = registry.call(taskModule.Task("test"), "learn_program", {"asked": "learn this window too"})
+assert worked and result.startswith("Learned the dialog Effects of the program mixer."), result
+assert "- To make: Buttons without a name are called close. In the windows Preferences and Effects." in result, result
+assert "VisionClaw now knows 2 windows of the program mixer, all of them part of it: Preferences and Effects." in result, result
+worked, result = registry.call(taskModule.Task("test"), "learn_program", {"asked": "which windows of this program have you learned"})
+assert worked and result.startswith("VisionClaw has learned 2 windows of the program mixer, and all of them belong to it:\n1. "
+	"Preferences, a dialog."), result
+worked, result = registry.call(taskModule.Task("test"), "learn_program", {"asked": "what's the plan for this program"})
+assert worked and result.startswith("The plan for the program mixer, from the 2 windows VisionClaw has learned, has 2 steps: 2 to make."), result
+# Making the plan: every fix of every window in the program's one add-on, after one question; then what is left.
+del questions[:]
+fixTask = taskModule.Task("test")
+worked, result = registry.call(fixTask, "learn_program", {"asked": "make every window of this program accessible"})
+assert worked and "make the planned fixes" not in result, result
+worked, result = registry.call(fixTask, "fix_program", {"asked": "make every window of this program accessible"})
+assert worked and result.startswith("Made 2 fixes for the program mixer."), result
+assert result.endswith("Every step of the plan for the program mixer is made."), result
+assert len(questions) == 1 and questions[0].startswith("VisionClaw can make these fixes for the program mixer"), questions
+scope, made = fixes.parse(instance.helpers.store.source("fixes_mixer"))
+assert sorted(fix["label"] for fix in made) == ["Gear", "close"], made
+worked, result = registry.call(taskModule.Task("test"), "learn_program", {"asked": "what's the plan for this program"})
+assert "2 made" in result and "1. Made: Buttons without a name are called close." in result, result
+# Nothing left: said, and no question asked.
+del questions[:]
+worked, result = registry.call(taskModule.Task("test"), "fix_program", {"asked": "carry out the plan"})
+assert worked and result.startswith("Nothing of the plan for the program mixer is left that an add-on can make now.") and not questions, result
+# A deep inspection of another window of the program puts it on the map too, now that VisionClaw is making it accessible.
+sys.modules["api"].getForegroundObject = lambda: recorder
+registry.call(taskModule.Task("test"), "check_access", {"target": "window", "depth": "deep"})
+assert [place.name for place in appaccesstools.mapOf(instance, {"app": "mixer"})[0]] == ["Preferences", "Effects", "Recorder"]
+# Another window the user moves to is learned by itself, with NVDA's facts only, and one sentence says so.
+heardFollow = []
+follower = appaccesstools.Follower(instance, heardFollow.append, threading.Event())
+routing = thing("DIALOG", "Routing", box=(0, 0, 800, 600), children=[
+	thing("BUTTON", "", ["FOCUSABLE"], box=(700, 10, 730, 40), autoId="closeBtn"), thing("BUTTON", "Send", ["FOCUSABLE"]), okButton])
+follower._learn(follower._generation, ({"app": "mixer"}, appaccess.windowId("JUCE_1a", "Routing", ["mixer"]), "Routing", "dialog", routing),
+	threading.Event())
+assert heardFollow == ["VisionClaw learned this dialog of mixer: 1 problem, 1 step for it in the plan."], heardFollow
+assert "Routing" in [place.name for place in appaccesstools.mapOf(instance, {"app": "mixer"})[0]]
+# A window known already is not learned again by itself, and nothing is said for a program the user stopped.
+follower._learn(follower._generation, ({"app": "mixer"}, appaccess.windowId("JUCE_1a", "Routing", ["mixer"]), "Routing", "dialog", routing),
+	threading.Event())
+assert len(heardFollow) == 1
+# The model that chooses is told that the user is in a program VisionClaw is making accessible, and how far it is.
+told = instance.orchestrator.programMap()
+assert told == ("VisionClaw is making the program mixer accessible window after window: it has learned 4 windows of it, and "
+	"its plan has 0 fixes still to make and 2 made."), told
+assert told in instance.orchestrator._context("now fix the rest of the windows")
+worked, result = registry.call(taskModule.Task("test"), "learn_program", {"asked": "stop learning windows of this program"})
+assert worked and result.startswith("VisionClaw no longer learns the windows of the program mixer") and not appaccesstools.isFollowed(
+	instance, {"app": "mixer"}), result
+assert instance.orchestrator.programMap() == ""
+# look_up is given the map where the question is about windows, problems or the plan, each line saying where it is from.
+sys.modules["api"].getForegroundObject = lambda: effects
+found = appaccesstools.passages(instance, "which windows have problems")
+assert found and all(p.origin == "what VisionClaw learned about the windows of the program mixer" for p in found), found
+assert any("Routing, a dialog." in p.text for p in found) and lookup.gated(found, "what time is it") == []
+# Forgetting asks first; the fixes made stay in the add-on.
+worked, result = registry.call(taskModule.Task("test"), "learn_program", {"asked": "forget the windows of this program"})
+assert worked and result.startswith("Forgot the 4 windows and the plan of the program mixer.") and questions[-1].startswith("Forget the 4 windows"), result
+assert appaccesstools.mapOf(instance, {"app": "mixer"}) == ([], []) and instance.helpers.store.source("fixes_mixer") is not None
+registry.call(taskModule.Task("test"), "remove_helper", {"name": "fixes_mixer"})
+# The program's learning scratchpad has one line of what VisionClaw knows of it, for the models working there later.
+mixerPad = instance.pads.learning("mixer")
+assert [note.text for note in mixerPad.notes if "making mixer accessible window by window" in note.text], [n.text for n in mixerPad.notes]
+os.remove(mixerPad.path)
+instance.pads.refresh()
+instance.runtime = realRuntime
 
 # --- The developer guides: downloaded only after a yes, kept as Markdown, and read by the models ---
 

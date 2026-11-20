@@ -197,6 +197,9 @@ confspec = {
 	# After how many seconds of quiet VisionClaw says how far a long request or description is, or never
 	# (claw/busy.py).
 	"statusUpdates": 'option("10", "15", "30", "60", "off", default="15")',
+	# What VisionClaw does when the user moves to another window of a program they asked it to make accessible
+	# (appaccesstools.Follower, claw/appaccess.py): learn it and say so in one sentence, learn it quietly, or nothing.
+	"programFollow": 'option("tell", "quiet", "off", default="tell")',
 	"preload": "boolean(default=True)",
 	"answerInNvdaLanguage": "boolean(default=True)",
 	# The instructions every answer and description gets (claw/prompts.py). "" is VisionClaw's own wording.
@@ -216,6 +219,7 @@ confspec = {
 	"promptCodePad": 'string(default="")',
 	"promptNvdaLogHelp": 'string(default="")',
 	"promptCodeLog": 'string(default="")',
+	"promptProgramHelp": 'string(default="")',
 	"promptQuick": 'string(default="")',
 	"promptDetailed": 'string(default="")',
 	"promptBrief": 'string(default="")',
@@ -284,7 +288,7 @@ PROMPT_KEYS = {
 	"codeKey": "promptCodeKey", "codeAuto": "promptCodeAuto", "codeProgram": "promptCodeProgram",
 	"codeGuide": "promptCodeGuide", "devGuide": "promptDevGuide", "addonHelp": "promptAddonHelp",
 	"trainingHelp": "promptTrainingHelp", "padHelp": "promptPadHelp", "codePad": "promptCodePad",
-	"nvdaLogHelp": "promptNvdaLogHelp", "codeLog": "promptCodeLog",
+	"nvdaLogHelp": "promptNvdaLogHelp", "codeLog": "promptCodeLog", "programHelp": "promptProgramHelp",
 	"quick": "promptQuick", "detailed": "promptDetailed", "brief": "promptBrief",
 }
 
@@ -658,6 +662,12 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			self._stopped, lambda: self.voice.listening())
 		self.orchestrator.nvdaLog = self.nvdaLogFeed
 		self.nvdaLogFeed.startWatch()
+		# Another window of a program the user asked VisionClaw to make accessible is learned when the user moves there
+		# and stays a moment (appaccesstools.py): NVDA's facts only, no model, and nothing is made without a yes.
+		from . import appaccesstools
+		self.programFollower = appaccesstools.Follower(self, _speak, self._stopped)
+		# The model that chooses is told, in one sentence, when the user is in such a program (orchestrator._context).
+		self.orchestrator.programMap = lambda: appaccesstools.contextText(self)
 		# True after the memory was given back because Windows ran low.
 		self._freedForMemory = False
 		self.labels = labels.LabelStore(os.path.join(DATA_DIR, "labels.json"))
@@ -785,6 +795,8 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		debuglog.log("start", "VisionClaw is closing with NVDA.")
 		self.board.close()
 		self._stopped.set()
+		if getattr(self, "programFollower", None) is not None:
+			self.programFollower.terminate()
 		self._cancel.set()
 		self._backgroundCancel.set()
 		self._backgroundWake.set()
@@ -986,6 +998,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			("trainingHelp", _("Answers taken from downloaded training material")),
 			("padHelp", _("Answers taken from VisionClaw's scratchpads")),
 			("nvdaLogHelp", _("Answers taken from NVDA's own log")),
+			("programHelp", _("Answers about the windows of a program VisionClaw is making accessible")),
 		]
 		values = {part: prompts.part(part) if prompts.isCustom(part) else "" for part in prompts.PARTS}
 		values["own"] = c["ownInstructions"]
@@ -2071,6 +2084,10 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		if self._isQuiet(obj):
 			return
 		nextHandler()
+		follower = getattr(self, "programFollower", None)
+		if follower is not None and self._hasData:
+			# Never lets an error reach NVDA (Follower.foreground).
+			follower.foreground(obj)
 
 	def _isQuiet(self, obj):
 		"""True for focus changes caused by fetching a WinZapp photo: the viewer it opens, which is hidden at once, and

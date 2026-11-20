@@ -350,6 +350,13 @@ def register(plugin, add, text, onMain, commandsNow):
 		if padded:
 			passages += padded
 			task.emit(taskModule.DETAIL, f"Asked your scratchpads: {len(padded)} lines about the question.")
+		# What VisionClaw learned about the windows of this program and its plan to fix them, where it is making the
+		# program accessible (appaccesstools.passages); only a question about windows, problems or the plan opens them.
+		from . import appaccesstools
+		mapped = lookup.gated(_safe(lambda: appaccesstools.passages(plugin, question), []) or [], question)
+		if mapped:
+			passages += mapped
+			task.emit(taskModule.DETAIL, f"Asked what VisionClaw learned about this program's windows: {len(mapped)} lines.")
 		task.check()
 		# A question that points at something, "what does this do", is put to a model with where the user is:
 		# it says whether the program, the window or the focused control is meant. Plain code offers the three.

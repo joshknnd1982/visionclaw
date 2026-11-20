@@ -23,9 +23,18 @@ chat apps, and names for unlabelled buttons.
 > [docs/STATUS.md](docs/STATUS.md) for exactly what was tested.
 
 <!-- news: written by tools/write_help.py from manifest.ini; do not change it by hand -->
-This README is for VisionClaw 1.18.0.
+This README is for VisionClaw 1.19.0.
 
-## What is new in 1.18.0
+## What is new in 1.19.0
+
+- A whole program made accessible, window after window. In the program, press NVDA+Alt+C and say "make every window of this program accessible", or "learn all about this window, make a plan to fix its accessibility issues, then fix them". VisionClaw learns the window in front with its deep inspection, names controls without a name from their pictures, plans the fixes for every window of the program it knows, asks you once, and makes them all in the program's one fixes add-on; then it says what is left. To learn and plan without changing anything, say "learn this window" or "learn this window and make a plan to fix it"; later say "make the planned fixes for this program".
+- Two, twenty or a hundred windows belong to one program. VisionClaw knows a window again by its window class and its title without the document's name, so "Untitled - Notepad" and "notes.txt - Notepad" are one window, and keeps every window on the program's map. A fix found in several windows is one step of the plan and works in all of them. Ask "which windows of this program have you learned", "what's the plan for this program" or "what's left to fix in this program": every window and every step is said.
+- When you move to another window of a program you asked VisionClaw to make accessible and stay a moment, it learns that window by itself from NVDA's facts only, without a model, and says in one sentence what it found; it never makes a fix by itself. A new setting, "When you move to another window of a program VisionClaw is making accessible", chooses: learn it and tell me in one sentence (the default), learn it quietly, or only when I ask. Say "stop learning windows of this program" for one program, or "forget the windows of this program", which asks first.
+- It uses VisionClaw's memory, scratchpads, NVDA's log and its instructions: steps about what you asked VisionClaw to remember about the program come first; a control named in one window keeps its name in the others without asking a model; the program's scratchpad gets a line of what VisionClaw knows of it; recent errors, freezes and developer info from NVDA's log are said after a window is learned; and "what problems did you find in the windows of this program" is answered from the map, with new instructions you can rewrite in How VisionClaw answers: "Answers about the windows of a program VisionClaw is making accessible". A new skill, "Make a whole program accessible", goes with it.
+- The map and the plan are two new sections of the program's access notes, the Markdown file in the folder access of VisionClaw's data; the file is yours. A program's fixes add-on now holds up to 80 fixes, at most 8 of them for being told of changes.
+- Tested with plain Python and with stand-ins for NVDA; not yet run inside NVDA or with a real model.
+
+## What was new in 1.18.0
 
 - The scratchpads are used the way large AI models use theirs, made small. Every line VisionClaw or a model wrote counts how often the requests it was given to went well, as in "used 3 times, 2 went well"; lines that helped come first, and a line that keeps going with requests that did not go well is moved under Set aside in its file, where no model reads it. Move it back under Notes to use it again. Your own lines are never set aside. A way of looking that found nothing in a program is written down too, so that the next time another way is chosen first.
 - With a task scratchpad open, say "do the next one", "do step 3 on my scratchpad" or "let's do the second thing": VisionClaw carries out that thing on the list, tells you how it understood it, and checks it off when it went well, with what is next.
@@ -36,17 +45,6 @@ This README is for VisionClaw 1.18.0.
 - Every skill can ask NVDA's log: each names what it wants (errors, add-ons, speech, audio, braille, freezes, session, settings, objects, input help, remote), and what NVDA logged of those in the last minutes goes with its sentences. Press NVDA+F1 on a control before asking for an add-on for "this button", and the add-on is written with the window class and automation ID NVDA logged. When VisionClaw writes an add-on for a program, the lines of that program's scratchpad that fit go with it too.
 - Four new instructions in How VisionClaw answers in the settings: answers taken from VisionClaw's scratchpads, add-ons written with lines from a program's scratchpad, answers taken from NVDA's own log, and add-ons written with the developer info NVDA logged about an object. An answer made from scratchpad lines is followed by one sentence that says so.
 - Measured with Qwen3.5 4B for both jobs: on the eight sets of 555 requests that measure which job is chosen, 526 right, the same as 1.16.1, with no request changing its job; asked eight questions answered from scratchpad lines, it was right eight times with the new instruction, as without it. The skills' lines of NVDA's log, the add-on writer's lines and the watch were tested with plain Python, made-up logs and stand-ins only. None of this has run inside NVDA yet.
-
-## What was new in 1.17.0
-
-- Scratchpads, as cloud AI assistants keep them: Markdown files on which VisionClaw and its models write down what they find, and look it up again. For a task you do over several requests, press NVDA+Alt+C and say "start a scratchpad for setting up my game: install it, set the volume, then learn the keys". While it is open, VisionClaw reads it with every request and writes down what each request did. Say "what's next" or "where was I", "check off step 2", "write on the scratchpad that the volume slider is the third control", "add buy batteries to the to-do list on my scratchpad", "read my scratchpad", "open my scratchpad", and "close the scratchpad" when the task is done.
-- The models write down what they find while they work. When a step finds out something long, such as a window's list of items or a web page, the model writes down in one sentence the fact the next step needs, and plain code keeps it only when its names, numbers and keys are in what was found. A long result is now given to a step by its parts about that step, not cut off after its beginning.
-- VisionClaw learns on the fly in each program and website: what the models wrote down there is kept on a scratchpad of its own, with the topics it is about (controls, windows, games, web pages, browse mode and focus mode, pictures, charts, maps, drawing, maths, office documents, music and audio programs, accessibility interfaces, keys), and given again to later requests there. Say "write on the scratchpad for this program that the mixer opens with Control+M" to add your own line, and "what did you write on the scratchpad about the mixer" to ask.
-- The last twelve descriptions (NVDA+Alt+A, W, F and D) and the questions answered about them are kept on the descriptions scratchpad. Ask about one later by pointing back at it: "what was the phone number in the picture you described".
-- A new setting, "Let the models keep scratchpads", is on by default; turned off, the models write nothing down and no description is kept. Every scratchpad is a file in the folder scratchpads of VisionClaw's data, inside the add-on, so a portable copy carries all of them, as it carries the logs. Say "which scratchpads do I have" or "delete all scratchpads"; deleting is always asked about.
-- VisionClaw reads its own log only when you ask: say "what errors are in your log", "why did my last request fail" or "diagnose your last error". You hear each error, when and how often, and where in VisionClaw's code, and the model that writes code says in plain words what went wrong, which may be wrong.
-- VisionClaw corrects a bug in its own code only when you ask: say "fix that bug in your code". The model that writes code writes the one function where the error happened again, plain code checks it, the model that sees reads it, and you are always asked first. VisionClaw's own files are never changed: the correction is used at once and whenever VisionClaw starts, for this version only, and turns itself off if it fails. Say "undo that" to take it back, and "which fixes did you make to your own code" to hear them.
-- Measured with Qwen3.5 4B for both jobs: from six long results, it wrote down the fact the next step needs six times, all kept by plain code; it said rightly that the one error in the owner's log was harmless; given three functions with a real bug, its corrections passed plain code's checks three times and none of them raised its error again when run, though two did something other than intended, which is why you are always asked. Not yet run inside NVDA.
 
 How to use each of these is explained in its own part of this README, further down.
 <!-- /news -->
@@ -92,6 +90,8 @@ Press **NVDA+Alt+C**, type a request, and press Enter. For example:
 - *Save the add-on hello key as a file.*
 - *Do a deep inspection of this website.* Then: *Fix all of it*, or *Fix number 2.*
 - *Give this site keys to move between posts.* *Make NVDA+Alt+P press the Play button on this page.*
+- *Make every window of this program accessible.* *Learn this window too.* *What's the plan for this program?*
+  *Which windows of this program have you learned?* (A whole program, window after window.)
 - *What does the Clock add-on do? Which keys does it have?*
 - *What time is it?* *What is the date today?* *Tell me the time and the date.*
 - *Tell me everything NVDA knows about this control.* *What is the window class of the focused control?*
@@ -965,6 +965,67 @@ What it cannot do: a control that nothing in the page's or program's code tells 
 named reliably, and the report says how many those are. A window NVDA cannot read at all cannot be fixed
 this way; use the picture instead (*list what is in the window*, an app helper hotkey, or pointer mode).
 Sites change, and a fix that no longer finds its control says so instead of doing something else.
+
+## A whole program made accessible, window after window
+
+The fixes above are for the window or page you are in. A program has many windows: its main window, its dialogs, its
+settings, its wizards. VisionClaw can make the whole program accessible, one window after another, and knows that all
+of them belong to that program, however many there are: two, twenty or a hundred.
+
+**Start.** In the program, press NVDA+Alt+C and say *make every window of this program accessible*, or *learn all
+about this window, make a plan to fix its accessibility issues, then fix them*. VisionClaw:
+
+- learns the window in front with the deep inspection, the same as *do a deep inspection of this window*;
+- names controls without a name from their pictures while they show; a control named in one window of the program
+  keeps that name in every other window, without asking a model again;
+- puts the window on the program's map and its fixes into the program's plan, and says them step by step;
+- asks you once, and makes every planned fix of every window it knows in the program's one fixes add-on; hotkeys for
+  dials, sliders and held controls of the window in front are asked about on their own;
+- says what is left.
+
+**Only learn and plan.** Say *learn this window*, *learn this window too*, or *learn this window and make a plan to
+fix it*. Nothing is changed. Later, say *make the planned fixes for this program*.
+
+**Other windows.** After you asked once in a program, move to another window of it and stay a moment: VisionClaw
+learns it by itself from NVDA's facts only, without a picture and without a model, and says in one sentence what it
+found, such as *VisionClaw learned this dialog of notepad: 1 problem, 1 step for it in the plan.* It never makes a fix
+by itself. In VisionClaw's settings, **When you move to another window of a program VisionClaw is making accessible**
+chooses: learn it and tell me in one sentence (the default), learn it quietly, or only when I ask. *Stop learning
+windows of this program* stops it for one program; *keep learning the windows of this program* starts it again. Pages
+of a website are learned when you ask: *learn this page*.
+
+**How VisionClaw knows a window again.** By its window class and its title with what changes left out: *Untitled -
+Notepad* and *notes.txt - Notepad* are one window of Notepad. A fix found in several windows is one step of the plan,
+and works in all of them, because a program's fixes add-on works in every window of that program.
+
+**The plan.** The simplest remedy first: names for controls, being told when a part changes, keys that press or read
+a control, keys that move between items. Then what needs its window open (controls to be named from their pictures,
+hotkeys for dragged or held controls), and last what no add-on can fix, with what to do instead. Each step says which
+windows it is for, and whether it is made, which is read from the program's add-on itself. Ask *what's the plan for
+this program*, *what's left to fix in this program*, or *which windows of this program have you learned*: every window
+is named.
+
+**What it uses besides the inspection.**
+
+- Memory: steps about what you asked VisionClaw to remember about the program, and what you wrote yourself on its
+  scratchpad, come first.
+- The program's file: the map and the plan are two sections of the program's access notes, such as access\notepad.md
+  in VisionClaw's data folder: read it, change it or delete lines. *Forget the windows of this program* forgets them,
+  after a question; the fixes already made stay in the add-on until you remove it.
+- Scratchpads: the program's learning scratchpad gets one line of what VisionClaw knows of it, for the models that work
+  there later.
+- NVDA's log: after a window is learned, recent errors, freezes and developer info that NVDA logged are said.
+- Questions: *what problems did you find in the windows of this program* is answered from the map, with instructions
+  of its own, which you can rewrite in How VisionClaw answers in the settings: Answers about the windows of a program
+  VisionClaw is making accessible.
+- The model that chooses how to handle a request is told when you are in such a program, so that *the other windows*
+  means its windows.
+- A skill, Make a whole program accessible, says how the steps are worded for you.
+
+**Limits.** A program's add-on holds up to 80 fixes, at most 8 of them for being told of changes, and its keys run out
+first: 20 single keys and 6 pairs. Controls of a window that is not open cannot be named from their pictures; the plan
+says to move there. This is new: tested with plain Python and stand-ins for NVDA, not yet inside NVDA or with a real
+model.
 
 ## The control you are on
 
@@ -1953,6 +2014,8 @@ NVDA menu, Preferences, Settings, VisionClaw. In the order you meet them:
 - **Status updates while VisionClaw takes long, as with a large model or high thinking**: after 10, 15, 30 or 60
   seconds of quiet, and as often while it lasts; or never, and you press NVDA+Alt+P when you want to know. The
   suggested choice is 15 seconds.
+- **When you move to another window of a program VisionClaw is making accessible**: learn it and tell me in one
+  sentence (the default), learn it quietly, or only when I ask; see A whole program made accessible.
 - **Speak with VisionClaw's own voice, once you have set one.**
 - **Models on this computer**: the models, their sizes and what each is in use for.
 - **Look for a newer version of VisionClaw**: only when I ask, or when NVDA starts, at most once a day.

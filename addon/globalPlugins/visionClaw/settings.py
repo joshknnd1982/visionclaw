@@ -14,7 +14,7 @@ import wx
 from gui import guiHelper
 
 from . import clawui, padtools
-from .claw import backend, busy, debuglog, memories, modelpick, policy, updates
+from .claw import appaccess, backend, busy, debuglog, memories, modelpick, policy, updates
 from .claw import voice as voiceWords
 
 addonHandler.initTranslation()
@@ -152,6 +152,18 @@ class VisionClawPanel(gui.settingsDialogs.SettingsPanel):
 				"at any time):"), wx.Choice, choices=clawui.statusLabels())
 		self.statusUpdates.SetSelection(
 			busy.CHOICES.index(c["statusUpdates"]) if c["statusUpdates"] in busy.CHOICES else busy.CHOICES.index(busy.SUGGESTED))
+		self.programFollow = helper.addLabeledControl(
+			# Translators: Label of the choice of what VisionClaw does when the user moves to another window of a program
+			# they asked it to make accessible.
+			_("When you move to another &window of a program VisionClaw is making accessible:"), wx.Choice, choices=[
+				# Translators: A choice for another window of a program VisionClaw is making accessible.
+				_("Learn it and tell me in one sentence"),
+				# Translators: A choice for another window of a program VisionClaw is making accessible.
+				_("Learn it quietly"),
+				# Translators: A choice for another window of a program VisionClaw is making accessible.
+				_("Only when I ask")])
+		self.programFollow.SetSelection(
+			appaccess.FOLLOW_CHOICES.index(c["programFollow"]) if c["programFollow"] in appaccess.FOLLOW_CHOICES else 0)
 		self.ownVoice = checkbox(
 			# Translators: Checkbox in settings.
 			_("Speak with VisionClaw's o&wn voice, once you have set one. To set it, close this window and ask "
@@ -281,6 +293,7 @@ class VisionClawPanel(gui.settingsDialogs.SettingsPanel):
 		c["useNvdaLog"] = self.useNvdaLog.GetValue()
 		c["nvdaLogWatch"] = self.nvdaLogWatch.GetValue()
 		c["statusUpdates"] = busy.CHOICES[max(0, self.statusUpdates.GetSelection())]
+		c["programFollow"] = appaccess.FOLLOW_CHOICES[max(0, self.programFollow.GetSelection())]
 		c["ownVoice"] = self.ownVoice.GetValue()
 		c["readAhead"] = self.readAhead.GetValue()
 		c["iconLabeler"] = self.iconLabeler.GetValue()

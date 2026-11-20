@@ -1554,6 +1554,36 @@ keyboard and speech alone.
     `teach-visionclaw-this-program`, each taking the place of `keep-a-scratchpad` where it fits so that neither is cut in
     half (`skills.guide` shares the room); `stubborn-program`, `game` and `music-software` try the program's scratchpad
     first. `tests/test_scratch_ways.py` checks which requests choose them.
+- **A whole program is made accessible window after window, and every window belongs to its program**
+  (`claw/appaccess.py`, `appaccesstools.py`, the jobs `program_access` and `fix_program`). The owner said on 2026-11-19:
+  "Add a skill that makes visionclaw learn all about the current window of a program, makes a plan to fix all
+  accessibility issues, and then fixes those issues. The skill must use memory, scratchpads, logs, system prompts, rag.
+  And when the user moves onto another window of the program, visionclaw can learn about it too, and visionclaw must
+  understand that these two or three or four of twenty windows or 100 or more of these windows and all kinds of objects
+  belong to this program. then visionclaw must implement all accessibility fixes." What follows from it:
+  - **Plain code reads the words** (`appaccess.wish`), kept narrow: "fix this window", "inspect this window" and "make
+    this program accessible" stay with one window (`fix_access`, `check_access`), "learn about this program" stays
+    `learn_app`, "explore this page" stays `explore_page`. Both jobs are sure and whole; a clause that asks for something
+    else is split off (`appaccess.belongs`). `tests/test_appaccess.py` fails when a known or evaluation request is taken.
+  - **A window is known again by plain code** (`windowId`: its class and `titleShape`, the title without the document's
+    name and numbers; `pageId` for a page). However many windows, they are on one map in the program's access notes
+    (`accessnotes.WINDOWS`, `PLAN`), and a fix of the program's one add-on works in all of them.
+  - **The plan is data, never a model's**: every fix the inspections found, each once with its windows, the simplest
+    first (`appaccess._RANKS`); what needs its window open; what no add-on can fix, with what to do instead. Whether a
+    step is made is read from the add-on each time (`refreshed`). Memories of the program and the user's own lines on
+    its scratchpad move the steps they name forward (`favoured`).
+  - **Nothing is made without a yes**: `fix_program` goes through `accesstools.install`, one question for all of it.
+    At most `appaccesstools.MAX_WATCHES` fixes that tell of a change for one program, and `fixes.MAX_FIXES` in all.
+  - **A control named in one window keeps its name in the others** (`accessnotes.knownName`), without a model.
+  - **Following**: only for a program the user asked about in words (`programs-followed.json`), only windows not known,
+    after `SETTLE_SECONDS`, with the quick inspection (NVDA's facts, no picture, no model), never while a request runs or
+    the microphone is open, never a fix; the setting `programFollow` (tell, quiet, off; tell is the default). Pages of a
+    website are learned only when asked.
+  - **What else it uses**: NVDA's log after a window is learned (`appaccesstools.LOG_KINDS`), one line on the program's
+    learning scratchpad, the map as passages of `look_up` (gated, `prompts.PROGRAM_HELP`), one sentence for the model that
+    chooses (`orchestrator.programMap`), the skill `whole-program-accessible` and the notes `visionclaw-program-access.md`.
+  - Tests never run the Follower's timer; `tests/test_nvda_stub.py` calls its `_learn` with a stand-in window. Not run
+    inside NVDA.
 - **NVDA's own log is read by plain code, and never what was typed or spoken** (`claw/nvdalog.py`, `nvdalogtools.py`,
   `nvdalogfeed.py`, `claw/skilllog.py`; the plan is `docs/PLAN-nvda-log.md`). The owner said on 2026-11-19: "I also want
   visionclaw to have access to the various logs of nvda itself, info, debug, etcetera", "if nvda logging is disabled,
@@ -1714,6 +1744,9 @@ addon/
                              the watch that says an error in one sentence, where the user turned it on
     scratchtools.py          scratchpads as tools: a task scratchpad in the user's words, a question answered from
                              the scratchpads, which program or website the user is in, the lines given to look_up
+    appaccesstools.py        a whole program made accessible: a window learned and put on the program's map, the plan
+                             for all its windows, its fixes made after one question; the windows the user moves to
+                             learned by themselves (Follower); the map for look_up and for the model that chooses
     diagnosetools.py         VisionClaw's own log read, what went wrong said, and its own code corrected, only when the
                              user asks; corrections put in place again at start-up, and undone
     portableui.py            the window that makes a portable copy: one .nvda-addon file with everything, or
@@ -1780,6 +1813,8 @@ addon/
       scratchpad.py          scratchpads: a task over several requests, what was learned in each program and website,
                              the descriptions; lines a model writes checked by plain code, found again by words, topics
                              and program; a long result given to a step by its parts about the step
+      appaccess.py           a whole program made accessible: what the words ask, which window or page it is, the plan
+                             for all its windows from their inspections, what is made, every sentence about it
       diagnose.py            VisionClaw's own logs read into errors, the function around a line, a correction of one
                              function checked, kept as data and put in place while NVDA runs, never in its own files
       worksheet.py           the work sheet of a request: a temporary Markdown file with the plan, from which each
@@ -2145,6 +2180,10 @@ A session is done only when its "Done when" line is true.
   developer info, input help, settings, NVDA Remote; while VisionClaw works, for a failed or changing step and a question
   about trouble; every skill names what it wants from it; a watch for errors the user can turn on. Tested with made-up
   logs and stand-ins; not run inside NVDA.
+- [x] **3.71 A whole program made accessible, window after window.** The window in front learned, the plan for every
+  window of the program, its fixes made after one question; the windows the user moves to learned by themselves; the
+  map in the program's access notes, used by look_up and the model that chooses. Tested with plain Python and stand-ins;
+  not run inside NVDA or with a real model.
 - [ ] **3.5 Test inside NVDA.** Install the build in NVDA (ask the user first) and walk through
   `docs/TESTPLAN.md`. Fix what breaks. *Done when:* every item in the test plan is ticked by a real run.
 
@@ -2233,6 +2272,8 @@ python tests/test_nvdalog.py             NVDA's own log from made-up logs: error
                                          session, developer info, input help; nothing private gets through
 python tests/test_skilllog.py            every skill's log: line, the lines a skill gets, the instructions for them, a step told what
                                          NVDA logged meanwhile, the watch
+python tests/test_appaccess.py           a whole program made accessible: the words, which window it is, the plan over several
+                                         windows, made or not from the add-on, memories first, the map in the file, 120 windows
 python tests/test_scratch_ways.py         lines that earn trust and are set aside, a stopped request carried on, the task's list
                                          carried out and checked off, the add-on writer's lines, the skills that use them
 python -u tests/live_scratch_ways.py MODELS VISIONID CODERID   a real model answers from scratchpad lines with and without

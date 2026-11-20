@@ -19,6 +19,10 @@
 #   - the user reads it: a line says what was found, when, and how sure it was.
 # Each line ends with the rule that finds the control again, in brackets. A line the user changed or deleted is read as
 # it now is. Lines are only ever added; the file never grows beyond MAX_LINES lines of findings. No NVDA dependencies.
+#
+# Two more sections make the file the program's map (claw/appaccess.py): every window or page of the program or website
+# that VisionClaw learned, and the plan to fix all of them. Plain code writes them whole each time (entries, setEntries),
+# with what finds a window or a fix again in brackets; a line the user deleted stays deleted.
 
 import datetime
 import json
@@ -29,7 +33,11 @@ FOLDER = "access"
 MAX_LINES = 120
 MAX_FOR_MODELS = 4
 WAYS, NAMES, KIND, FOUND = "How controls are worked", "Names read from pictures", "What the window is", "What inspections found"
-SECTIONS = (WAYS, NAMES, KIND, FOUND)
+# The program's map (claw/appaccess.py): its windows and pages, and the plan to fix them.
+WINDOWS, PLAN = "Windows and pages learned", "The plan to fix it"
+SECTIONS = (WAYS, NAMES, KIND, FOUND, WINDOWS, PLAN)
+# The sections MAX_LINES counts. The map has limits of its own (appaccess.MAX_WINDOWS, MAX_STEPS).
+FINDINGS = (WAYS, NAMES, KIND, FOUND)
 HEAD = (
 	"VisionClaw writes this file from what it found when it inspected this {what} on this computer, so that the next "
 	"inspection and the models that write add-ons for it can use it. It may be wrong. You may change or delete any "
@@ -37,6 +45,8 @@ HEAD = (
 # How sure a line is, as the words at its end say.
 AGREED, SETTLED, ONE = "agreed", "settled by the model for hard cases", "one model's answer, not sure"
 _LINE = re.compile(r"^- (\d{4}-\d\d-\d\d): (.+?)(?: \[(\{.*\})\])?\s*$")
+# How keepName writes a name, so that knownName can read it back.
+_NAMED = re.compile(r"\bis called (.+?), from its picture\.?$")
 
 
 def fileName(scope):
@@ -145,7 +155,7 @@ class AccessNotes:
 					lines[at] = (day, text, key)
 					return self._write(scope, found)
 			lines.append((day, text, key))
-			total = sum(len(found[name]) for name in SECTIONS)
+			total = sum(len(found[name]) for name in FINDINGS)
 			while total > MAX_LINES and found[FOUND]:
 				found[FOUND].pop(0)  # the oldest summaries go first; what was found about a control stays
 				total -= 1
@@ -175,6 +185,24 @@ class AccessNotes:
 		"""What one inspection found, in one line."""
 		return self._add(scope, FOUND, text, None, today)
 
+	# --- The program's map: whole sections, written by plain code (claw/appaccess.py) ---
+
+	def entries(self, scope, section):
+		"""The lines of one section as [(day, text, key or None)], as the file is now."""
+		return list(self._read(scope).get(section) or [])
+
+	def setEntries(self, scope, section, lines):
+		"""Write one section whole, as [(day, text, key or None)], and leave the others as they are. Nothing of a line
+		is cut. Returns whether it was written; never raises."""
+		try:
+			if not self.path(scope):
+				return False
+			found = self._read(scope)
+			found[section] = [(day, " ".join(str(text or "").split()), key) for day, text, key in lines if str(text or "").strip()]
+			return self._write(scope, found)
+		except Exception:
+			return False
+
 	# --- What is used ---
 
 	def known(self, scope, key):
@@ -186,6 +214,17 @@ class AccessNotes:
 				way = text.rsplit(": ", 1)[-1].split(". ", 1)[0].strip(". ")
 				return way or None
 		return None
+
+	def knownName(self, scope, key):
+		"""The name read before from the picture of a control that has none, in any window of this program, for this key,
+		or "". A control named in one window keeps that name in every other window it is in."""
+		if key is None:
+			return ""
+		for _day, text, oldKey in reversed(self._read(scope)[NAMES]):
+			found = _NAMED.search(text)
+			if _same(key, oldKey) and found:
+				return found.group(1).strip()
+		return ""
 
 	def forModels(self, scope, words="", limit=MAX_FOR_MODELS, strict=False):
 		"""The few lines that fit a request, for a model that judges a control or writes an add-on for this place:

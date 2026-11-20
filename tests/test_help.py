@@ -142,6 +142,8 @@ HELP = {
 	"human_check": "click the verify you are human box",
 	"pick_option": "select the dark blue colour option",
 	"pick_seat": "find a free window seat near the front",
+	"program_access": "learn this window too",
+	"fix_program": "make every window of this program accessible",
 }
 
 

@@ -196,6 +196,11 @@ class Orchestrator:
 		self.pads = None
 		self.learning = lambda: False
 		self.subject = lambda: self.program()
+		# One sentence when the user is in a program VisionClaw is making accessible window after window (claw/appaccess.py,
+		# appaccesstools.contextText): how many of its windows are known and how much of its plan is left, so that the
+		# model that chooses knows that "the other windows" and "the rest of the fixes" are about that program. "" where it
+		# is not; set by the add-on. Never a fault.
+		self.programMap = lambda: ""
 
 	def _oneByOne(self):
 		try:
@@ -624,6 +629,15 @@ class Orchestrator:
 			if written:
 				debuglog.log("scratchpad", f"Given with the request: {written!r}")
 				parts.append(written)
+		# The program the user is making accessible window after window, where they are in one.
+		try:
+			mapped = self.programMap() or ""
+		except Exception as e:
+			debuglog.error("appaccess", "The program's map could not be read for the request", e)
+			mapped = ""
+		if mapped:
+			debuglog.log("appaccess", f"Given with the request: {mapped!r}")
+			parts.append(mapped)
 		# What NVDA logged lately, for a question about what went wrong in NVDA.
 		trouble = self._logTrouble(request)
 		if trouble:

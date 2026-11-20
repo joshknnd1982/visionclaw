@@ -1,6 +1,6 @@
 # VisionClaw status
 
-Updated 2026-11-19, version 1.18.0.
+Updated 2026-11-19, version 1.19.0.
 
 ## What exists
 
@@ -3042,6 +3042,53 @@ How it was tested:
 - Not measured with a real model: the skills' lines of NVDA's log, the add-on writer's lines of a scratchpad and of the
   developer info, and the watch. Not run inside NVDA: none of 1.18.0, including opening NVDA's Privacy and Security panel
   and reading the real nvda.log while NVDA writes it.
+
+## A whole program made accessible, window after window (1.19.0, 2026-11-19)
+
+The owner asked: "Add a skill that makes visionclaw learn all about the current window of a program, makes a plan to fix
+all accessibility issues, and then fixes those issues. The skill must use memory, scratchpads, logs, system prompts, rag.
+And when the user moves onto another window of the program, visionclaw can learn about it too, and visionclaw must
+understand that these two or three or four of twenty windows or 100 or more of these windows and all kinds of objects
+belong to this program. then visionclaw must implement all accessibility fixes." And, while it was built: "add to
+visionclaw's parser and orchestrator and the modded smallclaw when needed to add more features."
+
+What was built:
+- `claw/appaccess.py` (plain code): what the words ask (learn, plan, carry out, which windows, the plan, follow, stop,
+  forget); which window it is (window class and title without the document's name; a page by its path without numbers
+  and codes); the plan from every window's inspection, each fix once for the whole program with its windows, the simplest
+  first, then what needs its window open, then what no add-on can fix; made or not read from the program's add-on; steps
+  that memories of the program name first; every sentence the user hears.
+- `appaccesstools.py`: `learn_program` (deep inspection, names from pictures or from another window of the program, the
+  map and plan in the program's access notes, NVDA's log lines, the program's scratchpad line, the windows and the plan
+  said, following, forgetting after a question) and `fix_program` (every planned fix of every window in the one add-on
+  after one question, hotkeys for the window in front, what is left); `passages` for `look_up`; `contextText` for the
+  model that chooses; the Follower, which learns a new window of a followed program by itself with the quick inspection
+  after 1.5 seconds and says one sentence, and never makes a fix.
+- The parser and the orchestrator: two recipes (`program_access`, `fix_program`), read by plain code first (`_HINTS`,
+  `_SURE`, `_NEEDS`), kept whole unless a clause asks for something else (`planner.split`, `appaccess.belongs`); the
+  orchestrator gives the model that chooses one sentence about the program's map (`programMap`).
+- `claw/accessnotes.py`: two sections, "Windows and pages learned" and "The plan to fix it", written whole by plain code;
+  `knownName`, so that a control named in one window keeps its name in the others; MAX_LINES counts only the findings.
+- `claw/fixes.py`: MAX_FIXES 40 to 80; `fix_program` keeps at most 8 fixes that tell of a change for one program, because
+  each looks for its part every few seconds where it is not shown.
+- `prompts.PROGRAM_HELP` (`programHelp`, rewritable in How VisionClaw answers), the skill `whole-program-accessible`,
+  the notes `claw/knowledge/visionclaw-program-access.md` (gated by `lookup._PROGRAM_MAP`), the setting `programFollow`.
+  check_access's deep inspection puts a window on the map of a program the user already works on.
+
+How it was tested:
+- Plain Python: `tests/test_appaccess.py` (the words, also that none of the 312 known requests and none of the eight
+  evaluation sets is taken; window identity; the plan over several windows; made from the add-on; memories first; the map
+  read back from the file; 120 windows listed whole; nothing cut; the skill, notes gate and instruction);
+  `tests/test_eval_patterns.py` at its numbers (one first try took "explore this page", which was corrected);
+  `tests/test_nvda_stub.py` drives both tools against stand-in windows of one program: two dialogs learned, one step for
+  the close button in both, a name read from a picture once and kept, the fixes made after one question, check_access
+  adding a third window, the Follower learning a fourth and saying one sentence, the orchestrator's sentence, look_up's
+  passages, stopping and forgetting. All of `tests/run_all.py` passes.
+- Not measured with a real model: no prompt of the existing jobs changed, the new jobs are decided by plain code, and the
+  new recipes are offered to a model only where their own function finds them in the words, which it does for none of
+  the evaluation requests; so routing with the real model cannot have changed, but it was not run. The new instruction
+  for answers from the map was not measured. Not run inside NVDA: none of it, including the foreground event, the timer
+  of the Follower, and a real program's windows.
 
 ## Next session
 
