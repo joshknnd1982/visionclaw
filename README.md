@@ -23,21 +23,21 @@ chat apps, and names for unlabelled buttons.
 > [docs/STATUS.md](docs/STATUS.md) for exactly what was tested.
 
 <!-- news: written by tools/write_help.py from manifest.ini; do not change it by hand -->
-This README is for VisionClaw 1.20.0.
+This README is for VisionClaw 1.21.0.
 
-## What is new in 1.20.0
+## What is new in 1.21.0
+
+- Put exactly where you ask to be. Press NVDA+Alt+C and say "put me on page two of the advanced dialog, in the proxy edit field", "move the focus to the Save button", "take me to the Connection tab" or "put the cursor in the search box". VisionClaw finds the window (an open one is brought to the front; otherwise the button that opens it is pressed after a question), then the page, then the control, also a field named only by the text before it, and checks after every step that NVDA's focus really got there. It then says where you are, what the control shows and the key that works it. Where it is not there, you hear what there is instead, and nothing else is moved. Where several fit, you choose.
+- Where you name nothing, say "put me on the most useful control in this dialog": VisionClaw puts you where a sighted person's eye goes first, the default or highlighted item, OK or Continue, a game's Play or Continue, an empty field to type in, or what is larger or in a colour that stands out, and says why. In a window or game NVDA cannot read, it reads the window's picture and opens the overlay, NVDA+Alt+O, with its cursor on that item: the arrow keys move, Enter clicks.
+- On a web page, a field you want to type in gets the focus in focus mode, as Enter does; a button or a link gets NVDA's reading position in browse mode, so nothing is pressed.
+- Never left in the middle of nowhere. At the end of a request whose steps moved the focus, VisionClaw says where you are: the program, the window, the control, browse mode or focus mode, and for a dialog that came up its message and its default button. Where a request that only looked moved the focus, or where you landed tells NVDA almost nothing, it says so, and how to go on: NVDA+Alt+O for the overlay, Alt+Tab back. Every skill now says where its job should leave you.
+- Help offered by itself, which you can always refuse. Where VisionClaw notices a window that tells NVDA almost nothing, a dialog where nothing has the focus, a control without a name, or errors NVDA logged in the program just now, it says so in one sentence: press NVDA+Alt+Y to take its help, or do nothing to say no. Press NVDA+Alt+Y twice for no more offers in that program, and once there to have them back. Turn it off in VisionClaw's settings: "Offer help when a window, dialog or control tells NVDA little".
+- Said casually, it is understood too: "drop me into the password field", "shift the focus to the OK button", "land me on the third tab". Add-ons VisionClaw writes that move the focus are told to check where it landed and to say so.
+
+## What was new in 1.20.0
 
 - The focus is put where you need it, and checked. Ask "check NVDA's log" while NVDA's logging is off and say yes: NVDA's settings now open with the focus on the Logging level combo box, not on "Make screen black". Say "customise VisionClaw's voice": NVDA's Speech settings open on the Voice combo box. When VisionClaw moves the focus to a control of a program, it says so only when NVDA's focus really is there, and presses no arrow key otherwise; you hear where the focus is instead.
 - VisionClaw tries to correct what it just did wrong when you tell it, even when nothing went into its log. Right after it does something wrong, say what went wrong, as: "the focus landed on Make screen black instead of the Logging level combo box", or "you read the line above instead of the line I am on". VisionClaw finds the part of its own code that request used, the model that writes code corrects it, plain code checks it, and you are always asked first. Then ask for the same thing again, and say "undo that" if it is worse. Ask "why did the focus go to the wrong control" to hear what happened without a correction. When it cannot correct something, it says why and writes a report in the folder ownfixes. Measured with Qwen3.5 4B on five made-up cases: it found the right part of its code five times, but only three corrections did what was intended, and the focus bug itself was not corrected by it, so treat every correction as a try.
-
-## What was new in 1.19.0
-
-- A whole program made accessible, window after window. In the program, press NVDA+Alt+C and say "make every window of this program accessible", or "learn all about this window, make a plan to fix its accessibility issues, then fix them". VisionClaw learns the window in front with its deep inspection, names controls without a name from their pictures, plans the fixes for every window of the program it knows, asks you once, and makes them all in the program's one fixes add-on; then it says what is left. To learn and plan without changing anything, say "learn this window" or "learn this window and make a plan to fix it"; later say "make the planned fixes for this program".
-- Two, twenty or a hundred windows belong to one program. VisionClaw knows a window again by its window class and its title without the document's name, so "Untitled - Notepad" and "notes.txt - Notepad" are one window, and keeps every window on the program's map. A fix found in several windows is one step of the plan and works in all of them. Ask "which windows of this program have you learned", "what's the plan for this program" or "what's left to fix in this program": every window and every step is said.
-- When you move to another window of a program you asked VisionClaw to make accessible and stay a moment, it learns that window by itself from NVDA's facts only, without a model, and says in one sentence what it found; it never makes a fix by itself. A new setting, "When you move to another window of a program VisionClaw is making accessible", chooses: learn it and tell me in one sentence (the default), learn it quietly, or only when I ask. Say "stop learning windows of this program" for one program, or "forget the windows of this program", which asks first.
-- It uses VisionClaw's memory, scratchpads, NVDA's log and its instructions: steps about what you asked VisionClaw to remember about the program come first; a control named in one window keeps its name in the others without asking a model; the program's scratchpad gets a line of what VisionClaw knows of it; recent errors, freezes and developer info from NVDA's log are said after a window is learned; and "what problems did you find in the windows of this program" is answered from the map, with new instructions you can rewrite in How VisionClaw answers: "Answers about the windows of a program VisionClaw is making accessible". A new skill, "Make a whole program accessible", goes with it.
-- The map and the plan are two new sections of the program's access notes, the Markdown file in the folder access of VisionClaw's data; the file is yours. A program's fixes add-on now holds up to 80 fixes, at most 8 of them for being told of changes.
-- Tested with plain Python and with stand-ins for NVDA; not yet run inside NVDA or with a real model.
 
 How to use each of these is explained in its own part of this README, further down.
 <!-- /news -->
@@ -767,6 +767,71 @@ on the first control of the page; NVDA's Speech settings for VisionClaw's own vo
 VisionClaw moves the focus to a control of a program, as in "set the output device in this program", it says the focus
 is there only when NVDA says so, and it presses no arrow key for a control that did not take the focus: the key would
 change something else. Otherwise you hear where the focus is, and how to get to the control yourself.
+
+## Put me there: a window, a page of it, a control
+
+Ask with NVDA+Alt+C to be put exactly where you want to be: **"put me on page two of the advanced dialog, in the proxy
+edit field"**, "move the focus to the Save button", "take me to the Connection tab", "put the cursor in the search box",
+"go to the second check box". VisionClaw reads from your words which window, which page (by its number or its name),
+which kind of control and which label you mean, by plain code; no model decides it. Then it goes one step at a time,
+and goes on only where NVDA says the last step landed:
+
+- **The window.** Already in front, it is used. Open behind another, it is brought to the front. Not open, and the
+  window in front has a button for it, such as Options..., VisionClaw asks before it presses that button. Neither: it
+  says so, and nothing is changed.
+- **The page.** A tab by its number or its name, or an item of a list of pages at the side, as NVDA's own settings
+  have. It checks that the window shows that page now.
+- **The control.** By its kind and its label, also a field that has no name of its own and is labelled only by the
+  text before it, which is said. Where you named no page, the other pages are looked through and you are told which
+  one has it. Where several fit, you choose. Where none fits, you hear what there is instead, and nothing else is moved.
+- **Checked.** VisionClaw says "You are on ..." only when NVDA reports the focus there, with what the control shows
+  and the key that works it. Where a program does not let the focus move to a field, list or tree, a click inside it,
+  which changes nothing, puts it there; a button is never clicked for this. Otherwise NVDA's navigator object is put on
+  it, and you hear where the focus really is.
+- **On a web page**, a field you want to type in gets the focus in focus mode, as Enter does: type, and Escape goes back
+  to browse mode. A button or a link gets NVDA's reading position in browse mode, so nothing is pressed: Enter uses it.
+- **Learned.** Where VisionClaw found a control on a page of a window, it writes that on the scratchpad of the program,
+  and uses it, and what you asked it to remember, the next time you name that control without its page.
+
+**The most useful control.** Where you name nothing, say "put me on the most useful control in this dialog", or "put
+me somewhere useful". VisionClaw chooses as a sighted person's eye would, and says why in words: the item the program
+marks as current or default, the usual way on such as OK, Next or Continue, a game's Play or Continue, an empty field to
+type in, what is larger than the rest or in a colour that stands out, and the words of your request first of all.
+
+**Windows and games NVDA cannot read.** Where a window tells NVDA almost nothing, VisionClaw reads its picture and
+opens the overlay, NVDA+Alt+O, with its cursor on the item you asked for or the most useful one: the arrow keys move
+between the items it found, Enter clicks the one you are on, and Escape closes the overlay. What is read from a picture
+can be wrong, and VisionClaw says so.
+
+## Where you are when a request ends
+
+You are never left in the middle of nowhere without being told. VisionClaw notes where you are when a request begins
+and checks again when it ends. Where the focus moved, it says where you are: the program, the window, the control and
+what it shows, and on a web page whether you are in browse mode or focus mode. When a dialog came up, it says the
+dialog's message and its default button, which Enter presses, as a sighted person sees them at once. Where a request
+that only looked moved the focus, it says so, with Alt+Tab to go back. Where you landed tells NVDA almost nothing, it
+says how to go on: NVDA+Alt+O for the overlay, or ask to be put on the most useful item. Every skill says where its job
+should leave you, as stay, moved or told, and the jobs that leave you somewhere to go on working always say where.
+
+## Help offered where a place tells NVDA little
+
+When the setting **Offer help when a window, dialog or control tells NVDA little (NVDA+Alt+Y takes it)** is on, as it
+is at first, VisionClaw looks where you stay for a moment after the focus moved. Where it notices a window that tells
+NVDA almost nothing, a dialog where nothing has the focus, a control without a name, or errors NVDA logged in that
+program just now, it says so in one sentence and offers help. Nothing is done unless you take it:
+
+- **NVDA+Alt+Y** takes the help: the window read from its picture and you put on its most useful item, the most useful
+  control of the dialog, a name for the control from its picture, or what NVDA's log says went wrong. It is carried out
+  like any request, and asks before anything is changed. With nothing offered, NVDA+Alt+Y looks where you are now and
+  helps at once.
+- **Do nothing** to say no. Each place is offered once while NVDA runs, never sooner than 45 seconds after the last
+  offer, never while VisionClaw works, listens or NVDA reads on, never in VisionClaw's own windows, and never in a
+  program you are having made accessible window after window.
+- **NVDA+Alt+Y twice** stops the offers in that program; press it once there to have them back. Turn the setting off
+  for no offers at all.
+
+What was noticed is written on the program's scratchpad when you take the help, so that VisionClaw and its models know
+it the next time.
 
 ## A voice of its own
 
@@ -1945,6 +2010,7 @@ and every way of moving with its keys, is [docs/NVDA-OBJECTS.md](docs/NVDA-OBJEC
 | NVDA+Alt+B | Turn object names on or off: every object that is truly unlabelled named by the local model wherever you move, in browse mode too |
 | NVDA+Shift+Alt+B | Ask the local model to name the object where you are, also where object names left it alone |
 | NVDA+Alt+N | Give your own name to the object where you are, or to an overlay item; press twice for the window of saved object names |
+| NVDA+Alt+Y | Take the help VisionClaw offers where a window, dialog or control tells NVDA little; press twice for no more offers in that program |
 
 Press a describe command once for a quick spoken description, twice for a detailed one in a window where you
 can ask questions. Every question is answered there: what is highlighted or selected, where something is,
@@ -2039,6 +2105,8 @@ NVDA menu, Preferences, Settings, VisionClaw. In the order you meet them:
   suggested choice is 15 seconds.
 - **When you move to another window of a program VisionClaw is making accessible**: learn it and tell me in one
   sentence (the default), learn it quietly, or only when I ask; see A whole program made accessible.
+- **Offer help when a window, dialog or control tells NVDA little (NVDA+Alt+Y takes it)**: on at first; see Help
+  offered where a place tells NVDA little.
 - **Speak with VisionClaw's own voice, once you have set one.**
 - **Models on this computer**: the models, their sizes and what each is in use for.
 - **Look for a newer version of VisionClaw**: only when I ask, or when NVDA starts, at most once a day.

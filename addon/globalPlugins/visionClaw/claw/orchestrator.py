@@ -14,6 +14,7 @@ import time
 
 from . import agent, consensus, debuglog, followups, lookup, pageview, planner, planning, policy, prompts, shapes
 from . import corrections, diagnose, nvdalog, scratchpad, sentences, skilllog, understand, worksheet
+from . import landing
 from . import memories as memoriesModule
 from . import skills as skillsModule
 from . import task as taskModule
@@ -205,6 +206,11 @@ class Orchestrator:
 		# model that chooses knows that "the other windows" and "the rest of the fixes" are about that program. "" where it
 		# is not; set by the add-on. Never a fault.
 		self.programMap = lambda: ""
+		# Where the user is, as plain facts (gototools.spot): read at the start and at the end of a request, so that plain
+		# code says where the user ended up where that moved, or is a place that tells NVDA almost nothing (claw/landing.py).
+		# count: whether the controls of the window are counted, which is only needed at the end. None where it cannot be
+		# read; set by the add-on. Never a fault.
+		self.spot = lambda count=True: None
 
 	def _oneByOne(self):
 		try:
@@ -285,6 +291,8 @@ class Orchestrator:
 				raise ModelMissing(role)
 		llm = LLM(self.runtime, task)
 		request = " ".join(task.request.split())
+		# Where the user is before anything is done: what the end of the request is compared with (_landed).
+		task.spotBefore = self._spotNow(False)
 
 		task.setState(taskModule.UNDERSTANDING, "Understanding your request.")
 		# "Carry on": the request that was stopped goes on from the step where it stopped (in memory only).
@@ -399,15 +407,53 @@ class Orchestrator:
 		offered = self._offered(task, request, recipes)
 		if offered:
 			answer = f"{answer.rstrip()}\n{offered}" if answer else offered
+		# Where the user is now, checked by plain code against where they were: never left somewhere without being told.
+		landed = self._landed(task)
+		if landed:
+			answer = f"{answer.rstrip()}\n{landed}" if answer else landed
 		if spoken is not None and spoken.used:
 			# The answer was said while the model wrote it: what was added to it is said after it, and the answer
 			# itself comes whole for reading.
 			spoken.say(kept)
 			spoken.say(offered)
+			spoken.say(landed)
 			task.streamed = True
 		task.answer = answer
 		task.emit(taskModule.ANSWER, answer)
 		task.setState(taskModule.DONE, "Finished.")
+
+	def _spotNow(self, count=True):
+		"""Where the user is, as plain facts, or None. Never a fault."""
+		try:
+			return self.spot(count)
+		except Exception as e:
+			debuglog.error("landing", "Where the user is could not be read", e)
+			return None
+
+	def _landed(self, task):
+		"""What the user is told at the end about where they are (claw/landing.py), or "": where the focus moved, where a
+		request that only looked moved it, where a skill says the user is always told, and where the place tells NVDA
+		almost nothing. Plain code, from NVDA's facts at the start and at the end. Never a fault."""
+		try:
+			before = getattr(task, "spotBefore", None)
+			if before is None:
+				return ""
+			after = self._spotNow(True)
+			if not after:
+				return ""
+			tools = [step.tool for step in task.steps if step.tool != ANSWER]
+			told = any(tool in landing.TELLS_ITSELF for tool in tools)
+			looksOnly = bool(tools) and all(getattr(self.registry.get(tool), "looks", False) for tool in tools)
+			lands = [getattr(skill, "lands", "") for skill in (getattr(task, "skills", None) or [])]
+			expect = landing.expected(lands, looksOnly)
+			said = landing.sentence(before, after, expect, told)
+			debuglog.log("landing", (
+				f"Where the user is: before {before}, after {after}; expected {expect}"
+				+ (f"; said: {said}" if said else "; nothing to say.")))
+			return said
+		except Exception as e:
+			debuglog.error("landing", "Where the user is at the end could not be checked", e)
+			return ""
 
 	@staticmethod
 	def _taken(task, request):

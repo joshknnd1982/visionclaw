@@ -1,0 +1,320 @@
+{
+ "label": "requests-place2-1.20.0",
+ "models": {
+  "backend": "auto",
+  "visionModel": "qwen3.5-4b",
+  "coderModel": "qwen3.5-4b-coder"
+ },
+ "stepwise": "auto",
+ "rows": [
+  {
+   "request": "pop me into the comments box",
+   "expect": [
+    [
+     "go_to_control"
+    ]
+   ],
+   "got": [
+    "click"
+   ],
+   "verdict": "wrong",
+   "asked": [],
+   "seconds": 5.1,
+   "state": "done"
+  },
+  {
+   "request": "could you move the focus to the save as type combo box",
+   "expect": [
+    [
+     "go_to_control"
+    ]
+   ],
+   "got": [
+    "go_to"
+   ],
+   "verdict": "wrong",
+   "asked": [],
+   "seconds": 0.4,
+   "state": "done"
+  },
+  {
+   "request": "I wanna be in the search field",
+   "expect": [
+    [
+     "go_to_control"
+    ]
+   ],
+   "got": [
+    "fill_field"
+   ],
+   "verdict": "wrong",
+   "asked": [],
+   "seconds": 0.4,
+   "state": "done"
+  },
+  {
+   "request": "put me on tab 2 of this window",
+   "expect": [
+    [
+     "go_to_control"
+    ]
+   ],
+   "got": [
+    "go_to"
+   ],
+   "verdict": "wrong",
+   "asked": [],
+   "seconds": 0.7,
+   "state": "done"
+  },
+  {
+   "request": "take me over to the Privacy tab",
+   "expect": [
+    [
+     "go_to_control"
+    ]
+   ],
+   "got": [
+    "go_to"
+   ],
+   "verdict": "wrong",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  },
+  {
+   "request": "focus on the file name field",
+   "expect": [
+    [
+     "go_to_control"
+    ]
+   ],
+   "got": [
+    "go_to"
+   ],
+   "verdict": "wrong",
+   "asked": [],
+   "seconds": 0.8,
+   "state": "done"
+  },
+  {
+   "request": "bring the focus back to the OK button",
+   "expect": [
+    [
+     "go_to_control"
+    ]
+   ],
+   "got": [
+    "click"
+   ],
+   "verdict": "wrong",
+   "asked": [],
+   "seconds": 0.7,
+   "state": "done"
+  },
+  {
+   "request": "get me onto the second list",
+   "expect": [
+    [
+     "go_to_control"
+    ]
+   ],
+   "got": [
+    "click"
+   ],
+   "verdict": "wrong",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  },
+  {
+   "request": "put me on the slider for brightness",
+   "expect": [
+    [
+     "go_to_control"
+    ]
+   ],
+   "got": [
+    "drag"
+   ],
+   "verdict": "wrong",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  },
+  {
+   "request": "navigate to the spin box called quantity",
+   "expect": [
+    [
+     "go_to_control"
+    ]
+   ],
+   "got": [
+    "go_to"
+   ],
+   "verdict": "wrong",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  },
+  {
+   "request": "move me to the last tab",
+   "expect": [
+    [
+     "go_to_control"
+    ]
+   ],
+   "got": [
+    "go_to"
+   ],
+   "verdict": "wrong",
+   "asked": [],
+   "seconds": 7.3,
+   "state": "done"
+  },
+  {
+   "request": "put me in the edit box for my phone number",
+   "expect": [
+    [
+     "go_to_control"
+    ]
+   ],
+   "got": [
+    "fill_field"
+   ],
+   "verdict": "wrong",
+   "asked": [],
+   "seconds": 0.8,
+   "state": "done"
+  },
+  {
+   "request": "I need to get to the Display page in the advanced settings dialog",
+   "expect": [
+    [
+     "go_to_control"
+    ]
+   ],
+   "got": [
+    "change_setting"
+   ],
+   "verdict": "wrong",
+   "asked": [],
+   "seconds": 0.7,
+   "state": "done"
+  },
+  {
+   "request": "put the cursor on the first link",
+   "expect": [
+    [
+     "go_to_control"
+    ]
+   ],
+   "got": [
+    "click"
+   ],
+   "verdict": "wrong",
+   "asked": [],
+   "seconds": 0.7,
+   "state": "done"
+  },
+  {
+   "request": "where do I begin in this window? put me there",
+   "expect": [
+    [
+     "go_to_control"
+    ]
+   ],
+   "got": [
+    "nvda_question"
+   ],
+   "verdict": "wrong",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  },
+  {
+   "request": "what tab am I on",
+   "expect": [
+    [
+     "about_focus",
+     "where_am_i",
+     "nvda_question"
+    ]
+   ],
+   "got": [
+    "about_focus"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  },
+  {
+   "request": "read the text in the comments box",
+   "expect": [
+    [
+     "read_text",
+     "about_focus",
+     "web_page"
+    ]
+   ],
+   "got": [
+    "read_text"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  },
+  {
+   "request": "press the OK button",
+   "expect": [
+    [
+     "click",
+     "press_keys"
+    ]
+   ],
+   "got": [
+    "click"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  },
+  {
+   "request": "go to google.com",
+   "expect": [
+    [
+     "open_website"
+    ]
+   ],
+   "got": [
+    "open_website"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.7,
+   "state": "done"
+  },
+  {
+   "request": "how many tabs does this dialog have",
+   "expect": [
+    [
+     "describe",
+     "nvda_question",
+     "about_focus",
+     "object_facts",
+     "explain_keys"
+    ]
+   ],
+   "got": [
+    "nvda_question"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.5,
+   "state": "done"
+  }
+ ]
+}

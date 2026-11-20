@@ -8,6 +8,7 @@ steps:
 - do_command: what is the date today
 - do_command: how much battery is left
 log: errors, session
+lands: moved
 ---
 
 Say each one in a few words.

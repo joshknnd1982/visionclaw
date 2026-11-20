@@ -164,6 +164,10 @@ class VisionClawPanel(gui.settingsDialogs.SettingsPanel):
 				_("Only when I ask")])
 		self.programFollow.SetSelection(
 			appaccess.FOLLOW_CHOICES.index(c["programFollow"]) if c["programFollow"] in appaccess.FOLLOW_CHOICES else 0)
+		self.offerHelp = checkbox(
+			# Translators: Checkbox in settings. VisionClaw offers help in one sentence, and does nothing unless the user
+			# presses NVDA+Alt+Y.
+			_("Offer &help when a window, dialog or control tells NVDA little (NVDA+Alt+Y takes it)"), "offerHelp")
 		self.ownVoice = checkbox(
 			# Translators: Checkbox in settings.
 			_("Speak with VisionClaw's o&wn voice, once you have set one. To set it, close this window and ask "
@@ -294,6 +298,7 @@ class VisionClawPanel(gui.settingsDialogs.SettingsPanel):
 		c["nvdaLogWatch"] = self.nvdaLogWatch.GetValue()
 		c["statusUpdates"] = busy.CHOICES[max(0, self.statusUpdates.GetSelection())]
 		c["programFollow"] = appaccess.FOLLOW_CHOICES[max(0, self.programFollow.GetSelection())]
+		c["offerHelp"] = self.offerHelp.GetValue()
 		c["ownVoice"] = self.ownVoice.GetValue()
 		c["readAhead"] = self.readAhead.GetValue()
 		c["iconLabeler"] = self.iconLabeler.GetValue()

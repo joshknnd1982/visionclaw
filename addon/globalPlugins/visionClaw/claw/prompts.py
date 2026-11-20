@@ -98,6 +98,12 @@ CODE_PROGRAM = (
 	"It is for one program or game: it checks the name of the program the control belongs to before it does "
 	"anything."
 )
+# An add-on that moves the focus or NVDA's reading position checks where it landed, as VisionClaw itself does
+# (gototools.py, claw/landing.py). The owner, 2026-11-19: the user must never be "left in the middle of nowhere".
+CODE_FOCUS = (
+	"It moves the focus: afterwards it reads where NVDA's focus really is, and says that with ui.message; where the "
+	"focus did not move there, it says so and does nothing else."
+)
 # Added when lines of the downloaded developer guides come with the request (claw/guides.py): plain code found
 # them by what the add-on is for, and the model is told what they are for. The owner asked on 2026-11-18 that
 # the guides, once downloaded, be used with fitting skills, notes, memories and system prompts.
@@ -186,6 +192,9 @@ CODE_KINDS = (
 	("codeProgram", re.compile(
 		r"\b(in|for|only in|inside) (this|the|my) (program|app|application|game|window|player|editor|browser)\b|"
 		r"\bgames?\b|\bonly in\b", re.IGNORECASE)),
+	("codeFocus", re.compile(
+		r"\b(focus|cursor|caret|put me|take me|move me|jump(s|ing)? to|go(es)? to|moves? to|lands? on|navigat\w*)\b",
+		re.IGNORECASE)),
 )
 # The instructions every answer or description gets, the requests of the three kinds of description, and what
 # each kind of add-on must be.
@@ -197,7 +206,8 @@ ANSWERS = tuple(name for name, _begins in _FOUND)
 PARTS = GLOBAL + REQUESTS + CODE + ANSWERS
 DEFAULTS = {
 	"user": USER, "speaking": SPEAKING, "seeing": SEEING, "addon": ADDON, "quick": QUICK, "detailed": DETAILED,
-	"brief": BRIEF, "codeKey": CODE_KEY, "codeAuto": CODE_AUTO, "codeProgram": CODE_PROGRAM, "codeGuide": CODE_GUIDE,
+	"brief": BRIEF, "codeKey": CODE_KEY, "codeAuto": CODE_AUTO, "codeProgram": CODE_PROGRAM, "codeFocus": CODE_FOCUS,
+	"codeGuide": CODE_GUIDE,
 	"devGuide": DEV_GUIDE, "addonHelp": ADDON_HELP, "trainingHelp": TRAINING_HELP, "padHelp": PAD_HELP, "codePad": CODE_PAD, "codeLog": CODE_LOG,
 	"nvdaLogHelp": NVDA_LOG_HELP, "programHelp": PROGRAM_HELP,
 }

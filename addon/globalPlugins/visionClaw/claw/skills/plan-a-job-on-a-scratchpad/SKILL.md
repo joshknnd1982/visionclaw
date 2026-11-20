@@ -5,6 +5,7 @@ when: start a scratchpad for, make a scratchpad for, new scratchpad for, plan on
 uses: scratchpad
 instead of: keep-a-scratchpad
 log: errors
+lands: moved
 ---
 
 Say each thing on the list with its number, in order, in the words of the result. Say once that the user can say do the next one, and VisionClaw carries it out and checks it off when it went well; or check off and a number, when the user did it alone. Never add a thing to the list, or say one is done, unless the result says so.

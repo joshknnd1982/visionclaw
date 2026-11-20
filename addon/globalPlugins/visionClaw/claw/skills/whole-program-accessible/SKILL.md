@@ -5,6 +5,7 @@ when: whole program, every window, every window of this program, all the windows
 uses: program_access, fix_program, check_access, fix_access, add_fix
 instead of: stubborn-program
 log: errors, freezes, objects, add-ons
+lands: moved
 ---
 
 Treat every window and dialog of the program as part of one program: a fix of its add-on works in all of them. Say the problems of the window in front in plain words, the worst first, then its steps in the plan. Prefer the simplest remedy: a name, being told of a change, a key that presses or reads a control. Make nothing before the user says yes, and say what was made and what is left. Where a step needs its window open, say which window to move to.

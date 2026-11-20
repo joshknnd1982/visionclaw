@@ -15,6 +15,7 @@ from . import computer, controls, dates, debuglog, direct, gamepad, guide, memor
 from . import docformat, focus, humancheck, images, paper, seats, shopping, versions, wizard
 from . import diagnose, nvdalog, scratchpad
 from . import appaccess
+from . import placing
 from .llm import LLMError, clip, uncut
 from .task import Step
 from .tools import ANSWER
@@ -510,6 +511,15 @@ RECIPES = {
 		"in the program or dialog in front, turn a named option, check box or switch on or off, or turn a named slider "
 		"or value up or down or to a number; looks through the pages of the dialog for it; not a setting of NVDA",
 		("set_control",)),
+	# The user put exactly where they ask to be, checked at every step: a window or dialog, a page of it, a control by its
+	# kind and label, or the most useful control (claw/placing.py, gototools.py). The owner, 2026-11-19: "when he wants to
+	# be placed on page two in the advanced dialog in a certain edit field".
+	"go_to_control": (
+		"put you on a control, page or window",
+		"put the user exactly where they ask to be in the program, dialog, game or web page in front: a dialog or window, "
+		"a page of it by its number or name, a control by its kind and label, such as an edit field, a check box, a "
+		"button or a list; or the most useful control where they name none",
+		("go_to_control",)),
 	"file_task": (
 		"make, rename, move, copy or delete a file or folder",
 		"make a new folder or text file, rename, move or copy a file or folder of the user's, or delete one by moving "
@@ -692,6 +702,11 @@ _HINTS = (
 	("pick_seat", lambda part: seats.seatWish(part) is not None),
 	("pick_option", lambda part: shopping.optionWish(part) is not None and not guide.asks(part)),
 	("look_picture", lambda part: images.meant(part) is not None),
+	# Being put somewhere: "put me on page two of the Advanced dialog, in the Proxy field", "move the focus to the Save
+	# button", "take me to the Connection tab" (claw/placing.py). Only with words that put the user or the focus there and
+	# name a place; before the web page's go_to, which "go to the field" would otherwise set off in a dialog, where it
+	# fails, and before the click, which would press what the user only wanted to be on.
+	("go_to_control", lambda part: placing.wish(part) is not None),
 	# A question about the control the user is on: what it is, what it does, its state, its keys (claw/focus.py).
 	# Asked on 2026-11-19 after "tell me about the focused control" set off the pattern for NVDA's commands below.
 	("about_focus", lambda part: focus.wish(part) is not None and not re.search(_OBJECT_FACTS, part.lower())),
@@ -1080,7 +1095,7 @@ _SPLIT_SYSTEM = (
 _ON_THE_WEB = ("open_website", "search_web", "page_navigate", "go_to", "fill_field", "web_page")
 # After one of these the user is inside something of the program in front, and "turn the volume up a bit" means
 # the control there, not NVDA's own setting.
-_INSIDE = ("click", "set_control")
+_INSIDE = ("click", "set_control", "go_to_control")
 _ONLY_ASKS = re.compile(
 	r"^\s*(please\s+)?(tell me|say|read|what|which|who|how many|how much|is there|are there|do i have|does it|"
 	r"summari[sz]e|count|list|check)\b", re.IGNORECASE)
@@ -1303,7 +1318,9 @@ _WHOLE = ("learn_app", "write_addon", "add_skill", "add_fix", "work_through", "t
 	# One question about the control the user is on, in several clauses: "what's the focused control and what does it
 	# do" was split by the model and "what does it do" looked up alone (tests/eval/requests5.json, 2026-11-19).
 	# claw/focus.py takes no request that also asks for something to be done.
-	"about_focus")
+	"about_focus",
+	# "Open the Advanced dialog, go to page two and put me in the Proxy field" is one place, said in three clauses.
+	"go_to_control")
 # Recipes that are kept whole where plain rules find nothing to split: their tools read the whole of what was said.
 # Where plain rules do split ("click the Medium size swatch, select the dark blue colour option"), each part stands.
 _WHOLE_UNSPLIT = ("fill_blank", "pick_option", "check_layout", "form_trouble")
@@ -1705,14 +1722,16 @@ _NEEDS = {
 	"nvda_log": nvdalog.wish,
 	# A whole program made accessible: only where plain code finds it in the words (claw/appaccess.py).
 	"program_access": appaccess.wish,
-	"fix_program": lambda part: True if appaccess.makes(part) else None}
+	"fix_program": lambda part: True if appaccess.makes(part) else None,
+	# Being put somewhere, only where plain code finds a place in the words (claw/placing.py).
+	"go_to_control": placing.wish}
 # Recipes the words point to that can hardly mean anything else: locking and shutting down, the Recycle Bin, the
 # computer's own volume. Where the words point to one of them, it is taken, whatever a model chose. Each of
 # their tools asks the user before it changes anything.
 _SURE = ("power", "windows_part", "read_place", "empty_bin", "recycle_bin", "system_volume", "file_task", "pick_date", "work_through",
 	"teach_words", "step_through", "fill_blank", "format_document", "check_layout", "human_check", "pick_seat", "pick_option",
 	"look_picture", "about_focus", "version_info", "scratchpad", "ask_scratchpad", "own_errors", "fix_self", "own_fixes",
-	"nvda_log", "program_access", "fix_program")
+	"nvda_log", "program_access", "fix_program", "go_to_control")
 
 
 # Words that only ask something, at the start: a question, or "tell me". Asked of nothing on the screen and fitting no

@@ -1,6 +1,6 @@
 # VisionClaw status
 
-Updated 2026-11-19, version 1.20.0.
+Updated 2026-11-19, version 1.21.0.
 
 ## What exists
 
@@ -3116,6 +3116,43 @@ How it was tested:
   after `unknownNames` was added it was refused three times, so the user gets a report. Qwen3 14B as the writer: the
   same 3 of 5, and the focus bug not corrected either.
 - Not run inside NVDA: the focus fix (its first real test is the owner's own steps again) and the self-fix.
+
+## Put exactly where you ask, never left lost, and help offered (1.21.0, 2026-11-19)
+
+The owner: "put extra checks and balances into each visionclaw skill, system prompt, memory, rag, scratchpad info,
+visionclaw's language parser and orchestrators ... job gets completed right the first time", the user must never be
+"left in the middle of nowhere ... when he wants to be placed on page two in the advanced dialog in a certain edit
+field", for "all kinds of games, apps, inaccessible windows"; then a setting that offers help by itself where VisionClaw
+"detects accessibility issues", which the user can always refuse; the most helpful item chosen by "app, task, window or
+control type, label, color"; and "consider what a sighted person would see and do".
+
+What was built:
+- `go_to_control` (`claw/placing.py`, `gototools.py`): the window, the page, the control, each checked; several fit, the
+  user chooses; nothing fits, what there is is said; a field labelled by the text before it; a web page's field in
+  focus mode, anything else by the reading position; a window NVDA cannot read read from its picture, the overlay opened
+  on the item; the most useful item by plain code; where a control was found kept on the program's scratchpad.
+- The end of every request (`claw/landing.py`, `orchestrator._landed`): where the user is, said where they moved, where a
+  look moved them, where a skill says so, and where the place tells NVDA almost nothing. A `lands:` line in every one of the 84 skills.
+- Help offered (`claw/troubles.py`, `helpoffer.py`, setting "Offer help when a window, dialog or control tells NVDA
+  little", NVDA+Alt+Y).
+- Skills `put-me-there` and `offered-help`; notes `visionclaw-placing.md` (gated in `lookup`); `prompts.CODE_FOCUS`;
+  three lines of `understanding.md`; a stand-in in `tests/live_orchestrator.py`.
+
+How it was tested:
+- Plain Python: `tests/test_placing.py`; `tests/test_nvda_stub.py` runs the tool against a stand-in dialog of three pages
+  (a page by number and by name, a field labelled by the text before it, a control on another page, a choice among
+  several, nothing found, the default button as the most useful, a field that refuses the focus, a window opened with its
+  button after a question, a window that is nowhere, a web page's field in focus mode and its button by the reading
+  position), `spot`, and the offers of help (said once, taken, turned off, twice stops them, once allows them again).
+- Plain code on words it was not written from: `tests/eval/requests-place.json` (30, written before running) 23 of 30, then
+  27 after fixes made from its misses (1.20.0: 7); `requests-place2.json` (20, written after those fixes, before running)
+  19 of 20 (1.20.0: 5); its miss, "pop me into the comments box", was then fixed unmeasured. Both sets are spent.
+- With the real Qwen3.5 4B for both jobs (`tests/eval_routing.py`, `VC_SET`), choosing the job only: `requests-place2`
+  20 of 20 (1.20.0: 5 of 20; the set was already spent by the comments fix); `requests6` 58 of 60 (1.20.0: 59 of 60),
+  the one more miss "put the focus on the search box", now `go_to_control`, which does what the expected `go_to` did and
+  goes into the field; counted as `test_eval_patterns.LATER` counts it, 59 of 60, the same.
+- Not measured: `CODE_FOCUS` with a real coder. Not run inside NVDA: the focus, the tabs, the overlay opened at an item,
+  the web page's focus mode, the end-of-request sentence, the offers' timing.
 
 ## Next session
 

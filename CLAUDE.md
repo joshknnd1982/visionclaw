@@ -1598,6 +1598,62 @@ keyboard and speech alone.
   - **What the user is told says where the focus really is**, and how to get to the control where it could not be put.
   - A new place that opens a window at a control, or moves the focus, uses `focustools`, with a case in
     `tests/test_focustools.py` or `tests/test_nvda_stub.py`.
+- **The user is put exactly where they ask to be, never left in the middle of nowhere, and offered help where a place
+  tells NVDA little** (`claw/placing.py`, `gototools.py`, `claw/landing.py`, `claw/troubles.py`, `helpoffer.py`). The
+  owner said on 2026-11-19: "put extra checks and balances into each visionclaw skill, system prompt, memory, rag,
+  scratchpad info, visionclaw's language parser and orchestrators ... job gets completed right the first time. The user
+  can't just be thrown randomly into a dialog box or left in the middle of nowhere on a website either in browse mode or
+  focus mode or in any app or game ... when he wants to be placed on page two in the advanced dialog in a certain edit
+  field or on a certain kind of specific control with a specific label", "this goes for all kinds of games, apps,
+  inaccessible windows", that help be offered "automatically" where VisionClaw "detects accessibility issues" while "the
+  user can always refuse such help", that "once some are made accessible, user is placed on the one that is the most
+  likely to be helpful depending on app, task, window or control type, label, color", and "consider what a sighted person
+  would see and do ... then adapt that to a screen reader user". What follows from it:
+  - **Plain code reads the place** (`placing.wish`, `targets`): the window or dialog by the words before "dialog" or
+    "window" back to the nearest "the" or "my", the page by its number or name, the kind (`placing.KINDS`, roles read
+    from `tests/nvda_objects.json`), the label (quoted, "labelled", "called", the words before the kind), which one of
+    several, and whether the user wants to type. Only with words that put the user or the focus there; a question, a
+    heading or part of a page (`go_to`), a web address, a part of Windows, a field found by what stops its form
+    (`form_trouble`) and anything to be typed or clicked besides are None. The job `go_to_control` is sure, whole, and in
+    `_INSIDE`. Add every wording the owner finds taken wrongly or missed to `tests/test_placing.py`.
+  - **One step at a time, each checked** (`gototools.goTo`): the window (in front; an open one brought to the front; else
+    the button that opens it, after `confirm`; else said, nothing changed), the page (a tab, or an item of a list of
+    pages as NVDA's settings have; checked as shown), the control (also a field labelled only by the text before it,
+    `controlsHere`; on another page where none was named, and said). Where several fit, the user chooses
+    (`plugin.clawAsk`, always). "You are on" is said only where `focustools.focusOn` saw NVDA's focus there. Only a field,
+    list, tree, table, spin box or combo box is clicked to take the focus (`placing.CLICK_SAFE`); a button never. On a web
+    page, a field to type in is activated as NVDA's Enter does (focus mode), anything else gets the reading position
+    (`moveTo`), read from NVDA 2026.3.1's `browseMode.py` (top of `gototools.py`). A window that tells NVDA almost nothing
+    is read from its picture and the overlay is opened with its cursor on the item (`plugin._overlayItem`,
+    `openOverlay(restore=True)`), said to be read from a picture.
+  - **The most useful item is plain code's** (`placing.helpful`): the words of the request, what the program marks
+    (focused, selected, default; `overlay.findHighlighted` in a picture), the usual way on in a dialog, a game's Play or
+    Continue, an empty field to type in, a required empty field, larger than most and a colour that stands out (measured
+    with `claw/colours.py`, never guessed), never an unavailable item; the reason is said in words.
+  - **The way there is learned as data**: a line on the program's learning scratchpad (`placing.routeLine`), read again
+    with the user's memories (`routeFrom`) when the control is named without its page. Never for a program NVDA cannot
+    name ("?").
+  - **Where the user is at the end of every request** (`orchestrator._landed`, `landing.sentence`): the add-on's
+    `orchestrator.spot` (`gototools.spot`) is read when a request begins and when it ends. Said where the focus moved
+    (the place, browse or focus mode, a dialog's message and default button), where a request that only looked moved it
+    (with Alt+Tab back), and always where the place tells NVDA almost nothing (`landing.lost`: NVDA+Alt+O, the most
+    useful item, Alt+Tab). Not said where a step said it (`landing.TELLS_ITSELF`) unless the user is lost. Every skill
+    has a `lands:` line (`skills.LANDS`: stay, moved, told), checked by `tests/test_placing.py`; a skill with told has it
+    said at the end even where nothing moved. Never a fault.
+  - **Help offered, never forced** (`claw/troubles.py`, `helpoffer.py`, the setting `offerHelp`, on at first, NVDA+Alt+Y):
+    after the user stays `troubles.SETTLE_MS` where the focus moved, plain code looks for a window that tells NVDA almost
+    nothing, a dialog with nothing focused, a control truly without a label (`naming.wanted`; not while object names are
+    on) and errors NVDA logged in the program (`nvdalogfeed.recent`, once a minute at most, never VisionClaw's own). One
+    sentence, once for a place, never within `QUIET_SECONDS`, never while VisionClaw works, listens or NVDA reads on, never
+    in VisionClaw's own windows or a program followed by `appaccesstools.isFollowed`. NVDA+Alt+Y takes it as a request in
+    plain words (`troubles.requestFor`), which asks before changing anything; twice stops offers in that program
+    (`helpoffers.json`), once there allows them again. Never make an offer do anything by itself.
+  - **A generated add-on that moves the focus** gets `prompts.CODE_FOCUS` (`codeFocus`, chosen by its words): it checks
+    where the focus landed and says so. Not measured with a real coder.
+  - Measured on 2026-11-19, plain code only, on two sets written before they were run (`tests/eval/requests-place.json`,
+    `requests-place2.json`): 23 of 30 and then, after fixes made from its misses, 27 of 30 (1.20.0: 7 of 30); the second
+    set 19 of 20 (1.20.0: 5 of 20). Both are spent. With the real Qwen3.5 4B choosing, the sixth set stayed at 59 of 60.
+    None of this has run inside NVDA.
 - **NVDA's own log is read by plain code, and never what was typed or spoken** (`claw/nvdalog.py`, `nvdalogtools.py`,
   `nvdalogfeed.py`, `claw/skilllog.py`; the plan is `docs/PLAN-nvda-log.md`). The owner said on 2026-11-19: "I also want
   visionclaw to have access to the various logs of nvda itself, info, debug, etcetera", "if nvda logging is disabled,
@@ -1768,6 +1824,11 @@ addon/
     shoptools.py             a product's options, a seat map, and the question before a button that buys is pressed
     focustools.py            the focus put where the user needs it and checked: a page of NVDA's settings opened at
                              its control, a program's control focused only where NVDA's focus really goes
+    gototools.py             the user put exactly where they ask to be: a window, a page of it, a control by kind and
+                             label, checked at every step; a web page's field in focus mode; a window read from its
+                             picture with the overlay opened on the item; where the user is, as plain facts (spot)
+    helpoffer.py             trouble noticed where the user stays and help offered in one sentence; NVDA+Alt+Y takes
+                             it, twice stops the offers in that program
     nvdalogtools.py          NVDA's own log as tools: the files, the level, the add-ons' names, the Privacy and Security
                              panel opened; a place in the log and what was written after it
     nvdalogfeed.py           NVDA's log while VisionClaw works, for its steps, its skills and a question about trouble;
@@ -1872,6 +1933,12 @@ addon/
                              names, what tells an object apart, how sure a name is, the names kept and shared
       focus.py               the control the user is on: what the words ask about it, and NVDA's facts about it in
                              plain words, with how it is worked and NVDA's own key for next time
+      placing.py             where the user's words ask to be put: window, page, kind, label, which one; which page and
+                             control fit; the most useful item by what a sighted person's eye goes to; the way learned
+      landing.py             where the user is at the end of a request, compared with the start; lost places and the
+                             way on; what each skill's lands: line expects
+      troubles.py            accessibility trouble where the user is, the offer of help, when it is made, taken,
+                             refused and allowed again
       versions.py            which version the user's words ask about, and the answer: that version alone, and where
                              to find it next time only for someone who says they are new to this
       busy.py                what VisionClaw is busy with for the user, and a status update when it has been quiet
@@ -2214,6 +2281,11 @@ A session is done only when its "Done when" line is true.
   window of the program, its fixes made after one question; the windows the user moves to learned by themselves; the
   map in the program's access notes, used by look_up and the model that chooses. Tested with plain Python and stand-ins;
   not run inside NVDA or with a real model.
+- [x] **3.72 Put exactly where you ask, never lost, and help offered.** A window, a page by number or name, a control
+  by kind and label, each step checked; the most useful item by what a sighted eye goes to, also from a window's
+  picture; where the user is said at the end of every request that moved them; a lands: line in every skill; help
+  offered where a place tells NVDA little, taken with NVDA+Alt+Y or refused. Tested with plain Python and stand-ins,
+  plain code measured on two new sets; not run inside NVDA or with a real model.
 - [ ] **3.5 Test inside NVDA.** Install the build in NVDA (ask the user first) and walk through
   `docs/TESTPLAN.md`. Fix what breaks. *Done when:* every item in the test plan is ticked by a real run.
 
@@ -2300,6 +2372,9 @@ python -u tests/live_stream.py MODELS VISIONID CODERID   the real model's answer
                                          comes against the whole answer, and that the pieces are the answer; VC_ASK
 python tests/test_focustools.py          a settings page opened at its control, also when the window shows another page;
                                          a program's focus checked before it is said or a key is pressed
+python tests/test_placing.py             being put somewhere: the words, pages, controls, the most useful item, the way learned;
+                                         where the user is at the end of a request; trouble and offers of help; the tool
+                                         itself against stand-ins is in tests/test_nvda_stub.py
 python tests/test_nvdalog.py             NVDA's own log from made-up logs: errors, add-ons, freezes, drivers, the run before, the
                                          session, developer info, input help; nothing private gets through
 python tests/test_skilllog.py            every skill's log: line, the lines a skill gets, the instructions for them, a step told what

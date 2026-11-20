@@ -432,7 +432,7 @@ assert instance.dataDir == DATA and instance.portableSettings()["searchEngine"] 
 instance.controller._stopped.set()
 instance.controller._thread.join(5)
 registry = instance.orchestrator.registry
-assert len(registry.names()) == 123, registry.names()
+assert len(registry.names()) == 124, registry.names()
 # Lessons from searches that happened to find something misled; they are dropped when VisionClaw starts.
 assert instance.memory.all() == ["Tool set_setting: this form failed: {} (x). This form worked: {}."], instance.memory.all()
 assert set(planner.available(registry)) == set(planner.RECIPES), set(planner.RECIPES) - set(planner.available(registry))
@@ -4521,6 +4521,205 @@ worked, result = registry.call(taskModule.Task("x"), "set_control", {"asked": "w
 assert not worked and "does not say which control of this program to set" in result, result
 apiStub.getForegroundObject, deep.rangeOf, deep.turn = realForeground, realRange, realTurn
 conf["visionClaw"]["confirmChanges"] = False
+
+# --- The user put exactly where they ask to be, checked at every step (gototools.py, claw/placing.py) ---
+from visionClaw import gototools, helpoffer  # noqa: E402
+from visionClaw.claw import troubles  # noqa: E402
+
+gototools.SETTLE = 0
+keptDialog, keptRange, keptWindows = dialog, deep.rangeOf, computertools.openWindows
+deep.rangeOf = lambda obj: None
+computertools.openWindows = lambda: []
+front = [None]
+
+
+class Opener(Ctl):
+	"""A button that opens another window when it is pressed."""
+
+	def __init__(self, name, window):
+		Ctl.__init__(self, name, "BUTTON")
+		self.window = window
+
+	def doAction(self):
+		self.pressed += 1
+		front[0] = self.window
+
+
+class Network(Dialog):
+	"""A dialog of three pages, whose fields are labelled by the text before them, as many Windows dialogs are."""
+
+	def __init__(self, title, pages):
+		Ctl.__init__(self, title, "DIALOG")
+		self.tabs = [Ctl(name, "TAB", ("SELECTED",) if index == 0 else ()) for index, name in enumerate(pages)]
+		self.pages = pages
+		self.shown = self.tabs[0].name
+
+
+options = Network("Options", {"General": [Ctl("Name", "EDITABLETEXT"), Ctl("Save", "BUTTON")]})
+proxyField = Ctl("", "EDITABLETEXT")
+dialog = net = Network("Network settings", {
+	"General": [Ctl("Name", "EDITABLETEXT", value="Home"), Ctl("OK", "BUTTON", ("DEFAULT",)), Ctl("Cancel", "BUTTON"),
+		Opener("Options...", options)],
+	"Connection": [Ctl("Proxy server:", "STATICTEXT"), proxyField, Ctl("Port", "EDITABLETEXT", value="8080"),
+		Ctl("Use a proxy", "CHECKBOX")],
+	"Advanced": [Ctl("User agent", "EDITABLETEXT")]})
+front[0] = net
+realPage, webtools.page = webtools.page, lambda: None
+realForeground, apiStub.getForegroundObject = apiStub.getForegroundObject, lambda: front[0]
+realFocusObject, apiStub.getFocusObject = apiStub.getFocusObject, lambda: focusNow[0]
+focusNow[0] = net.pages["General"][0]
+del questions[:], focused[:]
+# Page two, and a field whose name is the text before it: the page is shown, the field gets the focus, and NVDA says so.
+worked, result = registry.call(taskModule.Task("x"), "go_to_control", {
+	"asked": "put me on page two in the network dialog in the proxy server edit field"})
+assert worked and net.shown == "Connection" and focusNow[0] is proxyField, (result, net.shown)
+assert result.startswith('The page Connection is shown. You are on the edit field "Proxy server:", on the page Connection, '
+	'in the window "Network settings". It has no name of its own; the text "Proxy server:" stands before it. It is empty.'), result
+assert result.endswith("Type to write in it; the arrow keys move through its text.") and not questions, result
+# A control on the page that is shown, by its kind and label.
+worked, result = registry.call(taskModule.Task("x"), "go_to_control", {"asked": "move the focus to the Port field"})
+assert worked and focusNow[0].name == "Port" and 'You are on the edit field "Port"' in result and "It shows 8080." in result, result
+# A page by its number alone: the user is told where the focus is and how to get into the page.
+worked, result = registry.call(taskModule.Task("x"), "go_to_control", {"asked": "take me to the third tab"})
+assert worked and net.shown == "Advanced" and result.startswith("The page Advanced is shown. You are on the ") and result.endswith(
+	"Tab moves into the page, through its controls."), result
+# A control that is on another page than the one shown, where the user named no page: found there, and said.
+net.show("General")
+worked, result = registry.call(taskModule.Task("x"), "go_to_control", {"asked": "put me in the user agent field"})
+assert worked and net.shown == "Advanced" and focusNow[0].name == "User agent", (result, net.shown)
+assert result.startswith("It is on the page Advanced, which is shown now. You are on the edit field \"User agent\""), result
+# Several fit: the user chooses, whatever the settings say about questions.
+net.show("General")
+conf["visionClaw"]["confirmChanges"] = False
+worked, result = registry.call(taskModule.Task("x"), "go_to_control", {"asked": "put me on a button"})
+assert questions == ["Several controls fit. Which one do you mean?"] and focusNow[0].name == "OK", (questions, result)
+# Nothing fits: what there is is said, and nothing is moved.
+del questions[:]
+before = focusNow[0]
+worked, result = registry.call(taskModule.Task("x"), "go_to_control", {"asked": "put me on the colour combo box"})
+assert worked and focusNow[0] is before and net.shown == "General", result
+assert result.startswith('Nothing here fits the combo box "colour". Nothing else was moved; you are on '), result
+# The most useful control, where the user names none: the default button of a dialog, and why it was chosen.
+worked, result = registry.call(taskModule.Task("x"), "go_to_control", {"asked": "put me on the most useful control in this dialog"})
+assert worked and focusNow[0].name == "OK" and "Chosen because the program marks it as the current or default one." in result, result
+# A program that does not let the focus move to a field: a click inside it puts the focus there, which changes nothing.
+proxyField.takesFocus = False
+clicked = []
+realClick, mousetools.click = mousetools.click, lambda x, y, *args, **kwargs: clicked.append((x, y))
+worked, result = registry.call(taskModule.Task("x"), "go_to_control", {"asked": "put me on page 2, in the proxy server field"})
+assert worked and clicked and "the focus stays on" in result and "NVDA's navigator object is on it" in result, result
+assert "You are on" not in result  # never said where NVDA does not report it
+proxyField.takesFocus = True
+mousetools.click = realClick
+# A window that is not open, opened with its button after a question; then the field in it.
+net.show("General")
+conf["visionClaw"]["confirmChanges"] = True
+worked, result = registry.call(taskModule.Task("x"), "go_to_control", {"asked": "put me in the name field of the options dialog"})
+assert questions == ["Press Options... to open the options window?"] and front[0] is options, (questions, result)
+assert result.startswith('Options... was pressed, and the window "Options" opened. You are on the edit field "Name"'), result
+assert focusNow[0] is options.pages["General"][0]
+# A window that is nowhere: said, and nothing else is done.
+del questions[:]
+worked, result = registry.call(taskModule.Task("x"), "go_to_control", {"asked": "put me on the proxy field in the firewall dialog"})
+assert worked and result.startswith('No window called "firewall" is open, and the window in front, "Options", has no button that '
+	"opens it. Nothing was changed") and not questions, result
+front[0] = net
+conf["visionClaw"]["confirmChanges"] = False
+
+# On a web page: a field the user types in gets the focus in focus mode, as NVDA's Enter does; anything else gets NVDA's
+# reading position, so that nothing is pressed.
+page = types.SimpleNamespace(passThrough=False)
+emailField = Ctl("Email", "EDITABLETEXT")
+
+
+class WebItem:
+	def __init__(self, obj):
+		self.obj, self.moved, self.activated = obj, 0, 0
+
+	def activate(self):
+		self.activated += 1
+		page.passThrough = True
+		focusNow[0] = self.obj
+
+	def moveTo(self):
+		self.moved += 1
+
+
+webItems = [{"text": "Email edit field", "plain": "Email", "kind": "edit field", "web": WebItem(emailField)},
+	{"text": "Subscribe button", "plain": "Subscribe", "kind": "button", "web": WebItem(Ctl("Subscribe", "BUTTON"))}]
+realItems, realMove = webtools.pageItems, webtools.moveTo
+webtools.page = lambda: page
+webtools.pageItems = lambda: webtools.WebItems(webItems, "Newsletter")
+webtools.moveTo = lambda item: item["web"].moveTo()
+worked, result = registry.call(taskModule.Task("x"), "go_to_control", {"asked": "put me in the email edit field"})
+assert worked and webItems[0]["web"].activated == 1 and page.passThrough and focusNow[0] is emailField, result
+assert result.startswith("You are in the Email edit field, in focus mode: type, and NVDA reads what you type."), result
+worked, result = registry.call(taskModule.Task("x"), "go_to_control", {"asked": "move the focus to the subscribe button"})
+assert worked and webItems[1]["web"].moved == 1 and webItems[1]["web"].activated == 0, result
+assert result == "NVDA's reading position is on the Subscribe button, in browse mode. Press Enter to use it.", result
+webtools.page = lambda: None
+webtools.pageItems, webtools.moveTo = realItems, realMove
+
+# Where the user is, as plain facts for the end of a request and for the offers of help.
+focusNow[0] = net.pages["General"][0]
+facts = gototools.spot(True)
+assert facts["title"] == "Network settings" and facts["focusRole"] == "EDITABLETEXT" and facts["focusName"] == "Name", facts
+assert facts["windowRole"] == "DIALOG" and facts["named"] >= 3 and facts["defaultButton"] == "OK" and facts["browse"] is None, facts
+
+# Help offered where a place tells NVDA little, taken with NVDA+Alt+Y, refused by doing nothing or by pressing it twice.
+offers = instance.helpOffers
+heard, started = [], []
+offers.speak = heard.append
+offers.offers = troubles.Offers(None)
+realSpot, realStart = gototools.spot, instance.startClawTask
+blank = {"app": "mygame", "title": "My Game", "focusRole": "PANE", "focusName": "My Game", "named": 0, "controls": 0}
+gototools.spot = lambda count=True: dict(blank)
+instance.startClawTask = lambda request, reasoning: started.append(request)
+conf["visionClaw"]["offerHelp"] = True
+offers._look(offers._generation)
+assert heard == [troubles.offerText(troubles.UNREADABLE, blank)], heard
+offers._look(offers._generation)
+assert len(heard) == 1  # once for this place
+offers._pressedOnce()
+assert started == ["This window tells NVDA almost nothing: put me on the most useful item in it."], started
+# What was noticed is written on the program's learning scratchpad, where the user lets VisionClaw keep scratchpads.
+gamePad = instance.pads.learning("mygame")
+assert any("tells NVDA almost nothing" in note.text for note in gamePad.notes), [note.text for note in gamePad.notes]
+instance.pads.delete(gamePad)
+# Moved on before the moment passed: nothing is said.
+offers.offers = troubles.Offers(None)
+generation = offers._generation
+offers.focusMoved()
+offers._look(generation)
+assert len(heard) == 1
+# Turned off in the settings: nothing is looked at.
+conf["visionClaw"]["offerHelp"] = False
+offers._look(offers._generation)
+assert len(heard) == 1
+conf["visionClaw"]["offerHelp"] = True
+# Pressed twice: no more offers in this program, and it is said.
+told = []
+realMessage, sys.modules["ui"].message = sys.modules["ui"].message, told.append
+sys.modules["scriptHandler"].getLastScriptRepeatCount = lambda: 1
+offers.press()
+assert offers.offers.declined == {"mygame"} and told == [troubles.declinedText("mygame")], told
+offers._look(offers._generation)
+assert len(heard) == 1
+# Pressed once with nothing offered, in that program: offers are back.
+offers._pressedOnce()
+assert told[-1] == troubles.allowedText("mygame") and not offers.offers.declined, told
+# Pressed once with nothing offered where NVDA can say where the user is: said so, and nothing is started.
+gototools.spot = lambda count=True: dict(facts)
+offers._pressedOnce()
+assert told[-1] == troubles.nothingText("") or told[-1].startswith("VisionClaw has nothing to offer here now"), told
+assert len(started) == 1
+sys.modules["scriptHandler"].getLastScriptRepeatCount = lambda: 0
+sys.modules["ui"].message = realMessage
+gototools.spot, instance.startClawTask = realSpot, realStart
+apiStub.getForegroundObject, apiStub.getFocusObject = realForeground, realFocusObject
+deep.rangeOf, computertools.openWindows, dialog = keptRange, keptWindows, keptDialog
+webtools.page = realPage
+focusNow[0] = None
 
 # --- The user's own files: made, renamed, moved, copied, and moved to the Recycle Bin ---
 # The real tool and the real search, in folders of the test's own that stand for the user's folders. Files there

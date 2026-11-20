@@ -3017,6 +3017,9 @@ def build(plugin):
 	# A named control of the program in front: on or off, up or down, also on another page of its dialog.
 	from . import controltools
 	controltools.register(add, plugin, text, onMain, confirm, screen)
+	# The user put exactly where they ask to be, checked at every step (gototools.py, claw/placing.py).
+	from . import gototools
+	gototools.register(add, plugin, text, onMain, confirm, screen)
 	# A web page as a whole, and what stops a form on it (pagetools.py). Imported here for the same reason.
 	from . import pagetools
 	pagetools.register(add, plugin, text, onMain)

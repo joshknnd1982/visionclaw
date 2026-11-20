@@ -123,6 +123,7 @@ HELP = {
 	"files": "what is in my downloads folder",
 	"computer_info": "how much disk space do i have left",
 	"set_control": "in this dialog, turn on my nvidia gpu for this program",
+	"go_to_control": "put me on page two of the advanced dialog, in the proxy",
 	"file_task": "create a folder called taxes in my documents",
 	"pick_date": "pick 14 march 2027 in this calendar",
 	"classic_speech": "set classicspeech to advanced",

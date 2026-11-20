@@ -964,5 +964,19 @@ None of these has run inside NVDA. Each is one real run; say what you hear.
       your own code" says it is undone).
 - [ ] Nothing of this happens by itself: after an error, VisionClaw says nothing about its log or a correction.
 
+## Put exactly where you ask, never lost, and help offered (1.21.0)
+- [ ] In a dialog with tabs (Windows' Internet Options, or Notepad's Font dialog): NVDA+Alt+C, "put me on page two in the
+      edit field labelled ...": the page is shown, NVDA says the field, and VisionClaw's answer says the same place.
+- [ ] "take me to the Connection tab", "go to the second check box", "move the focus to the Cancel button": each lands
+      where NVDA says it is; "put me on the colour combo box" where there is none: said, and the focus does not move.
+- [ ] "put me in the Name field of the Options dialog" with a button "Options..." in the window: asked first; the window opens.
+- [ ] On a web page with a form: "put me in the email field": focus mode in the field; "move the focus to the subscribe
+      button": browse mode, reading position on it, nothing pressed.
+- [ ] In a window NVDA reads badly or a game's launcher: "put me on the most useful item in this window": the overlay
+      opens with its cursor on an item, and the reason is said.
+- [ ] A request that opens a dialog (a Save As): the answer ends with where you are, the dialog's message and default button.
+- [ ] Offers: stay a moment in a window NVDA cannot read: one sentence offers help; NVDA+Alt+Y takes it; press it twice:
+      no more offers there; once again: back. Uncheck the setting: nothing is offered.
+
 ## Stopping NVDA
 - [ ] NVDA exits without an error, and no `vcengine.exe` is left running (Task Manager).

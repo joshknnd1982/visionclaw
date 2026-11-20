@@ -31,7 +31,10 @@ grammar = understand.Grammar(None)
 # plain words: "what control am I on", written for where_am_i, is answered by it.
 LATER = {"about_focus": ("where_am_i", "object_facts"),
 	# version_info (1.15.1) says the version of NVDA that nvda_info said among its other facts, and nothing more.
-	"version_info": ("nvda_info", "addon_question")}
+	"version_info": ("nvda_info", "addon_question"),
+	# go_to_control (1.21.0) moves to a field of a web page as go_to did, and goes into it in focus mode; in a program's
+	# window, where go_to could not work at all, it finds the window, the page and the control.
+	"go_to_control": ("go_to",)}
 
 
 def fits(job, allowed):

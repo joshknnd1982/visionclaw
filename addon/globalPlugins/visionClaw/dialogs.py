@@ -63,6 +63,8 @@ USAGE = _(
 	"NVDA+Alt+M: see, choose, download or remove models.\n"
 	"NVDA+Alt+I: the skills window, to read, make, change, turn off, delete or import skills.\n"
 	"NVDA+Alt+U: look for a newer version of VisionClaw. Nothing is downloaded unless you say yes.\n"
+	"NVDA+Alt+Y: take the help VisionClaw offers where a window, dialog or control tells NVDA little. Do nothing to say no; "
+	"press it twice for no more offers in that program.\n"
 	"Two commands have no key until you give them one: VisionClaw's own voice, which opens NVDA's Speech settings "
 	"for the voice VisionClaw speaks with, and what VisionClaw remembers, to forget some or all of it. "
 	"Every command can be given a key, or a different key, in NVDA's Input Gestures dialog, under VisionClaw.\n"

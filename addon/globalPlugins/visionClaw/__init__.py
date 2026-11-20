@@ -200,6 +200,9 @@ confspec = {
 	# What VisionClaw does when the user moves to another window of a program they asked it to make accessible
 	# (appaccesstools.Follower, claw/appaccess.py): learn it and say so in one sentence, learn it quietly, or nothing.
 	"programFollow": 'option("tell", "quiet", "off", default="tell")',
+	# Whether VisionClaw offers help, in one sentence, where it notices that a window, dialog or control tells NVDA little
+	# (helpoffer.py, claw/troubles.py). Nothing is done without NVDA+Alt+Y; the owner asked for it on 2026-11-19.
+	"offerHelp": "boolean(default=True)",
 	"preload": "boolean(default=True)",
 	"answerInNvdaLanguage": "boolean(default=True)",
 	# The instructions every answer and description gets (claw/prompts.py). "" is VisionClaw's own wording.
@@ -219,6 +222,7 @@ confspec = {
 	"promptCodePad": 'string(default="")',
 	"promptNvdaLogHelp": 'string(default="")',
 	"promptCodeLog": 'string(default="")',
+	"promptCodeFocus": 'string(default="")',
 	"promptProgramHelp": 'string(default="")',
 	"promptQuick": 'string(default="")',
 	"promptDetailed": 'string(default="")',
@@ -285,7 +289,7 @@ def _languageInstruction():
 
 PROMPT_KEYS = {
 	"user": "promptUser", "speaking": "promptSpeaking", "seeing": "promptSeeing", "addon": "promptAddon",
-	"codeKey": "promptCodeKey", "codeAuto": "promptCodeAuto", "codeProgram": "promptCodeProgram",
+	"codeKey": "promptCodeKey", "codeAuto": "promptCodeAuto", "codeProgram": "promptCodeProgram", "codeFocus": "promptCodeFocus",
 	"codeGuide": "promptCodeGuide", "devGuide": "promptDevGuide", "addonHelp": "promptAddonHelp",
 	"trainingHelp": "promptTrainingHelp", "padHelp": "promptPadHelp", "codePad": "promptCodePad",
 	"nvdaLogHelp": "promptNvdaLogHelp", "codeLog": "promptCodeLog", "programHelp": "promptProgramHelp",
@@ -666,8 +670,15 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		# and stays a moment (appaccesstools.py): NVDA's facts only, no model, and nothing is made without a yes.
 		from . import appaccesstools
 		self.programFollower = appaccesstools.Follower(self, _speak, self._stopped)
+		# Accessibility trouble noticed where the user stays, and help offered in one sentence; NVDA+Alt+Y takes it.
+		from . import helpoffer
+		self.helpOffers = helpoffer.HelpOffers(self, DATA_DIR, _speak)
 		# The model that chooses is told, in one sentence, when the user is in such a program (orchestrator._context).
 		self.orchestrator.programMap = lambda: appaccesstools.contextText(self)
+		# Where the user is at the start and the end of a request, so that they are told where they ended up
+		# (claw/landing.py, gototools.spot).
+		from . import gototools
+		self.orchestrator.spot = lambda count=True: nvdatools.onMain(lambda: gototools.spot(count), timeout=5)
 		# True after the memory was given back because Windows ran low.
 		self._freedForMemory = False
 		self.labels = labels.LabelStore(os.path.join(DATA_DIR, "labels.json"))
@@ -990,6 +1001,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			("codeKey", _("Add-ons started with a key")),
 			("codeAuto", _("Add-ons that work by themselves")),
 			("codeProgram", _("Add-ons for one program or game")),
+			("codeFocus", _("Add-ons that move the focus")),
 			("codeGuide", _("Add-ons written with lines from the developer guides")),
 			("codePad", _("Add-ons written with lines from a program's scratchpad")),
 			("codeLog", _("Add-ons written with the developer info NVDA logged about an object")),
@@ -1428,6 +1440,19 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			return
 		# Translators: Reported when the user stops a request.
 		ui.message(_("Stopping."))
+
+	@script(
+		# Translators: Description of a command in the Input Gestures dialog.
+		description=_(
+			"Takes the help VisionClaw offered for a window, dialog or control that tells NVDA little. With nothing "
+			"offered, looks where you are and helps at once. Pressed twice, no more offers in this program; pressed "
+			"there again once, they are back."),
+		gesture="kb:NVDA+alt+y",
+	)
+	def script_takeHelp(self, gesture):
+		helpOffers = getattr(self, "helpOffers", None)
+		if helpOffers is not None:
+			helpOffers.press()
 
 	@script(
 		# Translators: Description of a command in the Input Gestures dialog.
@@ -2064,6 +2089,10 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			return
 		nextHandler()
 		self._focusGeneration += 1
+		# Accessibility trouble is looked for where the user stays a moment, and help offered (helpoffer.py).
+		helpOffers = getattr(self, "helpOffers", None)
+		if helpOffers is not None:
+			helpOffers.focusMoved()
 		try:
 			localmedia.warmUp(obj.appModule.appName)
 		except Exception:

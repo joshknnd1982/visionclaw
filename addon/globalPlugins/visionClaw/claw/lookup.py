@@ -66,6 +66,13 @@ _COMPUTER = re.compile(
 	r"if you see|check ?box|slider|option|switch|system ?tray|notification area|task ?bar|hidden icons|desktop icons)\b"
 	r"|\b(can|could|will|does) (you|visionclaw)\b.{0,40}\b(open|close|find|empty|start|launch|turn|set|do)\b"
 	r"|\bwhat can (you|visionclaw) do\b", re.IGNORECASE)
+# Being put on a control, a page or a window, where the user is after a request, and help offered by itself
+# (claw/placing.py, claw/landing.py, claw/troubles.py): asked only when the question names one of these.
+_PLACING = re.compile(
+	r"\b(put|place|take|get|bring|move) (me|the focus|the cursor)\b|\bnvda\+alt\+y\b|\boffers? (of )?help\b"
+	r"|\b(most useful|most helpful) (control|item|thing|button|field)\b|\bwhere (am i|i am|i end up|i'?m left)\b.{0,40}\b(after|done)\b"
+	r"|\b(left|lost) in the middle of nowhere\b|\b(page|tab) (two|2|three|3) of\b|\b(edit field|check box|tab) (of|in) (a|the|this) dialog\b",
+	re.IGNORECASE)
 # Scratchpads, and VisionClaw's own logs, bugs and code: asked only when the question names one of these.
 _SCRATCH = re.compile(
 	r"\bscratch[ -]?pads?\b|\b(your|visionclaw'?s?) (own )?(logs?|bugs?|errors?|code|corrections?|fix(es)?)\b"
@@ -156,6 +163,7 @@ NOTES = {
 	"visionclaw-inputs": (NVDA, "VisionClaw's notes on game controllers, touch, pressure and games", _INPUTS),
 	"visionclaw-computer": (NVDA, "VisionClaw's notes on what it does on the computer for you", _COMPUTER),
 	"visionclaw-scratchpad": (NVDA, "VisionClaw's notes on its scratchpads and its own logs and code", _SCRATCH),
+	"visionclaw-placing": (NVDA, "VisionClaw's notes on putting you on a control, page or window, and on help it offers", _PLACING),
 	"visionclaw-asking": (
 		NVDA, "VisionClaw's notes on settings for one program, follow-up requests, calendars, asking by voice and models",
 		_ASKING_NOTES),

@@ -13,6 +13,9 @@
 #   instead of: another-skill               optional: skills that are not used when this one is, by folder name
 #   log: errors, objects                    optional: what the skill wants from NVDA's own log (LOG_KINDS), given with
 #                                           its sentences where NVDA logged it in the last minutes (claw/skilllog.py)
+#   lands: told                             where the job leaves the user (LANDS): stay (it only looks, and must not
+#                                           move the focus), moved (told where they are when the focus moved), told
+#                                           (always told where they are at the end); checked by claw/landing.py
 #   steps:                                  optional: a fixed list of recipes, each with the words it is given
 #   - where_am_i
 #   - describe: say what this window shows
@@ -99,6 +102,11 @@ LOG_KINDS = ("errors", "add-ons", "speech", "audio", "braille", "freezes", "sess
 	"remote")
 
 
+# Where a skill's job leaves the user (lands: in SKILL.md), checked at the end of the request by plain code
+# (claw/landing.py). The owner said on 2026-11-19 that the user must never be "left in the middle of nowhere".
+LANDS = ("stay", "moved", "told")
+
+
 def logKinds(text):
 	"""The kinds of a skill's log: line, in order, each once, lower case. Unknown kinds are kept, so check() names them."""
 	parts = text if isinstance(text, (list, tuple)) else str(text or "").split(",")
@@ -109,7 +117,7 @@ class Skill:
 	"""One skill. slug: its folder name. source: YOURS or OURS. on: whether it is used."""
 
 	def __init__(self, name, description="", when=(), uses=(), steps=(), instructions="", slug="", source=YOURS,
-			path="", instead=(), log=()):
+			path="", instead=(), log=(), lands=""):
 		self.name = " ".join(str(name or "").split())[:NAME_CHARS]
 		self.description = " ".join(str(description or "").split())[:DESCRIPTION_CHARS]
 		self.when = _phrases(when)
@@ -119,6 +127,8 @@ class Skill:
 		self.instead = tuple(slugOf(name) for name in _names(instead))
 		# What the skill wants from NVDA's own log, by LOG_KINDS (claw/skilllog.py); nothing when it names nothing.
 		self.log = logKinds(log)
+		# Where the job leaves the user, by LANDS; "" says nothing, and the steps decide (claw/landing.py).
+		self.lands = " ".join(str(lands or "").split()).lower()
 		self.steps = tuple(
 			(recipe, " ".join(str(words or "").split())[:STEP_WORDS_CHARS]) for recipe, words in steps)[:MAX_STEPS]
 		self.instructions = str(instructions or "").strip()[:INSTRUCTION_CHARS]
@@ -185,7 +195,7 @@ def parse(text, slug="", source=YOURS, path=""):
 	return Skill(
 		head.get("name"), head.get("description", ""), head.get("when", ""), head.get("uses", ""),
 		head.get("steps", ()), "\n".join(body).strip(), slug, source, path, head.get("instead of", head.get("instead", "")),
-		head.get("log", ""))
+		head.get("log", ""), head.get("lands", ""))
 
 
 def _head(lines):
@@ -230,6 +240,8 @@ def toText(skill):
 		lines.append(f"instead of: {', '.join(skill.instead)}")
 	if skill.log:
 		lines.append(f"log: {', '.join(skill.log)}")
+	if skill.lands:
+		lines.append(f"lands: {skill.lands}")
 	if skill.steps:
 		lines.append("steps:")
 		lines += [f"- {recipe}: {words}" if words else f"- {recipe}" for recipe, words in skill.steps]
@@ -261,6 +273,8 @@ def check(skill, recipes):
 		if kind not in LOG_KINDS:
 			problems.append(f"It asks NVDA's log for \"{kind}\", which VisionClaw does not read there. It can ask for: "
 				+ ", ".join(LOG_KINDS) + ".")
+	if skill.lands and skill.lands not in LANDS:
+		problems.append(f"It says it lands \"{skill.lands}\", which VisionClaw does not know. It can say: " + ", ".join(LANDS) + ".")
 	return problems
 
 

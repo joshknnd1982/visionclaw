@@ -1,0 +1,25 @@
+{
+ "about": "A second set of requests about being put somewhere, and look-alikes, written on 2026-11-19 after the fixes made from requests-place.json's misses and before anything was run on this set, by the same hand. It measures those fixes on wordings they were not made from. Never take a request of this set into known.json or a pattern's test.",
+ "requests": [
+  {"request": "pop me into the comments box", "expect": [["go_to_control"]]},
+  {"request": "could you move the focus to the save as type combo box", "expect": [["go_to_control"]]},
+  {"request": "I wanna be in the search field", "expect": [["go_to_control"]]},
+  {"request": "put me on tab 2 of this window", "expect": [["go_to_control"]]},
+  {"request": "take me over to the Privacy tab", "expect": [["go_to_control"]]},
+  {"request": "focus on the file name field", "expect": [["go_to_control"]]},
+  {"request": "bring the focus back to the OK button", "expect": [["go_to_control"]]},
+  {"request": "get me onto the second list", "expect": [["go_to_control"]]},
+  {"request": "put me on the slider for brightness", "expect": [["go_to_control"]]},
+  {"request": "navigate to the spin box called quantity", "expect": [["go_to_control"]]},
+  {"request": "move me to the last tab", "expect": [["go_to_control"]]},
+  {"request": "put me in the edit box for my phone number", "expect": [["go_to_control"]]},
+  {"request": "I need to get to the Display page in the advanced settings dialog", "expect": [["go_to_control"]]},
+  {"request": "put the cursor on the first link", "expect": [["go_to_control"]]},
+  {"request": "where do I begin in this window? put me there", "expect": [["go_to_control"]]},
+  {"request": "what tab am I on", "expect": [["about_focus", "where_am_i", "nvda_question"]]},
+  {"request": "read the text in the comments box", "expect": [["read_text", "about_focus", "web_page"]]},
+  {"request": "press the OK button", "expect": [["click", "press_keys"]]},
+  {"request": "go to google.com", "expect": [["open_website"]]},
+  {"request": "how many tabs does this dialog have", "expect": [["describe", "nvda_question", "about_focus", "object_facts", "explain_keys"]]}
+ ]
+}

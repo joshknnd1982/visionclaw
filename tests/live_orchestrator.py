@@ -879,6 +879,12 @@ def makeRegistry(rt, state):
 	reg.add(tools.Tool("set_control",
 		"turn a named option, check box or switch of the program in front on or off, or turn a named slider or value "
 		"up or down or to a number", setControl, dict(askedField), changes=True, title="Setting the control", tell=V))
+	# Being put somewhere (1.21.0): the stand-in says where, as the real tool does once NVDA reports the focus there.
+	simple("go_to_control",
+		"put the user exactly where they ask to be: a window or dialog, a page of it, a control by its kind and label",
+		'The page Connection is shown. You are on the edit field "Proxy server", on the page Connection, in the window '
+		'"Network settings". It is empty. Type to write in it; the arrow keys move through its text.',
+		"Putting you there", dict(askedField), tell=V)
 	# A setting for one program, a date in a calendar, and asking by voice (2026-11-18).
 	simple("program_settings", "say which programs have NVDA settings of their own, kept in NVDA's configuration profiles",
 		profiles.listText([("spacetrader", "spacetrader", True, ["speech rate from 50 to 60."])]),

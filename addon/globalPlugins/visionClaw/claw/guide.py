@@ -245,7 +245,7 @@ NOT_OWN = (
 OFF_LIMITS = frozenset((
 	"click_item", "press_keys", "type_text", "drag_item", "scroll_view", "draw_gesture", "timed_click", "touch_gesture",
 	"pen_stroke", "set_control", "pick_date", "work_control", "fill_field", "work_through", "name_control",
-	"fill_blank", "step_through", "format_document", "human_check", "pick_option", "pick_seat"))
+	"fill_blank", "step_through", "format_document", "human_check", "pick_option", "pick_seat", "go_to_control"))
 NO_GOAL = "Say what you want to get done, in your own words, and VisionClaw works through it with you."
 
 

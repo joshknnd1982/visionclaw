@@ -1,0 +1,963 @@
+{
+ "label": "requests6-1.20.0",
+ "models": {
+  "backend": "auto",
+  "visionModel": "qwen3.5-4b",
+  "coderModel": "qwen3.5-4b-coder"
+ },
+ "stepwise": "auto",
+ "rows": [
+  {
+   "request": "whats focused",
+   "expect": [
+    [
+     "about_focus",
+     "where_am_i"
+    ]
+   ],
+   "got": [
+    "about_focus"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  },
+  {
+   "request": "hey what am i sitting on right now",
+   "expect": [
+    [
+     "about_focus",
+     "where_am_i"
+    ]
+   ],
+   "got": [
+    "about_focus"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.0,
+   "state": "done"
+  },
+  {
+   "request": "which button has the focus at the moment",
+   "expect": [
+    [
+     "about_focus",
+     "where_am_i"
+    ]
+   ],
+   "got": [
+    "about_focus"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.0,
+   "state": "done"
+  },
+  {
+   "request": "could you tell me what this control is",
+   "expect": [
+    [
+     "about_focus",
+     "where_am_i",
+     "object_facts"
+    ]
+   ],
+   "got": [
+    "about_focus"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.0,
+   "state": "done"
+  },
+  {
+   "request": "what's this button for",
+   "expect": [
+    [
+     "about_focus"
+    ]
+   ],
+   "got": [
+    "about_focus"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.0,
+   "state": "done"
+  },
+  {
+   "request": "what would happen if I hit space on this",
+   "expect": [
+    [
+     "about_focus"
+    ]
+   ],
+   "got": [
+    "about_focus"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.0,
+   "state": "done"
+  },
+  {
+   "request": "is the remember me box ticked",
+   "expect": [
+    [
+     "about_focus",
+     "set_control",
+     "describe"
+    ]
+   ],
+   "got": [
+    "describe"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 5.0,
+   "state": "done"
+  },
+  {
+   "request": "is this option greyed out",
+   "expect": [
+    [
+     "about_focus",
+     "object_facts"
+    ]
+   ],
+   "got": [
+    "about_focus"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  },
+  {
+   "request": "is this menu expanded",
+   "expect": [
+    [
+     "about_focus",
+     "object_facts"
+    ]
+   ],
+   "got": [
+    "about_focus"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.0,
+   "state": "done"
+  },
+  {
+   "request": "tell me what the focused link points to",
+   "expect": [
+    [
+     "about_focus",
+     "object_facts"
+    ]
+   ],
+   "got": [
+    "about_focus"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.0,
+   "state": "done"
+  },
+  {
+   "request": "which list item is selected",
+   "expect": [
+    [
+     "about_focus",
+     "where_am_i"
+    ]
+   ],
+   "got": [
+    "about_focus"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.0,
+   "state": "done"
+  },
+  {
+   "request": "what tab am I on",
+   "expect": [
+    [
+     "about_focus",
+     "where_am_i"
+    ]
+   ],
+   "got": [
+    "about_focus"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.0,
+   "state": "done"
+  },
+  {
+   "request": "explain this control to me, I've never seen it",
+   "expect": [
+    [
+     "about_focus",
+     "object_facts"
+    ]
+   ],
+   "got": [
+    "about_focus"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.0,
+   "state": "done"
+  },
+  {
+   "request": "this thing just says unlabeled, what is it",
+   "expect": [
+    [
+     "about_focus",
+     "name_button"
+    ]
+   ],
+   "got": [
+    "about_focus"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  },
+  {
+   "request": "give me all the info on the current object",
+   "expect": [
+    [
+     "about_focus",
+     "object_facts"
+    ]
+   ],
+   "got": [
+    "object_facts"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  },
+  {
+   "request": "what's the navigator sitting on",
+   "expect": [
+    [
+     "about_focus",
+     "object_facts"
+    ]
+   ],
+   "got": [
+    "about_focus"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  },
+  {
+   "request": "what is my mouse pointing at",
+   "expect": [
+    [
+     "about_focus",
+     "object_facts"
+    ]
+   ],
+   "got": [
+    "about_focus"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.0,
+   "state": "done"
+  },
+  {
+   "request": "how do I use this control",
+   "expect": [
+    [
+     "about_focus",
+     "explain_keys",
+     "nvda_question"
+    ]
+   ],
+   "got": [
+    "explain_keys"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.5,
+   "state": "done"
+  },
+  {
+   "request": "is there a hotkey for the focused button",
+   "expect": [
+    [
+     "about_focus",
+     "object_facts"
+    ]
+   ],
+   "got": [
+    "about_focus"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  },
+  {
+   "request": "what does the selected item do",
+   "expect": [
+    [
+     "about_focus"
+    ]
+   ],
+   "got": [
+    "about_focus"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.0,
+   "state": "done"
+  },
+  {
+   "request": "what kind of thing is the focus on",
+   "expect": [
+    [
+     "about_focus",
+     "where_am_i",
+     "object_facts"
+    ]
+   ],
+   "got": [
+    "about_focus"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.0,
+   "state": "done"
+  },
+  {
+   "request": "what's the value of this slider",
+   "expect": [
+    [
+     "about_focus",
+     "object_facts"
+    ]
+   ],
+   "got": [
+    "about_focus"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.0,
+   "state": "done"
+  },
+  {
+   "request": "tell me what's highlighted in this list",
+   "expect": [
+    [
+     "about_focus",
+     "where_am_i"
+    ]
+   ],
+   "got": [
+    "about_focus"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.0,
+   "state": "done"
+  },
+  {
+   "request": "what control am I on and what does it do",
+   "expect": [
+    [
+     "about_focus"
+    ]
+   ],
+   "got": [
+    "about_focus"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.0,
+   "state": "done"
+  },
+  {
+   "request": "which window am I in",
+   "expect": [
+    [
+     "where_am_i",
+     "about_focus",
+     "do_command"
+    ]
+   ],
+   "got": [
+    "where_am_i"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  },
+  {
+   "request": "where am i",
+   "expect": [
+    [
+     "where_am_i",
+     "about_focus"
+    ]
+   ],
+   "got": [
+    "where_am_i"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.5,
+   "state": "done"
+  },
+  {
+   "request": "what's in front of me on the screen",
+   "expect": [
+    [
+     "describe",
+     "read_text"
+    ]
+   ],
+   "got": [
+    "describe"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.5,
+   "state": "done"
+  },
+  {
+   "request": "describe the picture on this page",
+   "expect": [
+    [
+     "look_picture",
+     "describe",
+     "web_page"
+    ]
+   ],
+   "got": [
+    "describe"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  },
+  {
+   "request": "go into focus mode please",
+   "expect": [
+    [
+     "do_command"
+    ]
+   ],
+   "got": [
+    "do_command"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  },
+  {
+   "request": "turn on the focus highlight",
+   "expect": [
+    [
+     "change_setting",
+     "addon_question",
+     "do_command"
+    ]
+   ],
+   "got": [
+    "change_setting"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  },
+  {
+   "request": "put the focus on the search box",
+   "expect": [
+    [
+     "click",
+     "go_to",
+     "fill_field",
+     "press_keys"
+    ]
+   ],
+   "got": [
+    "go_to"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  },
+  {
+   "request": "tick this checkbox for me",
+   "expect": [
+    [
+     "click",
+     "press_keys",
+     "set_control"
+    ]
+   ],
+   "got": [
+    "click"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.5,
+   "state": "done"
+  },
+  {
+   "request": "give this button a name, call it Play",
+   "expect": [
+    [
+     "name_button"
+    ]
+   ],
+   "got": [
+    "name_button"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 1.2,
+   "state": "done"
+  },
+  {
+   "request": "read out the highlighted text",
+   "expect": [
+    [
+     "do_command",
+     "read_text"
+    ]
+   ],
+   "got": [
+    "read_text"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  },
+  {
+   "request": "what's the shortcut to report the focus",
+   "expect": [
+    [
+     "explain_keys",
+     "nvda_question"
+    ]
+   ],
+   "got": [
+    "explain_keys"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.7,
+   "state": "done"
+  },
+  {
+   "request": "make nvda talk slower please",
+   "expect": [
+    [
+     "change_setting"
+    ]
+   ],
+   "got": [
+    "change_setting"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  },
+  {
+   "request": "I can't hear capital letters, make nvda beep for them",
+   "expect": [
+    [
+     "change_setting"
+    ]
+   ],
+   "got": [
+    "change_setting"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 1.0,
+   "state": "done"
+  },
+  {
+   "request": "what's the date",
+   "expect": [
+    [
+     "do_command"
+    ]
+   ],
+   "got": [
+    "do_command"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  },
+  {
+   "request": "read me the title of this window",
+   "expect": [
+    [
+     "do_command"
+    ]
+   ],
+   "got": [
+    "do_command"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.5,
+   "state": "done"
+  },
+  {
+   "request": "open the calculator",
+   "expect": [
+    [
+     "open_thing"
+    ]
+   ],
+   "got": [
+    "open_thing"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  },
+  {
+   "request": "minimize everything",
+   "expect": [
+    [
+     "window"
+    ]
+   ],
+   "got": [
+    "window"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  },
+  {
+   "request": "what icons are on my taskbar",
+   "expect": [
+    [
+     "read_place"
+    ]
+   ],
+   "got": [
+    "read_place"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  },
+  {
+   "request": "turn my computer volume down a bit",
+   "expect": [
+    [
+     "system_volume"
+    ]
+   ],
+   "got": [
+    "system_volume"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  },
+  {
+   "request": "how do I copy text in word",
+   "expect": [
+    [
+     "explain_keys",
+     "nvda_question"
+    ]
+   ],
+   "got": [
+    "explain_keys"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.5,
+   "state": "done"
+  },
+  {
+   "request": "what does nvda plus f12 do",
+   "expect": [
+    [
+     "explain_keys",
+     "nvda_question"
+    ]
+   ],
+   "got": [
+    "nvda_question"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.9,
+   "state": "done"
+  },
+  {
+   "request": "what is browse mode",
+   "expect": [
+    [
+     "nvda_question",
+     "explain_keys"
+    ]
+   ],
+   "got": [
+    "nvda_question"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.4,
+   "state": "done"
+  },
+  {
+   "request": "list the headings on this page",
+   "expect": [
+    [
+     "page_outline"
+    ]
+   ],
+   "got": [
+    "page_outline"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.6,
+   "state": "done"
+  },
+  {
+   "request": "what's this page about",
+   "expect": [
+    [
+     "web_page",
+     "explore_page"
+    ]
+   ],
+   "got": [
+    "web_page"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.4,
+   "state": "done"
+  },
+  {
+   "request": "search the web for nvda add-ons",
+   "expect": [
+    [
+     "search_web"
+    ]
+   ],
+   "got": [
+    "search_web"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.8,
+   "state": "done"
+  },
+  {
+   "request": "go to nvaccess.org",
+   "expect": [
+    [
+     "open_website"
+    ]
+   ],
+   "got": [
+    "open_website"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.7,
+   "state": "done"
+  },
+  {
+   "request": "which voice is nvda using",
+   "expect": [
+    [
+     "nvda_info"
+    ]
+   ],
+   "got": [
+    "nvda_info"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.7,
+   "state": "done"
+  },
+  {
+   "request": "do I have any braille display connected",
+   "expect": [
+    [
+     "nvda_info"
+    ]
+   ],
+   "got": [
+    "nvda_info"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.5,
+   "state": "done"
+  },
+  {
+   "request": "what have you changed so far",
+   "expect": [
+    [
+     "list_changes"
+    ]
+   ],
+   "got": [
+    "list_changes"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.5,
+   "state": "done"
+  },
+  {
+   "request": "what do you remember about me",
+   "expect": [
+    [
+     "memories"
+    ]
+   ],
+   "got": [
+    "memories"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.5,
+   "state": "done"
+  },
+  {
+   "request": "what's in the recycle bin",
+   "expect": [
+    [
+     "recycle_bin"
+    ]
+   ],
+   "got": [
+    "recycle_bin"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  },
+  {
+   "request": "tell me a joke",
+   "expect": [
+    [
+     "nvda_question",
+     "other"
+    ]
+   ],
+   "got": [
+    "nvda_question"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 7.3,
+   "state": "done"
+  },
+  {
+   "request": "what's 15 times 12",
+   "expect": [
+    [
+     "nvda_question",
+     "other"
+    ]
+   ],
+   "got": [
+    "nvda_question"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 1.0,
+   "state": "done"
+  },
+  {
+   "request": "what is this control and is it checked",
+   "expect": [
+    [
+     "about_focus"
+    ],
+    [
+     "about_focus",
+     "object_facts"
+    ]
+   ],
+   "got": [
+    "about_focus"
+   ],
+   "verdict": "wrong",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  },
+  {
+   "request": "read the error message in this dialog",
+   "expect": [
+    [
+     "read_text",
+     "describe"
+    ]
+   ],
+   "got": [
+    "read_text"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.8,
+   "state": "done"
+  },
+  {
+   "request": "what's written on this button",
+   "expect": [
+    [
+     "about_focus",
+     "read_text",
+     "describe"
+    ]
+   ],
+   "got": [
+    "about_focus"
+   ],
+   "verdict": "right",
+   "asked": [],
+   "seconds": 0.1,
+   "state": "done"
+  }
+ ]
+}
