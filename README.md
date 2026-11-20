@@ -23,9 +23,20 @@ chat apps, and names for unlabelled buttons.
 > [docs/STATUS.md](docs/STATUS.md) for exactly what was tested.
 
 <!-- news: written by tools/write_help.py from manifest.ini; do not change it by hand -->
-This README is for VisionClaw 1.16.1.
+This README is for VisionClaw 1.17.0.
 
-## What is new in 1.16.1
+## What is new in 1.17.0
+
+- Scratchpads, as cloud AI assistants keep them: Markdown files on which VisionClaw and its models write down what they find, and look it up again. For a task you do over several requests, press NVDA+Alt+C and say "start a scratchpad for setting up my game: install it, set the volume, then learn the keys". While it is open, VisionClaw reads it with every request and writes down what each request did. Say "what's next" or "where was I", "check off step 2", "write on the scratchpad that the volume slider is the third control", "add buy batteries to the to-do list on my scratchpad", "read my scratchpad", "open my scratchpad", and "close the scratchpad" when the task is done.
+- The models write down what they find while they work. When a step finds out something long, such as a window's list of items or a web page, the model writes down in one sentence the fact the next step needs, and plain code keeps it only when its names, numbers and keys are in what was found. A long result is now given to a step by its parts about that step, not cut off after its beginning.
+- VisionClaw learns on the fly in each program and website: what the models wrote down there is kept on a scratchpad of its own, with the topics it is about (controls, windows, games, web pages, browse mode and focus mode, pictures, charts, maps, drawing, maths, office documents, music and audio programs, accessibility interfaces, keys), and given again to later requests there. Say "write on the scratchpad for this program that the mixer opens with Control+M" to add your own line, and "what did you write on the scratchpad about the mixer" to ask.
+- The last twelve descriptions (NVDA+Alt+A, W, F and D) and the questions answered about them are kept on the descriptions scratchpad. Ask about one later by pointing back at it: "what was the phone number in the picture you described".
+- A new setting, "Let the models keep scratchpads", is on by default; turned off, the models write nothing down and no description is kept. Every scratchpad is a file in the folder scratchpads of VisionClaw's data, inside the add-on, so a portable copy carries all of them, as it carries the logs. Say "which scratchpads do I have" or "delete all scratchpads"; deleting is always asked about.
+- VisionClaw reads its own log only when you ask: say "what errors are in your log", "why did my last request fail" or "diagnose your last error". You hear each error, when and how often, and where in VisionClaw's code, and the model that writes code says in plain words what went wrong, which may be wrong.
+- VisionClaw corrects a bug in its own code only when you ask: say "fix that bug in your code". The model that writes code writes the one function where the error happened again, plain code checks it, the model that sees reads it, and you are always asked first. VisionClaw's own files are never changed: the correction is used at once and whenever VisionClaw starts, for this version only, and turns itself off if it fails. Say "undo that" to take it back, and "which fixes did you make to your own code" to hear them.
+- Measured with Qwen3.5 4B for both jobs: from six long results, it wrote down the fact the next step needs six times, all kept by plain code; it said rightly that the one error in the owner's log was harmless; given three functions with a real bug, its corrections passed plain code's checks three times and none of them raised its error again when run, though two did something other than intended, which is why you are always asked. Not yet run inside NVDA.
+
+## What was new in 1.16.1
 
 - On a web page, ask what it says in your own words. Press NVDA+Alt+C and say "what's the delivery charge here" or "do they ship abroad": a question about the shop, the company or "here" is read from the page in front, not looked up in NVDA's help.
 - Ask what a key does, as in "what happens if I press NVDA+F12", and VisionClaw looks it up and never presses the key. Before, it could ask you what you meant, and its first choice pressed the key.
@@ -33,14 +44,6 @@ This README is for VisionClaw 1.16.1.
 - When a model's answer names a key that nothing VisionClaw looked up has, such as a "Jump key" that no keyboard has, you hear the words that were found instead.
 - "How many cells does my braille display have" is answered from NVDA, "what time have you got" says the time, and "any new downloaded files" lists your Downloads folder.
 - Measured with Qwen3.5 4B for both jobs, on requests carried out from start to finish with stand-ins for NVDA: on a held-out set written before these changes, 22 of 30 answers right before and 27 after; on one written before the change to copying, 6 of 14 before it and 8 after; on the set the changes were made from, 26 of 32 before and 30 to 31 after. Of the 555 requests of the eight sets that measure which job is chosen, none changed its job. Not yet run inside NVDA.
-
-## What was new in 1.16.0
-
-- The answer to your request is spoken a sentence at a time while the model is still writing it, so you hear the first sentence sooner instead of waiting in silence. Press NVDA+Alt+C and ask "how do I read the title of this window": the first sentence comes as soon as the model has written it. Keys are written the way NVDA writes them, as before. Once the answer has begun, Control stops the rest.
-- The whole answer is still kept: once VisionClaw has finished, press NVDA+Alt+P to hear all of it again, or read it under Last task in the Ask VisionClaw window (NVDA+Alt+C).
-- A new setting in VisionClaw's settings, "Speak answers and descriptions a sentence at a time while the model writes them", is on by default. Turn it off if speech stutters or pauses on a slow computer: then the answer to a request, a description (NVDA+Alt+A, W, F or D) and an answer in the description window are each spoken whole once the model has finished, and the ticks and status updates go on until then.
-- Still spoken whole, as before: an answer made only of what the tools did, which is ready at once; an answer to a plan the model wrote itself, which is checked before you hear it; and the answer after "no, I meant", when a question may follow it.
-- Measured with the real Qwen3.5 4B: on the processor alone, as on a slow computer, the first sentence of a ten-sentence answer came 9 seconds before the whole answer was ready, and each next sentence about a second after the one before; on the graphics card, 1 to 2 seconds sooner. Tested with plain Python and stand-ins for NVDA; not yet run inside NVDA, so how it sounds there is not yet known.
 
 How to use each of these is explained in its own part of this README, further down.
 <!-- /news -->
@@ -194,6 +197,73 @@ The work sheet is in the folder `work` of VisionClaw's data folder while the req
 any editor to follow along. **It is deleted when the request is done**, also when it failed or you stopped it; one
 left over because NVDA closed in the middle of a request is deleted when VisionClaw starts. What happened is still in
 VisionClaw's own log, when the log is on.
+
+## Scratchpads: VisionClaw and its models write things down
+
+Like the cloud AI assistants, VisionClaw keeps scratchpads: Markdown files on which it and its models write down what
+they find while they work, and look it up again. There are four kinds.
+
+- **A task scratchpad, for a task you do over several requests.** Press NVDA+Alt+C and say "start a scratchpad for
+  setting up my game: install it, set the volume, then learn the keys". While it is open, VisionClaw reads it with
+  every request, and writes down what each request did. Say "write on the scratchpad that the volume slider is the
+  third control", "add buy batteries to the to-do list on my scratchpad", "check off step 2", "what's next" or
+  "where was I", "read my scratchpad", "open my scratchpad" (it opens in your program for text), "close the
+  scratchpad" when the task is done (it is kept), "which scratchpads do I have", and "delete the scratchpad" or
+  "delete all scratchpads", which are always asked about first. Only one task scratchpad is open at a time.
+- **The request's own scratchpad.** When a step finds out something long, such as the list of a window's items or a
+  web page, the model writes down in one short sentence the one fact the next step needs, and plain code keeps it only
+  when its names, numbers and keys are in what was found. The next steps are given that line, and a long result is
+  given to a step by its parts about that step, not cut off after its beginning. It is part of the request's work
+  sheet, and goes with it.
+- **What was learned in each program and website.** The lines the models wrote down are kept on a scratchpad for the
+  program or website you were in, each with the topics it is about: controls, windows, games, web pages, browse mode
+  and focus mode, pictures, charts, maps, drawing, maths, office documents, music and audio programs, accessibility
+  interfaces and keys. They are given again to the steps and to the planning of later requests there, and lines from
+  another program only where they share such a topic and the words. So VisionClaw learns on the fly, from what it
+  really found. When one way of looking found nothing there and another way answered, that is written down too. Say
+  "write on the scratchpad for this program that the mixer opens with Control+M" to add your own line.
+- **The descriptions scratchpad.** The last twelve descriptions of the screen and of pictures (NVDA+Alt+A, W, F and D,
+  and the descriptions in a request), and the questions answered about them in the description window. Ask about one
+  later by pointing back at it: "what was the phone number in the picture you described". Say "delete the
+  descriptions scratchpad" to clear it.
+
+Questions are also answered from the scratchpads: "what did you write on the scratchpad about the vocals", and look-up
+questions are given the lines of the open task and of the program you are in, after NVDA, the program, its window,
+Windows, your library and your memories.
+
+**Where they are**: Markdown files in the folder `scratchpads` of VisionClaw's data, with a list of them in
+`SCRATCHPADS.md`. You may open, change or delete any of them; what you write into one counts at once. The data folder is
+inside the add-on, so a portable copy of VisionClaw carries every scratchpad, as it carries the logs. **Your choice**:
+in VisionClaw's settings, **Let the models keep scratchpads: write down what they find while they work, learn from it in
+each program and website, and keep the last descriptions**, on by default. Turned off, the models write nothing down, and
+no description is kept; a task scratchpad you start yourself is kept either way. A model that is one of the very
+smallest is never asked to write a line down.
+
+## VisionClaw's own log and its own bugs, only when you ask
+
+VisionClaw keeps its own log (see Your settings). **Only when you ask**, it reads that log, says what went wrong, and
+corrects its own code. It never does any of this by itself: not after an error, not when it starts, and never as a step
+a model planned.
+
+- **The errors in its log**: say "what errors are in your log" or "check your log for errors". You hear each error once,
+  the newest first: what failed, when and how often, and where in VisionClaw's code, without a model.
+- **What went wrong**: say "why did my last request fail" or "diagnose your last error". You hear what the log says of
+  it, and the model that writes code reads the error and the function of VisionClaw where it happened, and says in plain
+  words what went wrong. That is said to be the model's, and it may be wrong.
+- **A correction**: say "fix that bug in your code". The model that writes code writes the one function where the error
+  happened again. Plain code checks that it is written correctly, keeps its name and arguments, changes few lines, and
+  adds no import and nothing that reaches the internet, starts programs or deletes files; then the model that sees reads
+  it. You are then always asked, with what the correction changes in plain words, whatever your settings say. That check
+  prevents accidents; it is not a guarantee.
+- **VisionClaw's own files are never changed.** A correction is kept in the folder `ownfixes` of VisionClaw's data, with
+  a report in Markdown that you can keep or give to VisionClaw's developer. It is used at once, and again whenever
+  VisionClaw starts, for the version it was made for only: an update puts it aside. If the correction itself fails, it
+  turns itself off and the function works as it was written.
+- **Undo**: say "undo that", or "remove the corrections to your own code". Say "which fixes did you make to your own
+  code" to hear them all. To open the log file itself, say "open your log".
+
+Some functions cannot be corrected while VisionClaw runs: those it makes while it starts, as most of its tools, and the
+parts that install it, carry its data or correct its own code. You are told so, and nothing is changed.
 
 ## Install
 
@@ -1794,6 +1864,8 @@ NVDA menu, Preferences, Settings, VisionClaw. In the order you meet them:
 - **Say each step while VisionClaw works on a request.**
 - **Speak answers and descriptions a sentence at a time while the model writes them**: on by default; turn it off if
   speech stutters on a slow computer, and each answer and description is spoken whole once the model has finished.
+- **Let the models keep scratchpads: write down what they find while they work, learn from it in each program and
+  website, and keep the last descriptions**: on by default; see Scratchpads.
 - **Status updates while VisionClaw takes long, as with a large model or high thinking**: after 10, 15, 30 or 60
   seconds of quiet, and as often while it lasts; or never, and you press NVDA+Alt+P when you want to know. The
   suggested choice is 15 seconds.

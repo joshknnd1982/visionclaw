@@ -13,6 +13,7 @@ import re
 
 from . import computer, controls, dates, debuglog, direct, gamepad, guide, memories, partners, places, pointer, policy, profiles, router, touch, understand
 from . import docformat, focus, humancheck, images, paper, seats, shopping, versions, wizard
+from . import diagnose, scratchpad
 from .llm import LLMError, clip, uncut
 from .task import Step
 from .tools import ANSWER
@@ -380,6 +381,33 @@ RECIPES = {
 		"delete notes on a program",
 		"delete the notes VisionClaw made about a program: the one named, the one the user is in, or all of them",
 		("forget_notes",)),
+	# Scratchpads (claw/scratchpad.py): a task the user works on over several requests, what was learned in each program
+	# and website, and the last descriptions; read from the user's words by plain code.
+	"scratchpad": (
+		"keep a scratchpad for a task, or read and change it",
+		"start a scratchpad for a task the user works on over several requests, write something on it, add things to do, "
+		"check them off, say what is next, read it, list, open, finish or delete scratchpads",
+		("scratchpad",)),
+	"ask_scratchpad": (
+		"answer from what is written on your scratchpads",
+		"answer a question from what is written on VisionClaw's scratchpads: the open task, what was learned in programs "
+		"and websites, and the descriptions of pictures and of the screen made before",
+		("scratchpad_search",)),
+	# VisionClaw's own logs and code (claw/diagnose.py): only when the user asks for exactly that.
+	"own_errors": (
+		"read VisionClaw's own log and say what went wrong",
+		"read VisionClaw's own log when the user asks: say which errors it has, or find out why VisionClaw or the last "
+		"request went wrong, with what the model that writes code says about the cause",
+		("own_errors",)),
+	"fix_self": (
+		"correct a bug in VisionClaw's own code",
+		"correct a bug in VisionClaw's own code when the user asks for exactly that: an error from its log is corrected "
+		"in the function where it happened, after the user says yes",
+		("fix_self",)),
+	"own_fixes": (
+		"list or undo VisionClaw's corrections of its own code",
+		"say which corrections VisionClaw made of its own code, or undo one",
+		("own_fixes",)),
 	"visionclaw_log": (
 		"open VisionClaw's log",
 		"open VisionClaw's own debug log, the file that records what VisionClaw did and every error, to find "
@@ -614,6 +642,15 @@ _MODE_SWITCH = (
 # Words that point to a recipe. Checked in this order; the first that matches is the hint given to the model,
 # and the choice when the model fails.
 _HINTS = (
+	# VisionClaw's own logs and code, only where the words ask for exactly that (claw/diagnose.py). Before the log being
+	# opened, which "your log" would otherwise set off, and before everything a word like "fix" sets off.
+	("own_fixes", lambda part: (diagnose.wish(part) or {}).get("do") in (diagnose.FIXES, diagnose.REMOVE)),
+	("fix_self", lambda part: (diagnose.wish(part) or {}).get("do") == diagnose.FIX),
+	("own_errors", lambda part: (diagnose.wish(part) or {}).get("do") in (diagnose.ERRORS, diagnose.WHY)),
+	# Scratchpads: the word scratchpad, or, while a task scratchpad is open, what's next and checking off; and a question
+	# that points back at a description, while descriptions are kept (claw/scratchpad.py).
+	("ask_scratchpad", scratchpad.asksFrom),
+	("scratchpad", scratchpad.asks),
 	# The jobs of docs/PLAN-ten-scenarios.md. Each has a function that reads what is asked from the user's own
 	# words and gives None where they do not ask for it, so these rows name a job only where the words do.
 	("step_through", lambda part: wizard.wish(part) is not None),
@@ -1060,7 +1097,9 @@ _WHY = re.compile(rf"(?:^|[.!?]\s+){computer._POLITE}why (?:does|do|is|are|did|c
 # What a how-question may still be: a question of its own kind, or being led through the task.
 _ANSWERS = (
 	"explain_keys", "nvda_question", "work_through", "coach", "addon_question", "jaws_help", "voice_info", "own_voice",
-	"program_settings", "web_page", "explore_page", "form_trouble", "classic_speech", "controller_info", "mouse_way", "human_check")
+	"program_settings", "web_page", "explore_page", "form_trouble", "classic_speech", "controller_info", "mouse_way", "human_check",
+	# "Why did my last request fail", "what did you write on the scratchpad about the mixer": answered by these jobs.
+	"own_errors", "ask_scratchpad", "scratchpad", "own_fixes")
 
 
 _TURNED_THING = re.compile(r"\b(knobs?|dials?|faders?|sliders?|rotary)\b", re.IGNORECASE)
@@ -1221,6 +1260,9 @@ _LOOKS = ("read_place", "describe", "read_text", "where_am_i", "about_focus", "c
 # Recipes whose words are the user's own text, which may hold commas and "and" of its own.
 _WHOLE = ("learn_app", "write_addon", "add_skill", "add_fix", "work_through", "teach_words", "step_through", "format_document", "pick_seat",
 	"human_check", "look_picture",
+	# A scratchpad's things to do are said with commas and "then": "start a scratchpad for my game: install it, then set
+	# the volume". VisionClaw's own errors are told in clauses too.
+	"scratchpad", "ask_scratchpad", "own_errors", "fix_self", "own_fixes",
 	# One question about the control the user is on, in several clauses: "what's the focused control and what does it
 	# do" was split by the model and "what does it do" looked up alone (tests/eval/requests5.json, 2026-11-19).
 	# claw/focus.py takes no request that also asks for something to be done.
@@ -1606,13 +1648,20 @@ _NEEDS = {
 	"step_through": wizard.wish, "fill_blank": paper.wish, "format_document": docformat.wish,
 	"check_layout": docformat.layoutWish, "human_check": lambda part: humancheck.about(part) or None, "pick_seat": seats.seatWish,
 	"pick_option": lambda part: None if guide.asks(part) else shopping.optionWish(part), "look_picture": images.meant,
-	"about_focus": focus.wish, "version_info": versions.wish}
+	"about_focus": focus.wish, "version_info": versions.wish,
+	# Scratchpads and VisionClaw's own logs and code: only where plain code finds it in the words. A model never
+	# chooses to read the log or correct VisionClaw's code by itself (the owner, 2026-11-19: "only ... upon user request").
+	"scratchpad": lambda part: True if scratchpad.asks(part) else None,
+	"ask_scratchpad": lambda part: True if scratchpad.asksFrom(part) else None,
+	"own_errors": lambda part: True if (diagnose.wish(part) or {}).get("do") in (diagnose.ERRORS, diagnose.WHY) else None,
+	"fix_self": lambda part: True if (diagnose.wish(part) or {}).get("do") == diagnose.FIX else None,
+	"own_fixes": lambda part: True if (diagnose.wish(part) or {}).get("do") in (diagnose.FIXES, diagnose.REMOVE) else None}
 # Recipes the words point to that can hardly mean anything else: locking and shutting down, the Recycle Bin, the
 # computer's own volume. Where the words point to one of them, it is taken, whatever a model chose. Each of
 # their tools asks the user before it changes anything.
 _SURE = ("power", "windows_part", "read_place", "empty_bin", "recycle_bin", "system_volume", "file_task", "pick_date", "work_through",
 	"teach_words", "step_through", "fill_blank", "format_document", "check_layout", "human_check", "pick_seat", "pick_option",
-	"look_picture", "about_focus", "version_info")
+	"look_picture", "about_focus", "version_info", "scratchpad", "ask_scratchpad", "own_errors", "fix_self", "own_fixes")
 
 
 # Words that only ask something, at the start: a question, or "tell me". Asked of nothing on the screen and fitting no

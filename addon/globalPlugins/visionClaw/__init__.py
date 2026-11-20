@@ -35,9 +35,9 @@ from scriptHandler import script
 from speech import extensions as speechExtensions
 
 from . import autodescribe, clawui, controlkeys, curtain, dialogs, explorer, followup, hardware, helpers, imaging, labels, localmedia, mousetools, nvdatools, ocr, sounds, updater, viewers, winzapp
-from . import asktools, memorytools, nametools, ownvoice, padtools, touchinput, voiceui
+from . import asktools, memorytools, nametools, ownvoice, padtools, scratchtools, touchinput, voiceui
 from .claw import busy, catalog, direct, drivers, guides, learn, offers, planning, policy, portable, prompts, training, understand, worksheet
-from .claw import modelpick, naming, sentences
+from .claw import modelpick, naming, scratchpad, sentences
 from .claw.changes import ChangeLog
 from .claw import debuglog
 from .claw import task as clawTask
@@ -184,6 +184,10 @@ confspec = {
 	# Whether answers and descriptions are spoken a sentence at a time while the model writes them, or whole when it has
 	# finished (claw/sentences.py): on a slow computer speech can stutter while the model writes.
 	"streamAnswers": "boolean(default=True)",
+	# Whether the models write down on scratchpads what they find while they work, and learn from it on the fly, and
+	# whether descriptions are kept on the descriptions scratchpad (claw/scratchpad.py). A task scratchpad the user
+	# starts is kept either way.
+	"scratchpads": "boolean(default=True)",
 	# After how many seconds of quiet VisionClaw says how far a long request or description is, or never
 	# (claw/busy.py).
 	"statusUpdates": 'option("10", "15", "30", "60", "off", default="15")',
@@ -573,6 +577,10 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			worksheet.clean(self.workDir)
 		except Exception as e:
 			debuglog.error("worksheet", "Work sheets left over could not be deleted", e)
+		# Scratchpads: Markdown files on which VisionClaw and its models write down what they find and learn, and look
+		# it up again: a task the user works on over several requests, what was learned in each program and website, and
+		# the last descriptions (claw/scratchpad.py). In the data folder, so they go with the user into a portable copy.
+		self.pads = scratchpad.Pads(os.path.join(DATA_DIR, scratchpad.FOLDER))
 		# What VisionClaw found out about how one program is worked: how its mouse is moved, and whether it
 		# takes touch. Plain data, kept between sessions.
 		self.appWays = direct.AppWays(os.path.join(DATA_DIR, "appways.json"))
@@ -588,6 +596,10 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		self.voice = voiceui.Voice(self, ENGINE_DIR, DATA_DIR, lambda: conf()["speechModel"])
 		self.clawTask = None
 		self._askDialog = None
+		# The corrections of VisionClaw's own code the user said yes to, put in place again (diagnosetools.py). Before the
+		# tools are made, so that a corrected function is the one they use.
+		from . import diagnosetools
+		diagnosetools.startUp(self)
 		registry = nvdatools.build(self)
 		# Earlier versions learned from searches that happened to find something; those lessons misled.
 		searching = tuple(f"Tool {name}:" for name in registry.names() if registry.get(name).looks)
@@ -607,6 +619,10 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 		self.orchestrator.workFolder = self.workDir
 		# Whether a request's answer is spoken a sentence at a time while the model writes it (claw/orchestrator.py).
 		self.orchestrator.streaming = lambda: not _whole()
+		# The scratchpads, whether the models write down and learn on the fly, and the program or website the user is in.
+		self.orchestrator.pads = self.pads
+		self.orchestrator.learning = lambda: conf()["scratchpads"]
+		self.orchestrator.subject = lambda: nvdatools.onMain(scratchtools.subjectNow)
 		# Telling the user, once, what can be downloaded for them (claw/offers.py).
 		self.offers = offers.Offers(os.path.join(DATA_DIR, "offered.json"))
 		self.orchestrator.offer = lambda request, recipes: self.offers.next(request, recipes, self.downloadState())
@@ -1470,7 +1486,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 				self._seeing(_("The {model} is looking at the picture.")), cancel=cancel)
 		try:
 			with self._inUse():
-				self._describeNow(image, mode, cancel, cacheKey, context, screen, onDone, job)
+				self._describeNow(image, mode, cancel, cacheKey, context, screen, onDone, job, what)
 		finally:
 			self.board.end(job)
 			self._lastRequest = time.monotonic()
@@ -1487,7 +1503,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			return doing.format(model=name)
 		return now
 
-	def _describeNow(self, image, mode, cancel, cacheKey, context, screen=False, onDone=None, job=None):
+	def _describeNow(self, image, mode, cancel, cacheKey, context, screen=False, onDone=None, job=None, what=""):
 		c = conf()
 		detailed = mode == DETAILED
 		quiet = mode in (AUTO, ICON)
@@ -1593,6 +1609,9 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			window.finish(_clean_paragraphs(text))
 		else:
 			speaker.flush()
+		if text and mode in (QUICK, DETAILED):
+			# Kept on the descriptions scratchpad, so that a later question about it can be answered (claw/scratchpad.py).
+			scratchtools.describeOn(self, what or _("the picture"), _clean(text))
 		if onDone is not None and text and mode != ICON:
 			onDone(text, mode)
 
@@ -1687,6 +1706,7 @@ class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 			speaker.flush()
 			answer = _clean(answer)
 			conversation["history"] = (conversation["history"] + [(question, answer)])[-FOLLOWUP_HISTORY:]
+			scratchtools.answeredOn(self, question, answer)
 		wx.CallAfter(dialog.addAnswer, question, answer)
 
 	# --- Background work ---

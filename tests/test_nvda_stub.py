@@ -13,6 +13,7 @@ import builtins
 import importlib
 import json
 import os
+import shutil
 import sys
 import tempfile
 import threading
@@ -431,7 +432,7 @@ assert instance.dataDir == DATA and instance.portableSettings()["searchEngine"] 
 instance.controller._stopped.set()
 instance.controller._thread.join(5)
 registry = instance.orchestrator.registry
-assert len(registry.names()) == 115, registry.names()
+assert len(registry.names()) == 120, registry.names()
 # Lessons from searches that happened to find something misled; they are dropped when VisionClaw starts.
 assert instance.memory.all() == ["Tool set_setting: this form failed: {} (x). This form worked: {}."], instance.memory.all()
 assert set(planner.available(registry)) == set(planner.RECIPES), set(planner.RECIPES) - set(planner.available(registry))
@@ -5190,6 +5191,165 @@ wholeTask = taskModule.Task("what is on the screen")
 instance._onClawEvent(wholeTask, taskModule.ANSWER, "The screen shows a game menu.")
 assert piecesSaid[-1] == "The screen shows a game menu." and soundsPlayed == ["done", "done"]
 plugin._speak, plugin._sound = realSpeak, realSound
+
+# --- Scratchpads (scratchtools.py, claw/scratchpad.py) ---
+
+from visionClaw import diagnosetools, scratchtools  # noqa: E402
+from visionClaw.claw import diagnose as diagModule, lookup as lookupModule, scratchpad as padModule  # noqa: E402
+
+# In the data folder inside the add-on: a portable copy carries them, as it carries the logs.
+assert instance.pads.folder == os.path.join(DATA, "scratchpads") and instance.orchestrator.pads is instance.pads
+assert conf["visionClaw"]["scratchpads"] is True and instance.orchestrator.learning() is True
+realFocusObject = sys.modules["api"].getFocusObject
+reaper = types.SimpleNamespace(appName="reaper", productName="REAPER")
+sys.modules["api"].getFocusObject = lambda: types.SimpleNamespace(
+	treeInterceptor=types.SimpleNamespace(documentConstantIdentifier="https://www.bbc.co.uk/news"), appModule=reaper)
+assert scratchtools.subjectNow() == "bbc.co.uk"
+sys.modules["api"].getFocusObject = lambda: types.SimpleNamespace(treeInterceptor=None, appModule=reaper)
+assert scratchtools.subjectNow() == "REAPER" and instance.orchestrator.subject() == "REAPER"
+padQuestions = []
+realClawAsk = instance.clawAsk
+instance.clawAsk = lambda question, choices: padQuestions.append(question) or 0
+padTask = taskModule.Task("a scratchpad")
+
+
+def onPad(asked):
+	worked, result = registry.call(padTask, "scratchpad", {"asked": asked})
+	assert worked, result
+	return result
+
+
+said = onPad("start a scratchpad for mixing my song: record the vocals, set the levels, then export it")
+assert said.startswith("Started the task scratchpad mixing my song. 3 things to do: 1, record the vocals; 2, set the levels; "
+	"3, export it."), said
+assert os.path.isfile(os.path.join(DATA, "scratchpads", "tasks", "mixing-my-song.md")) and padModule.hasTask()
+assert onPad("write on the scratchpad that the vocals are on track 2") == (
+	"Written on your task scratchpad mixing my song: the vocals are on track 2")
+assert onPad("check off step 1") == "Checked off 1, record the vocals. Next: 2, set the levels."
+assert onPad("what's next") == "Next on mixing my song: 2, set the levels. 2 of 3 things are still to do."
+assert onPad("add normalise the track to the to-do list on my scratchpad").startswith("Added to mixing my song: normalise the track.")
+assert onPad("read my scratchpad").startswith("Your task scratchpad: mixing my song.\nTo do: 1, record the vocals, done;")
+worked, result = registry.call(padTask, "scratchpad_search", {"asked": "what did you write on the scratchpad about the vocals"})
+assert worked and result.startswith("From your task scratchpad mixing my song: the vocals are on track 2"), result
+assert registry.get("scratchpad_search").tell == "summarize" and registry.get("scratchpad").tell == "verbatim"
+worked, result = registry.call(padTask, "scratchpad_search", {"asked": "is there anything on my scratchpad about the weather"})
+assert worked and lookupModule.isNothing(result), result
+# Words that ask nothing of a scratchpad are refused, with a sentence for the model in general words.
+worked, result = registry.call(padTask, "scratchpad", {"asked": "turn off typing echo"})
+assert not worked and "Name the scratchpad" in result and "for example" not in result
+# A description is kept on the descriptions scratchpad, and a question that points back at it is answered from there.
+scratchtools.describeOn(instance, "the screen", "A bar chart of sales by month; March is the highest.")
+worked, result = registry.call(padTask, "scratchpad_search", {"asked": "which month was highest in the chart you described"})
+assert worked and "Described the screen: A bar chart of sales by month; March is the highest." in result, result
+conf["visionClaw"]["scratchpads"] = False
+scratchtools.describeOn(instance, "the picture", "Not kept.")
+assert all("Not kept" not in text for _w, _what, text, _p, _a in instance.pads.descriptions().descriptions)
+assert instance.orchestrator.learning() is False
+conf["visionClaw"]["scratchpads"] = True
+# What was learned in the program in front: written by the user in words, and found by look_up as a passage.
+assert onPad("write on the scratchpad for this program that the mixer opens with Control+M") == (
+	"Written on the scratchpad for REAPER: the mixer opens with Control+M")
+found = scratchtools.passages(instance, "how do I open the mixer", "REAPER")
+assert found and found[0].source == lookupModule.PAD and found[0].text == "the mixer opens with Control+M", found
+assert found[0].line().startswith("From the scratchpad of what was learned in REAPER: the mixer opens with Control+M")
+# The descriptions only where the question points back at one.
+assert all("Described" not in passage.text for passage in scratchtools.passages(instance, "which month was highest", "REAPER"))
+opened = []
+realOpenFile, scratchtools.openFile = scratchtools.openFile, opened.append
+assert onPad("open my scratchpad") == "Opened the scratchpad in your program for text files."
+assert opened[-1].endswith(os.path.join("tasks", "mixing-my-song.md")), opened
+scratchtools.openFile = realOpenFile
+assert onPad("close the scratchpad").startswith("The task scratchpad mixing my song is finished.") and not padModule.hasTask()
+assert onPad("which scratchpads do I have").startswith("3 scratchpads:")
+assert onPad("delete all scratchpads") == "Deleted 3 scratchpads."
+assert padQuestions[-1] == "Delete 3 scratchpads for good? They cannot be brought back.", padQuestions
+
+# --- VisionClaw's own logs and code, only when the user asks (diagnosetools.py, claw/diagnose.py) ---
+
+logsDir = tempfile.mkdtemp()
+realLogsFolder, diagnosetools.logsFolder = diagnosetools.logsFolder, lambda plugin: logsDir
+slugLine = __import__("inspect").getsourcelines(padModule.slug)[1] + 2
+slugPath = os.path.join(diagnosetools.ROOT, "claw", "scratchpad.py")
+with open(os.path.join(logsDir, "visionclaw.log"), "w", encoding="utf-8") as f:
+	f.write(
+		"2026-11-19 12:00:00.000 [visionClaw-task] task: New request: 'start a scratchpad for my taxes'. Reasoning setting: auto.\n"
+		"2026-11-19 12:00:01.000 [visionClaw-task] scratchpad: ERROR: A scratchpad's file name could not be made\n"
+		f"\tTraceback (most recent call last):\n\t  File \"{slugPath}\", line {slugLine}, in slug\n\tTypeError: the name is too long\n"
+		"2026-11-19 12:00:02.000 [visionClaw-task] task: Request ended as failed after 2.0 seconds. Steps: []. Answer: ''\n")
+CORRECTED_SLUG = (
+	'def slug(name):\n\t"""A file name made of a program\'s or a task\'s name."""\n'
+	'\tmade = re.sub(r"[^a-z0-9]+", "-", str(name or "").lower()).strip("-")\n\treturn (made or "scratchpad")[:40]\n')
+assert diagModule.checkFix(open(slugPath, encoding="utf-8").read(), diagModule.functionAt(open(slugPath, encoding="utf-8").read(), slugLine), CORRECTED_SLUG) == []
+
+
+class SelfRuntime(FakeRuntime):
+	"""The model that writes code says what went wrong and corrects the function; the model that sees reads it."""
+	asked = []
+
+	def oneModel(self):
+		return False
+
+	def chat(self, role, messages, maxTokens, **options):
+		system, user = messages[0]["content"], messages[1]["content"]
+		self.asked.append((role, system[:60], user))
+		if system.startswith("You are VisionClaw, an assistant inside the NVDA screen reader. You read an error"):
+			return "The function slug was given a name it could not turn into a file name, so the scratchpad was not made."
+		if system.startswith("You correct one function of VisionClaw"):
+			return "```python\n" + CORRECTED_SLUG + "```"
+		if "You check a correction of one function" in system:
+			return json.dumps({"fixes": True, "problem": ""})
+		return super().chat(role, messages, maxTokens, **options)
+
+
+realRuntime, instance.runtime = instance.runtime, SelfRuntime()
+selfTask = taskModule.Task("a question about VisionClaw itself")
+# Nothing is read and nothing is corrected without words that ask for it.
+worked, result = registry.call(selfTask, "own_errors", {"asked": "what time is it"})
+assert worked and result == "VisionClaw reads its own log only when you ask for exactly that, so nothing was read."
+worked, result = registry.call(selfTask, "fix_self", {"asked": "what errors are in your log"})
+assert worked and result == "VisionClaw corrects its own code only when you ask for exactly that, so nothing was changed."
+assert SelfRuntime.asked == []
+worked, result = registry.call(selfTask, "own_errors", {"asked": "what errors are in your log"})
+assert worked and result.startswith("VisionClaw's log has one error.\n1. A scratchpad's file name could not be made.") and (
+	"the function slug in the file claw/scratchpad.py" in result), result
+assert SelfRuntime.asked == []  # listing them asks no model
+worked, result = registry.call(selfTask, "own_errors", {"asked": "why did my last request fail"})
+assert worked and result.startswith("Your last request, \"start a scratchpad for my taxes\", ended as failed after 2.0 seconds."), result
+assert result.endswith("What the coder model says went wrong, which may be wrong: The function slug was given a name it could "
+	"not turn into a file name, so the scratchpad was not made."), result
+assert SelfRuntime.asked[-1][0] == CODER and "def slug(name):" in SelfRuntime.asked[-1][2]
+# The correction: written by the model that writes code, read by the model that sees, always asked about, put in place at
+# once, and VisionClaw's own file is not changed.
+before = open(slugPath, encoding="utf-8").read()
+padQuestions.clear()
+worked, result = registry.call(selfTask, "fix_self", {"asked": "fix that bug in your code"})
+assert worked and result.startswith("VisionClaw's function slug is corrected, and the correction is used from now on"), result
+assert padQuestions and padQuestions[0].startswith("VisionClaw found this error: A scratchpad's file name could not be made."), padQuestions
+assert "That is a check, not a guarantee." in padQuestions[0] and "The vision model read it and found no problem." in padQuestions[0]
+assert [role for role, _s, _u in SelfRuntime.asked[-2:]] == [CODER, VISION]
+assert padModule.slug("a" * 70) == "a" * 40 and open(slugPath, encoding="utf-8").read() == before
+pending = instance.changes.pending()[0]
+assert pending["setting"].startswith("ownfix:fix-") and pending["label"] == "VisionClaw's correction of its function slug"
+assert os.path.isfile(os.path.join(DATA, "ownfixes", "fixes.json")) and any(
+	name.endswith("-slug.md") for name in os.listdir(os.path.join(DATA, "ownfixes")))
+worked, result = registry.call(selfTask, "own_fixes", {"asked": "which fixes did you make to your own code"})
+assert worked and result.startswith("1 corrections of VisionClaw's own code:\n1. slug in the file claw/scratchpad.py") and "It is in use." in result, result
+# The user said no: nothing is changed.
+instance.clawAsk = lambda question, choices: 1
+worked, result = registry.call(selfTask, "fix_self", {"asked": "fix that bug in your code"})
+assert worked and result == "You said no, so nothing was changed." and padModule.slug("a" * 70) == "a" * 40
+instance.clawAsk = lambda question, choices: padQuestions.append(question) or 0
+# "Undo that" puts the function back as it was written.
+worked, result = registry.call(selfTask, "undo_change", {"what": "undo that"})
+assert worked and result == "VisionClaw's correction of slug is undone; the function works as it was written again.", result
+assert padModule.slug("a" * 70) == "a" * 60 and all(c["setting"] != pending["setting"] for c in instance.changes.pending())
+worked, result = registry.call(selfTask, "own_fixes", {"asked": "undo the fix you made to your code"})
+assert worked and result == "No correction of VisionClaw's own code is in use, so there is nothing to undo.", result
+instance.runtime = realRuntime
+diagnosetools.logsFolder = realLogsFolder
+shutil.rmtree(logsDir, ignore_errors=True)
+sys.modules["api"].getFocusObject = realFocusObject
+instance.clawAsk = realClawAsk
 
 instance.terminate()
 print("OK")

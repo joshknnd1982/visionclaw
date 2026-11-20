@@ -343,6 +343,13 @@ def register(plugin, add, text, onMain, commandsNow):
 		if shelved or mine:
 			task.emit(taskModule.DETAIL, (
 				f"Asked your library: {len(shelved)} passages, and what you asked VisionClaw to remember: {len(mine)}."))
+		# What is written on the scratchpads about the question: the open task, what was learned in this program or
+		# website, and the descriptions where the question points back at one (scratchtools.passages).
+		from . import scratchtools
+		padded = _safe(lambda: scratchtools.passages(plugin, question, getattr(task, "where", "") or app), []) or []
+		if padded:
+			passages += padded
+			task.emit(taskModule.DETAIL, f"Asked your scratchpads: {len(padded)} lines about the question.")
 		task.check()
 		# A question that points at something, "what does this do", is put to a model with where the user is:
 		# it says whether the program, the window or the focused control is meant. Plain code offers the three.

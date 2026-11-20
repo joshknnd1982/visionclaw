@@ -638,6 +638,33 @@ def makeRegistry(rt, state):
 		{"asked": text("what the user asked for, in their own words", maxLength=300, auto=True)}, looks=True, tell=V)
 	simple("show_log", "open VisionClaw's own debug log, the file that records what VisionClaw did and every error",
 		"VisionClaw's log is open in a window.", "Opening VisionClaw's log", looks=True, tell=V)
+	# Scratchpads (scratchtools.py) and VisionClaw's own logs and code (diagnosetools.py): the stand-ins change nothing.
+	simple("scratchpad",
+		"start a scratchpad for a task the user works on over several requests, write on it, add things to do, check them "
+		"off, say what is next, read it, list, open, finish or delete scratchpads",
+		"Done on the scratchpad: {asked}", "Working on the scratchpad",
+		{"asked": text("what the user asked for, in their own words", maxLength=300, auto=True)}, changes=True, tell=V)
+	simple("scratchpad_search",
+		"answer a question from what is written on the scratchpads: the open task, what was learned in programs and "
+		"websites, and the descriptions of pictures and of the screen",
+		"From your task scratchpad mixing my song: the vocals are on track 2.", "Looking on the scratchpads",
+		{"asked": text("what the user asked, in their own words", maxLength=300, auto=True)}, looks=True)
+	simple("own_errors",
+		"read VisionClaw's own log, only when the user asks: say which errors it has, or find out why VisionClaw or the "
+		"user's last request went wrong",
+		"VisionClaw's log has one error.\n1. VisionClaw: read ahead failed. It happened today at 12:02, 39 times. In "
+		"VisionClaw's code: the function _readAhead in VisionClaw's main file, line 1849.", "Reading VisionClaw's own log",
+		{"asked": text("what the user asked for, in their own words", maxLength=300, auto=True)}, looks=True, tell=V)
+	simple("fix_self",
+		"correct a bug in VisionClaw's own code, only when the user asks for exactly that: the model that writes code "
+		"corrects the function where an error from VisionClaw's log happened, and the user is asked before it is used",
+		"VisionClaw's function _readAhead is corrected, and the correction is used from now on.",
+		"Correcting VisionClaw's own code",
+		{"asked": text("what the user asked for, in their own words", maxLength=300, auto=True)}, changes=True, tell=V)
+	simple("own_fixes",
+		"say which corrections VisionClaw made of its own code, or undo one, only when the user asks",
+		"VisionClaw has made no corrections of its own code.", "VisionClaw's corrections of its own code",
+		{"asked": text("what the user asked for, in their own words", maxLength=300, auto=True)}, changes=True, tell=V)
 	reg.add(tools.Tool("web_open", "open a web address in the user's browser", webOpen,
 		{"address": text("the web address, like example.com", maxLength=300, auto=web.addressIn)},
 		title="Opening the web page", tell=V))
@@ -1003,6 +1030,13 @@ with open(os.path.join(SHELF.folder, "Space Trader manual.txt"), "w", encoding="
 	_f.write("TRADING\nPress T to open the market. Buy low and sell high.\n\nSAVING\nSaving is done with Control+S.\n")
 
 REQUESTS = (
+	# Scratchpads, and VisionClaw's own logs and code only when the user asks (1.17.0). None is from an evaluation set.
+	"Start a scratchpad for mixing my song: record the vocals, set the levels, then export it.",
+	"What did you write on the scratchpad about the vocals?",
+	"Why did my last request fail?",
+	"Fix that bug in your code.",
+	"Which fixes did you make to your own code?",
+	"What errors are in your log?",
 	# The user's own words and casual words understood (claw/understand.py, 1.11.0). None is from an evaluation set.
 	"When I say shh, I mean stop talking. >> Which words have I taught you?",
 	"Kill the typing echo please.",

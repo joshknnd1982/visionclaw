@@ -938,5 +938,31 @@ None of these has run inside NVDA. Each is one real run; say what you hear.
       the soft ticks going on until it is spoken; and an answer in the description window (NVDA+Alt+F twice) too.
 - [ ] With a large model on the processor only: does speech stutter while the model writes, with the setting on?
 
+## Scratchpads (1.17.0)
+- [ ] NVDA+Alt+C, "start a scratchpad for setting up my game: install it, set the volume, then learn the keys": it is
+      started with three things to do, and the file `scratchpads\tasks\setting-up-my-game.md` is in VisionClaw's data.
+- [ ] "what's next", "check off step 2", "where was I", "write on the scratchpad that the volume slider is the third
+      control", "read my scratchpad": each answers in a sentence or two; "open my scratchpad" opens the file in Notepad.
+- [ ] With the task open, an ordinary request, "what time is it": its answer is written under Done so far in the file.
+- [ ] In a program, a request with two steps where the first finds something long (a window's list of items, then a
+      click): the log says "The model wrote down ..." and the progress (NVDA+Alt+P) says "Written on the scratchpad".
+      Then `scratchpads\learned\` has a file for that program with the line.
+- [ ] NVDA+Alt+F, then later "what was on the screen you described": answered from the descriptions scratchpad.
+- [ ] Settings: uncheck "Let the models keep scratchpads": NVDA+Alt+F's description is no longer kept, and the log has no
+      "wrote down"; the task scratchpad still works.
+- [ ] "delete all scratchpads": asked first; then the folder is empty but for SCRATCHPADS.md.
+- [ ] A portable copy (settings, Make a portable copy): the scratchpads and logs folders are in it.
+
+## VisionClaw's own log and bugs, only when asked (1.17.0)
+- [ ] "what errors are in your log": the errors, the newest first, each with where in VisionClaw's code; nothing else
+      happens, and no model is asked.
+- [ ] "why did my last request fail": the last request as the log tells it, and the model's view, said to be the model's.
+- [ ] "fix that bug in your code" with an error in the log that is in a function VisionClaw can correct: the question
+      says what the correction changes; say no, and nothing changes. Say it again and yes: the folder `ownfixes` has
+      fixes.json and a report; VisionClaw's own files have the same date as before.
+- [ ] "undo that": the correction is undone. Restart NVDA: nothing is put in place again ("which fixes did you make to
+      your own code" says it is undone).
+- [ ] Nothing of this happens by itself: after an error, VisionClaw says nothing about its log or a correction.
+
 ## Stopping NVDA
 - [ ] NVDA exits without an error, and no `vcengine.exe` is left running (Task Manager).

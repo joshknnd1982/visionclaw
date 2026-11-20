@@ -1598,7 +1598,11 @@ def build(plugin):
 		if sheet is not None and len(asks) > 1:
 			sheet.section("Questions about the picture", "\n".join(
 				f"{number}. {asked} ({kind}): {clip(answer, 300)}" for number, ((kind, asked), (_q, answer)) in enumerate(zip(asks, answers), 1)))
-		return pictures.together(answers)
+		said = pictures.together(answers)
+		# Kept on the descriptions scratchpad, so that a later question about the picture can be answered from it.
+		from . import scratchtools
+		scratchtools.describeOn(plugin, f"the {target}", said, "" if whole else question)
+		return said
 
 	add("look", "look at the screen with the vision model and answer a question about what is shown", look, {
 		"target": text("what to look at", enum=_TARGETS, auto=targetOf),
@@ -2053,6 +2057,10 @@ def build(plugin):
 			# What VisionClaw changed in the add-on ClassicSpeech: put back with that add-on's own calls.
 			from . import partnertools
 			return partnertools.undoClassic(plugin, change, confirm)
+		if str(change["setting"]).startswith("ownfix:"):
+			# A correction of VisionClaw's own code: the function as it was is used again (diagnosetools.py).
+			from . import diagnosetools
+			return diagnosetools.undoFix(plugin, change, confirm)
 		if str(change["setting"]).startswith("file:"):
 			# What VisionClaw did to a file of the user's: turned round by the tool that did it.
 			try:
@@ -2983,6 +2991,14 @@ def build(plugin):
 	# Working through a task with the user when the usual path is not clear (guidetools.py).
 	from . import guidetools
 	guidetools.register(add, plugin, text, onMain, screen)
+	# Scratchpads: a task over several requests, what was learned in each program and website, the descriptions, and
+	# questions answered from them (scratchtools.py, claw/scratchpad.py).
+	from . import scratchtools
+	scratchtools.register(add, plugin, text, onMain, confirm, mustAgree)
+	# VisionClaw's own logs read, what went wrong said, and its own code corrected, only when the user asks for exactly
+	# that (diagnosetools.py, claw/diagnose.py).
+	from . import diagnosetools
+	diagnosetools.register(add, plugin, text, onMain, confirm, mustAgree)
 	# What a sighted helper was needed for (docs/PLAN-ten-scenarios.md): one picture of a page or a chat looked at,
 	# a form that is only a picture filled in, an installer gone through page after page, a Word document
 	# formatted and its layout checked, a check that asks whether the user is a person made workable, a product's

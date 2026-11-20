@@ -20,16 +20,19 @@ NVDA, APP, WINDOW, SYSTEM = "nvda", "app", "window", "system"
 # Asked after those four, every time: the documents the user put into VisionClaw's library (claw/library.py),
 # and what the user asked VisionClaw to remember (claw/memories.py).
 LIBRARY, MINE = "library", "mine"
+# Then what is written on VisionClaw's scratchpads (claw/scratchpad.py): the open task, what the models learned in this
+# program or website, and, where the question points back at one, the descriptions. Each line says which scratchpad.
+PAD = "pad"
 # Free material that teaches NVDA, downloaded when the user asked for it (claw/training.py). It was written by
 # others than NV Access and some of it for an older NVDA, so among equals it comes after what NVDA, the
 # program, the window and Windows say themselves.
 TRAINING = "training"
 # The order in which the sources are asked, and in which equally good answers are given.
 ORDER = (NVDA, APP, WINDOW, SYSTEM)
-RANK = ORDER + (TRAINING, LIBRARY, MINE)
+RANK = ORDER + (TRAINING, LIBRARY, MINE, PAD)
 ORIGINS = {
 	NVDA: "NVDA", APP: "this program", WINDOW: "this window", SYSTEM: "Windows", LIBRARY: "your library",
-	MINE: "what you asked VisionClaw to remember", TRAINING: "the training material"}
+	MINE: "what you asked VisionClaw to remember", TRAINING: "the training material", PAD: "your scratchpads"}
 TOOL = "look_up"
 # Questions about the interfaces through which programs tell screen readers what is on the screen. Notes on
 # them would answer everyday questions with how a program is made ("button" is an ARIA role), so they are
@@ -63,6 +66,12 @@ _COMPUTER = re.compile(
 	r"if you see|check ?box|slider|option|switch|system ?tray|notification area|task ?bar|hidden icons|desktop icons)\b"
 	r"|\b(can|could|will|does) (you|visionclaw)\b.{0,40}\b(open|close|find|empty|start|launch|turn|set|do)\b"
 	r"|\bwhat can (you|visionclaw) do\b", re.IGNORECASE)
+# Scratchpads, and VisionClaw's own logs, bugs and code: asked only when the question names one of these.
+_SCRATCH = re.compile(
+	r"\bscratch[ -]?pads?\b|\b(your|visionclaw'?s?) (own )?(logs?|bugs?|errors?|code|corrections?|fix(es)?)\b"
+	r"|\b(fix|repair|correct|diagnose|debug)\w* (yourself|itself|your own code|visionclaw)\b|\blearn\w* on the fly\b"
+	r"|\bwrite (things )?down\b.{0,30}\b(you|models?|visionclaw)\b|\b(models?|visionclaw) (write|keep|take)s? (notes|things down)\b",
+	re.IGNORECASE)
 # A setting for one program, a request that follows another, a date in a calendar, and asking by voice: asked only
 # when the question names one of these.
 _ASKING_NOTES = re.compile(
@@ -131,6 +140,7 @@ NOTES = {
 	"app-office": (APP, "VisionClaw's notes on Word, Excel and Outlook", _OFFICE),
 	"visionclaw-inputs": (NVDA, "VisionClaw's notes on game controllers, touch, pressure and games", _INPUTS),
 	"visionclaw-computer": (NVDA, "VisionClaw's notes on what it does on the computer for you", _COMPUTER),
+	"visionclaw-scratchpad": (NVDA, "VisionClaw's notes on its scratchpads and its own logs and code", _SCRATCH),
 	"visionclaw-asking": (
 		NVDA, "VisionClaw's notes on settings for one program, follow-up requests, calendars, asking by voice and models",
 		_ASKING_NOTES),

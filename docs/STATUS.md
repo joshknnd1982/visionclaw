@@ -1,6 +1,6 @@
 # VisionClaw status
 
-Updated 2026-11-19, version 1.16.0.
+Updated 2026-11-19, version 1.17.0.
 
 ## What exists
 
@@ -2962,6 +2962,48 @@ money back" was answered "Yes, you get all your money back", true, but not the p
 development set "stop reading out every letter I type" still changed the symbol level.
 
 `python tests/run_all.py`: every test passed. Not run inside NVDA.
+
+## Scratchpads, and VisionClaw's own logs and bugs (1.17.0, 2026-11-19)
+
+The owner asked first whether VisionClaw and its models had Markdown scratchpads. They did not: the work sheet
+(`claw/worksheet.py`, 1.10.0) is a temporary Markdown file of each request, written only by plain code; a model could
+neither write on it nor look anything up in it, and nothing of it lasted beyond the request. The owner then asked for
+scratchpads "similar to those used by cloud AI models", for agentic tasks, descriptions and files, that let the models
+"adapt and learn on-the-fly about everything", that follow the user into portable copies; and, before the release, that
+VisionClaw read its own logs and fix its own bugs through its models, "only ... upon user request".
+
+What was built:
+- `claw/scratchpad.py`, `scratchtools.py`: task scratchpads (start, write, add, check off, what's next, read, open, finish,
+  list, delete), the learning scratchpad of each program and website, the descriptions scratchpad, all Markdown files in
+  `scratchpads` of the data folder, read back with what the user writes into them; topics read by plain code; lines
+  found again by BM25 over words and concepts, the topics and the program, with the weak ones left out. Two jobs,
+  `scratchpad` and `ask_scratchpad`, decided by plain code from the words; the scratchpads as a source of `look_up`.
+- The work sheet as the request's scratchpad: a long result given to a step by its parts about the step
+  (`scratchpad.relevantText`); after a looking step with a long result whose next step is given it, the model writes
+  down one line (`KEEP_SYSTEM`), kept only when its keys, numbers, quoted names and most of its words are in the result
+  (`checkedNote`); the lines and the lasting ones about a step go to the step; the open task and the lines about a
+  request go to the model that chooses; what was written down and a way that answered after another found nothing are
+  kept on the program's scratchpad. The setting "scratchpads" turns the models' part off.
+- `claw/diagnose.py`, `diagnosetools.py`: the log read into errors with the place in the code, the last request's story,
+  the coder's diagnosis, a correction of one function checked by plain code (`checkFix`, `tidy`, `bodyAligned`) and read
+  by the model that sees, always asked (`mustAgree`), kept as data in `ownfixes` with a report, put in place of the
+  function while NVDA runs and at start-up for its own version only (`Fixes`, `guarded`), turned off when it fails
+  itself, undone by `undo_change` (`ownfix:` entries). VisionClaw's own files are never changed. Three jobs,
+  `own_errors`, `fix_self` and `own_fixes`, only where the words ask (`diagnose.wish`), sure, never offered otherwise.
+
+| Test | What it shows | Result |
+|---|---|---|
+| `tests/test_scratchpad.py` | the words, topics, lines written and read back, passages, ranking, the files, the work sheet's feed, the orchestrator writing down, feeding and keeping, the notes and skills | passes |
+| `tests/test_diagnose.py` | the words, the log read, the function around a line, refusals, every check of a correction, what it changes in words, put in place of a function of a module made by the test, undone, at start-up for its version only, given to a module that took it in by name, turned off when it fails, ordinary exceptions passed on | passes |
+| `tests/test_nvda_stub.py` | the five tools against stand-ins for NVDA: a whole task scratchpad, a description, a question from the scratchpads, look_up's passages, the setting off; the log read, the diagnosis, a correction of the real `scratchpad.slug` written by a stand-in coder, asked, put in place, its file unchanged, a no, and "undo that" | passes |
+| `tests/live_scratchpad.py` with Qwen3.5 4B for both jobs, on the owner's RTX 5060 | six long results written before the run: the line written down for the next step | first run 5 of 6 kept, the sixth ("2x + 6 = 14", copied word for word) refused for having no telling word; with a copy word for word kept, 6 of 6 kept, each with the fact the next step needs, 0.4 to 4.7 s each |
+| the same, `--diagnose` on the owner's real log | the one error, "read ahead failed", 39 times, in `_readAhead`, going on into NVDA's virtual buffer | the model said it was harmless and stopped nothing the user wanted: right. The current code already catches that error (the log is from 1.13.0), and the model gave the function back unchanged, which was right too; the tool itself would say that the code changed since |
+| the same, `--synthetic`: three functions with a real bug, written before the run | whether the correction passes plain code's checks, and whether the error is gone when it is run | first run: refused as "changes too much" every time, because the model indented with spaces where the code has tabs, and wrote a method's body at its class depth; plain code now corrects both. Then 2 of 3 passed and the third (an error from NVDA's code) came back unchanged; with one general rule in the instructions, 3 of 3 passed and none raised its error again, but only 1 of 3 did what was intended: one goes on after the error, one makes up a default name. That is why the user is always asked. |
+| `tests/live_orchestrator.py`, `VC_ONLY` on the six new requests | the real model with the live stand-ins | all six went to the right job by plain code, no question to the user. The answer from the scratchpad first added "the next step is number 3", which nothing said: the skill had asked for what is next; it now says that only where the result says it, and two runs after it said only what was found. "`__init__.py`" was said as "init.py" (the clean-up of speech takes underscores away): that file is now named in words |
+| `tests/test_eval_patterns.py` | the planner's first pattern on the known and evaluation requests | no request changed its job but "show me your log", which the first draft took; it opens the log again |
+
+Not yet run inside NVDA: none of this. The model's line on the request's scratchpad is asked only for a model that is
+not one of the very smallest, and was measured only with Qwen3.5 4B.
 
 ## Next session
 

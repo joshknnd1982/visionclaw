@@ -1489,6 +1489,58 @@ keyboard and speech alone.
     owner's yes.
   - **The beep and the sentence said once** come from the owner's words and stay: one short, soft beep with the
     setting for the soft tick, and "a small model, 7B or smaller, is best" said the first time (`naming.SMALL_ENOUGH`).
+- **The models keep scratchpads, write down what they find, and learn from it; plain code checks and finds every line**
+  (`claw/scratchpad.py`, `scratchtools.py`). The owner said on 2026-11-19: scratchpads "similar to those used by cloud AI
+  models ... for agentic tasks, descriptions, file-based scratchpads", so that the models can "query, learn, act" and
+  "adapt and learn on-the-fly about everything from objects, various apis, controls, windows, apps, games, websites,
+  browse mode and focus mode, photos, charts, maps, drawing apps, math equations, various office apps, music and audio
+  programs", and "all scratchpads and logs must follow the user, even into portable copies". What follows from it:
+  - **Four kinds, all Markdown files the user owns**: the request's own (a section of its work sheet, deleted with it);
+    a task scratchpad over several requests, one open at a time, read with every request while it is open; the learning
+    scratchpad of each program and website (`scratchtools.subjectNow`: the site's name on a web page, else the program);
+    the descriptions scratchpad (the last `MAX_DESCRIPTIONS`). All in `scratchpads` of the data folder, so the portable
+    copy carries them; never keep a scratchpad anywhere else.
+  - **A model writes one short line, plain code keeps it or not** (`KEEP_SYSTEM`, `checkedNote`): every key, number and
+    quoted name in it must be in what it was made from, and most of its other telling words; a line copied word for word
+    is kept. Asked only after a step that looks, whose result is longer than `worksheet.RESULT_CHARS`, and whose result a
+    later step is given; never of the very smallest models (`suggest` False, `oneByOne`); never when the setting
+    `scratchpads` is off. Measured with Qwen3.5 4B: 6 of 6 kept with the right fact. Never give it an example.
+  - **Plain code finds lines again** (`rank`): BM25 over words and concepts, a topic of `TOPICS` and the program
+    besides; a line of another program only by a topic that is not `BROAD` and enough of the words; a line far weaker
+    than the best is left out (`RELATIVE`); at most `FED_NOTES` to a step and `CONTEXT_NOTES` to the model that chooses.
+    A long result is given to a step by its parts about the step (`relevantText`), never cut off after its beginning.
+  - **What the user asks of a scratchpad is plain code's** (`scratchpad.wish`): the word scratchpad; without it only
+    "what's next", "where was I" and checking off while a task is open (`hasTask`), and a question that points back at
+    a description while descriptions are kept (`POINTS_BACK`). "How do I use the scratchpad" is a question for
+    `look_up` (`_ABOUT_FEATURE`, the notes `visionclaw-scratchpad.md`). The jobs `scratchpad` and `ask_scratchpad` are
+    sure, whole, and answer why-questions. A tool reads the part's own words, never the rest of the request.
+  - **Deleting a scratchpad is always asked about**; all of them with `mustAgree`. A task scratchpad the user starts
+    works whatever the setting says.
+- **VisionClaw reads its own logs and corrects its own code only when the user asks** (`claw/diagnose.py`,
+  `diagnosetools.py`). The owner said on 2026-11-19: "give visionclaw access to its own logs, so through the coding and
+  vision model, a user can have visionclaw diagnose and fix its own bugs", and "visionclaw must only read its own logs
+  and fix its own bugs upon user request." What follows from it:
+  - **Nothing by itself.** The jobs `own_errors`, `fix_self` and `own_fixes` are chosen only where `diagnose.wish` finds
+    them in the user's own words (`planner._NEEDS`, `_SURE`), and every tool refuses without them. Never offer a
+    correction after an error, never read the log at start-up, never let a free plan or `planning.NEXT_WAYS` reach them.
+    The one thing done at start-up is to put in place again a correction the user said yes to.
+  - **Plain code reads the log** (`errors`, `lastRequest`, `errorText`); the model that writes code says what went wrong
+    (`DIAGNOSE_TASK`, with `prompts.speaking`), said to be the model's and possibly wrong.
+  - **A correction is one function**, written by the model that writes code (`FIX_TASK`, with `prompts.coding`), made
+    tidy by plain code (`tidy`: tabs; `bodyAligned`), checked (`checkFix`: parses, same name and arguments, no decorators,
+    no new import, nothing of `FORBIDDEN` that the function did not have, at most `MAX_CHANGED` lines, the file compiles),
+    read by the model that sees (`REVIEW_SYSTEM`, advice only), and always asked about (`mustAgree`) with what it changes
+    in plain words taken from the code (`changeText`). The checks prevent accidents; never call them a sandbox.
+  - **VisionClaw's own files are never changed.** A correction is data in `ownfixes` (`fixes.json`, a Markdown report),
+    put in place of the function while NVDA runs and at start-up (`Fixes.apply`), for the version it was made for and
+    while the function is as it was (`digest`); the function that takes its place turns the correction off when it fails
+    itself (`guarded`; `PASSED_ON` is no failure). Undone with `undo_change` (`ownfix:` entries) or in words.
+  - **Never corrected** (`refusal`): a function made inside another (most tools), one that runs only at start or close,
+    a class inside a class, and the files of `NEVER` (what installs, carries the data, logs, and corrects itself).
+  - Measured with Qwen3.5 4B: corrections of three functions with a real bug passed the checks 3 of 3 and the errors
+    were gone, but only 1 of 3 did what was intended. Do not loosen the question to the user.
+  - Tests never put a correction in place of a function of the running NVDA; `tests/test_nvda_stub.py` corrects
+    `scratchpad.slug` in the test's own process and puts it back.
 - **Never commit** model files (`*.gguf`, `*.bin`), `dist/`, tokens, or the `SmallClaw/` reference clone.
 
 ## Layout
@@ -1582,6 +1634,10 @@ addon/
     checktools.py            a check that asks whether the user is a person: told, its box pressed, its squares said,
                              the squares the user names clicked
     shoptools.py             a product's options, a seat map, and the question before a button that buys is pressed
+    scratchtools.py          scratchpads as tools: a task scratchpad in the user's words, a question answered from
+                             the scratchpads, which program or website the user is in, the lines given to look_up
+    diagnosetools.py         VisionClaw's own log read, what went wrong said, and its own code corrected, only when the
+                             user asks; corrections put in place again at start-up, and undone
     portableui.py            the window that makes a portable copy: one .nvda-addon file with everything, or
                              VisionClaw with everything straight into a portable NVDA; progress, stopping
     (the rest)               VisionMate features: overlay, OCR, chat photos, labels ...
@@ -1638,6 +1694,11 @@ addon/
       understand.py          the user's words understood as the plain words VisionClaw knows, by lines of Markdown
                              (understanding.md, and the user's own in the data folder); what is never changed
       understanding.md       VisionClaw's own lines of words that mean the same, by where they may stand
+      scratchpad.py          scratchpads: a task over several requests, what was learned in each program and website,
+                             the descriptions; lines a model writes checked by plain code, found again by words, topics
+                             and program; a long result given to a step by its parts about the step
+      diagnose.py            VisionClaw's own logs read into errors, the function around a line, a correction of one
+                             function checked, kept as data and put in place while NVDA runs, never in its own files
       worksheet.py           the work sheet of a request: a temporary Markdown file with the plan, from which each
                              step is fed what its own part found; deleted when the request ends
       codeplan.py            an add-on written piece by piece: the request read into keys and events by plain code,
@@ -1989,6 +2050,10 @@ A session is done only when its "Done when" line is true.
 - [x] **3.67 Answers spoken while they are written.** A request's answer a sentence at a time while the model writes
   it, like descriptions; a setting turns it off for every answer and description, for a slow computer. Tested with
   plain Python, a stand-in model that writes in pieces and stand-ins for NVDA; not run inside NVDA.
+- [x] **3.68 Scratchpads, and VisionClaw's own logs and bugs.** Task scratchpads, the request's own, what was learned
+  in each program and website, the descriptions; the models write down what a long result holds for the next step and
+  learn from it; VisionClaw reads its own log and corrects one function of its own code, only when asked, as data, never
+  in its files. Measured with the real Qwen3.5 4B; not run inside NVDA.
 - [ ] **3.5 Test inside NVDA.** Install the build in NVDA (ask the user first) and walk through
   `docs/TESTPLAN.md`. Fix what breaks. *Done when:* every item in the test plan is ticked by a real run.
 
@@ -2073,6 +2138,14 @@ python tests/test_stream_answers.py      a request's answer said a sentence at a
                                          nothing lost; where it is said whole instead
 python -u tests/live_stream.py MODELS VISIONID CODERID   the real model's answers said in pieces: when the first piece
                                          comes against the whole answer, and that the pieces are the answer; VC_ASK
+python tests/test_scratchpad.py          scratchpads: the words, the files, topics, lines checked and found again, the work
+                                         sheet's feed, the orchestrator writing down and keeping; the notes and skills
+python tests/test_diagnose.py            VisionClaw's own log read, a correction checked, put in place of a function of a
+                                         module made by the test, undone, at start-up for its version only, turned off
+python -u tests/live_scratchpad.py MODELS VISIONID CODERID [--synthetic] [--diagnose LOGS] [--only-diagnose]
+                                         the real model writes down the fact the next step needs from six long results;
+                                         corrects three functions with a real bug, each run to see the error gone; says
+                                         what went wrong with the newest error of a real log; nothing is put in place
 python tests/test_versions.py            which version the words ask about, the job, the answer; the tool against
                                          stand-ins for NVDA is in tests/test_nvda_stub.py
 python tools/write_nvda_objects.py SRC VERSION   writes docs/NVDA-OBJECTS.md and tests/nvda_objects.json from NVDA's

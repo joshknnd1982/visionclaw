@@ -6,12 +6,14 @@
 # understand the user's words (claw/understand.py), break the request into bite-size steps, choose how hard to
 # think, get both models to agree, run the steps one at a time, each fed from the request's work sheet only what
 # its own part found (claw/worksheet.py), check the result, tell the user what really happened, remember what was
-# learned, and delete the work sheet. No NVDA dependencies.
+# learned, and delete the work sheet. While it works, the model writes down on the request's scratchpad what a long
+# result says that the next steps need, and what was written down on the lasting scratchpads before is given to the
+# steps it is about (claw/scratchpad.py): query, write down, act, and query again. No NVDA dependencies.
 
 import time
 
 from . import agent, consensus, debuglog, followups, lookup, pageview, planner, planning, policy, prompts, shapes
-from . import corrections, sentences, understand, worksheet
+from . import corrections, scratchpad, sentences, understand, worksheet
 from . import memories as memoriesModule
 from . import skills as skillsModule
 from . import task as taskModule
@@ -163,6 +165,12 @@ class Orchestrator:
 		# Whether the answer is said a sentence at a time while the model writes it (SAY events), or whole when it has
 		# finished: the user's choice, set by the add-on (the setting "streamAnswers"). Off where nobody listens.
 		self.streaming = lambda: False
+		# The lasting scratchpads (claw/scratchpad.Pads), or None; set by the add-on. learning() says whether the models
+		# write down and learn on the fly (the setting "scratchpads"); subject() names the program or website the user is
+		# in, whose learning scratchpad is used.
+		self.pads = None
+		self.learning = lambda: False
+		self.subject = lambda: self.program()
 
 	def _oneByOne(self):
 		try:
@@ -179,6 +187,10 @@ class Orchestrator:
 		except Exception as e:
 			debuglog.error("worksheet", "The work sheet could not be made; the request goes on without a file", e)
 			task.sheet = worksheet.Sheet(None, task.request)
+		task.written = []
+		task.where = self._subject()
+		if self.pads is not None and self._learning():
+			task.sheet.lasting = lambda query: self.pads.notesFor(query, task.where)
 		try:
 			self._run(task)
 		except taskModule.Cancelled:
@@ -220,6 +232,7 @@ class Orchestrator:
 					self.lastSaid = getattr(task, "original", "") or task.request
 				except Exception as e:
 					debuglog.error("followups", "The request could not be kept for the next one", e)
+			self._keepOnPads(task)
 		return task
 
 	# --- The stages ---
@@ -551,7 +564,38 @@ class Orchestrator:
 			lessons = self.memory.search(request)
 			if lessons:
 				parts.append("Lessons from earlier tasks:\n" + "\n".join(f"- {text}" for text in lessons))
+		# The open task scratchpad, and the few lines of the scratchpads that are about the request.
+		if self.pads is not None:
+			try:
+				written = self.pads.contextText(request, self._subject()) if self._learning() else self._taskContext()
+			except Exception as e:
+				debuglog.error("scratchpad", "The scratchpads could not be read for the request", e)
+				written = ""
+			if written:
+				debuglog.log("scratchpad", f"Given with the request: {written!r}")
+				parts.append(written)
 		return "\n".join(parts)
+
+	def _taskContext(self):
+		"""The open task scratchpad alone, where the models do not learn on the fly: the user started it themselves."""
+		pad = self.pads.active()
+		if pad is None:
+			return ""
+		number, text = pad.nextItem()
+		return f"The user is working on a task with a scratchpad: \"{pad.title}\"." + (f" Next on it: {text}." if text else "")
+
+	def _learning(self):
+		try:
+			return bool(self.learning())
+		except Exception:
+			return False
+
+	def _subject(self):
+		"""The program or website the user is in, whose learning scratchpad is used; "" when it cannot be told."""
+		try:
+			return " ".join(str(self.subject() or "").split())
+		except Exception:
+			return ""
 
 	def _runSteps(self, llm, task, request, params, start=0, stop=None):
 		"""Run the steps from start, up to the answer or up to stop."""
@@ -607,6 +651,8 @@ class Orchestrator:
 				step.holds = bool(step.test(step.result))
 				task.emit(taskModule.DETAIL, "That holds, so what depends on it is done." if step.holds
 					else "That does not hold, so what depends on it is left out.")
+			if worked:
+				self._noteDown(llm, task, request, index, params)
 			self._sheetWrite(task)
 			# After finding something out, the rest of a plan the model wrote itself may no longer fit.
 			remaining = [s for s in steps[index + 1:] if s.tool != ANSWER]
@@ -615,6 +661,74 @@ class Orchestrator:
 				replans -= 1
 				self._rethink(llm, task, request, index, params)
 			index += 1
+
+	def _noteDown(self, llm, task, request, index, params):
+		"""After a step that found out something long, the model writes down on the request's scratchpad the one fact
+		the steps after it need, and plain code keeps it only where it stands in what was found (scratchpad.checkedNote).
+		Only where a later step is given this result, where the user lets the models write down (the setting
+		"scratchpads"), and for a model that is not one of the very smallest. This only helps: a fault is no fault."""
+		steps = task.steps
+		step = steps[index]
+		try:
+			tool = self.registry.get(step.tool)
+			if (not self._learning() or not tool.looks or params.oneByOne
+					or len(str(step.result or "")) <= worksheet.RESULT_CHARS):
+				return
+			later = next((j for j in range(index + 1, len(steps))
+				if steps[j].tool != ANSWER and index in worksheet.relevant(steps, j)), None)
+			if later is None:
+				return
+			entry = self.runtime.entry(self.lead) or {}
+			if entry.get("suggest") is False:
+				return
+			question = scratchpad.keepQuestion(step.part or request, step.title, steps[later].title, step.result)
+			wrote = llm.json(self.lead, scratchpad.KEEP_SYSTEM, question, scratchpad.KEEP_SCHEMA,
+				maxTokens=scratchpad.KEEP_TOKENS).get("note")
+		except (LLMError, AttributeError, KeyError, TypeError):
+			return
+		except taskModule.Cancelled:
+			raise
+		except Exception as e:
+			debuglog.error("scratchpad", "The model's note could not be written down", e)
+			return
+		kept = scratchpad.checkedNote(wrote, step.result)
+		debuglog.log("scratchpad", f"The model wrote down {wrote!r} from step {index + 1}; plain code "
+			+ ("keeps it." if kept else "does not keep it."))
+		if not kept:
+			return
+		note = scratchpad.Note(kept, scratchpad.BY_MODEL, getattr(task, "where", ""), f"step {index + 1}, {step.title}")
+		try:
+			task.sheet.note(index, note)
+		except Exception as e:
+			debuglog.error("scratchpad", "The note could not be put on the work sheet", e)
+		task.written = getattr(task, "written", []) + [note]
+		task.emit(taskModule.DETAIL, f"Written on the scratchpad: {kept}")
+
+	def _keepOnPads(self, task):
+		"""After a request: while a task scratchpad is open, what was done is written into it; and where the user lets
+		the models learn on the fly, what they wrote down, and a way of looking that answered after another found
+		nothing, are kept on the learning scratchpad of the program or website. Plain code writes all of it, and a fault
+		here is no fault."""
+		if self.pads is None or getattr(task, "keepLast", False):
+			return
+		try:
+			said = getattr(task, "original", "") or task.request
+			if self.pads.active() is not None and task.state in (taskModule.DONE, taskModule.FAILED):
+				answer = " ".join(str(getattr(task, "plainAnswer", "") or task.answer or "").split())
+				outcome = answer if task.state == taskModule.DONE else "it did not work."
+				self.pads.record(said, outcome or "done.", getattr(task, "where", ""))
+			where = getattr(task, "where", "")
+			if not self._learning() or not where:
+				return
+			for note in getattr(task, "written", []):
+				self.pads.learn(where, note.text, scratchpad.BY_MODEL, f"\"{uncut(said)}\"")
+			for part, first, way in getattr(task, "tried", []):
+				if first and way and task.state == taskModule.DONE:
+					self.pads.learn(where, (
+						f"For \"{uncut(part)}\", {planner.label(first)} found nothing here, and {planner.label(way)} answered it."),
+						scratchpad.BY_VISIONCLAW, f"\"{uncut(said)}\"")
+		except Exception as e:
+			debuglog.error("scratchpad", "What was done could not be written on the scratchpads", e)
 
 	def _nextWays(self, llm, task, request, params):
 		"""For a part whose way of looking found nothing ("I cannot see the system tray in this image"), the next way

@@ -132,6 +132,11 @@ class VisionClawPanel(gui.settingsDialogs.SettingsPanel):
 			# has finished writing it.
 			_("Speak answers and descriptions a sentence at a &time while the model writes them (turn this off if speech "
 				"stutters on a slow computer)"), "streamAnswers")
+		self.scratchpads = checkbox(
+			# Translators: Checkbox in settings. Turned off, the models do not write down what they find while they work or
+			# learn from it, and descriptions are not kept; a task scratchpad the user starts is kept either way.
+			_("Let the models keep scratch&pads: write down what they find while they work, learn from it in each program "
+				"and website, and keep the last descriptions"), "scratchpads")
 		self.statusUpdates = helper.addLabeledControl(
 			# Translators: Label of the choice of when VisionClaw says by itself how far a long request, description or
 			# answer is.
@@ -264,6 +269,7 @@ class VisionClawPanel(gui.settingsDialogs.SettingsPanel):
 		c["confirmChanges"] = self.confirmChanges.GetValue()
 		c["speakProgress"] = self.speakProgress.GetValue()
 		c["streamAnswers"] = self.streamAnswers.GetValue()
+		c["scratchpads"] = self.scratchpads.GetValue()
 		c["statusUpdates"] = busy.CHOICES[max(0, self.statusUpdates.GetSelection())]
 		c["ownVoice"] = self.ownVoice.GetValue()
 		c["readAhead"] = self.readAhead.GetValue()

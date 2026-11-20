@@ -14,13 +14,17 @@
 # It is written to the folder work of VisionClaw's data, one file for each request, and deleted when the request
 # ends, whether it was done, failed or stopped; what is left there after NVDA closed in the middle of a request is
 # deleted when VisionClaw starts. Without a folder the sheet is kept in memory only. Writing it never ends a
-# request. No NVDA dependencies.
+# request.
+# The sheet is also the request's scratchpad (claw/scratchpad.py): a long result is given to a step by its parts that
+# are about the step, not cut off after its beginning; a line a model wrote down from what a step found, checked by
+# plain code, is given to the steps after it; and so are the lines of the lasting scratchpads (the open task, what was
+# learned in this program) that are about the step. No NVDA dependencies.
 
 import os
 import re
 import time
 
-from . import debuglog
+from . import debuglog, scratchpad
 from . import task as taskModule
 from .llm import clip, uncut
 
@@ -70,16 +74,28 @@ def relevant(steps, index):
 	return chosen
 
 
-def feed(steps, index):
-	"""What step index is given of what was found so far, in the form the models know."""
+def stepQuery(step):
+	"""What a step is about, for finding the parts of a result and the lines of a scratchpad that fit it."""
+	return f"{step.part or ''} {step.title or ''} {step.detail or ''}".strip()
+
+
+def feed(steps, index, notes=()):
+	"""What step index is given of what was found so far, in the form the models know. A result longer than
+	RESULT_CHARS is given by its parts about this step (scratchpad.relevantText). notes: lines written on a scratchpad
+	that are about this step, given after the results; nothing is added when there are none."""
 	lines = []
+	query = stepQuery(steps[index])
 	for i in relevant(steps, index):
 		step = steps[i]
 		if step.status == taskModule.STEP_DONE:
-			lines.append(f"{i + 1}. {step.title}: {clip(step.result, RESULT_CHARS)}")
+			lines.append(f"{i + 1}. {step.title}: {scratchpad.relevantText(step.result, query, RESULT_CHARS)}")
 		elif step.status in (taskModule.STEP_FAILED, taskModule.SKIPPED):
 			lines.append(f"{i + 1}. {step.title}: was not done.")
-	return "\n".join(lines) or "Nothing yet."
+	given = "\n".join(lines) or "Nothing yet."
+	written = [note for note in notes if note]
+	if written:
+		given += "\nWritten on the scratchpad:\n" + "\n".join(f"- {text}" for text in written)
+	return given
 
 
 class Sheet:
@@ -96,6 +112,11 @@ class Sheet:
 		self.steps = []
 		# Sections added by the work itself, as an add-on written piece by piece: {heading: text}, in order.
 		self.sections = {}
+		# The request's own scratchpad: what the models wrote down while they worked (claw/scratchpad.py), and which
+		# step each line came from. lasting(query) gives the lines of the lasting scratchpads about a step, or None.
+		self.pad = scratchpad.Pad(scratchpad.REQUEST, clock=clock)
+		self.noteFrom = {}
+		self.lasting = None
 		self.closed = False
 		self.path = None
 		if folder:
@@ -117,12 +138,34 @@ class Sheet:
 		self.sections[heading] = text
 		self.write()
 
+	def note(self, index, note):
+		"""A line written down from what step index found (scratchpad.Note), for the steps that are given that step."""
+		self.pad.add(note)
+		self.noteFrom[note.text] = index
+		self.write()
+
+	def notesFor(self, steps, index):
+		"""The lines of the scratchpads given to step index: those written from the steps it is given, then those of the
+		lasting scratchpads that are about it, at most scratchpad.FED_NOTES. A fault in the lasting ones is no fault."""
+		chosen = set(relevant(steps, index))
+		found = [note.text for note in self.pad.notes if self.noteFrom.get(note.text) in chosen]
+		if self.lasting is not None and len(found) < scratchpad.FED_NOTES:
+			try:
+				for note in self.lasting(stepQuery(steps[index])) or ():
+					if note.text not in found:
+						found.append(note.text)
+			except Exception as e:
+				debuglog.error("scratchpad", "The scratchpads could not be read for a step", e)
+		return found[:scratchpad.FED_NOTES]
+
 	def feed(self, steps, index):
 		"""What step index is given of what was found so far; written into the sheet with the step."""
 		self.steps = steps
-		given = feed(steps, index)
+		notes = self.notesFor(steps, index)
+		given = feed(steps, index, notes)
 		chosen = relevant(steps, index)
 		steps[index].given = chosen
+		steps[index].notes = notes
 		self.write()
 		return given
 
@@ -156,6 +199,8 @@ class Sheet:
 							", ".join(f"step {i + 1}" for i in given) if given else "nothing found before it") + ".")
 					lines.append(f"Step {number} found: {clip(step.result, RESULT_CHARS)}")
 					lines.append("")
+		if self.pad.notes:
+			lines += ["", "## Scratchpad", ""] + [note.line() for note in self.pad.notes]
 		for heading, text in self.sections.items():
 			lines += ["", f"## {heading}", "", text.rstrip()]
 		return "\n".join(lines).rstrip() + "\n"
