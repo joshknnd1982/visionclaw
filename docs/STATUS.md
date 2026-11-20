@@ -1,6 +1,6 @@
 # VisionClaw status
 
-Updated 2026-11-19, version 1.21.0.
+Updated 2026-11-19, version 1.22.0.
 
 ## What exists
 
@@ -3154,7 +3154,7 @@ How it was tested:
 - Not measured: `CODE_FOCUS` with a real coder. Not run inside NVDA: the focus, the tabs, the overlay opened at an item,
   the web page's focus mode, the end-of-request sentence, the offers' timing.
 
-## Skills for everyday tasks (after 1.19.0, 2026-11-19; not released yet)
+## Skills for everyday tasks (1.22.0, 2026-11-19)
 
 The owner asked, after 1.19.0: "make more complex skills for other common end-user tasks", and to add to VisionClaw's
 parser and orchestrator where needed.
